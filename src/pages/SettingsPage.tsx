@@ -1,14 +1,24 @@
 import { useForecastStore, useFinancialStore } from '../store';
 import { Button, Card } from '../components/ui';
 import { PageHeader } from '../components/shared/PageHeader';
-import { Download, Trash2, FileSpreadsheet, Check, Brain, ShieldCheck, Upload, Clock } from 'lucide-react';
+import { Download, Trash2, FileSpreadsheet, Check, Brain, ShieldCheck, Upload, Clock, FolderOpen, FolderCheck, FolderX } from 'lucide-react';
 import { loadSeedIntoStores } from '../data/employeeSeed';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ConfirmDialog } from '../components/ui';
 import { deriveEmployeeSummaries, deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import { db } from '../lib/supabaseSync';
 import { getClaudeApiKey, setClaudeApiKey } from '../lib/claudeQuery';
-import { downloadBackup, restoreFromBackup, getLastBackupTime } from '../lib/backup';
+import {
+  downloadBackup,
+  restoreFromBackup,
+  getLastBackupTime,
+  getBackupFolderState,
+  pickBackupFolder,
+  clearBackupFolder,
+  reauthorizeBackupFolder,
+  isFolderBackupSupported,
+  type BackupFolderState,
+} from '../lib/backup';
 
 export default function SettingsPage() {
   const forecastStore = useForecastStore();
@@ -23,6 +33,24 @@ export default function SettingsPage() {
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastBackup = getLastBackupTime();
+  const [folderState, setFolderState] = useState<BackupFolderState>({
+    supported: isFolderBackupSupported(),
+    name: null,
+    permission: 'unknown',
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    getBackupFolderState().then((s) => {
+      if (mounted) setFolderState(s);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const refreshFolderState = async () => {
+    const s = await getBackupFolderState();
+    setFolderState(s);
+  };
 
   const employees = deriveEmployeeSummaries(forecastStore.assignments);
   const projects = deriveProjectSummaries(forecastStore.assignments);
@@ -186,6 +214,93 @@ export default function SettingsPage() {
                 Last backup: {new Date(lastBackup).toLocaleString()}
               </div>
             )}
+
+            {/* Backup folder picker */}
+            <div className="rounded-lg border border-slate-200 px-3 py-3 bg-slate-50/40">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    {folderState.name && folderState.permission === 'granted' ? (
+                      <FolderCheck size={16} className="text-emerald-600 shrink-0" />
+                    ) : folderState.name ? (
+                      <FolderX size={16} className="text-amber-600 shrink-0" />
+                    ) : (
+                      <FolderOpen size={16} className="text-slate-400 shrink-0" />
+                    )}
+                    <p className="text-sm font-medium text-slate-800">Local backup folder</p>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {!folderState.supported ? (
+                      <>Folder backups require Chrome, Edge, or Brave. Other browsers will save to Downloads only.</>
+                    ) : folderState.name && folderState.permission === 'granted' ? (
+                      <>
+                        Saving to <span className="font-medium text-slate-700">"{folderState.name}"</span>.
+                        Daily auto-backups and "Backup Now" will write here.
+                      </>
+                    ) : folderState.name ? (
+                      <>
+                        Folder <span className="font-medium text-slate-700">"{folderState.name}"</span> is set
+                        but permission expired. Click <em>Re-authorize</em> to reconnect.
+                      </>
+                    ) : (
+                      <>
+                        Pick a folder (e.g. inside Dropbox) and backups will save there automatically.
+                        Tip: <code>~/Dropbox/simpliigence-dashboard/backups</code> auto-syncs off-site.
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {folderState.supported && folderState.name && folderState.permission !== 'granted' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        const r = await reauthorizeBackupFolder();
+                        await refreshFolderState();
+                        setBackupStatus(r.ok ? 'Folder reconnected.' : `Re-authorize failed: ${r.error ?? ''}`);
+                        setTimeout(() => setBackupStatus(null), 4000);
+                      }}
+                    >
+                      Re-authorize
+                    </Button>
+                  )}
+                  {folderState.supported && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        const r = await pickBackupFolder();
+                        await refreshFolderState();
+                        if (r.ok) {
+                          setBackupStatus(`Backup folder set: "${r.name}"`);
+                        } else if (r.error && r.error !== 'Cancelled') {
+                          setBackupStatus(`Could not set folder: ${r.error}`);
+                        }
+                        setTimeout(() => setBackupStatus(null), 4000);
+                      }}
+                    >
+                      <FolderOpen size={14} /> {folderState.name ? 'Change' : 'Choose folder'}
+                    </Button>
+                  )}
+                  {folderState.supported && folderState.name && (
+                    <button
+                      onClick={async () => {
+                        await clearBackupFolder();
+                        await refreshFolderState();
+                        setBackupStatus('Backup folder cleared.');
+                        setTimeout(() => setBackupStatus(null), 3000);
+                      }}
+                      className="text-xs text-slate-400 hover:text-red-500 px-1"
+                      title="Forget this folder"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-800">Download Full Backup</p>
@@ -196,9 +311,18 @@ export default function SettingsPage() {
                 variant="secondary"
                 onClick={async () => {
                   setBackupStatus('Backing up...');
-                  const ok = await downloadBackup();
-                  setBackupStatus(ok ? 'Backup downloaded!' : 'Backup failed');
-                  setTimeout(() => setBackupStatus(null), 3000);
+                  const result = await downloadBackup();
+                  if (result.ok) {
+                    setBackupStatus(
+                      result.folder
+                        ? `Backup saved to "${result.folder}" and Downloads.`
+                        : 'Backup downloaded!',
+                    );
+                  } else {
+                    setBackupStatus('Backup failed');
+                  }
+                  setTimeout(() => setBackupStatus(null), 4000);
+                  refreshFolderState();
                 }}
               >
                 <Download size={14} /> Backup Now

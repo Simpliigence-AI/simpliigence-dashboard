@@ -1,7 +1,8 @@
 import { useForecastStore, useFinancialStore } from '../store';
 import { Button, Card } from '../components/ui';
 import { PageHeader } from '../components/shared/PageHeader';
-import { Download, Trash2, FileSpreadsheet, Check, Brain, ShieldCheck, Upload, Clock, FolderOpen, FolderCheck, FolderX } from 'lucide-react';
+import { Download, Trash2, FileSpreadsheet, Check, Brain, ShieldCheck, Upload, Clock, FolderOpen, FolderCheck, FolderX, EyeOff } from 'lucide-react';
+import { useDemoStore } from '../store/useDemoStore';
 import { loadSeedIntoStores } from '../data/employeeSeed';
 import { useState, useRef, useEffect } from 'react';
 import { ConfirmDialog } from '../components/ui';
@@ -85,11 +86,53 @@ export default function SettingsPage() {
     window.location.reload();
   };
 
+  const maskUntil = useDemoStore((s) => s.effectiveUntil());
+  const enableMasking = useDemoStore((s) => s.enableMasking);
+  const disableMasking = useDemoStore((s) => s.disableMasking);
+
   return (
     <div>
       <PageHeader title="Settings" subtitle="Manage data sync and configuration." />
 
       <div className="max-w-3xl space-y-6">
+        <Card title="Demo Mode">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <EyeOff size={16} className={maskUntil ? 'text-amber-600' : 'text-slate-400'} />
+                <p className="text-sm font-medium text-slate-800">
+                  {maskUntil ? 'Financials are masked' : 'Financials are visible'}
+                </p>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 max-w-md">
+                Hides revenue, cost, margin, and billing-rate values across all pages with a "•••"
+                placeholder. The Financials page is replaced with a placeholder card. Useful for live
+                demos with broader audiences.
+              </p>
+              {maskUntil && (
+                <p className="text-[11px] text-amber-700 mt-2">
+                  Auto-clears at <strong>{new Date(maskUntil).toLocaleString()}</strong>.
+                </p>
+              )}
+            </div>
+            <div className="shrink-0 flex flex-col gap-2 items-end">
+              {maskUntil ? (
+                <>
+                  <Button size="sm" variant="secondary" onClick={() => enableMasking(2)}>
+                    Extend 2 days
+                  </Button>
+                  <Button size="sm" onClick={disableMasking}>Disable now</Button>
+                </>
+              ) : (
+                <>
+                  <Button size="sm" onClick={() => enableMasking(2)}>Mask for 2 days</Button>
+                  <Button size="sm" variant="secondary" onClick={() => enableMasking(7)}>Mask for 1 week</Button>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+
         <Card title="Data Overview">
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2 border-b border-slate-50">

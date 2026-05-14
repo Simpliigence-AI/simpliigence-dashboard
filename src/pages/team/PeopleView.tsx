@@ -17,6 +17,7 @@ import {
 } from './shared';
 import { AllocationStrip, AllocationStripRow } from './AllocationStrip';
 import { AddResourceForm } from './TableView';
+import { Sensitive } from '../../components/Sensitive';
 
 export default function PeopleView() {
   const assignments = useForecastStore((s) => s.assignments);
@@ -277,14 +278,16 @@ export default function PeopleView() {
                       onSave={(v) => updateEmployeeRole(selected.name, v)}
                     />
                     <span>·</span>
-                    <EditableField
-                      value={selected.rateCard != null ? `$${selected.rateCard}` : ''}
-                      placeholder="Rate"
-                      onSave={(v) => {
-                        const n = parseFloat(v.replace(/[^0-9.]/g, ''));
-                        updateEmployeeRate(selected.name, n > 0 ? n : null);
-                      }}
-                    />
+                    <Sensitive placeholder={<span className="text-slate-400 italic">$•••</span>}>
+                      <EditableField
+                        value={selected.rateCard != null ? `$${selected.rateCard}` : ''}
+                        placeholder="Rate"
+                        onSave={(v) => {
+                          const n = parseFloat(v.replace(/[^0-9.]/g, ''));
+                          updateEmployeeRate(selected.name, n > 0 ? n : null);
+                        }}
+                      />
+                    </Sensitive>
                     <span>·</span>
                     <button
                       onClick={() => {

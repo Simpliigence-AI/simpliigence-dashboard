@@ -17,6 +17,7 @@ import {
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
+import { Sensitive } from '../components/Sensitive';
 import {
   INDIA_ROSTER_STATUSES, INDIA_ROSTER_STATUS_COLORS, ROSTER_ROLES,
   calcMarginPercent, calcMarginAbsolute,
@@ -255,8 +256,8 @@ export default function IndiaRosterPage() {
         <StatCard label="Total Team" value={total} icon={<Users size={20} />} subtitle={`${members.length} members`} />
         <StatCard label="Billable" value={billable} icon={<UserCheck size={20} />} subtitle={`${total > 0 ? Math.round(billable/total*100) : 0}% of team`} />
         <StatCard label="On Bench" value={bench} icon={<Briefcase size={20} />} subtitle={`${total > 0 ? Math.round(bench/total*100) : 0}% of team`} />
-        <StatCard label="Avg Margin" value={`${avgMargin}%`} icon={<TrendingUp size={20} />} subtitle="Billable members" />
-        <StatCard label="Monthly Revenue" value={`$${(monthlyRevenue/1000).toFixed(0)}k`} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
+        <StatCard label="Avg Margin" value={<Sensitive>{`${avgMargin}%`}</Sensitive>} icon={<TrendingUp size={20} />} subtitle="Billable members" />
+        <StatCard label="Monthly Revenue" value={<Sensitive>{`$${(monthlyRevenue/1000).toFixed(0)}k`}</Sensitive>} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
       </div>
 
       {/* Role distribution */}
@@ -581,13 +582,13 @@ function renderRowsGrouped(
                   {sectionRevenue > 0 && (
                     <>
                       <span className="text-slate-300 mx-1">·</span>
-                      <span className="text-slate-700">${(sectionRevenue / 1000).toFixed(0)}k</span> /mo @160h
+                      <span className="text-slate-700"><Sensitive>{`$${(sectionRevenue / 1000).toFixed(0)}k`}</Sensitive></span> /mo @160h
                     </>
                   )}
                   {sectionAvgMargin > 0 && (
                     <>
                       <span className="text-slate-300 mx-1">·</span>
-                      avg margin <span className="text-slate-700">{sectionAvgMargin}%</span>
+                      avg margin <span className="text-slate-700"><Sensitive>{`${sectionAvgMargin}%`}</Sensitive></span>
                     </>
                   )}
                 </span>
@@ -632,16 +633,20 @@ function renderMemberRow(
         />
       </td>
       <td className="px-3 py-2 text-right">
-        <EditableCell value={m.cost_per_hour} type="number" onSave={(v) => handleCellSave(m.id, 'cost_per_hour', v)} prefix="$" />
+        <Sensitive>
+          <EditableCell value={m.cost_per_hour} type="number" onSave={(v) => handleCellSave(m.id, 'cost_per_hour', v)} prefix="$" />
+        </Sensitive>
       </td>
       <td className="px-3 py-2 text-right">
-        <EditableCell value={m.bill_rate} type="number" onSave={(v) => handleCellSave(m.id, 'bill_rate', v)}
-          displayContent={<span className="font-semibold text-green-700">${m.bill_rate}/hr</span>}
-        />
+        <Sensitive>
+          <EditableCell value={m.bill_rate} type="number" onSave={(v) => handleCellSave(m.id, 'bill_rate', v)}
+            displayContent={<span className="font-semibold text-green-700">${m.bill_rate}/hr</span>}
+          />
+        </Sensitive>
       </td>
       <td className="px-3 py-2 text-right tabular-nums">
         <span className="font-bold" style={{ color: marginColor }} title={`$${marginAbs}/hr profit`}>
-          {m.bill_rate > 0 ? `${marginPct}%` : '—'}
+          {m.bill_rate > 0 ? <Sensitive>{`${marginPct}%`}</Sensitive> : '—'}
         </span>
       </td>
       <td className="px-3 py-2">

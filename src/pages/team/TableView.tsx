@@ -1,6 +1,7 @@
 import { Fragment, useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useForecastStore, usePipelineStore } from '../../store';
 import { Badge } from '../../components/ui';
+import { Sensitive } from '../../components/Sensitive';
 import { MONTHS, emptyMonthRecord } from '../../types/forecast';
 import type { Month, ForecastAssignment } from '../../types/forecast';
 import { ChevronDown, ChevronRight, ChevronLeft, Plus, Trash2 } from 'lucide-react';
@@ -512,7 +513,7 @@ export default function TableView() {
                       {isEditing(g.name, '', 'rate') ? (
                         <InlineInput value={g.rateCard ?? 0} type="number" onSave={(v) => handleRateSave(g.name, v)} className="w-14" />
                       ) : (
-                        <span className="hover:text-primary">{g.rateCard ? `$${g.rateCard}` : '—'}</span>
+                        <span className="hover:text-primary">{g.rateCard ? <Sensitive>{`$${g.rateCard}`}</Sensitive> : '—'}</span>
                       )}
                     </td>
 

@@ -15,6 +15,7 @@ import { useUSRosterStore } from '../store/useUSRosterStore';
 import { usePipelineStore } from '../store/usePipelineStore';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
+import { Sensitive } from '../components/Sensitive';
 import {
   US_ROSTER_STATUSES, US_ROSTER_STATUS_COLORS,
   calcUSMarginPercent, calcUSMarginAbsolute,
@@ -394,8 +395,8 @@ export default function USRosterPage() {
         <StatCard label="Total Team" value={total} icon={<Users size={20} />} subtitle={`${members.length} members`} />
         <StatCard label="Billable" value={billable} icon={<UserCheck size={20} />} subtitle={`${total > 0 ? Math.round(billable/total*100) : 0}% of team`} />
         <StatCard label="On Bench" value={bench} icon={<Briefcase size={20} />} subtitle={`${total > 0 ? Math.round(bench/total*100) : 0}% of team`} />
-        <StatCard label="Avg Margin" value={`${avgMargin}%`} icon={<TrendingUp size={20} />} subtitle="Billable members" />
-        <StatCard label="Monthly Revenue" value={`$${(monthlyRevenue/1000).toFixed(0)}k`} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
+        <StatCard label="Avg Margin" value={<Sensitive>{`${avgMargin}%`}</Sensitive>} icon={<TrendingUp size={20} />} subtitle="Billable members" />
+        <StatCard label="Monthly Revenue" value={<Sensitive>{`$${(monthlyRevenue/1000).toFixed(0)}k`}</Sensitive>} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
       </div>
 
       {/* Visa distribution */}
@@ -603,16 +604,20 @@ export default function USRosterPage() {
                       <EditableCell value={m.location} onSave={(v) => handleCellSave(m.id, 'location', v)} />
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <EditableCell value={m.cost_per_hour} type="number" onSave={(v) => handleCellSave(m.id, 'cost_per_hour', v)} />
+                      <Sensitive>
+                        <EditableCell value={m.cost_per_hour} type="number" onSave={(v) => handleCellSave(m.id, 'cost_per_hour', v)} />
+                      </Sensitive>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <EditableCell value={m.bill_rate} type="number" onSave={(v) => handleCellSave(m.id, 'bill_rate', v)}
-                        displayContent={<span className="font-semibold text-green-700">${m.bill_rate}/hr</span>}
-                      />
+                      <Sensitive>
+                        <EditableCell value={m.bill_rate} type="number" onSave={(v) => handleCellSave(m.id, 'bill_rate', v)}
+                          displayContent={<span className="font-semibold text-green-700">${m.bill_rate}/hr</span>}
+                        />
+                      </Sensitive>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       <span className="font-bold" style={{ color: marginColor }} title={`$${marginAbs}/hr profit`}>
-                        {m.bill_rate > 0 ? `${marginPct}%` : '—'}
+                        {m.bill_rate > 0 ? <Sensitive>{`${marginPct}%`}</Sensitive> : '—'}
                       </span>
                     </td>
                     <td className="px-3 py-2">

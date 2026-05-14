@@ -13,6 +13,7 @@ import { useUSRosterStore } from '../store/useUSRosterStore';
 import { useOpenBenchStore } from '../store/useOpenBenchStore';
 import { StatCard, Card } from '../components/ui';
 import { PageHeader } from '../components/shared/PageHeader';
+import { Sensitive } from '../components/Sensitive';
 import { deriveEmployeeSummaries, deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import { runQuery, SUGGESTED_QUERIES } from '../lib/queryEngine';
 import type { QueryResult } from '../lib/queryEngine';
@@ -371,7 +372,7 @@ export default function DashboardPage() {
       stats: [
         { label: 'Active', value: activeZohoProjects, sub: 'live in Zoho' },
         { label: 'Team Size', value: totalEmployees, sub: 'on Project Team' },
-        { label: 'Revenue', value: `$${(totalRevenueUSD / 1000).toFixed(0)}k`, sub: 'pipeline value' },
+        { label: 'Revenue', value: `$${(totalRevenueUSD / 1000).toFixed(0)}k`, sub: 'pipeline value', sensitive: true },
       ],
       links: [
         { to: '/team',           label: 'Project Team' },
@@ -453,13 +454,18 @@ export default function DashboardPage() {
 
                 {/* Stats grid */}
                 <div className="grid grid-cols-3 gap-3 mb-3">
-                  {sec.stats.map((s) => (
-                    <div key={s.label}>
-                      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</div>
-                      <div className="text-xl font-extrabold text-slate-800 tabular-nums">{s.value}</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{s.sub}</div>
-                    </div>
-                  ))}
+                  {sec.stats.map((s) => {
+                    const isSensitive = 'sensitive' in s && s.sensitive;
+                    return (
+                      <div key={s.label}>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</div>
+                        <div className="text-xl font-extrabold text-slate-800 tabular-nums">
+                          {isSensitive ? <Sensitive>{s.value}</Sensitive> : s.value}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{s.sub}</div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Quick-link rail */}
@@ -522,7 +528,7 @@ export default function DashboardPage() {
         <StatCard icon={<Users size={24} />} label="Team Size" value={totalEmployees} />
         <StatCard icon={<FolderKanban size={24} />} label="Active Projects" value={totalProjects} />
         <StatCard icon={<Clock size={24} />} label="Total Forecasted Hours" value={totalHours.toLocaleString()} />
-        <StatCard icon={<DollarSign size={24} />} label="Loaded Cost (USD)" value={`$${Math.round(totalCost).toLocaleString()}`} />
+        <StatCard icon={<DollarSign size={24} />} label="Loaded Cost (USD)" value={<Sensitive>{`$${Math.round(totalCost).toLocaleString()}`}</Sensitive>} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">

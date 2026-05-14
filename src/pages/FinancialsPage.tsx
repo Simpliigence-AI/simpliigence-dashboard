@@ -1,17 +1,19 @@
 import { useMemo } from 'react';
-import { DollarSign, TrendingUp } from 'lucide-react';
+import { DollarSign, EyeOff, TrendingUp } from 'lucide-react';
 import { useForecastStore, useFinancialStore } from '../store';
 import { StatCard, Card, Badge } from '../components/ui';
 import { PageHeader } from '../components/shared/PageHeader';
 import { deriveEmployeeSummaries, deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import { MONTHS } from '../types/forecast';
 import { CHART_COLORS } from '../constants/brand';
+import { useFinancialsMasked } from '../store/useDemoStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
 
 export default function FinancialsPage() {
+  const masked = useFinancialsMasked();
   const assignments = useForecastStore((s) => s.assignments);
   const exchangeRate = useFinancialStore((s) => s.settings.exchangeRate);
   const employees = useMemo(() => deriveEmployeeSummaries(assignments), [assignments]);
@@ -71,6 +73,26 @@ export default function FinancialsPage() {
   const nonBillableHours = employees.filter((e) => !e.rateCard).reduce((s, e) => s + e.totalHours, 0);
   const totalHours = billableHours + nonBillableHours;
   const billablePercent = totalHours > 0 ? Math.round((billableHours / totalHours) * 100) : 0;
+
+  if (masked) {
+    return (
+      <>
+        <PageHeader title="Financials" subtitle="Loaded cost estimates based on rate cards and forecasted hours" />
+        <Card>
+          <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+            <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 mb-4">
+              <EyeOff size={28} />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">Financials hidden during demo</h2>
+            <p className="text-sm text-slate-500 max-w-md">
+              Cost, revenue, and margin figures are masked across the app while demo mode is on. Re-enable
+              from <strong>Settings → Demo mode</strong> to view this page.
+            </p>
+          </div>
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>

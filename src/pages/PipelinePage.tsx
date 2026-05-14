@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { usePipelineStore, useFinancialStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
+import { Sensitive } from '../components/Sensitive';
 import type { ZohoPipelineProject, PipelineResource } from '../types/forecast';
 import {
   Plus,
@@ -294,7 +295,7 @@ function PipelineProjectCard({
             )}
             {revenue > 0 && (
               <span className="flex items-center gap-1 text-emerald-700">
-                <DollarSign size={12} /> Est. Revenue: {currSymbol}{revenue.toLocaleString()} {curr}
+                <DollarSign size={12} /> Est. Revenue: <Sensitive>{`${currSymbol}${revenue.toLocaleString()} ${curr}`}</Sensitive>
               </span>
             )}
             {totalPeople(project.resources) > 0 && (
@@ -404,14 +405,16 @@ function PipelineProjectCard({
                   <option value="USD">USD</option>
                   <option value="CAD">CAD</option>
                 </select>
-                <InlineEdit
-                  value={project.revenue ?? ''}
-                  type="number"
-                  prefix={currSymbol}
-                  placeholder="Set revenue"
-                  onSave={(v) => onUpdate(project.id, { revenue: parseFloat(v) > 0 ? parseFloat(v) : null })}
-                  className="w-32"
-                />
+                <Sensitive placeholder={<span className="text-sm text-slate-400 italic">•••</span>}>
+                  <InlineEdit
+                    value={project.revenue ?? ''}
+                    type="number"
+                    prefix={currSymbol}
+                    placeholder="Set revenue"
+                    onSave={(v) => onUpdate(project.id, { revenue: parseFloat(v) > 0 ? parseFloat(v) : null })}
+                    className="w-32"
+                  />
+                </Sensitive>
               </div>
             </div>
             <div>

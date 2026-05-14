@@ -23,7 +23,7 @@ export function Card({ children, className = '', title, action }: CardProps) {
 
 interface StatCardProps {
   label: string;
-  value: string | number;
+  value: ReactNode;
   subtitle?: string;
   trend?: 'up' | 'down' | 'flat';
   trendValue?: string;

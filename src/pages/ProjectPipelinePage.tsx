@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useForecastStore, usePipelineStore, useFinancialStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
+import { Sensitive } from '../components/Sensitive';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
 import { ChevronDown, ChevronRight, RefreshCw, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
@@ -220,18 +221,22 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
           {/* Revenue, Expected Cost & Expected Margin — always visible */}
           <div className="flex items-center gap-4 mt-2 ml-6 text-xs flex-wrap">
             {revenue > 0 ? (
-              <span className="flex items-center gap-1 text-emerald-700"><DollarSign size={12} /> Revenue: {currSymbol}{revenue.toLocaleString()} {curr}</span>
+              <span className="flex items-center gap-1 text-emerald-700">
+                <DollarSign size={12} /> Revenue: <Sensitive>{`${currSymbol}${revenue.toLocaleString()} ${curr}`}</Sensitive>
+              </span>
             ) : (
               <span className="flex items-center gap-1 text-slate-400"><DollarSign size={12} /> Revenue: <em>not set</em></span>
             )}
             {loadedCost > 0 ? (
-              <span className="flex items-center gap-1 text-slate-600"><TrendingUp size={12} /> Expected Cost: ${Math.round(loadedCost).toLocaleString()} USD</span>
+              <span className="flex items-center gap-1 text-slate-600">
+                <TrendingUp size={12} /> Expected Cost: <Sensitive>{`$${Math.round(loadedCost).toLocaleString()} USD`}</Sensitive>
+              </span>
             ) : (
               <span className="flex items-center gap-1 text-slate-400"><TrendingUp size={12} /> Expected Cost: <em>no rate cards</em></span>
             )}
             {revenue > 0 && loadedCost > 0 && (
               <span className={`font-semibold ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                Expected Margin: ${Math.round(margin).toLocaleString()} ({marginPct}%)
+                Expected Margin: <Sensitive>{`$${Math.round(margin).toLocaleString()} (${marginPct}%)`}</Sensitive>
                 {curr === 'CAD' && <span className="font-normal text-slate-400 ml-1">(converted)</span>}
               </span>
             )}
@@ -306,7 +311,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
                     <tr key={e.name} className="border-b border-slate-50">
                       <td className="py-1.5 font-medium text-slate-700">{e.name}</td>
                       <td className="py-1.5 text-slate-500 text-xs">{e.role || '—'}</td>
-                      <td className="py-1.5 text-slate-500">{e.rateCard ? `$${e.rateCard}/hr` : '—'}</td>
+                      <td className="py-1.5 text-slate-500">{e.rateCard ? <Sensitive>{`$${e.rateCard}/hr`}</Sensitive> : '—'}</td>
                       <td className="py-1.5 text-right font-semibold tabular-nums">{e.totalHours}</td>
                     </tr>
                   ))}
@@ -342,20 +347,24 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
                   <option value="USD">USD</option>
                   <option value="CAD">CAD</option>
                 </select>
-                <InlineEdit
-                  value={project.revenue ?? ''}
-                  type="number"
-                  prefix={currSymbol}
-                  placeholder="Set revenue"
-                  onSave={(v) => onUpdateProject(project.id, { revenue: parseFloat(v) > 0 ? parseFloat(v) : null })}
-                  className="w-32"
-                />
+                <Sensitive
+                  placeholder={<span className="text-sm text-slate-400 italic">•••</span>}
+                >
+                  <InlineEdit
+                    value={project.revenue ?? ''}
+                    type="number"
+                    prefix={currSymbol}
+                    placeholder="Set revenue"
+                    onSave={(v) => onUpdateProject(project.id, { revenue: parseFloat(v) > 0 ? parseFloat(v) : null })}
+                    className="w-32"
+                  />
+                </Sensitive>
               </div>
             </div>
             <div>
               <label className="text-xs text-slate-500 block mb-1">Expected Loaded Cost (USD)</label>
               {loadedCost > 0 ? (
-                <span className="text-sm font-medium text-slate-700">${Math.round(loadedCost).toLocaleString()}</span>
+                <span className="text-sm font-medium text-slate-700"><Sensitive>{`$${Math.round(loadedCost).toLocaleString()}`}</Sensitive></span>
               ) : (
                 <span className="text-sm text-slate-400 italic">No rate cards assigned</span>
               )}
@@ -365,10 +374,12 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
               <div>
                 <label className="text-xs text-slate-500 block mb-1">Expected Margin {curr === 'CAD' ? '(CAD→USD converted)' : ''}</label>
                 <span className={`text-sm font-bold ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  ${Math.round(margin).toLocaleString()} ({marginPct}%)
+                  <Sensitive>{`$${Math.round(margin).toLocaleString()} (${marginPct}%)`}</Sensitive>
                 </span>
                 {curr === 'CAD' && (
-                  <span className="text-[10px] text-slate-400 block mt-0.5">Revenue {currSymbol}{revenue.toLocaleString()} × {cadToUsdRate} = ${Math.round(revenueUsd).toLocaleString()} USD</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    Revenue <Sensitive>{`${currSymbol}${revenue.toLocaleString()}`}</Sensitive> × {cadToUsdRate} = <Sensitive>{`$${Math.round(revenueUsd).toLocaleString()} USD`}</Sensitive>
+                  </span>
                 )}
               </div>
             )}

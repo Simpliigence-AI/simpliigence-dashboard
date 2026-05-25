@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { DemoBanner } from '../components/DemoBanner';
+import { RouteTracker } from '../components/RouteTracker';
 
 const SIDEBAR_KEY = 'sidebar-collapsed';
 
@@ -16,6 +17,7 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-screen">
+      <RouteTracker />
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <main className={`flex-1 ${collapsed ? 'ml-[68px]' : 'ml-60'} transition-[margin] duration-300 ease-in-out`}>
         <DemoBanner />

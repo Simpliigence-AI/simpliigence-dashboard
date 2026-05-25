@@ -18,6 +18,7 @@ import type { USStaffingAccount, USStaffingRequisition, AccountCategory } from '
 import type { BenchResource, BenchUpdate, VisaCategory, JobPriority, BenchUpdateType } from '../types/openBench';
 import type { IndiaRosterMember, IndiaRosterStatus } from '../types/indiaRoster';
 import type { USRosterMember, USRosterStatus } from '../types/usRoster';
+import type { ActualHourEntry } from '../types/actualHours';
 
 // ─── Conversion helpers ────────────────────────────────────────────
 
@@ -98,6 +99,37 @@ function projectToRow(p: ZohoPipelineProject) {
     phases: p.phases || [],
     updated_by: CLIENT_ID,
     updated_at: new Date().toISOString(),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToActualHour(row: any): ActualHourEntry {
+  return {
+    id: String(row.id),
+    employeeId: row.employee_id ?? '',
+    employeeName: row.employee_name ?? '',
+    email: row.email ?? null,
+    project: row.project ?? null,
+    workDate: row.work_date ?? '',
+    hours: Number(row.hours ?? 0),
+    billing: row.billing ?? null,
+    notes: row.notes ?? null,
+    syncedAt: row.synced_at ?? new Date().toISOString(),
+  };
+}
+
+function actualHourToRow(e: ActualHourEntry) {
+  return {
+    id: e.id,
+    employee_id: e.employeeId,
+    employee_name: e.employeeName,
+    email: e.email,
+    project: e.project,
+    work_date: e.workDate,
+    hours: e.hours,
+    billing: e.billing,
+    notes: e.notes,
+    synced_at: new Date().toISOString(),
   };
 }
 
@@ -326,6 +358,15 @@ export async function fetchPipelineProjects(): Promise<ZohoPipelineProject[] | n
   const { data, error } = await supabase.from('pipeline_projects').select('*');
   if (error) return null;
   return (data || []).map(pipelineRowToProject);
+}
+
+export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
+  const { data, error } = await supabase.from('actual_hours').select('*');
+  if (error) {
+    console.warn('[supabase] fetch actual_hours failed:', error.message);
+    return null;
+  }
+  return (data || []).map(rowToActualHour);
 }
 
 // ─── India Staffing fetchers ──────────────────────────────────────
@@ -716,6 +757,20 @@ export const db = {
       const rows = projects.map(projectToRow);
       const { error } = await supabase.from('pipeline_projects').insert(rows);
       if (error) console.warn('[supabase] batch insert pipeline projects failed:', error);
+    }
+  },
+
+  // --- Actual Hours (Zoho People timesheets) ---
+  async replaceAllActualHours(entries: ActualHourEntry[]) {
+    const { error: delErr } = await supabase.from('actual_hours').delete().neq('id', '');
+    if (delErr) console.warn('[supabase] delete all actual_hours failed:', delErr);
+    if (entries.length === 0) return;
+    // Chunk inserts to keep payload size reasonable.
+    const CHUNK = 500;
+    for (let i = 0; i < entries.length; i += CHUNK) {
+      const slice = entries.slice(i, i + CHUNK).map(actualHourToRow);
+      const { error } = await supabase.from('actual_hours').insert(slice);
+      if (error) console.warn('[supabase] batch insert actual_hours failed:', error);
     }
   },
 

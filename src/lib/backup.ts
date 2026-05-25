@@ -41,6 +41,7 @@ const TABLES = [
   'india_roster',
   'us_roster',
   'authorized_users',
+  'actual_hours',
 ] as const;
 
 export interface BackupPayload {

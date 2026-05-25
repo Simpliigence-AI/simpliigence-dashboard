@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
 import DashboardPage from '../pages/DashboardPage';
 import TeamRosterPage from '../pages/TeamRosterPage';
+import ActualHoursPage from '../pages/ActualHoursPage';
 import ProjectPipelinePage from '../pages/ProjectPipelinePage';
 import PipelinePage from '../pages/PipelinePage';
 import ForecastingPage from '../pages/ForecastingPage';
@@ -27,6 +28,7 @@ export const router = createBrowserRouter(
 
         // Projects section
         { path: 'team', element: <TeamRosterPage /> },              // "Project Team"
+        { path: 'actual-hours', element: <ActualHoursPage /> },      // NEW — Zoho People actuals
         { path: 'projects', element: <ProjectPipelinePage /> },      // Current Projects
         { path: 'pipeline', element: <PipelinePage /> },             // Pipeline Projects
         { path: 'forecasting', element: <ForecastingPage /> },       // "Utilization Forecast"

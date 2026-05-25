@@ -51,37 +51,28 @@ const MAX_PAGES = 200; // hard cap (200 × 200 = 40k rows; YTD for ~100 ppl shou
 
 // ── Types describing what we use from Zoho People's response ──
 interface ZohoPeopleTimeLogRow {
-  // Zoho People returns slightly different field names across plans. We
-  // probe a few aliases below in normaliseRow().
-  recordId?: string | number;
-  RecordID?: string | number;
-  employeeId?: string;
-  EmployeeID?: string;
-  employeeName?: string;
-  Employee?: string;
-  EmployeeName?: string;
-  mailId?: string;
-  email?: string;
-  EmailID?: string;
-  jobName?: string;
-  Job?: string;
-  projectName?: string;
-  Project?: string;
-  clientName?: string;
-  Client?: string;
+  // Real Zoho People Timetracker fields (gettimelogs endpoint):
+  timelogId?: string;        // unique per timelog
+  erecno?: string;           // employee record number
+  employeeFirstName?: string;
+  employeeLastName?: string;
+  employeeMailId?: string;
+  jobName?: string;          // the project/job they're billing time against
+  projectName?: string;      // parent container ("Simpliigence - General" etc.)
+  jobId?: string;
+  projectId?: string;
   workDate?: string;
-  WorkDate?: string;
-  Date?: string;
-  fromDate?: string;
-  totalHours?: string | number;
-  TotalHours?: string | number;
-  hours?: string | number;
-  Hours?: string | number;
+  hours?: string | number;       // "HH:MM" string
+  hoursInMins?: number;          // canonical numeric — preferred
   billingStatus?: string;
-  BillingStatus?: string;
+  billedStatus?: string;
+  approvalStatus?: string;
   description?: string;
-  Description?: string;
-  workItem?: string;
+  taskName?: string;
+  // Legacy aliases other tenants have used — kept defensively:
+  // (recordId / RecordID / employeeId / EmployeeID / etc.)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [k: string]: any;
 }
 
 interface NormalisedEntry {
@@ -151,47 +142,66 @@ function pickNum(row: ZohoPeopleTimeLogRow, ...keys: (keyof ZohoPeopleTimeLogRow
   return 0;
 }
 
-/** Some Zoho People endpoints return "hours:minutes" strings instead of decimal hours. */
+/** Zoho returns minutes as the canonical numeric, plus an "HH:MM" string.
+ *  Prefer the numeric; fall back to parsing the string. */
 function parseHours(raw: ZohoPeopleTimeLogRow): number {
-  const directNum = pickNum(raw, 'totalHours', 'TotalHours', 'hours', 'Hours');
-  if (directNum > 0) return directNum;
-  const s = pickStr(raw, 'totalHours', 'TotalHours', 'hours', 'Hours');
+  const mins = pickNum(raw, 'hoursInMins');
+  if (mins > 0) return Math.round((mins / 60) * 100) / 100;
+  const s = pickStr(raw, 'hours');
   if (s.includes(':')) {
     const [h, m] = s.split(':');
     const hi = parseInt(h, 10) || 0;
     const mi = parseInt(m, 10) || 0;
-    return hi + mi / 60;
+    return Math.round((hi + mi / 60) * 100) / 100;
   }
-  return 0;
+  const n = pickNum(raw, 'hours');
+  return n;
 }
 
 function normaliseRow(row: ZohoPeopleTimeLogRow, fallbackIdx: number): NormalisedEntry | null {
-  const id = pickStr(row, 'recordId', 'RecordID') || `row-${fallbackIdx}`;
-  const employee_id = pickStr(row, 'employeeId', 'EmployeeID');
-  const employee_name = pickStr(row, 'employeeName', 'EmployeeName', 'Employee');
+  const id = pickStr(row, 'timelogId', 'recordId', 'RecordID') || `row-${fallbackIdx}`;
+  const employee_id = pickStr(row, 'erecno', 'employeeId', 'EmployeeID') || 'unknown';
+  const first = pickStr(row, 'employeeFirstName');
+  const last = pickStr(row, 'employeeLastName');
+  const employee_name = [first, last].filter(Boolean).join(' ').trim()
+    || pickStr(row, 'employeeName', 'EmployeeName', 'Employee')
+    || '(unnamed)';
   const work_date = pickStr(row, 'workDate', 'WorkDate', 'Date', 'fromDate');
   const hours = parseHours(row);
   if (!work_date || hours <= 0) return null;
   return {
     id,
-    employee_id: employee_id || 'unknown',
-    employee_name: employee_name || '(unnamed)',
-    email: pickStr(row, 'mailId', 'email', 'EmailID') || null,
-    project: pickStr(row, 'jobName', 'Job', 'projectName', 'Project', 'clientName', 'Client') || null,
+    employee_id,
+    employee_name,
+    email: pickStr(row, 'employeeMailId', 'mailId', 'email', 'EmailID') || null,
+    // Prefer jobName (the granular billable job) over projectName (which is
+    // often a generic parent like "Simpliigence - General").
+    project: pickStr(row, 'jobName', 'projectName', 'Job', 'Project') || null,
     work_date,
     hours,
-    billing: pickStr(row, 'billingStatus', 'BillingStatus') || null,
-    notes: pickStr(row, 'description', 'Description', 'workItem') || null,
+    billing: pickStr(row, 'billingStatus', 'billedStatus', 'BillingStatus') || null,
+    notes: pickStr(row, 'description', 'Description', 'taskName', 'workItem') || null,
   };
 }
 
-// ── YTD date range ──
-function ytdRange(): { from: string; to: string } {
+/** YTD broken into per-month chunks because Zoho People enforces
+ *  "maximum of one month's data can be fetched at a time". */
+function ytdMonthChunks(): Array<{ from: string; to: string }> {
   const now = new Date();
   const year = now.getUTCFullYear();
-  const from = `${year}-01-01`;
-  const to = now.toISOString().slice(0, 10);
-  return { from, to };
+  const todayStr = now.toISOString().slice(0, 10);
+  const chunks: Array<{ from: string; to: string }> = [];
+  for (let m = 0; m <= now.getUTCMonth(); m++) {
+    const first = new Date(Date.UTC(year, m, 1));
+    const lastDay = new Date(Date.UTC(year, m + 1, 0)).getUTCDate();
+    const last = new Date(Date.UTC(year, m, lastDay));
+    const from = first.toISOString().slice(0, 10);
+    let to = last.toISOString().slice(0, 10);
+    // For the current month, cap at today.
+    if (to > todayStr) to = todayStr;
+    chunks.push({ from, to });
+  }
+  return chunks;
 }
 
 // ── Main handler ──
@@ -200,59 +210,63 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const accessToken = await getAccessToken();
-    const { from, to } = ytdRange();
+    const chunks = ytdMonthChunks();
+    const overallFrom = chunks[0]?.from;
+    const overallTo = chunks[chunks.length - 1]?.to;
 
     const all: NormalisedEntry[] = [];
     const seen = new Set<string>();
     let fetched = 0;
     let kept = 0;
 
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const sIndex = page * PAGE_SIZE + 1;
-      const path =
-        `/timetracker/gettimelog?dateFormat=yyyy-MM-dd&fromDate=${from}&toDate=${to}` +
-        `&user=ALL&sIndex=${sIndex}&limit=${PAGE_SIZE}`;
-      const raw = await zohoPeopleGet<unknown>(accessToken, path);
-      // Zoho People responses vary: sometimes {response: {result: [...]}},
-      // sometimes a bare array, sometimes {timelogs: [...]}. Probe.
-      let rows: ZohoPeopleTimeLogRow[] = [];
-      if (Array.isArray(raw)) {
-        rows = raw as ZohoPeopleTimeLogRow[];
-      } else if (raw && typeof raw === 'object') {
-        const obj = raw as Record<string, unknown>;
-        // common shapes
-        const cand =
-          (obj.response as Record<string, unknown> | undefined)?.result ??
-          obj.timelogs ??
-          obj.records ??
-          obj.result;
-        if (Array.isArray(cand)) {
-          rows = cand as ZohoPeopleTimeLogRow[];
-        } else if (cand && typeof cand === 'object') {
-          // Some Zoho endpoints wrap each row in a parent key. Flatten.
-          rows = Object.values(cand as Record<string, ZohoPeopleTimeLogRow>);
+    for (const { from, to } of chunks) {
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const sIndex = page * PAGE_SIZE + 1;
+        // Endpoint is `gettimelogs` (plural). Zoho People rejects `gettimelog`.
+        const path =
+          `/timetracker/gettimelogs?dateFormat=yyyy-MM-dd&fromDate=${from}&toDate=${to}` +
+          `&user=ALL&sIndex=${sIndex}&limit=${PAGE_SIZE}`;
+        const raw = await zohoPeopleGet<unknown>(accessToken, path);
+        // Zoho People responses vary across plans: sometimes a bare array,
+        // sometimes {response: {result: [...]}}, sometimes {timelogs: [...]},
+        // sometimes {response: {result: {<id>: {...row}, ...}}}.
+        let rows: ZohoPeopleTimeLogRow[] = [];
+        if (Array.isArray(raw)) {
+          rows = raw as ZohoPeopleTimeLogRow[];
+        } else if (raw && typeof raw === 'object') {
+          const obj = raw as Record<string, unknown>;
+          const cand =
+            (obj.response as Record<string, unknown> | undefined)?.result ??
+            obj.timelogs ??
+            obj.records ??
+            obj.result;
+          if (Array.isArray(cand)) {
+            rows = cand as ZohoPeopleTimeLogRow[];
+          } else if (cand && typeof cand === 'object') {
+            rows = Object.values(cand as Record<string, ZohoPeopleTimeLogRow>);
+          }
         }
+        if (rows.length === 0) break;
+        fetched += rows.length;
+        for (let i = 0; i < rows.length; i++) {
+          const e = normaliseRow(rows[i], fetched + i);
+          if (!e) continue;
+          if (seen.has(e.id)) continue;
+          seen.add(e.id);
+          all.push(e);
+          kept++;
+        }
+        if (rows.length < PAGE_SIZE) break;
       }
-      if (rows.length === 0) break;
-      fetched += rows.length;
-      for (let i = 0; i < rows.length; i++) {
-        const e = normaliseRow(rows[i], fetched + i);
-        if (!e) continue;
-        if (seen.has(e.id)) continue;
-        seen.add(e.id);
-        all.push(e);
-        kept++;
-      }
-      if (rows.length < PAGE_SIZE) break;
     }
 
     const body = {
       entries: all,
       syncedAt: new Date().toISOString(),
-      range: { from, to },
+      range: { from: overallFrom, to: overallTo },
       counts: { fetched, kept },
     };
-    console.log(`[zoho-people-sync] fetched ${fetched} rows, kept ${kept} (${from}..${to})`);
+    console.log(`[zoho-people-sync] fetched ${fetched} rows, kept ${kept} across ${chunks.length} months (${overallFrom}..${overallTo})`);
     return new Response(JSON.stringify(body), { headers: corsHeaders });
   } catch (e) {
     const msg = (e as Error).message || String(e);

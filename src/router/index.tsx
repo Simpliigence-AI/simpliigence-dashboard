@@ -16,6 +16,10 @@ import OpenBenchPage from '../pages/OpenBenchPage';
 import IndiaRosterPage from '../pages/IndiaRosterPage';
 import IndiaHiringForecastPage from '../pages/IndiaHiringForecastPage';
 import USRosterPage from '../pages/USRosterPage';
+import UsersPage from '../pages/admin/UsersPage';
+import ActivityPage from '../pages/admin/ActivityPage';
+import AuditLogPage from '../pages/admin/AuditLogPage';
+import { AdminOnly } from '../components/AdminOnly';
 
 export const router = createBrowserRouter(
   [
@@ -44,6 +48,11 @@ export const router = createBrowserRouter(
         { path: 'us-staffing', element: <USStaffingPage /> },        // "US Demand"
         { path: 'us-roster', element: <USRosterPage /> },            // NEW
         { path: 'open-bench', element: <OpenBenchPage /> },
+
+        // Admin section — gated by AdminOnly (is_admin on authorized_users)
+        { path: 'admin/users',    element: <AdminOnly><UsersPage /></AdminOnly> },
+        { path: 'admin/activity', element: <AdminOnly><ActivityPage /></AdminOnly> },
+        { path: 'admin/audit',    element: <AdminOnly><AuditLogPage /></AdminOnly> },
 
         // Other
         { path: 'concierge', element: <ConciergePage /> },

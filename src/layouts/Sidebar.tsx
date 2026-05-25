@@ -17,11 +17,15 @@ import {
   UserCheck,
   TrendingUp,
   Clock,
+  UserCog,
+  Activity,
+  History,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface NavItem { to: string; icon: LucideIcon; label: string; }
 interface NavSection { label: string; items: NavItem[]; }
@@ -69,6 +73,15 @@ const sections: NavSection[] = [
   },
 ];
 
+const adminSection: NavSection = {
+  label: 'Admin',
+  items: [
+    { to: '/admin/users',    icon: UserCog,  label: 'Users' },
+    { to: '/admin/activity', icon: Activity, label: 'Activity' },
+    { to: '/admin/audit',    icon: History,  label: 'Audit Log' },
+  ],
+};
+
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -76,6 +89,8 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [email, setEmail] = useState<string | null>(null);
+  const isAdmin = useAuthStore((s) => s.currentUser?.isAdmin === true);
+  const visibleSections = isAdmin ? [...sections, adminSection] : sections;
 
   useEffect(() => {
     let mounted = true;
@@ -106,7 +121,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav — grouped by section */}
       <nav className={`flex-1 ${collapsed ? 'px-2' : 'px-3'} pb-2 space-y-3 overflow-y-auto overflow-x-hidden`}>
-        {sections.map((section, idx) => (
+        {visibleSections.map((section, idx) => (
           <div key={section.label}>
             {!collapsed && (
               <div className="px-3 pb-1 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-500">

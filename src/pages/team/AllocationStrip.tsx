@@ -11,8 +11,10 @@ interface AllocationStripProps {
   year: number;
   capacity?: number;
   compact?: boolean;
-  onChangeMonthly: (months: Month[], hours: number) => void;
-  onChangeWeekly: (weekDate: string, hours: number) => void;
+  /** When true, click does nothing (no edit popover) and the strip is purely visual. */
+  readOnly?: boolean;
+  onChangeMonthly?: (months: Month[], hours: number) => void;
+  onChangeWeekly?: (weekDate: string, hours: number) => void;
 }
 
 function barColor(hours: number, capacity: number): string {
@@ -36,6 +38,7 @@ export function AllocationStrip({
   year,
   capacity = 160,
   compact = false,
+  readOnly = false,
   onChangeMonthly,
   onChangeWeekly,
 }: AllocationStripProps) {
@@ -43,6 +46,7 @@ export function AllocationStrip({
   const [openMonth, setOpenMonth] = useState<{ month: Month; rect: DOMRect } | null>(null);
 
   const cellH = compact ? 28 : 44;
+  const interactive = !readOnly;
 
   return (
     <>
@@ -56,10 +60,13 @@ export function AllocationStrip({
               key={m}
               type="button"
               onClick={(e) => {
+                if (!interactive) return;
                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                 setOpenMonth({ month: m, rect });
               }}
-              className="group relative flex-1 rounded bg-slate-50 hover:ring-2 hover:ring-primary/40 transition-shadow overflow-hidden"
+              className={`group relative flex-1 rounded bg-slate-50 transition-shadow overflow-hidden ${
+                interactive ? 'hover:ring-2 hover:ring-primary/40 cursor-pointer' : 'cursor-default'
+              }`}
               style={{ height: cellH }}
               title={`${m}: ${hours} hrs (${Math.round((hours / capacity) * 100)}%)`}
               aria-label={`${m} ${year} hours, currently ${hours}`}
@@ -81,7 +88,7 @@ export function AllocationStrip({
         })}
       </div>
 
-      {openMonth && (
+      {openMonth && interactive && onChangeMonthly && onChangeWeekly && (
         <MonthEditPopover
           anchor={openMonth.rect}
           month={openMonth.month}

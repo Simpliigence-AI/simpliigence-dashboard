@@ -7,3 +7,4 @@ export { useConciergeStore } from './useConciergeStore';
 export { useStaffingStore } from './useStaffingStore';
 export { useUSStaffingStore } from './useUSStaffingStore';
 export { useOpenBenchStore } from './useOpenBenchStore';
+export { useActualHoursStore } from './useActualHoursStore';

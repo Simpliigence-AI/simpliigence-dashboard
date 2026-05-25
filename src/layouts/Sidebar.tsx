@@ -16,6 +16,7 @@ import {
   Globe,
   UserCheck,
   TrendingUp,
+  Clock,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -36,6 +37,7 @@ const sections: NavSection[] = [
     label: 'Projects',
     items: [
       { to: '/team', icon: Users, label: 'Project Team' },
+      { to: '/actual-hours', icon: Clock, label: 'Actual Hours' },
       { to: '/projects', icon: FolderKanban, label: 'Current Projects' },
       { to: '/pipeline', icon: Layers, label: 'Pipeline Projects' },
       { to: '/forecasting', icon: TrendingUp, label: 'Utilization Forecast' },

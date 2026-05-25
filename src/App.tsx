@@ -4,7 +4,7 @@ import { router } from './router';
 import { nanoid } from 'nanoid';
 import { AuthGate } from './components/AuthGate';
 import { buildSeedAssignments } from './data/employeeSeed';
-import { useForecastStore, useFinancialStore, useSyncStore, useHiringForecastStore, usePipelineStore, useStaffingStore, useUSStaffingStore } from './store';
+import { useForecastStore, useFinancialStore, useSyncStore, useHiringForecastStore, usePipelineStore, useStaffingStore, useUSStaffingStore, useActualHoursStore } from './store';
 import { useOpenBenchStore } from './store/useOpenBenchStore';
 import { useIndiaRosterStore } from './store/useIndiaRosterStore';
 import { useUSRosterStore } from './store/useUSRosterStore';
@@ -21,6 +21,7 @@ import {
   fetchOpenBench,
   fetchIndiaRoster,
   fetchUSRoster,
+  fetchActualHours,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -65,6 +66,7 @@ function useSupabaseInit() {
           openBenchRes,
           indiaRosterRes,
           usRosterRes,
+          actualHoursRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -77,6 +79,7 @@ function useSupabaseInit() {
           withTimeout(fetchOpenBench()),
           withTimeout(fetchIndiaRoster()),
           withTimeout(fetchUSRoster()),
+          withTimeout(fetchActualHours()),
         ]);
 
         // --- Forecast assignments ---
@@ -261,6 +264,17 @@ function useSupabaseInit() {
           }
         } else {
           console.warn('[supabase] US roster fetch timed out — using localStorage');
+        }
+
+        // --- Actual Hours (Zoho People timesheets) ---
+        if (!actualHoursRes.timedOut) {
+          const ah = actualHoursRes.value;
+          if (ah && ah.length > 0) {
+            useActualHoursStore.setState({ entries: ah });
+            console.log('[supabase] Loaded actual hours:', ah.length, 'entries');
+          }
+        } else {
+          console.warn('[supabase] Actual hours fetch timed out — using localStorage');
         }
 
         // Set up realtime subscriptions

@@ -215,3 +215,28 @@ CREATE POLICY "Allow all" ON staffing_requisitions FOR ALL USING (true) WITH CHE
 
 ALTER TABLE staffing_daily_statuses ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all" ON staffing_daily_statuses FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- 11. actual_hours — YTD timesheet records synced from Zoho People
+-- ============================================================
+CREATE TABLE actual_hours (
+  id            TEXT PRIMARY KEY,         -- Zoho recordId
+  employee_id   TEXT NOT NULL,            -- Zoho EmployeeID
+  employee_name TEXT NOT NULL,
+  email         TEXT,
+  project       TEXT,                     -- jobName / clientName from Zoho People
+  work_date     DATE NOT NULL,
+  hours         NUMERIC NOT NULL,
+  billing       TEXT,                     -- "Billable" / "Non-Billable" / null
+  notes         TEXT,
+  synced_at     TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_actual_hours_date ON actual_hours(work_date);
+CREATE INDEX idx_actual_hours_emp  ON actual_hours(employee_id);
+CREATE INDEX idx_actual_hours_proj ON actual_hours(project);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE actual_hours;
+
+ALTER TABLE actual_hours ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON actual_hours FOR ALL USING (true) WITH CHECK (true);

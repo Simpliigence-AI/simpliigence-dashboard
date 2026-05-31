@@ -16,7 +16,7 @@
  * Mini stat strip at the bottom: this-week logged vs forecast for awareness.
  */
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Save, Trash2, X, Copy, CalendarDays, List as ListIcon } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
@@ -33,8 +33,18 @@ function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * Parse YYYY-MM-DD as a LOCAL midnight Date. The naive `new Date('YYYY-MM-DD')`
+ * parses as UTC midnight, which shifts the day-of-week in non-UTC timezones
+ * (e.g. EDT) — the bug that broke the Prev/Today/Next buttons before this fix.
+ */
+function parseIsoDate(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function startOfWeek(iso: string): Date {
-  const d = new Date(iso);
+  const d = parseIsoDate(iso);
   const day = d.getDay() || 7;
   if (day !== 1) d.setDate(d.getDate() - (day - 1));
   d.setHours(0, 0, 0, 0);
@@ -45,6 +55,31 @@ function addDays(d: Date, n: number): Date {
   const nd = new Date(d);
   nd.setDate(nd.getDate() + n);
   return nd;
+}
+
+function isoAddDays(iso: string, n: number): string {
+  return toIsoDate(addDays(parseIsoDate(iso), n));
+}
+
+function startOfMonth(iso: string): Date {
+  const d = parseIsoDate(iso);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isoMonthGrid(anchorIso: string): { iso: string; inMonth: boolean }[] {
+  // 6 × 7 = 42 cells, Monday-anchored, covering the month containing anchorIso
+  const first = startOfMonth(anchorIso);
+  const firstDay = first.getDay() || 7;
+  const gridStart = addDays(first, -(firstDay - 1));
+  const month = first.getMonth();
+  const out: { iso: string; inMonth: boolean }[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(gridStart, i);
+    out.push({ iso: toIsoDate(d), inMonth: d.getMonth() === month });
+  }
+  return out;
 }
 
 function weekDays(weekStartIso: string): { iso: string; label: string; isToday: boolean }[] {
@@ -74,6 +109,8 @@ export default function MyTimePage() {
 
   const [weekStart, setWeekStart] = useState(toIsoDate(startOfWeek(toIsoDate(new Date()))));
   const [openDay, setOpenDay] = useState<string | null>(toIsoDate(new Date()));
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [calendarAnchor, setCalendarAnchor] = useState(toIsoDate(new Date()));
 
   // Project list relevant to this user:
   //  - pipeline projects where their forecast assignment lives
@@ -132,6 +169,83 @@ export default function MyTimePage() {
     return { logged, billable };
   }, [days, entriesByDay]);
 
+  /** Copy all of `fromIso`'s entries onto `toIso` (cloned, status=submitted). */
+  const copyDay = async (fromIso: string, toIso: string) => {
+    const source = allEntries.filter((e) => e.employeeEmail.toLowerCase() === myEmail && e.workDate === fromIso);
+    if (source.length === 0) return;
+    for (const e of source) {
+      await addEntry({
+        employeeEmail: myEmail,
+        workDate: toIso,
+        projectId: e.projectId,
+        projectName: e.projectName,
+        hours: e.hours,
+        billable: e.billable,
+        notes: e.notes,
+      });
+    }
+    setOpenDay(toIso);
+  };
+
+  /** Re-submit every 'draft' or 'rejected' entry in the visible week. */
+  const submitWeek = async () => {
+    const targets = allEntries.filter((e) =>
+      e.employeeEmail.toLowerCase() === myEmail
+      && days.some((d) => d.iso === e.workDate)
+      && (e.status === 'draft' || e.status === 'rejected'),
+    );
+    if (targets.length === 0) return;
+    for (const e of targets) {
+      await updateEntry(e.id, {
+        status: 'submitted',
+        submittedAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null,
+        rejectReason: null,
+      });
+    }
+  };
+
+  /** Copy LAST week's entries onto THIS week, day-by-day (status=submitted). */
+  const copyLastWeek = async () => {
+    const lastWeekStart = isoAddDays(weekStart, -7);
+    const lastWeekDays = Array.from({ length: 7 }, (_, i) => ({
+      from: isoAddDays(lastWeekStart, i),
+      to: isoAddDays(weekStart, i),
+    }));
+    for (const { from, to } of lastWeekDays) {
+      // Skip days that already have entries on the target — don't double-up
+      const targetHas = allEntries.some((e) => e.employeeEmail.toLowerCase() === myEmail && e.workDate === to);
+      if (targetHas) continue;
+      await copyDay(from, to);
+    }
+  };
+
+  /** Count of draft/rejected entries the user can re-submit this week. */
+  const needsSubmitCount = useMemo(() => {
+    let n = 0;
+    for (const d of days) {
+      for (const e of entriesByDay.get(d.iso) || []) {
+        if (e.status === 'draft' || e.status === 'rejected') n++;
+      }
+    }
+    return n;
+  }, [days, entriesByDay]);
+
+  // Calendar view data: hours per day for the visible month
+  const calendarGrid = useMemo(() => {
+    if (viewMode !== 'calendar') return [];
+    const cells = isoMonthGrid(calendarAnchor);
+    return cells.map((c) => {
+      const total = allEntries
+        .filter((e) => e.employeeEmail.toLowerCase() === myEmail && e.workDate === c.iso)
+        .reduce((s, e) => s + e.hours, 0);
+      return { ...c, hours: total };
+    });
+  }, [viewMode, calendarAnchor, allEntries, myEmail]);
+
+  const calendarMonthLabel = parseIsoDate(calendarAnchor).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
   if (!currentUser) {
     return (
       <div className="max-w-3xl mx-auto py-12 text-center text-slate-500">
@@ -140,38 +254,128 @@ export default function MyTimePage() {
     );
   }
 
-  const niceWeek = `${new Date(days[0].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${new Date(days[6].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const niceWeek = `${parseIsoDate(days[0].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${parseIsoDate(days[6].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   return (
     <div className="max-w-3xl mx-auto pb-24">
       <PageHeader
         title="My Time"
-        subtitle={`${currentUser.email} · ${niceWeek}`}
+        subtitle={`${currentUser.email} · ${viewMode === 'calendar' ? calendarMonthLabel : niceWeek}`}
         action={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setWeekStart(toIsoDate(addDays(startOfWeek(weekStart), -7)))}
-              className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
-              title="Previous week"
-            >‹ Prev</button>
-            <button
-              type="button"
-              onClick={() => setWeekStart(toIsoDate(startOfWeek(toIsoDate(new Date()))))}
-              className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
-              title="This week"
-            >Today</button>
-            <button
-              type="button"
-              onClick={() => setWeekStart(toIsoDate(addDays(startOfWeek(weekStart), 7)))}
-              className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
-              title="Next week"
-            >Next ›</button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {viewMode === 'calendar' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = startOfMonth(calendarAnchor);
+                    d.setMonth(d.getMonth() - 1);
+                    setCalendarAnchor(toIsoDate(d));
+                  }}
+                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  title="Previous month"
+                >‹ Prev</button>
+                <button
+                  type="button"
+                  onClick={() => setCalendarAnchor(toIsoDate(new Date()))}
+                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  title="This month"
+                >Today</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = startOfMonth(calendarAnchor);
+                    d.setMonth(d.getMonth() + 1);
+                    setCalendarAnchor(toIsoDate(d));
+                  }}
+                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  title="Next month"
+                >Next ›</button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setWeekStart(isoAddDays(weekStart, -7))}
+                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  title="Previous week"
+                >‹ Prev</button>
+                <button
+                  type="button"
+                  onClick={() => setWeekStart(toIsoDate(startOfWeek(toIsoDate(new Date()))))}
+                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  title="This week"
+                >Today</button>
+                <button
+                  type="button"
+                  onClick={() => setWeekStart(isoAddDays(weekStart, 7))}
+                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  title="Next week"
+                >Next ›</button>
+              </>
+            )}
           </div>
         }
       />
 
-      {/* Day cards */}
+      {/* View toggle + Copy actions */}
+      <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+              viewMode === 'list' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ListIcon size={12} /> Week list
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('calendar')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+              viewMode === 'calendar' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <CalendarDays size={12} /> Calendar
+          </button>
+        </div>
+        {viewMode === 'list' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {needsSubmitCount > 0 && (
+              <button
+                type="button"
+                onClick={submitWeek}
+                className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 inline-flex items-center gap-1.5"
+                title={`Re-submit ${needsSubmitCount} draft/rejected entr${needsSubmitCount === 1 ? 'y' : 'ies'} this week`}
+              >
+                <Save size={12} /> Submit week ({needsSubmitCount})
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={copyLastWeek}
+              className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 inline-flex items-center gap-1.5"
+              title="Copy last week's entries forward (skips days that already have entries)"
+            >
+              <Copy size={12} /> Copy last week
+            </button>
+          </div>
+        )}
+      </div>
+
+      {viewMode === 'calendar' ? (
+        <CalendarGrid
+          cells={calendarGrid}
+          onPickDay={(iso) => {
+            // Switch to list mode focused on the picked day
+            setWeekStart(toIsoDate(startOfWeek(iso)));
+            setOpenDay(iso);
+            setViewMode('list');
+          }}
+        />
+      ) : (
+      /* Day cards */
       <div className="space-y-3">
         {days.map((d) => {
           const entries = entriesByDay.get(d.iso) || [];
@@ -229,12 +433,49 @@ export default function MyTimePage() {
                       notes: params.notes,
                     })}
                   />
+                  {/* Quick-copy actions */}
+                  {(() => {
+                    const yesterdayIso = isoAddDays(d.iso, -1);
+                    const yesterdayHas = allEntries.some(
+                      (e) => e.employeeEmail.toLowerCase() === myEmail && e.workDate === yesterdayIso,
+                    );
+                    const lastWeekIso = isoAddDays(d.iso, -7);
+                    const lastWeekHas = allEntries.some(
+                      (e) => e.employeeEmail.toLowerCase() === myEmail && e.workDate === lastWeekIso,
+                    );
+                    if (!yesterdayHas && !lastWeekHas) return null;
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap pt-1">
+                        {yesterdayHas && (
+                          <button
+                            type="button"
+                            onClick={() => copyDay(yesterdayIso, d.iso)}
+                            className="text-[11px] text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100"
+                            title={`Copy entries from ${yesterdayIso}`}
+                          >
+                            <Copy size={11} /> Copy yesterday
+                          </button>
+                        )}
+                        {lastWeekHas && (
+                          <button
+                            type="button"
+                            onClick={() => copyDay(lastWeekIso, d.iso)}
+                            className="text-[11px] text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100"
+                            title={`Copy same day last week (${lastWeekIso})`}
+                          >
+                            <Copy size={11} /> Copy last {parseIsoDate(d.iso).toLocaleDateString(undefined, { weekday: 'long' })}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </Card>
           );
         })}
       </div>
+      )}
 
       {/* Sticky bottom mini stat */}
       <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-white border-t border-slate-200 shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
@@ -485,5 +726,63 @@ function ProjectPicker({ value, onChange, options, autoFocus = false }: {
         {sorted.map((p) => <option key={p.name} value={p.name} />)}
       </datalist>
     </>
+  );
+}
+
+/* ── Calendar grid view ── */
+function CalendarGrid({ cells, onPickDay }: {
+  cells: { iso: string; inMonth: boolean; hours: number }[];
+  onPickDay: (iso: string) => void;
+}) {
+  const todayIso = toIsoDate(new Date());
+  const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  /** Pick a background tone for each cell based on hours logged. */
+  const cellTone = (hours: number, inMonth: boolean) => {
+    if (!inMonth) return 'bg-slate-50 text-slate-300';
+    if (hours === 0) return 'bg-white text-slate-700 hover:bg-slate-50';
+    if (hours < 4) return 'bg-amber-50 text-amber-900 hover:bg-amber-100';
+    if (hours < 8) return 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100';
+    return 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200';
+  };
+
+  return (
+    <Card>
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 gap-1 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
+        {dayHeaders.map((h) => <div key={h} className="py-1">{h}</div>)}
+      </div>
+      {/* Cells */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((c) => {
+          const dayNum = parseIsoDate(c.iso).getDate();
+          const isToday = c.iso === todayIso;
+          return (
+            <button
+              key={c.iso}
+              type="button"
+              onClick={() => onPickDay(c.iso)}
+              className={`relative rounded-md border ${isToday ? 'border-primary ring-1 ring-primary/40' : 'border-slate-200'} px-2 py-3 text-left transition-colors ${cellTone(c.hours, c.inMonth)} min-h-[68px] flex flex-col justify-between`}
+              title={`${c.iso} — ${c.hours.toFixed(2)}h logged`}
+            >
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-semibold ${isToday ? 'text-primary' : ''}`}>{dayNum}</span>
+                {isToday && <span className="text-[9px] uppercase tracking-wider text-primary font-bold">Today</span>}
+              </div>
+              {c.inMonth && c.hours > 0 && (
+                <div className="text-sm font-bold tabular-nums">{c.hours.toFixed(2)}h</div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-center gap-3 text-[10px] text-slate-500">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white border border-slate-200" /> 0h</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-50 border border-amber-200" /> &lt; 4h</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-50 border border-emerald-200" /> 4–8h</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200" /> 8h+</span>
+        <span className="ml-auto">Click a day to jump to the list view.</span>
+      </div>
+    </Card>
   );
 }

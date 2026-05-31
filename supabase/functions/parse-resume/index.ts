@@ -1,10 +1,10 @@
 /**
  * Supabase Edge Function: parse-resume
  *
- * Called by the dashboard's "Parse" button on the Candidates page. Downloads
- * the resume PDF/text from Supabase Storage, sends it to Claude (Anthropic
- * Messages API), and writes the parsed skills + profile_summary back onto the
- * india_staffing_candidates row.
+ * Called by the dashboard's Candidates page on single-file upload AND on
+ * bulk import. Downloads the resume PDF/text from Supabase Storage, sends
+ * it to Claude (Anthropic Messages API), and writes the parsed identity
+ * + skills + summary back onto the india_staffing_candidates row.
  *
  * Required secrets (set with `supabase secrets set ...`):
  *   ANTHROPIC_API_KEY   — claude.ai console key with messages access
@@ -13,13 +13,26 @@
  *   { candidateId: string }
  *
  * Response (success):
- *   { ok: true, skills: string[], summary: string, parsedAt: string }
+ *   {
+ *     ok: true,
+ *     skills: string[],
+ *     summary: string,
+ *     firstName?: string,
+ *     lastName?: string,
+ *     email?: string,
+ *     phone?: string,
+ *     linkedinUrl?: string,
+ *     currentTitle?: string,
+ *     yearsExperience?: number,
+ *     parsedAt: string,
+ *   }
  *
- * Response (error): HTTP 4xx/5xx with { error: string, detail?: string }.
+ * Identity fields (firstName/lastName/email/phone/linkedin/currentTitle)
+ * are written back to the candidate row ONLY if that column is currently
+ * empty — never overwrite a TA's hand-typed values. Skills + summary
+ * always update (parser is the source of truth there).
  *
  * Supported file types: PDF (application/pdf), plain text (text/plain).
- * Word docs (.docx) currently land as opaque uploads — user gets a clear error
- * asking them to convert to PDF.
  */
 
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
@@ -46,11 +59,18 @@ const corsHeaders = {
 };
 
 interface ParsedResult {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  currentTitle?: string;
+  yearsExperience?: number;
   skills: string[];
   summary: string;
 }
 
-/** Convert an ArrayBuffer to a base64 string in Deno (no Buffer). */
 function toBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let binary = '';
@@ -58,20 +78,25 @@ function toBase64(buf: ArrayBuffer): string {
   for (let i = 0; i < bytes.length; i += chunk) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
-  // btoa is available in the Deno runtime
   // @ts-expect-error btoa is globally available
   return btoa(binary);
 }
 
 const SYSTEM_PROMPT = `You are a recruitment resume parser. The user message contains a candidate's resume (either as a PDF document or plain text).
 
-Extract two things and return ONLY valid JSON:
+Extract these fields and return ONLY valid JSON. If a field is not present, OMIT it (do not return null or empty string). Field rules:
 
-1. "skills" — an array of distinct technical skills, tools, languages, frameworks, methodologies, certifications. 8–25 items. Each item must be a short noun phrase (e.g. "TypeScript", "AWS Lambda", "PMP", "Stakeholder management"). Deduplicate. Do not include "Communication" or other generic soft skills unless they're explicitly emphasized.
+  - "firstName" / "lastName": split the candidate's name. If only a single name is present, put it in firstName and omit lastName.
+  - "fullName": optional convenience field with the full name verbatim from the resume.
+  - "email": the candidate's primary email if shown. Lowercase, no spaces.
+  - "phone": phone number as it appears (preserve country code if shown).
+  - "linkedinUrl": the LinkedIn profile URL if present, including https://.
+  - "currentTitle": the candidate's CURRENT job title (most recent role).
+  - "yearsExperience": integer total years of professional experience if inferable.
+  - "skills": array of 8–25 distinct technical skills, tools, languages, frameworks, methodologies, certifications. Each item must be a short noun phrase ("TypeScript", "AWS Lambda", "PMP"). Deduplicate. Skip generic soft skills.
+  - "summary": 2–4 sentence third-person professional summary describing experience, specialization, years, and standout strengths. Plain text, no markdown.
 
-2. "summary" — a 2–4 sentence professional summary in third person describing the candidate's experience, primary specialization, years of experience, and standout strengths. Plain text, no markdown.
-
-Response MUST be a single JSON object with exactly these two keys: {"skills": [...], "summary": "..."}. No prose, no markdown fences.`;
+Response MUST be a single JSON object. No prose, no markdown fences.`;
 
 // @ts-expect-error Deno global
 Deno.serve(async (req: Request) => {
@@ -92,10 +117,10 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1. Look up the candidate row
+    // 1. Look up candidate row (full row so we know what's blank)
     const { data: cand, error: candErr } = await supabase
       .from('india_staffing_candidates')
-      .select('id, name, resume_url, resume_filename')
+      .select('id, name, email, phone, linkedin_url, resume_url, resume_filename, experience')
       .eq('id', candidateId)
       .single();
     if (candErr || !cand) {
@@ -105,8 +130,7 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Candidate has no resume uploaded yet' }), { status: 400, headers: corsHeaders });
     }
 
-    // 2. Download the resume from storage
-    //    resume_url is the object path within the candidate-resumes bucket.
+    // 2. Download resume
     const { data: file, error: fileErr } = await supabase.storage
       .from('candidate-resumes')
       .download(cand.resume_url);
@@ -118,7 +142,7 @@ Deno.serve(async (req: Request) => {
     const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
     const isText = file.type.startsWith('text/') || fileName.endsWith('.txt');
 
-    // 3. Build the Claude message — PDF goes as a document block, text goes inline
+    // 3. Build Claude message
     let userContent: unknown;
     if (isPdf) {
       const b64 = toBase64(await file.arrayBuffer());
@@ -147,7 +171,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 1024,
+        max_tokens: 1500,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userContent }],
       }),
@@ -159,7 +183,7 @@ Deno.serve(async (req: Request) => {
     const claudeJson = await claudeRes.json() as { content?: Array<{ type: string; text?: string }> };
     const reply = claudeJson.content?.find((b) => b.type === 'text')?.text?.trim() || '';
 
-    // 5. Parse JSON out of Claude's response (strip code fences just in case)
+    // 5. Parse JSON
     const cleaned = reply
       .replace(/^```(?:json)?\s*/i, '')
       .replace(/```\s*$/i, '')
@@ -175,18 +199,64 @@ Deno.serve(async (req: Request) => {
     }
     const skills = Array.isArray(parsed.skills) ? parsed.skills.filter((s) => typeof s === 'string').slice(0, 30) : [];
     const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : '';
+    const firstName = typeof parsed.firstName === 'string' ? parsed.firstName.trim() : '';
+    const lastName = typeof parsed.lastName === 'string' ? parsed.lastName.trim() : '';
+    const fullName = typeof parsed.fullName === 'string' ? parsed.fullName.trim() : [firstName, lastName].filter(Boolean).join(' ').trim();
+    const email = typeof parsed.email === 'string' ? parsed.email.trim().toLowerCase() : '';
+    const phone = typeof parsed.phone === 'string' ? parsed.phone.trim() : '';
+    const linkedinUrl = typeof parsed.linkedinUrl === 'string' ? parsed.linkedinUrl.trim() : '';
+    const currentTitle = typeof parsed.currentTitle === 'string' ? parsed.currentTitle.trim() : '';
+    const yearsExperience = typeof parsed.yearsExperience === 'number' ? parsed.yearsExperience : undefined;
 
-    // 6. Write back to the candidate row
-    const parsedAt = new Date().toISOString();
+    // 6. Write back — skills + summary always; identity fields only when blank.
+    const blank = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+    // Treat "placeholder" candidate names from bulk-import (e.g. the filename
+    // we inserted before parsing) as blank so the parser overwrites them.
+    const namePlaceholder = (() => {
+      const n = (cand.name || '').trim().toLowerCase();
+      if (!n) return true;
+      if (n.endsWith('.pdf') || n.endsWith('.txt') || n.endsWith('.docx')) return true;
+      if (n.startsWith('imported resume') || n.startsWith('candidate ')) return true;
+      return false;
+    })();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updates: Record<string, any> = {
+      skills,
+      profile_summary: summary,
+      parsed_at: new Date().toISOString(),
+    };
+    if (fullName && namePlaceholder) updates.name = fullName;
+    if (email && blank(cand.email)) updates.email = email;
+    if (phone && blank(cand.phone)) updates.phone = phone;
+    if (linkedinUrl && blank(cand.linkedin_url)) updates.linkedin_url = linkedinUrl;
+    // Use "experience" column to hold the current title if it's a placeholder
+    // (it's free-text, originally for years). Only fill when blank.
+    if (currentTitle && blank(cand.experience)) updates.experience = currentTitle;
+
+    const parsedAt = updates.parsed_at;
     const { error: updErr } = await supabase
       .from('india_staffing_candidates')
-      .update({ skills, profile_summary: summary, parsed_at: parsedAt })
+      .update(updates)
       .eq('id', candidateId);
     if (updErr) {
       return new Response(JSON.stringify({ error: 'DB update failed', detail: updErr.message }), { status: 500, headers: corsHeaders });
     }
 
-    return new Response(JSON.stringify({ ok: true, skills, summary, parsedAt }), { headers: corsHeaders });
+    return new Response(JSON.stringify({
+      ok: true,
+      skills,
+      summary,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      fullName: fullName || undefined,
+      email: email || undefined,
+      phone: phone || undefined,
+      linkedinUrl: linkedinUrl || undefined,
+      currentTitle: currentTitle || undefined,
+      yearsExperience,
+      parsedAt,
+    }), { headers: corsHeaders });
   } catch (e) {
     const msg = (e as Error).message || String(e);
     console.error('[parse-resume]', msg);

@@ -11,7 +11,7 @@
  * which already write to Supabase via db.upsertIndiaCandidate / deleteIndiaCandidate.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin } from 'lucide-react';
+import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
@@ -59,6 +59,7 @@ export default function CandidatesPage() {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<DraftCandidate>(emptyDraft);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const owners = useMemo(() => {
     const s = new Set<string>();
@@ -115,18 +116,37 @@ export default function CandidatesPage() {
         title="Candidates"
         subtitle="All candidates currently being worked across India Staffing requisitions"
         action={
-          <button
-            type="button"
-            onClick={() => {
-              setAdding(true);
-              setDraft({ ...emptyDraft, owning_ta_email: (currentUser?.email || '').toLowerCase() });
-            }}
-            className="text-xs font-semibold bg-primary text-white px-3 py-2 rounded-md hover:bg-primary/90 flex items-center gap-1"
-          >
-            <Plus size={14} /> Add candidate
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setBulkOpen(true)}
+              className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-md hover:bg-slate-50 flex items-center gap-1"
+              title="Drop multiple resumes; each one is auto-parsed and creates a candidate"
+            >
+              <UploadCloud size={14} /> Bulk import resumes
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAdding(true);
+                setDraft({ ...emptyDraft, owning_ta_email: (currentUser?.email || '').toLowerCase() });
+              }}
+              className="text-xs font-semibold bg-primary text-white px-3 py-2 rounded-md hover:bg-primary/90 flex items-center gap-1"
+            >
+              <Plus size={14} /> Add candidate
+            </button>
+          </div>
         }
       />
+
+      {bulkOpen && (
+        <BulkImportDialog
+          requisitions={requisitions}
+          accountName={accountName}
+          defaultOwner={(currentUser?.email || '').toLowerCase()}
+          onClose={() => setBulkOpen(false)}
+        />
+      )}
 
       {/* Filters */}
       <Card className="mb-4">
@@ -280,11 +300,23 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
         resume_filename: res.filename,
         resume_uploaded_at: new Date().toISOString(),
       });
-      // Auto-parse immediately
+      // Auto-parse immediately. Edge function fills DB blanks; mirror that
+      // into local React state so the UI doesn't need a refetch.
       setParsing(true);
       const parsed = await db.parseCandidateResume(c.id);
       if (parsed.ok) {
-        onChange({ skills: parsed.skills, profile_summary: parsed.summary, parsed_at: parsed.parsedAt });
+        const patch: Partial<typeof c> = {
+          skills: parsed.skills,
+          profile_summary: parsed.summary,
+          parsed_at: parsed.parsedAt,
+        };
+        const blank = (v: string | undefined | null) => !v || !v.trim();
+        if (parsed.fullName && (blank(c.name) || /\.(pdf|txt|docx)$/i.test(c.name))) patch.name = parsed.fullName;
+        if (parsed.email && blank(c.email)) patch.email = parsed.email;
+        if (parsed.phone && blank(c.phone)) patch.phone = parsed.phone;
+        if (parsed.linkedinUrl && blank(c.linkedin_url)) patch.linkedin_url = parsed.linkedinUrl;
+        if (parsed.currentTitle && blank(c.experience)) patch.experience = parsed.currentTitle;
+        onChange(patch);
       } else {
         setError(parsed.error);
       }
@@ -300,6 +332,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
     try {
       const parsed = await db.parseCandidateResume(c.id);
       if (parsed.ok) {
+        // Reparse never overwrites identity fields — only refreshes skills + summary
         onChange({ skills: parsed.skills, profile_summary: parsed.summary, parsed_at: parsed.parsedAt });
       } else {
         setError(parsed.error);
@@ -535,4 +568,276 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
       )}
     </>
   );
+}
+
+type BulkRowStatus = 'pending' | 'uploading' | 'parsing' | 'done' | 'failed';
+interface BulkRow {
+  filename: string;
+  status: BulkRowStatus;
+  name?: string;
+  email?: string;
+  error?: string;
+}
+
+/* ── Bulk resume import dialog ──
+ *
+ * Drag-drop N PDFs/.txt files. Pick a requisition (FK) and owning TA. Each file:
+ *   1. addCandidate({...}) creates a row with a placeholder name (the filename)
+ *   2. uploadCandidateResume uploads the file to storage
+ *   3. parseCandidateResume fires the edge function — Claude extracts identity
+ *      + skills + summary and writes back into the row (only filling blanks).
+ * Realtime broadcasts the update so the new candidate appears in the table.
+ */
+function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: {
+  requisitions: { id: string; title: string; account_id: string }[];
+  accountName: (rid: string) => string;
+  defaultOwner: string;
+  onClose: () => void;
+}) {
+  const { addCandidate, updateCandidate } = useStaffingStore();
+  const [requisitionId, setRequisitionId] = useState('');
+  const [owner, setOwner] = useState(defaultOwner);
+  const [source, setSource] = useState('LinkedIn');
+  const [files, setFiles] = useState<File[]>([]);
+  const [results, setResults] = useState<BulkRow[]>([]);
+  const [running, setRunning] = useState(false);
+
+  const canStart = requisitionId && files.length > 0 && !running;
+
+  const handleDrop = (incoming: FileList | null) => {
+    if (!incoming) return;
+    const arr = Array.from(incoming).filter((f) => /\.(pdf|txt)$/i.test(f.name));
+    if (arr.length === 0) return;
+    setFiles((prev) => [...prev, ...arr]);
+  };
+
+  const removeFile = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const start = async () => {
+    if (!canStart) return;
+    setRunning(true);
+    const initial: BulkRow[] = files.map((f) => ({ filename: f.name, status: 'pending' }));
+    setResults(initial);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const updateRow = (patch: Partial<BulkRow>) => {
+        setResults((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+      };
+      try {
+        updateRow({ status: 'uploading' });
+        // 1. Create candidate row with placeholder name (the filename minus ext)
+        const placeholder = file.name.replace(/\.(pdf|txt)$/i, '');
+        const created = addCandidate({
+          requisition_id: requisitionId,
+          name: placeholder,
+          experience: '',
+          stage: 'Submitted',
+          submit_date: new Date().toISOString().slice(0, 10),
+          feedback: '',
+          source,
+          email: '',
+          phone: '',
+          owning_ta_email: owner || undefined,
+        });
+
+        // 2. Upload the file
+        const up = await db.uploadCandidateResume(created.id, file);
+        if ('error' in up) {
+          updateRow({ status: 'failed', error: `Upload failed: ${up.error}` });
+          continue;
+        }
+        updateCandidate(created.id, {
+          resume_url: up.path,
+          resume_filename: up.filename,
+          resume_uploaded_at: new Date().toISOString(),
+        });
+
+        // 3. Parse via edge fn — it writes name/email/etc. into the row server-side
+        updateRow({ status: 'parsing' });
+        const parsed = await db.parseCandidateResume(created.id);
+        if (!parsed.ok) {
+          updateRow({ status: 'failed', error: parsed.error });
+          continue;
+        }
+        // Mirror server-side write into our local store so the table updates instantly
+        const patch: Partial<StaffingCandidate> = {
+          skills: parsed.skills,
+          profile_summary: parsed.summary,
+          parsed_at: parsed.parsedAt,
+        };
+        if (parsed.fullName) patch.name = parsed.fullName;
+        if (parsed.email) patch.email = parsed.email;
+        if (parsed.phone) patch.phone = parsed.phone;
+        if (parsed.linkedinUrl) patch.linkedin_url = parsed.linkedinUrl;
+        if (parsed.currentTitle) patch.experience = parsed.currentTitle;
+        updateCandidate(created.id, patch);
+
+        updateRow({
+          status: 'done',
+          name: parsed.fullName || placeholder,
+          email: parsed.email,
+        });
+      } catch (e) {
+        updateRow({ status: 'failed', error: (e as Error).message });
+      }
+    }
+    setRunning(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={running ? undefined : onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Bulk import resumes</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Drop multiple PDFs or .txt files — each one is parsed and creates a candidate row.</div>
+          </div>
+          <button onClick={onClose} disabled={running} className="text-slate-400 hover:text-slate-700 text-xl leading-none disabled:opacity-40">×</button>
+        </div>
+
+        <div className="p-5 space-y-4 overflow-y-auto">
+          {/* Settings applied to every imported candidate */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Requisition *</label>
+              <select
+                value={requisitionId}
+                onChange={(e) => setRequisitionId(e.target.value)}
+                disabled={running}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white disabled:bg-slate-50"
+              >
+                <option value="">Pick a requisition…</option>
+                {requisitions.map((r) => (
+                  <option key={r.id} value={r.id}>{r.title} — {accountName(r.id)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Owning TA</label>
+              <input
+                value={owner}
+                onChange={(e) => setOwner(e.target.value.toLowerCase())}
+                disabled={running}
+                placeholder="ta@simpliigence.com"
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm disabled:bg-slate-50"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Source</label>
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                disabled={running}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white disabled:bg-slate-50"
+              >
+                {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Drop zone */}
+          {!running && results.length === 0 && (
+            <label
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e.dataTransfer.files); }}
+              className="block border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 hover:border-primary/50"
+            >
+              <UploadCloud size={28} className="text-slate-400 mx-auto mb-2" />
+              <div className="text-sm text-slate-700 font-medium">Drop PDFs / .txt files here</div>
+              <div className="text-[11px] text-slate-500 mt-1">or click to pick — you can add many at once</div>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.txt,application/pdf,text/plain"
+                className="hidden"
+                onChange={(e) => handleDrop(e.target.files)}
+              />
+            </label>
+          )}
+
+          {/* File list / progress */}
+          {(files.length > 0 || results.length > 0) && (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+                <span>{(results.length || files.length)} file{(results.length || files.length) === 1 ? '' : 's'}</span>
+                {!running && results.length === 0 && (
+                  <button onClick={() => setFiles([])} className="text-[11px] text-slate-400 hover:text-slate-700">Clear all</button>
+                )}
+              </div>
+              <ul className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                {(results.length > 0
+                  ? results
+                  : files.map<BulkRow>((f) => ({ filename: f.name, status: 'pending' }))
+                ).map((r, idx) => (
+                  <li key={idx} className="px-3 py-2 text-xs flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <StatusIcon status={r.status} />
+                      <div className="min-w-0">
+                        <div className="text-slate-900 truncate" title={r.filename}>{r.filename}</div>
+                        {('name' in r && r.name) && (
+                          <div className="text-[11px] text-slate-600 truncate">
+                            → {r.name}{r.email ? ` · ${r.email}` : ''}
+                          </div>
+                        )}
+                        {('error' in r && r.error) && (
+                          <div className="text-[11px] text-red-700 italic truncate" title={r.error}>{r.error}</div>
+                        )}
+                      </div>
+                    </div>
+                    {results.length === 0 && (
+                      <button onClick={() => removeFile(idx)} className="text-slate-400 hover:text-red-700" title="Remove">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+          <div className="text-[11px] text-slate-500">
+            {results.length > 0 && !running && (
+              <>
+                <strong className="text-emerald-700">{results.filter((r) => r.status === 'done').length} created</strong>
+                {results.some((r) => r.status === 'failed') && (
+                  <span className="ml-2 text-red-700">· {results.filter((r) => r.status === 'failed').length} failed</span>
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              disabled={running}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40"
+            >
+              {results.length > 0 && !running ? 'Close' : 'Cancel'}
+            </button>
+            {results.length === 0 ? (
+              <button
+                onClick={start}
+                disabled={!canStart}
+                className="text-xs font-semibold bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
+              >
+                <Sparkles size={12} /> Parse {files.length || ''} file{files.length === 1 ? '' : 's'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusIcon({ status }: { status: 'pending' | 'uploading' | 'parsing' | 'done' | 'failed' }) {
+  if (status === 'pending')  return <FileText size={14} className="text-slate-400 flex-shrink-0" />;
+  if (status === 'uploading') return <Loader2 size={14} className="text-sky-500 animate-spin flex-shrink-0" />;
+  if (status === 'parsing')  return <Loader2 size={14} className="text-amber-500 animate-spin flex-shrink-0" />;
+  if (status === 'done')     return <CheckCircle size={14} className="text-emerald-600 flex-shrink-0" />;
+  return <AlertCircle size={14} className="text-red-600 flex-shrink-0" />;
 }

@@ -116,6 +116,7 @@ function rowToActualHour(row: any): ActualHourEntry {
     hours: Number(row.hours ?? 0),
     billing: row.billing ?? null,
     notes: row.notes ?? null,
+    source: row.source ?? 'zoho_people',
     syncedAt: row.synced_at ?? new Date().toISOString(),
   };
 }
@@ -513,10 +514,16 @@ export async function fetchTeamMembers(): Promise<TeamMember[] | null> {
 }
 
 export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
-  const { data, error } = await supabase.from('actual_hours').select('*');
+  // unified_actual_hours UNIONs Zoho-synced rows with approved Simpliigence
+  // time_entries (the source-of-truth for going-forward entry). Same columns
+  // as the legacy actual_hours table plus a `source` tag.
+  const { data, error } = await supabase.from('unified_actual_hours').select('*');
   if (error) {
-    console.warn('[supabase] fetch actual_hours failed:', error.message);
-    return null;
+    console.warn('[supabase] fetch unified_actual_hours failed:', error.message);
+    // Fall back to legacy table if the view fails for any reason
+    const fallback = await supabase.from('actual_hours').select('*');
+    if (fallback.error) return null;
+    return (fallback.data || []).map(rowToActualHour);
   }
   return (data || []).map(rowToActualHour);
 }
@@ -1202,6 +1209,7 @@ type StoreSetters = {
   setTaDailyLog?: (entries: TADailyLogEntry[]) => void;
   setTeamMembers?: (members: TeamMember[]) => void;
   setTimeEntries?: (entries: TimeEntry[]) => void;
+  setActualHours?: (rows: ActualHourEntry[]) => void;
   getForecastAssignments: () => ForecastAssignment[];
   getStaffingRequests: () => StaffingRequest[];
   getPipelineProjects: () => ZohoPipelineProject[];
@@ -1434,9 +1442,17 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const row = (payload.new || payload.old) as any;
       if (row?.updated_by === CLIENT_ID) return;
-      if (!setters.setTimeEntries) return;
-      fetchTimeEntries().then((entries) => {
-        if (entries) setters.setTimeEntries!(entries);
+      if (setters.setTimeEntries) {
+        fetchTimeEntries().then((entries) => {
+          if (entries) setters.setTimeEntries!(entries);
+        });
+      }
+      // Also refresh the unified actual_hours feed so the cockpit picks up
+      // approved/submitted time_entries rows without a page reload.
+      fetchActualHours().then((rows) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const set = (setters as any).setActualHours as ((rows: ActualHourEntry[]) => void) | undefined;
+        if (set && rows) set(rows);
       });
     },
   );

@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Clock,
   Timer,
+  CheckSquare,
   CalendarCheck,
   Contact,
   UserCog,
@@ -99,6 +100,8 @@ const employeeOnlySections: NavSection[] = [
 
 /** "My Time" link surfaced to admins/managers too, under the Projects group. */
 const myTimeItem: NavItem = { to: '/my-time', icon: Timer, label: 'My Time' };
+/** Manager approval queue, shown to admins/managers under the Projects group. */
+const teamTimeItem: NavItem = { to: '/my-team-time', icon: CheckSquare, label: 'Team Time' };
 
 interface SidebarProps {
   collapsed: boolean;
@@ -120,7 +123,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     : (() => {
         const base = sections.map((s) =>
           s.label === 'Projects'
-            ? { ...s, items: [myTimeItem, ...s.items] }
+            ? { ...s, items: [myTimeItem, teamTimeItem, ...s.items] }
             : s,
         );
         return isAdmin ? [...base, adminSection] : base;

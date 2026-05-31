@@ -255,6 +255,13 @@ export default function MyTimePage() {
 }
 
 /* ── Existing entry — inline editable ── */
+const STATUS_BADGE: Record<TimeEntry['status'], { label: string; cls: string }> = {
+  draft:     { label: 'Draft',     cls: 'bg-slate-100 text-slate-600' },
+  submitted: { label: 'Submitted', cls: 'bg-sky-100 text-sky-800' },
+  approved:  { label: 'Approved',  cls: 'bg-emerald-100 text-emerald-800' },
+  rejected:  { label: 'Rejected',  cls: 'bg-red-100 text-red-800' },
+};
+
 function EntryRow({ entry, projectOptions, onSave, onDelete }: {
   entry: TimeEntry;
   projectOptions: { id: string | null; name: string; billable: boolean }[];
@@ -289,8 +296,24 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
     }
   };
 
+  const statusBadge = STATUS_BADGE[entry.status];
   return (
     <div className="border border-slate-200 rounded-lg p-3 bg-white">
+      <div className="flex items-center justify-between mb-2">
+        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusBadge.cls}`}>
+          {statusBadge.label}
+        </span>
+        {entry.status === 'rejected' && entry.rejectReason && (
+          <span className="text-[11px] text-red-700 italic truncate ml-2" title={entry.rejectReason}>
+            {entry.rejectReason}
+          </span>
+        )}
+        {entry.status === 'approved' && entry.approvedBy && (
+          <span className="text-[10px] text-slate-400 truncate ml-2">
+            ✓ {entry.approvedBy}
+          </span>
+        )}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
         <ProjectPicker value={projectName} onChange={setProjectName} options={projectOptions} />
         <input

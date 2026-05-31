@@ -19,6 +19,7 @@ import USRosterPage from '../pages/USRosterPage';
 import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
 import MyTimePage from '../pages/MyTimePage';
+import TeamTimePage from '../pages/TeamTimePage';
 import UsersPage from '../pages/admin/UsersPage';
 import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
@@ -36,6 +37,8 @@ export const router = createBrowserRouter(
 
         // My Time — visible to everyone
         { path: 'my-time', element: <MyTimePage /> },
+        // Team Time — manager/admin approval queue (page itself enforces the role gate)
+        { path: 'my-team-time', element: <TeamTimePage /> },
 
         // Projects section
         { path: 'team', element: <TeamRosterPage /> },              // "Project Team"

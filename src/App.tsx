@@ -368,6 +368,9 @@ function useSupabaseInit() {
           setTimeEntries: (entries) => {
             useTimeEntryStore.setState({ entries });
           },
+          setActualHours: (rows) => {
+            useActualHoursStore.setState({ entries: rows });
+          },
           setUSRoster: (members) => {
             useUSRosterStore.setState({ members });
           },

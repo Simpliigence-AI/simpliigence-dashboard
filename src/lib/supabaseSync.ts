@@ -19,6 +19,7 @@ import type { BenchResource, BenchUpdate, VisaCategory, JobPriority, BenchUpdate
 import type { IndiaRosterMember, IndiaRosterStatus } from '../types/indiaRoster';
 import type { USRosterMember, USRosterStatus } from '../types/usRoster';
 import type { ActualHourEntry } from '../types/actualHours';
+import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 
 // ─── Conversion helpers ────────────────────────────────────────────
 
@@ -207,6 +208,7 @@ function candidateToRow(c: StaffingCandidate) {
     source: c.source,
     email: c.email,
     phone: c.phone,
+    owning_ta_email: c.owning_ta_email ?? null,
     created_at: c.created_at,
     updated_at: c.updated_at,
     updated_by: CLIENT_ID,
@@ -225,6 +227,7 @@ function rowToCandidate(row: any): StaffingCandidate {
     source: row.source ?? '',
     email: row.email ?? '',
     phone: row.phone ?? '',
+    owning_ta_email: row.owning_ta_email ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -268,6 +271,61 @@ function rowToDailyStatus(row: any): DailyStatus {
     id: row.id, requisition_id: row.requisition_id, status_date: row.status_date,
     status_text: row.status_text, anticipation: row.anticipation ?? '',
     created_at: row.created_at,
+  };
+}
+
+// ─── TA daily log + team_members converters ────────────────────────
+
+function taLogToRow(e: TADailyLogEntry) {
+  return {
+    id: e.id,
+    ta_email: e.taEmail,
+    log_date: e.logDate,
+    requisition_id: e.requisitionId,
+    sourced_outreach: e.sourcedOutreach,
+    screens_completed: e.screensCompleted,
+    submissions_interviews: e.submissionsInterviews,
+    notes: e.notes ?? '',
+    daily_status_id: e.dailyStatusId,
+    updated_by: CLIENT_ID,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTaLog(row: any): TADailyLogEntry {
+  return {
+    id: row.id,
+    taEmail: row.ta_email,
+    logDate: row.log_date,
+    requisitionId: row.requisition_id,
+    sourcedOutreach: Number(row.sourced_outreach ?? 0),
+    screensCompleted: Number(row.screens_completed ?? 0),
+    submissionsInterviews: Number(row.submissions_interviews ?? 0),
+    notes: row.notes ?? '',
+    dailyStatusId: row.daily_status_id ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function teamMemberToRow(m: TeamMember) {
+  return {
+    id: m.id,
+    email: m.email,
+    team: m.team,
+    added_by: m.addedBy ?? CLIENT_ID,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTeamMember(row: any): TeamMember {
+  return {
+    id: row.id,
+    email: row.email,
+    team: row.team,
+    addedBy: row.added_by ?? null,
+    addedAt: row.added_at,
   };
 }
 
@@ -358,6 +416,27 @@ export async function fetchPipelineProjects(): Promise<ZohoPipelineProject[] | n
   const { data, error } = await supabase.from('pipeline_projects').select('*');
   if (error) return null;
   return (data || []).map(pipelineRowToProject);
+}
+
+export async function fetchTaDailyLog(): Promise<TADailyLogEntry[] | null> {
+  const { data, error } = await supabase
+    .from('ta_daily_log')
+    .select('*')
+    .order('log_date', { ascending: false });
+  if (error) {
+    console.warn('[supabase] fetch ta_daily_log failed:', error);
+    return null;
+  }
+  return (data || []).map(rowToTaLog);
+}
+
+export async function fetchTeamMembers(): Promise<TeamMember[] | null> {
+  const { data, error } = await supabase.from('team_members').select('*');
+  if (error) {
+    console.warn('[supabase] fetch team_members failed:', error);
+    return null;
+  }
+  return (data || []).map(rowToTeamMember);
 }
 
 export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
@@ -916,6 +995,26 @@ export const db = {
     if (members.length) await supabase.from('us_roster').insert(members.map(usRosterToRow));
   },
 
+  // --- TA Daily Log ---
+  async upsertTaLog(e: TADailyLogEntry) {
+    const { error } = await supabase.from('ta_daily_log').upsert(taLogToRow(e), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert ta_daily_log failed:', error);
+  },
+  async deleteTaLog(id: string) {
+    const { error } = await supabase.from('ta_daily_log').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete ta_daily_log failed:', error);
+  },
+
+  // --- Team members ---
+  async upsertTeamMember(m: TeamMember) {
+    const { error } = await supabase.from('team_members').upsert(teamMemberToRow(m), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert team_member failed:', error);
+  },
+  async deleteTeamMember(id: string) {
+    const { error } = await supabase.from('team_members').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete team_member failed:', error);
+  },
+
   /** Clear all tables (for Settings → Clear All Data). */
   async clearAll() {
     await Promise.all([
@@ -946,6 +1045,8 @@ export const db = {
       supabase.from('open_bench_resources').delete().neq('id', ''),
       supabase.from('india_roster').delete().neq('id', ''),
       supabase.from('us_roster').delete().neq('id', ''),
+      supabase.from('ta_daily_log').delete().neq('id', ''),
+      supabase.from('team_members').delete().neq('id', ''),
     ]);
   },
 };
@@ -963,6 +1064,8 @@ type StoreSetters = {
   setOpenBench: (resources: BenchResource[], updates: BenchUpdate[]) => void;
   setIndiaRoster: (members: IndiaRosterMember[]) => void;
   setUSRoster: (members: USRosterMember[]) => void;
+  setTaDailyLog?: (entries: TADailyLogEntry[]) => void;
+  setTeamMembers?: (members: TeamMember[]) => void;
   getForecastAssignments: () => ForecastAssignment[];
   getStaffingRequests: () => StaffingRequest[];
   getPipelineProjects: () => ZohoPipelineProject[];
@@ -1183,6 +1286,33 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       if (row?.updated_by === CLIENT_ID) return;
       fetchUSRoster().then((members) => {
         if (members) setters.setUSRoster(members);
+      });
+    },
+  );
+
+  // --- TA Daily Log (refetch on any change) ---
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'ta_daily_log' },
+    (payload) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row = (payload.new || payload.old) as any;
+      if (row?.updated_by === CLIENT_ID) return;
+      if (!setters.setTaDailyLog) return;
+      fetchTaDailyLog().then((entries) => {
+        if (entries) setters.setTaDailyLog!(entries);
+      });
+    },
+  );
+
+  // --- Team Members (refetch on any change) ---
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'team_members' },
+    () => {
+      if (!setters.setTeamMembers) return;
+      fetchTeamMembers().then((members) => {
+        if (members) setters.setTeamMembers!(members);
       });
     },
   );

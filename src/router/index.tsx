@@ -16,6 +16,8 @@ import OpenBenchPage from '../pages/OpenBenchPage';
 import IndiaRosterPage from '../pages/IndiaRosterPage';
 import IndiaHiringForecastPage from '../pages/IndiaHiringForecastPage';
 import USRosterPage from '../pages/USRosterPage';
+import TADailyLogPage from '../pages/TADailyLogPage';
+import CandidatesPage from '../pages/CandidatesPage';
 import UsersPage from '../pages/admin/UsersPage';
 import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
@@ -43,6 +45,8 @@ export const router = createBrowserRouter(
         { path: 'india-staffing', element: <IndiaStaffingPage /> },         // "India Demand"
         { path: 'india-roster', element: <IndiaRosterPage /> },             // NEW
         { path: 'india-hiring-forecast', element: <IndiaHiringForecastPage /> }, // NEW
+        { path: 'ta-daily-log', element: <TADailyLogPage /> },              // NEW — TA "My Day"
+        { path: 'candidates', element: <CandidatesPage /> },                // NEW — bulk candidate CRUD
 
         // US T&M section
         { path: 'us-staffing', element: <USStaffingPage /> },        // "US Demand"

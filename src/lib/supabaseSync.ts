@@ -201,7 +201,9 @@ function rowToIndiaReq(row: any): IndiaRequisition {
 function candidateToRow(c: StaffingCandidate) {
   return {
     id: c.id,
-    requisition_id: c.requisition_id,
+    // Requisition is optional — empty string from the UI maps to null in the DB
+    // so the candidate row is "unassigned" until a TA attaches it later.
+    requisition_id: c.requisition_id ? c.requisition_id : null,
     name: c.name,
     experience: c.experience,
     stage: c.stage,
@@ -227,7 +229,7 @@ function candidateToRow(c: StaffingCandidate) {
 function rowToCandidate(row: any): StaffingCandidate {
   return {
     id: row.id,
-    requisition_id: row.requisition_id,
+    requisition_id: row.requisition_id ?? '',
     name: row.name,
     experience: row.experience ?? '',
     stage: row.stage ?? 'Submitted',

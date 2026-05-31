@@ -80,7 +80,11 @@ export default function CandidatesPage() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return candidates.filter((c) => {
-      if (filterReq && c.requisition_id !== filterReq) return false;
+      if (filterReq === '__unassigned__') {
+        if (c.requisition_id) return false;
+      } else if (filterReq && c.requisition_id !== filterReq) {
+        return false;
+      }
       if (filterOwner && (c.owning_ta_email || '') !== filterOwner) return false;
       if (filterStage && c.stage !== filterStage) return false;
       if (needle) {
@@ -92,7 +96,7 @@ export default function CandidatesPage() {
   }, [candidates, q, filterReq, filterOwner, filterStage, requisitions, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const commitAdd = async () => {
-    if (!draft.name.trim() || !draft.requisition_id) return;
+    if (!draft.name.trim()) return;
     addCandidate({
       requisition_id: draft.requisition_id,
       name: draft.name.trim(),
@@ -163,6 +167,7 @@ export default function CandidatesPage() {
             className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
           >
             <option value="">All requisitions</option>
+            <option value="__unassigned__">— Unassigned —</option>
             {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
           </select>
           <select
@@ -196,7 +201,7 @@ export default function CandidatesPage() {
                    className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-1" />
             <select value={draft.requisition_id} onChange={(e) => setDraft({ ...draft, requisition_id: e.target.value })}
                     className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white md:col-span-1">
-              <option value="">Requisition *</option>
+              <option value="">No requisition (unassigned)</option>
               {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
             </select>
             <select value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value })}
@@ -215,7 +220,7 @@ export default function CandidatesPage() {
                 <X size={12} /> Cancel
               </button>
               <button type="button" onClick={commitAdd}
-                      disabled={!draft.name.trim() || !draft.requisition_id}
+                      disabled={!draft.name.trim()}
                       className="text-xs font-semibold bg-primary text-white px-3 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
                 <Save size={12} /> Add candidate
               </button>
@@ -375,10 +380,11 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
         </td>
         <td className="py-2 pr-3 align-top">
           <select
-            value={c.requisition_id}
+            value={c.requisition_id || ''}
             onChange={(e) => onChange({ requisition_id: e.target.value })}
-            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white max-w-[220px]"
+            className={`text-xs border border-slate-200 rounded px-2 py-1 bg-white max-w-[220px] ${!c.requisition_id ? 'italic text-slate-500' : ''}`}
           >
+            <option value="">Unassigned</option>
             {requisitions.map((r) => (
               <option key={r.id} value={r.id}>{r.title} — {accountName(r.id)}</option>
             ))}
@@ -602,7 +608,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
   const [results, setResults] = useState<BulkRow[]>([]);
   const [running, setRunning] = useState(false);
 
-  const canStart = requisitionId && files.length > 0 && !running;
+  const canStart = files.length > 0 && !running;
 
   const handleDrop = (incoming: FileList | null) => {
     if (!incoming) return;
@@ -628,10 +634,12 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
       };
       try {
         updateRow({ status: 'uploading' });
-        // 1. Create candidate row with placeholder name (the filename minus ext)
+        // 1. Create candidate row with placeholder name (the filename minus ext).
+        // Requisition is optional — if not picked, the candidate row is created
+        // unassigned and a TA can attach it to a req later from the table.
         const placeholder = file.name.replace(/\.(pdf|txt)$/i, '');
         const created = addCandidate({
-          requisition_id: requisitionId,
+          requisition_id: requisitionId || '',
           name: placeholder,
           experience: '',
           stage: 'Submitted',
@@ -702,14 +710,14 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
           {/* Settings applied to every imported candidate */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Requisition *</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Requisition (optional)</label>
               <select
                 value={requisitionId}
                 onChange={(e) => setRequisitionId(e.target.value)}
                 disabled={running}
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white disabled:bg-slate-50"
               >
-                <option value="">Pick a requisition…</option>
+                <option value="">Unassigned (attach later)</option>
                 {requisitions.map((r) => (
                   <option key={r.id} value={r.id}>{r.title} — {accountName(r.id)}</option>
                 ))}

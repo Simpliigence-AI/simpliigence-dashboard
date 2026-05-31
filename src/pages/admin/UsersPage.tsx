@@ -27,6 +27,13 @@ export default function UsersPage() {
   const [rows, setRows] = useState<AuthorizedUserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Map of email → 'saving' | 'saved' for the brief flash next to a row after a save. */
+  const [savedFlash, setSavedFlash] = useState<Record<string, 'saving' | 'saved'>>({});
+  const flashSaving = (email: string) => setSavedFlash((s) => ({ ...s, [email]: 'saving' }));
+  const flashSaved = (email: string) => {
+    setSavedFlash((s) => ({ ...s, [email]: 'saved' }));
+    setTimeout(() => setSavedFlash((s) => { const n = { ...s }; delete n[email]; return n; }), 1800);
+  };
   const [showAdd, setShowAdd] = useState(false);
   const [draftEmail, setDraftEmail] = useState('');
   const [draftName, setDraftName] = useState('');

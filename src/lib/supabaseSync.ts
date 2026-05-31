@@ -1114,7 +1114,20 @@ export const db = {
 
   /** Invoke the parse-resume edge function. Returns the parsed skills + summary. */
   async parseCandidateResume(candidateId: string): Promise<
-    | { ok: true; skills: string[]; summary: string; parsedAt: string }
+    | {
+        ok: true;
+        skills: string[];
+        summary: string;
+        parsedAt: string;
+        firstName?: string;
+        lastName?: string;
+        fullName?: string;
+        email?: string;
+        phone?: string;
+        linkedinUrl?: string;
+        currentTitle?: string;
+        yearsExperience?: number;
+      }
     | { ok: false; error: string }
   > {
     const { data, error } = await supabase.functions.invoke<{
@@ -1122,6 +1135,14 @@ export const db = {
       skills?: string[];
       summary?: string;
       parsedAt?: string;
+      firstName?: string;
+      lastName?: string;
+      fullName?: string;
+      email?: string;
+      phone?: string;
+      linkedinUrl?: string;
+      currentTitle?: string;
+      yearsExperience?: number;
       error?: string;
       detail?: string;
     }>('parse-resume', { body: { candidateId } });
@@ -1132,6 +1153,14 @@ export const db = {
       skills: data?.skills || [],
       summary: data?.summary || '',
       parsedAt: data?.parsedAt || new Date().toISOString(),
+      firstName: data?.firstName,
+      lastName: data?.lastName,
+      fullName: data?.fullName,
+      email: data?.email,
+      phone: data?.phone,
+      linkedinUrl: data?.linkedinUrl,
+      currentTitle: data?.currentTitle,
+      yearsExperience: data?.yearsExperience,
     };
   },
 

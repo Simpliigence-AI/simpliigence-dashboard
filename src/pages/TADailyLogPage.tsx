@@ -1,7 +1,7 @@
 /**
- * TA Daily Log — "My Day" page (+ manager view for admins).
+ * TA Daily Log — "My Day" + "Team Activity" tabs.
  *
- * Each signed-in user sees their own day:
+ * My Day (editable, current TA's own entries):
  *   - top-right date picker (defaults to today)
  *   - weekly KPI card (this-week totals vs last-week, per counter)
  *   - accordion list of requisitions
@@ -9,16 +9,20 @@
  *     · plus any req the TA already logged on (stickiness)
  *     · plus an "+ Add requisition" picker for ad-hoc reqs
  *
+ * Team Activity (read-only, visible to every signed-in TA):
+ *   - for the selected date, lists EVERY entry from EVERY TA grouped by
+ *     requisition, with the logging TA's email + last-updated time visible.
+ *   - lets the whole team see which reqs are getting worked on and by whom.
+ *
  * Admins (`authorized_users.is_admin = TRUE`) additionally see:
- *   - "Team this week" table at top — every TA × counter totals + last activity
- *   - "View as" dropdown that swaps into any TA's day read-only (Save / Delete
- *     disabled, banner explains "Viewing X's day")
+ *   - "Team this week" table — every TA × counter totals + last activity
+ *   - "View as" dropdown that swaps into any TA's day read-only on My Day
  *
  * One row = (taEmail × logDate × requisitionId). Counters + free-form notes.
  * Persists via useTaLogStore.upsertEntry → Supabase + realtime broadcast.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2, Eye } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Save, Trash2, Eye, Users } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
@@ -64,6 +68,8 @@ export default function TADailyLogPage() {
   const [showAddReq, setShowAddReq] = useState(false);
   /** Admin-only: when set, render this TA's day instead of self (read-only). */
   const [viewAsEmail, setViewAsEmail] = useState<string>('');
+  /** Tab: "my-day" (editable, own only) | "team" (read-only, everyone). */
+  const [activeView, setActiveView] = useState<'my-day' | 'team'>('my-day');
 
   // Effective TA whose day is being shown
   const taEmail = (viewAsEmail || myEmail).toLowerCase();
@@ -192,130 +198,163 @@ export default function TADailyLogPage() {
         }
       />
 
-      {/* Read-only banner when viewing another TA */}
-      {readOnly && (
-        <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between">
-          <span>
-            <strong>Read-only.</strong> You're viewing <span className="font-mono">{taEmail}</span>'s day as an admin. Switch back to "Myself" in the View as dropdown to log your own activity.
-          </span>
-          <button
-            type="button"
-            onClick={() => setViewAsEmail('')}
-            className="text-amber-900 hover:text-amber-700 underline underline-offset-2"
-          >
-            Return to mine
-          </button>
-        </div>
-      )}
-
-      {/* Team overview (admins only, when viewing own day) */}
-      {isAdmin && isViewingSelf && (
-        <TeamOverview
-          entries={entries}
-          allTaEmails={allTaEmails}
-          onViewAs={(email) => setViewAsEmail(email)}
-        />
-      )}
-
-      {/* Weekly KPI cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {TA_LOG_COUNTERS.map((c) => {
-          const tw = weeklyTotals.thisWeek[c.key];
-          const lw = weeklyTotals.lastWeek[c.key];
-          const diff = tw - lw;
-          const trend: 'up' | 'down' | 'flat' = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
-          const trendValue = lw === 0 && tw === 0
-            ? 'No activity'
-            : `${diff >= 0 ? '+' : ''}${diff} vs last week`;
-          return (
-            <StatCard
-              key={c.key}
-              label={`This week · ${c.short}`}
-              value={tw}
-              subtitle={`Last week: ${lw}`}
-              trend={trend}
-              trendValue={trendValue}
-            />
-          );
-        })}
-      </div>
-
-      {/* Requisition accordion list */}
-      <Card title={`Requisitions for ${niceDate}`} action={readOnly ? null : (
+      {/* Tab strip */}
+      <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1 text-xs font-semibold">
         <button
           type="button"
-          onClick={() => setShowAddReq(true)}
-          disabled={eligibleToAdd.length === 0}
-          className="text-xs font-semibold text-primary hover:text-primary/80 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-          title={eligibleToAdd.length === 0 ? 'No more requisitions to add' : 'Add a requisition to log against'}
+          onClick={() => setActiveView('my-day')}
+          className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+            activeView === 'my-day' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+          }`}
         >
-          <Plus size={14} /> Add requisition
+          My Day
         </button>
-      )}>
-        {myReqs.length === 0 ? (
-          <div className="text-sm text-slate-500 py-8 text-center">
-            No requisitions are assigned to you yet. Open the Candidates page and set yourself as the owning TA on a candidate, or click <strong>+ Add requisition</strong> above.
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {myReqs.map((req) => {
-              const acct = accounts.find((a) => a.id === req.account_id);
-              const isOpen = openReqs.has(req.id);
-              const entry = entriesByReq.get(req.id);
+        <button
+          type="button"
+          onClick={() => setActiveView('team')}
+          className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+            activeView === 'team' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Users size={12} /> Team Activity
+        </button>
+      </div>
+
+      {activeView === 'team' ? (
+        <TeamActivityView
+          entries={entries}
+          requisitions={requisitions}
+          accounts={accounts}
+          selectedDate={selectedDate}
+        />
+      ) : (
+        <>
+          {/* Read-only banner when viewing another TA */}
+          {readOnly && (
+            <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between">
+              <span>
+                <strong>Read-only.</strong> You're viewing <span className="font-mono">{taEmail}</span>'s day as an admin. Switch back to "Myself" in the View as dropdown to log your own activity.
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewAsEmail('')}
+                className="text-amber-900 hover:text-amber-700 underline underline-offset-2"
+              >
+                Return to mine
+              </button>
+            </div>
+          )}
+
+          {/* Team overview (admins only, when viewing own day) */}
+          {isAdmin && isViewingSelf && (
+            <TeamOverview
+              entries={entries}
+              allTaEmails={allTaEmails}
+              onViewAs={(email) => setViewAsEmail(email)}
+            />
+          )}
+
+          {/* Weekly KPI cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {TA_LOG_COUNTERS.map((c) => {
+              const tw = weeklyTotals.thisWeek[c.key];
+              const lw = weeklyTotals.lastWeek[c.key];
+              const diff = tw - lw;
+              const trend: 'up' | 'down' | 'flat' = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+              const trendValue = lw === 0 && tw === 0
+                ? 'No activity'
+                : `${diff >= 0 ? '+' : ''}${diff} vs last week`;
               return (
-                <RequisitionRow
-                  key={req.id}
-                  req={req}
-                  accountName={acct?.name ?? '—'}
-                  isOpen={isOpen}
-                  onToggle={() => {
-                    const next = new Set(openReqs);
-                    if (isOpen) next.delete(req.id); else next.add(req.id);
-                    setOpenReqs(next);
-                  }}
-                  initialCounters={{
-                    sourcedOutreach: entry?.sourcedOutreach ?? 0,
-                    screensCompleted: entry?.screensCompleted ?? 0,
-                    submissionsInterviews: entry?.submissionsInterviews ?? 0,
-                  }}
-                  initialNotes={entry?.notes ?? ''}
-                  entryId={entry?.id ?? null}
-                  readOnly={readOnly}
-                  onSave={async (counters, notes) => {
-                    await upsertEntry({
-                      taEmail,
-                      logDate: selectedDate,
-                      requisitionId: req.id,
-                      counters,
-                      notes,
-                    });
-                  }}
-                  onDelete={entry && !readOnly ? () => deleteEntry(entry.id) : undefined}
+                <StatCard
+                  key={c.key}
+                  label={`This week · ${c.short}`}
+                  value={tw}
+                  subtitle={`Last week: ${lw}`}
+                  trend={trend}
+                  trendValue={trendValue}
                 />
               );
             })}
           </div>
-        )}
-      </Card>
 
-      {showAddReq && (
-        <AddRequisitionDialog
-          requisitions={eligibleToAdd}
-          accountName={(rid: string) => accounts.find((a) => a.id === rid)?.name ?? '—'}
-          onClose={() => setShowAddReq(false)}
-          onPick={async (rid) => {
-            // Seed a zero-counter row to make the req appear in the list immediately
-            await upsertEntry({
-              taEmail,
-              logDate: selectedDate,
-              requisitionId: rid,
-              counters: { sourcedOutreach: 0, screensCompleted: 0, submissionsInterviews: 0 },
-              notes: '',
-            });
-            setOpenReqs((s) => new Set(s).add(rid));
-            setShowAddReq(false);
-          }}
-        />
+          {/* Requisition accordion list */}
+          <Card title={`Requisitions for ${niceDate}`} action={readOnly ? null : (
+            <button
+              type="button"
+              onClick={() => setShowAddReq(true)}
+              disabled={eligibleToAdd.length === 0}
+              className="text-xs font-semibold text-primary hover:text-primary/80 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={eligibleToAdd.length === 0 ? 'No more requisitions to add' : 'Add a requisition to log against'}
+            >
+              <Plus size={14} /> Add requisition
+            </button>
+          )}>
+            {myReqs.length === 0 ? (
+              <div className="text-sm text-slate-500 py-8 text-center">
+                No requisitions are assigned to you yet. Open the Candidates page and set yourself as the owning TA on a candidate, or click <strong>+ Add requisition</strong> above.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {myReqs.map((req) => {
+                  const acct = accounts.find((a) => a.id === req.account_id);
+                  const isOpen = openReqs.has(req.id);
+                  const entry = entriesByReq.get(req.id);
+                  return (
+                    <RequisitionRow
+                      key={req.id}
+                      req={req}
+                      accountName={acct?.name ?? '—'}
+                      isOpen={isOpen}
+                      onToggle={() => {
+                        const next = new Set(openReqs);
+                        if (isOpen) next.delete(req.id); else next.add(req.id);
+                        setOpenReqs(next);
+                      }}
+                      initialCounters={{
+                        sourcedOutreach: entry?.sourcedOutreach ?? 0,
+                        screensCompleted: entry?.screensCompleted ?? 0,
+                        submissionsInterviews: entry?.submissionsInterviews ?? 0,
+                      }}
+                      initialNotes={entry?.notes ?? ''}
+                      entryId={entry?.id ?? null}
+                      readOnly={readOnly}
+                      onSave={async (counters, notes) => {
+                        await upsertEntry({
+                          taEmail,
+                          logDate: selectedDate,
+                          requisitionId: req.id,
+                          counters,
+                          notes,
+                        });
+                      }}
+                      onDelete={entry && !readOnly ? () => deleteEntry(entry.id) : undefined}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {showAddReq && (
+            <AddRequisitionDialog
+              requisitions={eligibleToAdd}
+              accountName={(rid: string) => accounts.find((a) => a.id === rid)?.name ?? '—'}
+              onClose={() => setShowAddReq(false)}
+              onPick={async (rid) => {
+                // Seed a zero-counter row to make the req appear in the list immediately
+                await upsertEntry({
+                  taEmail,
+                  logDate: selectedDate,
+                  requisitionId: rid,
+                  counters: { sourcedOutreach: 0, screensCompleted: 0, submissionsInterviews: 0 },
+                  notes: '',
+                });
+                setOpenReqs((s) => new Set(s).add(rid));
+                setShowAddReq(false);
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -589,5 +628,165 @@ function AddRequisitionDialog({ requisitions, accountName, onPick, onClose }: {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ── Team Activity view ──
+ *  Read-only snapshot of every TA's entries for the selected date, grouped by
+ *  requisition. Lets the whole team see "what's being worked on today" with
+ *  attribution (TA email shown on each entry).
+ */
+function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
+  entries: TADailyLogEntry[];
+  requisitions: StaffingRequisition[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  accounts: any[];
+  selectedDate: string;
+}) {
+  const [filter, setFilter] = useState('');
+
+  const accountName = (rid: string) => {
+    const req = requisitions.find((r) => r.id === rid);
+    if (!req) return '—';
+    return accounts.find((a) => a.id === req.account_id)?.name ?? '—';
+  };
+
+  // Group entries for the selected date by requisition_id, only keeping rows
+  // with non-zero activity OR a note (zero-counter empty rows are noise).
+  const byReq = useMemo(() => {
+    const map = new Map<string, TADailyLogEntry[]>();
+    for (const e of entries) {
+      if (e.logDate !== selectedDate) continue;
+      const total = e.sourcedOutreach + e.screensCompleted + e.submissionsInterviews;
+      if (total === 0 && !(e.notes && e.notes.trim())) continue;
+      if (!map.has(e.requisitionId)) map.set(e.requisitionId, []);
+      map.get(e.requisitionId)!.push(e);
+    }
+    return map;
+  }, [entries, selectedDate]);
+
+  // Build list of active reqs, sorted by total activity desc
+  const activeReqs = useMemo(() => {
+    return Array.from(byReq.entries())
+      .map(([rid, list]) => {
+        const req = requisitions.find((r) => r.id === rid);
+        const total = list.reduce(
+          (s, e) => s + e.sourcedOutreach + e.screensCompleted + e.submissionsInterviews,
+          0,
+        );
+        return { rid, req, list, total };
+      })
+      .filter((x) => x.req !== undefined)
+      .filter((x) => {
+        if (!filter.trim()) return true;
+        const q = filter.toLowerCase();
+        return (
+          x.req!.title.toLowerCase().includes(q) ||
+          accountName(x.rid).toLowerCase().includes(q) ||
+          x.list.some((e) => e.taEmail.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [byReq, requisitions, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Distinct TAs active today (for the header chip)
+  const activeTas = useMemo(() => {
+    const s = new Set<string>();
+    for (const list of byReq.values()) for (const e of list) s.add(e.taEmail.toLowerCase());
+    return s.size;
+  }, [byReq]);
+
+  const totalAll = useMemo(() => {
+    let t = 0;
+    for (const list of byReq.values()) {
+      for (const e of list) t += e.sourcedOutreach + e.screensCompleted + e.submissionsInterviews;
+    }
+    return t;
+  }, [byReq]);
+
+  return (
+    <>
+      {/* Header strip */}
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 text-xs text-slate-600">
+          <span className="font-semibold text-slate-900 tabular-nums text-base">{activeReqs.length}</span>
+          <span>active req{activeReqs.length === 1 ? '' : 's'}</span>
+          <span className="text-slate-300">·</span>
+          <span className="font-semibold text-slate-900 tabular-nums">{activeTas}</span>
+          <span>TA{activeTas === 1 ? '' : 's'} active</span>
+          <span className="text-slate-300">·</span>
+          <span className="font-semibold text-slate-900 tabular-nums">{totalAll}</span>
+          <span>total activity</span>
+        </div>
+        <input
+          placeholder="Filter by req, account, or TA…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="border border-slate-300 rounded-md px-3 py-1.5 text-xs w-full md:w-72 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+
+      {activeReqs.length === 0 ? (
+        <Card>
+          <div className="text-sm text-slate-500 text-center py-12">
+            No team activity logged for this date{filter ? ' that matches your filter' : ''}.
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {activeReqs.map(({ rid, req, list, total }) => (
+            <Card key={rid}>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{req!.title}</div>
+                  <div className="text-[11px] text-slate-500 truncate">{accountName(rid)} · {req!.stage} · {req!.status_field}</div>
+                </div>
+                <span className="flex-shrink-0 text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  {total} today · {list.length} TA{list.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto -mx-6 px-6">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                      <th className="py-1.5 pr-3 font-semibold">TA</th>
+                      {TA_LOG_COUNTERS.map((c) => (
+                        <th key={c.key} className="py-1.5 pr-3 font-semibold text-right whitespace-nowrap">{c.short}</th>
+                      ))}
+                      <th className="py-1.5 pr-3 font-semibold">Notes</th>
+                      <th className="py-1.5 pr-3 font-semibold text-right">Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {list
+                      .slice()
+                      .sort((a, b) =>
+                        (b.sourcedOutreach + b.screensCompleted + b.submissionsInterviews) -
+                        (a.sourcedOutreach + a.screensCompleted + a.submissionsInterviews))
+                      .map((e) => (
+                      <tr key={e.id}>
+                        <td className="py-1.5 pr-3 font-medium text-slate-900 whitespace-nowrap">{e.taEmail}</td>
+                        {TA_LOG_COUNTERS.map((c) => (
+                          <td key={c.key} className="py-1.5 pr-3 text-right tabular-nums">
+                            {(e as unknown as Record<string, number>)[c.key] || ''}
+                          </td>
+                        ))}
+                        <td className="py-1.5 pr-3 text-slate-600 max-w-[280px]">
+                          {e.notes ? <span className="line-clamp-2">{e.notes}</span> : <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="py-1.5 pr-3 text-right text-[10px] text-slate-400 whitespace-nowrap">
+                          {new Date(e.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

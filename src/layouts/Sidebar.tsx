@@ -17,6 +17,8 @@ import {
   UserCheck,
   TrendingUp,
   Clock,
+  CalendarCheck,
+  Contact,
   UserCog,
   Activity,
   History,
@@ -55,6 +57,8 @@ const sections: NavSection[] = [
       { to: '/india-staffing', icon: ClipboardList, label: 'India Demand' },
       { to: '/india-roster', icon: Users, label: 'Roster' },
       { to: '/india-hiring-forecast', icon: UserPlus, label: 'Hiring Forecast' },
+      { to: '/ta-daily-log', icon: CalendarCheck, label: 'TA Daily Log' },
+      { to: '/candidates', icon: Contact, label: 'Candidates' },
     ],
   },
   {

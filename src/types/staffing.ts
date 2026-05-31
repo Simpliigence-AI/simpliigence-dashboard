@@ -125,6 +125,8 @@ export interface StaffingCandidate {
   email: string;
   /** Candidate phone (optional) */
   phone: string;
+  /** TA who owns this candidate (auth email). Drives the "My Day" auto-populated req list. */
+  owning_ta_email?: string;
   created_at: string;
   updated_at: string;
 }

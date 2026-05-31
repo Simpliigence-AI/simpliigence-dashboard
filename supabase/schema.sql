@@ -240,3 +240,61 @@ ALTER PUBLICATION supabase_realtime ADD TABLE actual_hours;
 
 ALTER TABLE actual_hours ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all" ON actual_hours FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- 12. team_members — user × team many-to-many (e.g. team='ta')
+-- ============================================================
+CREATE TABLE team_members (
+  id         TEXT PRIMARY KEY,
+  email      TEXT NOT NULL,
+  team       TEXT NOT NULL,
+  added_by   TEXT,
+  added_at   TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(email, team)
+);
+CREATE INDEX idx_team_members_team  ON team_members(team);
+CREATE INDEX idx_team_members_email ON team_members(email);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE team_members;
+ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON team_members FOR ALL USING (true) WITH CHECK (true);
+
+-- india_staffing_candidates.owning_ta_email — one TA "owns" the candidate;
+-- drives "My Day" auto-population of requisitions on the TA Daily Log page.
+ALTER TABLE india_staffing_candidates ADD COLUMN IF NOT EXISTS owning_ta_email TEXT;
+CREATE INDEX IF NOT EXISTS idx_isc_owner ON india_staffing_candidates(owning_ta_email);
+
+-- ============================================================
+-- 13. ta_daily_log — one row per (TA × day × requisition)
+-- ============================================================
+CREATE TABLE ta_daily_log (
+  id                      TEXT PRIMARY KEY,
+  ta_email                TEXT NOT NULL,
+  log_date                DATE NOT NULL,
+  requisition_id          TEXT NOT NULL REFERENCES india_staffing_requisitions(id) ON DELETE CASCADE,
+  sourced_outreach        INTEGER DEFAULT 0,
+  screens_completed       INTEGER DEFAULT 0,
+  submissions_interviews  INTEGER DEFAULT 0,
+  notes                   TEXT DEFAULT '',
+  daily_status_id         TEXT REFERENCES india_staffing_statuses(id) ON DELETE SET NULL,
+  updated_by              TEXT,
+  created_at              TIMESTAMPTZ DEFAULT now(),
+  updated_at              TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(ta_email, log_date, requisition_id)
+);
+CREATE INDEX idx_tdl_ta_date  ON ta_daily_log(ta_email, log_date DESC);
+CREATE INDEX idx_tdl_req_date ON ta_daily_log(requisition_id, log_date DESC);
+CREATE INDEX idx_tdl_date     ON ta_daily_log(log_date DESC);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE ta_daily_log;
+ALTER TABLE ta_daily_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON ta_daily_log FOR ALL USING (true) WITH CHECK (true);
+
+-- Audit triggers — record_audit() defined in admin section migration
+CREATE TRIGGER audit_team_members
+  AFTER INSERT OR UPDATE OR DELETE ON team_members
+  FOR EACH ROW EXECUTE FUNCTION record_audit();
+
+CREATE TRIGGER audit_ta_daily_log
+  AFTER INSERT OR UPDATE OR DELETE ON ta_daily_log
+  FOR EACH ROW EXECUTE FUNCTION record_audit();

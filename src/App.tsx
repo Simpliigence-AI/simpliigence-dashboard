@@ -8,6 +8,7 @@ import { useForecastStore, useFinancialStore, useSyncStore, useHiringForecastSto
 import { useOpenBenchStore } from './store/useOpenBenchStore';
 import { useIndiaRosterStore } from './store/useIndiaRosterStore';
 import { useUSRosterStore } from './store/useUSRosterStore';
+import { useTaLogStore } from './store/useTaLogStore';
 import { ZOHO_SEED_PROJECTS } from './data/zohoSeed';
 import {
   fetchAssignments,
@@ -22,6 +23,8 @@ import {
   fetchIndiaRoster,
   fetchUSRoster,
   fetchActualHours,
+  fetchTaDailyLog,
+  fetchTeamMembers,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -67,6 +70,8 @@ function useSupabaseInit() {
           indiaRosterRes,
           usRosterRes,
           actualHoursRes,
+          taLogRes,
+          teamMembersRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -80,6 +85,8 @@ function useSupabaseInit() {
           withTimeout(fetchIndiaRoster()),
           withTimeout(fetchUSRoster()),
           withTimeout(fetchActualHours()),
+          withTimeout(fetchTaDailyLog()),
+          withTimeout(fetchTeamMembers()),
         ]);
 
         // --- Forecast assignments ---
@@ -277,6 +284,25 @@ function useSupabaseInit() {
           console.warn('[supabase] Actual hours fetch timed out — using localStorage');
         }
 
+        // --- TA Daily Log ---
+        if (!taLogRes.timedOut) {
+          const log = taLogRes.value;
+          if (log) {
+            useTaLogStore.setState({ entries: log });
+            console.log('[supabase] Loaded TA daily log:', log.length, 'entries');
+          }
+        } else {
+          console.warn('[supabase] TA daily log fetch timed out — using localStorage');
+        }
+
+        // --- Team Members ---
+        if (!teamMembersRes.timedOut) {
+          const members = teamMembersRes.value;
+          if (members) {
+            useTaLogStore.setState({ teamMembers: members });
+          }
+        }
+
         // Set up realtime subscriptions
         cleanup = setupRealtimeSubscriptions({
           setForecastState: (assignments, weekDates) => {
@@ -317,6 +343,12 @@ function useSupabaseInit() {
           },
           setIndiaRoster: (members) => {
             useIndiaRosterStore.setState({ members });
+          },
+          setTaDailyLog: (entries) => {
+            useTaLogStore.setState({ entries });
+          },
+          setTeamMembers: (members) => {
+            useTaLogStore.setState({ teamMembers: members });
           },
           setUSRoster: (members) => {
             useUSRosterStore.setState({ members });

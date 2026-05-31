@@ -42,6 +42,8 @@ const TABLES = [
   'us_roster',
   'authorized_users',
   'actual_hours',
+  'ta_daily_log',
+  'team_members',
 ] as const;
 
 export interface BackupPayload {

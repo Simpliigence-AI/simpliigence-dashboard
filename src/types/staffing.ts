@@ -127,6 +127,20 @@ export interface StaffingCandidate {
   phone: string;
   /** TA who owns this candidate (auth email). Drives the "My Day" auto-populated req list. */
   owning_ta_email?: string;
+  /** Candidate's LinkedIn profile URL (optional). */
+  linkedin_url?: string;
+  /** Storage object path within the `candidate-resumes` bucket (optional). */
+  resume_url?: string;
+  /** Original filename uploaded by the user (optional). */
+  resume_filename?: string;
+  /** ISO timestamp the resume was uploaded (optional). */
+  resume_uploaded_at?: string;
+  /** Skills auto-parsed by the parse-resume edge function. */
+  skills?: string[];
+  /** Profile summary auto-parsed by the parse-resume edge function. */
+  profile_summary?: string;
+  /** ISO timestamp the resume was last parsed by Claude. */
+  parsed_at?: string;
   created_at: string;
   updated_at: string;
 }

@@ -47,18 +47,32 @@ export default function ActivityPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [pageViews, setPageViews] = useState<PageViewRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<string | null>(null);   // email
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setError(null);
     const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
     try {
-      const [{ data: sData }, { data: pData }] = await Promise.all([
+      const [sRes, pRes] = await Promise.all([
         supabase.from('user_sessions').select('*').gte('started_at', since).order('started_at', { ascending: false }).limit(5000),
         supabase.from('user_page_views').select('*').gte('entered_at', since).order('entered_at', { ascending: false }).limit(20000),
       ]);
-      setSessions((sData as SessionRow[]) ?? []);
-      setPageViews((pData as PageViewRow[]) ?? []);
+      if (sRes.error) {
+        console.error('[activity] user_sessions fetch error:', sRes.error);
+        setError(`Couldn't load sessions: ${sRes.error.message}`);
+      }
+      if (pRes.error) {
+        console.error('[activity] user_page_views fetch error:', pRes.error);
+        // Don't override the sessions error if it's already set
+        setError((prev) => prev ?? `Couldn't load page views: ${pRes.error!.message}`);
+      }
+      setSessions((sRes.data as SessionRow[]) ?? []);
+      setPageViews((pRes.data as PageViewRow[]) ?? []);
+    } catch (e) {
+      console.error('[activity] refresh threw:', e);
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -164,6 +178,12 @@ export default function ActivityPage() {
         ))}
         {loading && <span className="ml-2 text-xs text-slate-400">Loading…</span>}
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard icon={<UsersIcon size={22} />} label="Distinct users" value={distinctUsers} />

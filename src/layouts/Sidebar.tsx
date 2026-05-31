@@ -106,13 +106,23 @@ const teamTimeItem: NavItem = { to: '/my-team-time', icon: CheckSquare, label: '
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** Mobile-only: whether the drawer is open. Ignored at md+ where the sidebar is permanently visible. */
+  mobileOpen?: boolean;
+  /** Mobile-only: dismiss the drawer. */
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const [email, setEmail] = useState<string | null>(null);
   const role = useAuthStore((s) => s.currentUser?.role);
   const isAdmin = role === 'admin';
   const isEmployee = role === 'employee';
+  /**
+   * "Effectively collapsed" — only applies on desktop. When the mobile drawer
+   * is open the sidebar always renders the full labeled view (icons-only is
+   * a desktop space-saver and unhelpful in a touch drawer).
+   */
+  const eff = collapsed && !mobileOpen;
 
   // Build role-appropriate nav:
   //   - employee: only "My Work · My Time"
@@ -142,14 +152,32 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
-      className={`${collapsed ? 'w-[68px]' : 'w-60'} bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-40 transition-all duration-300 ease-in-out`}
+      className={`
+        bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-40
+        transition-all duration-300 ease-in-out
+        ${collapsed ? 'md:w-[68px]' : 'md:w-60'}
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+        w-64
+      `}
     >
+      {/* Mobile close button — only visible <md when drawer is open */}
+      {onMobileClose && (
+        <button
+          type="button"
+          onClick={onMobileClose}
+          className="md:hidden absolute top-3 right-3 z-10 inline-flex items-center justify-center w-8 h-8 rounded text-slate-400 hover:text-white hover:bg-sidebar-hover"
+          aria-label="Close menu"
+        >
+          ×
+        </button>
+      )}
       {/* Logo */}
-      <div className={`flex items-center ${collapsed ? 'justify-center px-2' : 'px-5'} py-5 gap-2.5`}>
+      <div className={`flex items-center ${eff ? 'justify-center px-2' : 'px-5'} py-5 gap-2.5`}>
         <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
           <Zap size={18} className="text-white" />
         </div>
-        {!collapsed && (
+        {!eff && (
           <span className="text-white font-bold text-lg tracking-tight whitespace-nowrap overflow-hidden">
             Simpliigence
           </span>
@@ -157,16 +185,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Nav — grouped by section */}
-      <nav className={`flex-1 ${collapsed ? 'px-2' : 'px-3'} pb-2 space-y-3 overflow-y-auto overflow-x-hidden`}>
+      <nav className={`flex-1 ${eff ? 'px-2' : 'px-3'} pb-2 space-y-3 overflow-y-auto overflow-x-hidden`}>
         {visibleSections.map((section, idx) => (
           <div key={section.label}>
-            {!collapsed && (
+            {!eff && (
               <div className="px-3 pb-1 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-500">
                 {section.label}
               </div>
             )}
             {/* When collapsed, render a thin divider between groups instead of the label */}
-            {collapsed && idx > 0 && (
+            {eff && idx > 0 && (
               <div className="mx-2 my-2 border-t border-slate-700/40" />
             )}
             <div className="space-y-0.5">
@@ -175,9 +203,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   key={to}
                   to={to}
                   end={to === '/'}
-                  title={collapsed ? `${section.label} — ${label}` : undefined}
+                  title={eff ? `${section.label} — ${label}` : undefined}
                   className={({ isActive }) =>
-                    `flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2' : 'px-3'} py-2 rounded-lg text-sm font-medium transition-colors ${
+                    `flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-sidebar-active text-white'
                         : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
@@ -185,7 +213,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   }
                 >
                   <Icon size={17} className="flex-shrink-0" />
-                  {!collapsed && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
+                  {!eff && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
                 </NavLink>
               ))}
             </div>
@@ -195,8 +223,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* User identity + sign-out */}
       {email && (
-        <div className={`${collapsed ? 'px-2' : 'px-3'} pt-3 border-t border-slate-700/40`}>
-          {collapsed ? (
+        <div className={`${eff ? 'px-2' : 'px-3'} pt-3 border-t border-slate-700/40`}>
+          {eff ? (
             <button
               type="button"
               onClick={() => signOut()}
@@ -228,12 +256,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       )}
 
       {/* Bottom: Settings + Toggle */}
-      <div className={`${collapsed ? 'px-2' : 'px-3'} pb-3 pt-2 space-y-1`}>
+      <div className={`${eff ? 'px-2' : 'px-3'} pb-3 pt-2 space-y-1`}>
         <NavLink
           to="/settings"
-          title={collapsed ? 'Settings' : undefined}
+          title={eff ? 'Settings' : undefined}
           className={({ isActive }) =>
-            `flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            `flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isActive
                 ? 'bg-sidebar-active text-white'
                 : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
@@ -241,17 +269,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           }
         >
           <Settings size={18} className="flex-shrink-0" />
-          {!collapsed && <span>Settings</span>}
+          {!eff && <span>Settings</span>}
         </NavLink>
 
+        {/* Desktop-only sidebar collapse toggle */}
         <button
           type="button"
           onClick={onToggle}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={`flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
+          className={`hidden md:flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          {!collapsed && <span>Collapse</span>}
+          {!eff && <span>Collapse</span>}
         </button>
       </div>
     </aside>

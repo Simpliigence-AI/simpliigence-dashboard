@@ -146,9 +146,26 @@ function detachListeners() {
   }
 }
 
-/** Record that the user navigated to `path`. Closes the previous page view. */
+/** Record that the user navigated to `path`. Closes the previous page view.
+ *
+ *  If a session hasn't been started yet (race on initial app load — RouteTracker
+ *  fires before AuthGate's startSession resolves), lazy-start one from the
+ *  current Supabase auth user. Without this guard we silently dropped the
+ *  first page-view of every fresh session, which is why /admin/activity
+ *  always showed zero page views.
+ */
 export async function recordPageView(path: string): Promise<void> {
-  if (!current) return;
+  if (!current) {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const u = data?.user;
+      if (!u || !u.email) return; // genuinely not signed in
+      await startSession(u.id, u.email);
+    } catch {
+      return;
+    }
+    if (!current) return; // startSession failed silently
+  }
   const now = new Date();
   const nowIso = now.toISOString();
 

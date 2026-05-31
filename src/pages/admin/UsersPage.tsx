@@ -114,6 +114,7 @@ export default function UsersPage() {
   /** Patch any subset of editable columns on a single user. */
   const patchRow = async (email: string, patch: Partial<Pick<AuthorizedUserRow, 'role' | 'manager_email' | 'employee_code' | 'full_name'>>) => {
     try {
+      flashSaving(email);
       // If role changes to/from 'admin', keep is_admin in sync.
       const update: Record<string, unknown> = { ...patch };
       if (patch.role !== undefined) update.is_admin = patch.role === 'admin';
@@ -124,9 +125,11 @@ export default function UsersPage() {
         .update(update)
         .eq('email', email);
       if (e) throw e;
+      flashSaved(email);
       void refresh();
     } catch (e) {
       setError((e as Error).message);
+      setSavedFlash((s) => { const n = { ...s }; delete n[email]; return n; });
     }
   };
 
@@ -212,14 +215,16 @@ export default function UsersPage() {
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Manager email</label>
-                <input
-                  type="email"
+                <select
                   value={draftManager}
                   onChange={(e) => setDraftManager(e.target.value)}
-                  list="manager-options"
-                  placeholder="manager@…"
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                />
+                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white"
+                >
+                  <option value="">— No manager —</option>
+                  {rows.filter((r) => r.role === 'admin' || r.role === 'manager').map((r) => (
+                    <option key={r.email} value={r.email}>{r.full_name ? `${r.full_name} (${r.email})` : r.email}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Employee code (Zoho)</label>
@@ -254,10 +259,6 @@ export default function UsersPage() {
             <p className="mt-2 text-[10px] text-slate-400">
               Employees signed in with role=employee see only /my-time. Managers can approve their direct reports on /my-team-time. Set the manager email here so that report→manager relationship is wired up.
             </p>
-            {/* datalist of known emails for the Manager picker */}
-            <datalist id="manager-options">
-              {rows.map((r) => <option key={r.email} value={r.email} />)}
-            </datalist>
           </div>
         )}
 
@@ -308,18 +309,32 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="py-2.5 pr-3">
-                    <input
-                      type="email"
-                      list="manager-options"
-                      value={r.manager_email ?? ''}
-                      placeholder="—"
-                      onChange={(e) => {
-                        // optimistic local update so the dropdown reflects immediately
-                        setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, manager_email: e.target.value } : x));
-                      }}
-                      onBlur={(e) => patchRow(r.email, { manager_email: e.target.value.trim() })}
-                      className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={r.manager_email ?? ''}
+                        onChange={(e) => {
+                          // optimistic local update + save immediately
+                          const value = e.target.value;
+                          setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, manager_email: value || null } : x));
+                          patchRow(r.email, { manager_email: value });
+                        }}
+                        className="text-xs border border-slate-200 rounded px-2 py-1 bg-white max-w-[200px]"
+                        title="Pick this user's manager — changes save immediately"
+                      >
+                        <option value="">— No manager —</option>
+                        {rows
+                          .filter((x) => x.email !== r.email && (x.role === 'admin' || x.role === 'manager'))
+                          .map((x) => (
+                            <option key={x.email} value={x.email}>{x.full_name ? `${x.full_name} (${x.email})` : x.email}</option>
+                          ))}
+                      </select>
+                      {savedFlash[r.email] === 'saving' && (
+                        <span className="text-[10px] text-slate-400">Saving…</span>
+                      )}
+                      {savedFlash[r.email] === 'saved' && (
+                        <span className="text-[10px] text-emerald-600 font-semibold">✓ Saved</span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2.5 pr-3">
                     <input
@@ -330,7 +345,11 @@ export default function UsersPage() {
                         setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, employee_code: e.target.value } : x));
                       }}
                       onBlur={(e) => patchRow(r.email, { employee_code: e.target.value.trim() })}
-                      className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-24"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                      title="Press Enter or click away to save"
+                      className="text-xs bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-24"
                     />
                   </td>
                   <td className="py-2.5 pr-3 text-xs text-slate-500">{r.notes || '—'}</td>

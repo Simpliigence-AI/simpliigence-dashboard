@@ -44,6 +44,8 @@ const TABLES = [
   'actual_hours',
   'ta_daily_log',
   'team_members',
+  'time_entries',
+  'time_entry_periods',
 ] as const;
 
 export interface BackupPayload {

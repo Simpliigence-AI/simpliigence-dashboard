@@ -9,6 +9,7 @@ import { useOpenBenchStore } from './store/useOpenBenchStore';
 import { useIndiaRosterStore } from './store/useIndiaRosterStore';
 import { useUSRosterStore } from './store/useUSRosterStore';
 import { useTaLogStore } from './store/useTaLogStore';
+import { useTimeEntryStore } from './store/useTimeEntryStore';
 import { ZOHO_SEED_PROJECTS } from './data/zohoSeed';
 import {
   fetchAssignments,
@@ -25,6 +26,7 @@ import {
   fetchActualHours,
   fetchTaDailyLog,
   fetchTeamMembers,
+  fetchTimeEntries,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -72,6 +74,7 @@ function useSupabaseInit() {
           actualHoursRes,
           taLogRes,
           teamMembersRes,
+          timeEntriesRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -87,6 +90,7 @@ function useSupabaseInit() {
           withTimeout(fetchActualHours()),
           withTimeout(fetchTaDailyLog()),
           withTimeout(fetchTeamMembers()),
+          withTimeout(fetchTimeEntries()),
         ]);
 
         // --- Forecast assignments ---
@@ -303,6 +307,17 @@ function useSupabaseInit() {
           }
         }
 
+        // --- Time entries ---
+        if (!timeEntriesRes.timedOut) {
+          const te = timeEntriesRes.value;
+          if (te) {
+            useTimeEntryStore.setState({ entries: te });
+            console.log('[supabase] Loaded time entries:', te.length);
+          }
+        } else {
+          console.warn('[supabase] Time entries fetch timed out — using localStorage');
+        }
+
         // Set up realtime subscriptions
         cleanup = setupRealtimeSubscriptions({
           setForecastState: (assignments, weekDates) => {
@@ -349,6 +364,9 @@ function useSupabaseInit() {
           },
           setTeamMembers: (members) => {
             useTaLogStore.setState({ teamMembers: members });
+          },
+          setTimeEntries: (entries) => {
+            useTimeEntryStore.setState({ entries });
           },
           setUSRoster: (members) => {
             useUSRosterStore.setState({ members });

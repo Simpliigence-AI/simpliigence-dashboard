@@ -20,6 +20,7 @@ import type { IndiaRosterMember, IndiaRosterStatus } from '../types/indiaRoster'
 import type { USRosterMember, USRosterStatus } from '../types/usRoster';
 import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
+import type { TimeEntry } from '../types/timeEntry';
 
 // ─── Conversion helpers ────────────────────────────────────────────
 
@@ -288,6 +289,51 @@ function rowToDailyStatus(row: any): DailyStatus {
   };
 }
 
+// ─── Time entries converters ───────────────────────────────────────
+
+function timeEntryToRow(e: TimeEntry) {
+  return {
+    id: e.id,
+    employee_email: e.employeeEmail.toLowerCase(),
+    work_date: e.workDate,
+    project_id: e.projectId,
+    project_name: e.projectName,
+    hours: e.hours,
+    billable: e.billable,
+    notes: e.notes ?? '',
+    source: e.source,
+    status: e.status,
+    submitted_at: e.submittedAt,
+    approved_by: e.approvedBy,
+    approved_at: e.approvedAt,
+    reject_reason: e.rejectReason,
+    updated_by: CLIENT_ID,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTimeEntry(row: any): TimeEntry {
+  return {
+    id: row.id,
+    employeeEmail: row.employee_email,
+    workDate: row.work_date,
+    projectId: row.project_id ?? null,
+    projectName: row.project_name,
+    hours: Number(row.hours ?? 0),
+    billable: !!row.billable,
+    notes: row.notes ?? '',
+    source: (row.source ?? 'simpliigence') as TimeEntry['source'],
+    status: (row.status ?? 'approved') as TimeEntry['status'],
+    submittedAt: row.submitted_at ?? null,
+    approvedBy: row.approved_by ?? null,
+    approvedAt: row.approved_at ?? null,
+    rejectReason: row.reject_reason ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 // ─── TA daily log + team_members converters ────────────────────────
 
 function taLogToRow(e: TADailyLogEntry) {
@@ -430,6 +476,19 @@ export async function fetchPipelineProjects(): Promise<ZohoPipelineProject[] | n
   const { data, error } = await supabase.from('pipeline_projects').select('*');
   if (error) return null;
   return (data || []).map(pipelineRowToProject);
+}
+
+export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
+  // RLS already restricts to (own + reports + admin/manager) so a plain select is fine.
+  const { data, error } = await supabase
+    .from('time_entries')
+    .select('*')
+    .order('work_date', { ascending: false });
+  if (error) {
+    console.warn('[supabase] fetch time_entries failed:', error);
+    return null;
+  }
+  return (data || []).map(rowToTimeEntry);
 }
 
 export async function fetchTaDailyLog(): Promise<TADailyLogEntry[] | null> {
@@ -1009,6 +1068,16 @@ export const db = {
     if (members.length) await supabase.from('us_roster').insert(members.map(usRosterToRow));
   },
 
+  // --- Time entries ---
+  async upsertTimeEntry(e: TimeEntry) {
+    const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert time_entry failed:', error);
+  },
+  async deleteTimeEntry(id: string) {
+    const { error } = await supabase.from('time_entries').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete time_entry failed:', error);
+  },
+
   // --- Candidate resumes (Supabase Storage + parse-resume edge function) ---
   /** Upload a resume file to storage and return the object path stored on the candidate row. */
   async uploadCandidateResume(candidateId: string, file: File): Promise<{ path: string; filename: string } | { error: string }> {
@@ -1111,6 +1180,8 @@ export const db = {
       supabase.from('us_roster').delete().neq('id', ''),
       supabase.from('ta_daily_log').delete().neq('id', ''),
       supabase.from('team_members').delete().neq('id', ''),
+      supabase.from('time_entries').delete().neq('id', ''),
+      supabase.from('time_entry_periods').delete().neq('id', ''),
     ]);
   },
 };
@@ -1130,6 +1201,7 @@ type StoreSetters = {
   setUSRoster: (members: USRosterMember[]) => void;
   setTaDailyLog?: (entries: TADailyLogEntry[]) => void;
   setTeamMembers?: (members: TeamMember[]) => void;
+  setTimeEntries?: (entries: TimeEntry[]) => void;
   getForecastAssignments: () => ForecastAssignment[];
   getStaffingRequests: () => StaffingRequest[];
   getPipelineProjects: () => ZohoPipelineProject[];
@@ -1350,6 +1422,21 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       if (row?.updated_by === CLIENT_ID) return;
       fetchUSRoster().then((members) => {
         if (members) setters.setUSRoster(members);
+      });
+    },
+  );
+
+  // --- Time entries (refetch on any change) ---
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'time_entries' },
+    (payload) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row = (payload.new || payload.old) as any;
+      if (row?.updated_by === CLIENT_ID) return;
+      if (!setters.setTimeEntries) return;
+      fetchTimeEntries().then((entries) => {
+        if (entries) setters.setTimeEntries!(entries);
       });
     },
   );

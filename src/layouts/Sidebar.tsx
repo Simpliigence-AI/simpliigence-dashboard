@@ -17,6 +17,7 @@ import {
   UserCheck,
   TrendingUp,
   Clock,
+  Timer,
   CalendarCheck,
   Contact,
   UserCog,
@@ -86,6 +87,19 @@ const adminSection: NavSection = {
   ],
 };
 
+/** Nav shown to role='employee' users — they only see "My Time". */
+const employeeOnlySections: NavSection[] = [
+  {
+    label: 'My Work',
+    items: [
+      { to: '/my-time', icon: Timer, label: 'My Time' },
+    ],
+  },
+];
+
+/** "My Time" link surfaced to admins/managers too, under the Projects group. */
+const myTimeItem: NavItem = { to: '/my-time', icon: Timer, label: 'My Time' };
+
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -93,8 +107,24 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [email, setEmail] = useState<string | null>(null);
-  const isAdmin = useAuthStore((s) => s.currentUser?.isAdmin === true);
-  const visibleSections = isAdmin ? [...sections, adminSection] : sections;
+  const role = useAuthStore((s) => s.currentUser?.role);
+  const isAdmin = role === 'admin';
+  const isEmployee = role === 'employee';
+
+  // Build role-appropriate nav:
+  //   - employee: only "My Work · My Time"
+  //   - admin: full nav + Admin section, with "My Time" injected under Projects
+  //   - manager / unknown role: same as admin minus the Admin section
+  const visibleSections = isEmployee
+    ? employeeOnlySections
+    : (() => {
+        const base = sections.map((s) =>
+          s.label === 'Projects'
+            ? { ...s, items: [myTimeItem, ...s.items] }
+            : s,
+        );
+        return isAdmin ? [...base, adminSection] : base;
+      })();
 
   useEffect(() => {
     let mounted = true;

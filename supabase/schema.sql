@@ -279,6 +279,144 @@ ALTER TABLE india_staffing_candidates
 -- skills + profile_summary columns are populated automatically.
 
 -- ============================================================
+-- 14. authorized_users role / identity extensions (for the time-entry module)
+-- ============================================================
+ALTER TABLE authorized_users
+  ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'admin'
+    CHECK (role IN ('admin', 'manager', 'employee')),
+  ADD COLUMN IF NOT EXISTS employee_code TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS manager_email TEXT,
+  ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+
+-- Helper functions used by RLS and the client
+CREATE OR REPLACE FUNCTION current_user_email() RETURNS TEXT
+  LANGUAGE SQL SECURITY DEFINER STABLE AS $$
+    SELECT LOWER(u.email) FROM auth.users u WHERE u.id = auth.uid();
+  $$;
+
+CREATE OR REPLACE FUNCTION current_user_role() RETURNS TEXT
+  LANGUAGE SQL SECURITY DEFINER STABLE AS $$
+    SELECT role FROM authorized_users WHERE LOWER(email) = current_user_email();
+  $$;
+
+CREATE OR REPLACE FUNCTION reports_to(target_email TEXT) RETURNS BOOLEAN
+  LANGUAGE SQL SECURITY DEFINER STABLE AS $$
+    SELECT EXISTS (
+      SELECT 1 FROM authorized_users
+      WHERE LOWER(email) = LOWER(target_email)
+        AND LOWER(manager_email) = current_user_email()
+    );
+  $$;
+
+-- ============================================================
+-- 15. time_entries — one row per (employee × day × project × billable-flag)
+-- ============================================================
+CREATE TABLE time_entries (
+  id             TEXT PRIMARY KEY,
+  employee_email TEXT NOT NULL,
+  work_date      DATE NOT NULL,
+  project_id     TEXT,
+  project_name   TEXT NOT NULL,
+  hours          NUMERIC(4,2) NOT NULL CHECK (hours > 0 AND hours <= 24),
+  billable       BOOLEAN NOT NULL DEFAULT true,
+  notes          TEXT DEFAULT '',
+  source         TEXT NOT NULL DEFAULT 'simpliigence'
+                 CHECK (source IN ('simpliigence', 'zoho_people')),
+  status         TEXT NOT NULL DEFAULT 'approved'
+                 CHECK (status IN ('draft', 'submitted', 'approved', 'rejected')),
+  submitted_at   TIMESTAMPTZ,
+  approved_by    TEXT,
+  approved_at    TIMESTAMPTZ,
+  reject_reason  TEXT,
+  updated_by     TEXT,
+  created_at     TIMESTAMPTZ DEFAULT now(),
+  updated_at     TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_te_emp_date    ON time_entries(employee_email, work_date DESC);
+CREATE INDEX idx_te_project     ON time_entries(project_id);
+CREATE INDEX idx_te_status_date ON time_entries(status, work_date DESC);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE time_entries;
+ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
+
+-- Strict RLS from day one (employees see their own; managers see reports; admins see all)
+CREATE POLICY "Read: own, team, or admin" ON time_entries
+  FOR SELECT TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
+CREATE POLICY "Insert: own" ON time_entries
+  FOR INSERT TO authenticated
+  WITH CHECK (LOWER(employee_email) = current_user_email());
+
+CREATE POLICY "Update: own (draft/rejected/approved) or admin" ON time_entries
+  FOR UPDATE TO authenticated
+  USING (
+    (LOWER(employee_email) = current_user_email() AND status IN ('draft','rejected','approved'))
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
+CREATE POLICY "Delete: own (draft/rejected) or admin" ON time_entries
+  FOR DELETE TO authenticated
+  USING (
+    (LOWER(employee_email) = current_user_email() AND status IN ('draft','rejected'))
+    OR current_user_role() = 'admin'
+  );
+
+-- Period lock (admin-only writes)
+CREATE TABLE time_entry_periods (
+  id           TEXT PRIMARY KEY,
+  period_start DATE NOT NULL,
+  period_end   DATE NOT NULL,
+  locked       BOOLEAN DEFAULT false,
+  locked_by    TEXT,
+  locked_at    TIMESTAMPTZ,
+  UNIQUE(period_start, period_end)
+);
+ALTER PUBLICATION supabase_realtime ADD TABLE time_entry_periods;
+ALTER TABLE time_entry_periods ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Periods: read all, admin writes" ON time_entry_periods
+  FOR ALL TO authenticated
+  USING (true)
+  WITH CHECK (current_user_role() = 'admin');
+
+CREATE TRIGGER audit_time_entries
+  AFTER INSERT OR UPDATE OR DELETE ON time_entries
+  FOR EACH ROW EXECUTE FUNCTION record_audit();
+
+CREATE TRIGGER audit_time_entry_periods
+  AFTER INSERT OR UPDATE OR DELETE ON time_entry_periods
+  FOR EACH ROW EXECUTE FUNCTION record_audit();
+
+-- Unified view: Zoho-sourced actuals + Simpliigence-entered approved time
+-- Used by the future "ops cockpit" (forecast vs actual unified).
+CREATE OR REPLACE VIEW unified_actual_hours AS
+SELECT
+  id, employee_id, employee_name, email AS employee_email, project,
+  work_date, hours, billing, notes,
+  'zoho_people' AS source, synced_at AS recorded_at
+FROM actual_hours
+UNION ALL
+SELECT
+  te.id,
+  COALESCE(au.employee_code, te.employee_email)  AS employee_id,
+  COALESCE(au.full_name, te.employee_email)      AS employee_name,
+  te.employee_email,
+  te.project_name                                AS project,
+  te.work_date, te.hours,
+  CASE WHEN te.billable THEN 'Billable' ELSE 'Non-Billable' END AS billing,
+  te.notes,
+  'simpliigence' AS source,
+  te.created_at AS recorded_at
+FROM time_entries te
+LEFT JOIN authorized_users au ON LOWER(au.email) = LOWER(te.employee_email)
+WHERE te.status IN ('approved','submitted');
+
+-- ============================================================
 -- 13. ta_daily_log — one row per (TA × day × requisition)
 -- ============================================================
 CREATE TABLE ta_daily_log (

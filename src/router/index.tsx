@@ -18,10 +18,12 @@ import IndiaHiringForecastPage from '../pages/IndiaHiringForecastPage';
 import USRosterPage from '../pages/USRosterPage';
 import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
+import MyTimePage from '../pages/MyTimePage';
 import UsersPage from '../pages/admin/UsersPage';
 import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
 import { AdminOnly } from '../components/AdminOnly';
+import { EmployeeRedirect } from '../components/EmployeeRedirect';
 
 export const router = createBrowserRouter(
   [
@@ -29,8 +31,11 @@ export const router = createBrowserRouter(
       path: '/',
       element: <AppLayout />,
       children: [
-        // Home
-        { index: true, element: <DashboardPage /> },
+        // Home — employees redirect to /my-time, everyone else sees the dashboard
+        { index: true, element: <EmployeeRedirect><DashboardPage /></EmployeeRedirect> },
+
+        // My Time — visible to everyone
+        { path: 'my-time', element: <MyTimePage /> },
 
         // Projects section
         { path: 'team', element: <TeamRosterPage /> },              // "Project Team"

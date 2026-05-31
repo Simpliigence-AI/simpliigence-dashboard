@@ -1,16 +1,24 @@
 /**
  * Tracks the signed-in user's profile from `authorized_users` (joined with
- * auth.users). Used to gate the Admin section in the sidebar and to redirect
- * non-admins from /admin/* routes.
+ * auth.users). Used to gate the Admin section in the sidebar, redirect
+ * non-admins from /admin/* routes, and gate the employee-only "My Time"
+ * surface from non-employees (well, in v1 all current users are admins so
+ * they see everything; new role='employee' users see only /my-time).
  */
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+
+export type UserRole = 'admin' | 'manager' | 'employee';
 
 export interface CurrentUser {
   id: string;
   email: string;
   fullName: string | null;
   isAdmin: boolean;
+  role: UserRole;
+  /** Optional code that maps to Zoho EmployeeID. NULL → Simpliigence is the SoR for this person's time. */
+  employeeCode: string | null;
+  managerEmail: string | null;
 }
 
 interface AuthState {
@@ -35,15 +43,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
       const { data: row } = await supabase
         .from('authorized_users')
-        .select('email, full_name, is_admin')
+        .select('email, full_name, is_admin, role, employee_code, manager_email')
         .eq('email', user.email)
         .maybeSingle();
+      const isAdmin = !!row?.is_admin;
+      // Derive role: prefer the role column; fall back to is_admin for back-compat.
+      const role: UserRole = (row?.role as UserRole | undefined) ?? (isAdmin ? 'admin' : 'employee');
       set({
         currentUser: {
           id: user.id,
           email: user.email,
           fullName: row?.full_name ?? null,
-          isAdmin: !!row?.is_admin,
+          isAdmin,
+          role,
+          employeeCode: row?.employee_code ?? null,
+          managerEmail: row?.manager_email ?? null,
         },
         loading: false,
       });

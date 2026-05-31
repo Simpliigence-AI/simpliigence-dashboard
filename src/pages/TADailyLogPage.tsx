@@ -1,5 +1,5 @@
 /**
- * TA Daily Log — "My Day" page.
+ * TA Daily Log — "My Day" page (+ manager view for admins).
  *
  * Each signed-in user sees their own day:
  *   - top-right date picker (defaults to today)
@@ -9,18 +9,23 @@
  *     · plus any req the TA already logged on (stickiness)
  *     · plus an "+ Add requisition" picker for ad-hoc reqs
  *
+ * Admins (`authorized_users.is_admin = TRUE`) additionally see:
+ *   - "Team this week" table at top — every TA × counter totals + last activity
+ *   - "View as" dropdown that swaps into any TA's day read-only (Save / Delete
+ *     disabled, banner explains "Viewing X's day")
+ *
  * One row = (taEmail × logDate × requisitionId). Counters + free-form notes.
  * Persists via useTaLogStore.upsertEntry → Supabase + realtime broadcast.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Save, Trash2, Eye } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useTaLogStore } from '../store/useTaLogStore';
 import { TA_LOG_COUNTERS } from '../types/taLog';
-import type { TALogCounterKey } from '../types/taLog';
+import type { TADailyLogEntry, TALogCounterKey } from '../types/taLog';
 import type { StaffingRequisition } from '../types/staffing';
 
 /** YYYY-MM-DD for a given Date (local time). */
@@ -48,7 +53,8 @@ function addDays(d: Date, n: number): Date {
 
 export default function TADailyLogPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const taEmail = (currentUser?.email || '').toLowerCase();
+  const myEmail = (currentUser?.email || '').toLowerCase();
+  const isAdmin = currentUser?.isAdmin === true;
 
   const { accounts, requisitions, candidates } = useStaffingStore();
   const { entries, upsertEntry, deleteEntry } = useTaLogStore();
@@ -56,10 +62,26 @@ export default function TADailyLogPage() {
   const [selectedDate, setSelectedDate] = useState(toIsoDate(new Date()));
   const [openReqs, setOpenReqs] = useState<Set<string>>(new Set());
   const [showAddReq, setShowAddReq] = useState(false);
+  /** Admin-only: when set, render this TA's day instead of self (read-only). */
+  const [viewAsEmail, setViewAsEmail] = useState<string>('');
+
+  // Effective TA whose day is being shown
+  const taEmail = (viewAsEmail || myEmail).toLowerCase();
+  const isViewingSelf = taEmail === myEmail;
+  const readOnly = !isViewingSelf;
+
+  // All distinct TA emails known to the system (for the View-As dropdown)
+  const allTaEmails = useMemo(() => {
+    const s = new Set<string>();
+    if (myEmail) s.add(myEmail);
+    candidates.forEach((c) => { if (c.owning_ta_email) s.add(c.owning_ta_email.toLowerCase()); });
+    entries.forEach((e) => { if (e.taEmail) s.add(e.taEmail.toLowerCase()); });
+    return Array.from(s).sort();
+  }, [candidates, entries, myEmail]);
 
   // Derive the set of requisitions to show:
-  //   1. reqs where any candidate has owning_ta_email = me
-  //   2. reqs I have a log entry against (any date)
+  //   1. reqs where any candidate has owning_ta_email = taEmail
+  //   2. reqs taEmail has a log entry against (any date)
   const myReqIds = useMemo(() => {
     const ids = new Set<string>();
     candidates.forEach((c) => { if ((c.owning_ta_email || '').toLowerCase() === taEmail) ids.add(c.requisition_id); });
@@ -136,20 +158,64 @@ export default function TADailyLogPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title="My Day — TA Daily Log"
-        subtitle={`${currentUser.email} · ${niceDate}`}
+        title={isViewingSelf ? 'My Day — TA Daily Log' : `${taEmail}'s Day — TA Daily Log`}
+        subtitle={`${isViewingSelf ? currentUser.email : taEmail + ' (read-only)'} · ${niceDate}`}
         action={
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+          <div className="flex items-center gap-3 flex-wrap">
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <Eye size={14} className="text-slate-400" />
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">View as</label>
+                <select
+                  value={viewAsEmail}
+                  onChange={(e) => setViewAsEmail(e.target.value)}
+                  className="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white max-w-[220px]"
+                  title="Admin: inspect any TA's day (read-only)"
+                >
+                  <option value="">Myself ({myEmail})</option>
+                  {allTaEmails.filter((e) => e !== myEmail).map((e) => (
+                    <option key={e} value={e}>{e}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
           </div>
         }
       />
+
+      {/* Read-only banner when viewing another TA */}
+      {readOnly && (
+        <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between">
+          <span>
+            <strong>Read-only.</strong> You're viewing <span className="font-mono">{taEmail}</span>'s day as an admin. Switch back to "Myself" in the View as dropdown to log your own activity.
+          </span>
+          <button
+            type="button"
+            onClick={() => setViewAsEmail('')}
+            className="text-amber-900 hover:text-amber-700 underline underline-offset-2"
+          >
+            Return to mine
+          </button>
+        </div>
+      )}
+
+      {/* Team overview (admins only, when viewing own day) */}
+      {isAdmin && isViewingSelf && (
+        <TeamOverview
+          entries={entries}
+          allTaEmails={allTaEmails}
+          onViewAs={(email) => setViewAsEmail(email)}
+        />
+      )}
 
       {/* Weekly KPI cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -175,7 +241,7 @@ export default function TADailyLogPage() {
       </div>
 
       {/* Requisition accordion list */}
-      <Card title={`Requisitions for ${niceDate}`} action={
+      <Card title={`Requisitions for ${niceDate}`} action={readOnly ? null : (
         <button
           type="button"
           onClick={() => setShowAddReq(true)}
@@ -185,7 +251,7 @@ export default function TADailyLogPage() {
         >
           <Plus size={14} /> Add requisition
         </button>
-      }>
+      )}>
         {myReqs.length === 0 ? (
           <div className="text-sm text-slate-500 py-8 text-center">
             No requisitions are assigned to you yet. Open the Candidates page and set yourself as the owning TA on a candidate, or click <strong>+ Add requisition</strong> above.
@@ -214,6 +280,7 @@ export default function TADailyLogPage() {
                   }}
                   initialNotes={entry?.notes ?? ''}
                   entryId={entry?.id ?? null}
+                  readOnly={readOnly}
                   onSave={async (counters, notes) => {
                     await upsertEntry({
                       taEmail,
@@ -223,7 +290,7 @@ export default function TADailyLogPage() {
                       notes,
                     });
                   }}
-                  onDelete={entry ? () => deleteEntry(entry.id) : undefined}
+                  onDelete={entry && !readOnly ? () => deleteEntry(entry.id) : undefined}
                 />
               );
             })}
@@ -264,11 +331,12 @@ interface RowProps {
   initialCounters: Record<TALogCounterKey, number>;
   initialNotes: string;
   entryId: string | null;
+  readOnly?: boolean;
   onSave: (counters: Record<TALogCounterKey, number>, notes: string) => Promise<void>;
   onDelete?: () => void | Promise<void>;
 }
 
-function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, initialNotes, entryId, onSave, onDelete }: RowProps) {
+function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, initialNotes, entryId, readOnly = false, onSave, onDelete }: RowProps) {
   const [counters, setCounters] = useState(initialCounters);
   const [notes, setNotes] = useState(initialNotes);
   const [saving, setSaving] = useState(false);
@@ -332,8 +400,9 @@ function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, i
                 type="number"
                 min={0}
                 value={counters[c.key]}
+                disabled={readOnly}
                 onChange={(e) => setCounters({ ...counters, [c.key]: Math.max(0, Number(e.target.value) || 0) })}
-                className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
           ))}
@@ -344,36 +413,128 @@ function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, i
             <textarea
               rows={2}
               value={notes}
+              disabled={readOnly}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="What did you do today on this req?"
-              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
+              placeholder={readOnly ? '' : 'What did you do today on this req?'}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
-          <div className="lg:col-span-4 flex items-center justify-end gap-2">
-            {savedAt && !dirty && (
-              <span className="text-[11px] text-emerald-600">Saved {savedAt}</span>
-            )}
-            {onDelete && (
+          {!readOnly && (
+            <div className="lg:col-span-4 flex items-center justify-end gap-2">
+              {savedAt && !dirty && (
+                <span className="text-[11px] text-emerald-600">Saved {savedAt}</span>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-1"
+                >
+                  <Trash2 size={12} /> Delete entry
+                </button>
+              )}
               <button
                 type="button"
-                onClick={onDelete}
-                className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-1"
+                onClick={handleSave}
+                disabled={!dirty || saving}
+                className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
               >
-                <Trash2 size={12} /> Delete entry
+                <Save size={12} /> {saving ? 'Saving…' : 'Save'}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!dirty || saving}
-              className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
-            >
-              <Save size={12} /> {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Team overview (admins only) ──
+ *  Shows each TA's this-week vs last-week counter totals + last activity date.
+ *  Each row has a "View day" button that swaps the page into read-only view-as.
+ */
+function TeamOverview({ entries, allTaEmails, onViewAs }: {
+  entries: TADailyLogEntry[];
+  allTaEmails: string[];
+  onViewAs: (email: string) => void;
+}) {
+  const summary = useMemo(() => {
+    // Compute Monday-anchored week ranges
+    const today = startOfWeek(toIsoDate(new Date()));
+    const thisWeekEnd = addDays(today, 6);
+    const lastWeek = addDays(today, -7);
+    const lastWeekEnd = addDays(today, -1);
+
+    return allTaEmails.map((email) => {
+      let thisWeek = 0, lastWeekTotal = 0;
+      let lastActivity: string | null = null;
+      for (const e of entries) {
+        if (e.taEmail.toLowerCase() !== email) continue;
+        const total = e.sourcedOutreach + e.screensCompleted + e.submissionsInterviews;
+        const t = new Date(e.logDate);
+        if (t >= today && t <= thisWeekEnd) thisWeek += total;
+        else if (t >= lastWeek && t <= lastWeekEnd) lastWeekTotal += total;
+        if (total > 0 && (!lastActivity || e.logDate > lastActivity)) lastActivity = e.logDate;
+      }
+      return { email, thisWeek, lastWeek: lastWeekTotal, lastActivity };
+    }).sort((a, b) => b.thisWeek - a.thisWeek);
+  }, [entries, allTaEmails]);
+
+  // Hide overview if there's only one TA in the system (just the admin themselves)
+  if (summary.length <= 1) return null;
+
+  return (
+    <Card title="Team this week" className="mb-6">
+      <div className="overflow-x-auto -mx-6 px-6">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+              <th className="py-2 pr-3 font-semibold">TA</th>
+              <th className="py-2 pr-3 font-semibold text-right">This week</th>
+              <th className="py-2 pr-3 font-semibold text-right">Last week</th>
+              <th className="py-2 pr-3 font-semibold">Trend</th>
+              <th className="py-2 pr-3 font-semibold">Last activity</th>
+              <th className="py-2 pr-3 font-semibold w-24"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {summary.map((s) => {
+              const diff = s.thisWeek - s.lastWeek;
+              const trendColor = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-slate-400';
+              const trendArrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+              const stale = !s.lastActivity || (() => {
+                const d = new Date(s.lastActivity!);
+                const ageDays = (Date.now() - d.getTime()) / 86400000;
+                return ageDays > 2;
+              })();
+              return (
+                <tr key={s.email} className="hover:bg-slate-50/60">
+                  <td className="py-2 pr-3 text-xs font-medium text-slate-900">{s.email}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums font-semibold">{s.thisWeek}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-slate-500">{s.lastWeek}</td>
+                  <td className={`py-2 pr-3 text-xs font-semibold ${trendColor}`}>
+                    {trendArrow} {diff >= 0 ? '+' : ''}{diff}
+                  </td>
+                  <td className={`py-2 pr-3 text-xs ${stale ? 'text-amber-700 font-medium' : 'text-slate-500'}`}>
+                    {s.lastActivity ?? '—'}
+                    {stale && s.lastActivity && <span className="ml-1 text-[10px]">(stale)</span>}
+                  </td>
+                  <td className="py-2 pr-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => onViewAs(s.email)}
+                      className="text-[11px] text-primary hover:text-primary/80 inline-flex items-center gap-1"
+                    >
+                      <Eye size={11} /> View day
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 

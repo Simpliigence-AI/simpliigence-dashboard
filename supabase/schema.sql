@@ -264,6 +264,20 @@ CREATE POLICY "Allow all" ON team_members FOR ALL USING (true) WITH CHECK (true)
 ALTER TABLE india_staffing_candidates ADD COLUMN IF NOT EXISTS owning_ta_email TEXT;
 CREATE INDEX IF NOT EXISTS idx_isc_owner ON india_staffing_candidates(owning_ta_email);
 
+-- LinkedIn URL + resume attachment + auto-parsed skills/summary
+ALTER TABLE india_staffing_candidates
+  ADD COLUMN IF NOT EXISTS linkedin_url       TEXT,
+  ADD COLUMN IF NOT EXISTS resume_url         TEXT,  -- storage object path within candidate-resumes bucket
+  ADD COLUMN IF NOT EXISTS resume_filename    TEXT,
+  ADD COLUMN IF NOT EXISTS resume_uploaded_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS skills             TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS profile_summary    TEXT,
+  ADD COLUMN IF NOT EXISTS parsed_at          TIMESTAMPTZ;
+
+-- Storage bucket 'candidate-resumes' is created via migration (not declarable here in plain DDL).
+-- Resumes are parsed by the parse-resume edge function (Claude multimodal) and the
+-- skills + profile_summary columns are populated automatically.
+
 -- ============================================================
 -- 13. ta_daily_log — one row per (TA × day × requisition)
 -- ============================================================

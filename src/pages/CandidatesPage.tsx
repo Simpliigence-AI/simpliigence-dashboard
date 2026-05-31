@@ -1,23 +1,22 @@
 /**
  * Candidates — bulk CRUD for india_staffing_candidates.
  *
- * One row per candidate. Editable inline:
- *   - name, email, phone
- *   - requisition (FK), source, stage
- *   - owning TA (the email that drives My Day auto-population)
- *
- * Filters: text search, requisition, owning TA, stage.
- * Add: top "+ Add candidate" button → inline new row.
+ * Each row now supports:
+ *   - LinkedIn URL
+ *   - Resume/CV upload to Supabase Storage (bucket: candidate-resumes)
+ *   - Auto-parse the resume via the parse-resume edge function — extracts
+ *     skills and a profile summary using Claude.
  *
  * Persists via useStaffingStore.{addCandidate, updateCandidate, removeCandidate},
  * which already write to Supabase via db.upsertIndiaCandidate / deleteIndiaCandidate.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Save, X } from 'lucide-react';
+import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
+import { db } from '../lib/supabaseSync';
 import {
   CANDIDATE_STAGES,
   CANDIDATE_STAGE_COLORS,
@@ -35,6 +34,7 @@ interface DraftCandidate {
   source: string;
   stage: CandidateStage;
   owning_ta_email: string;
+  linkedin_url: string;
 }
 
 const emptyDraft: DraftCandidate = {
@@ -45,6 +45,7 @@ const emptyDraft: DraftCandidate = {
   source: 'LinkedIn',
   stage: 'Submitted',
   owning_ta_email: '',
+  linkedin_url: '',
 };
 
 export default function CandidatesPage() {
@@ -57,6 +58,7 @@ export default function CandidatesPage() {
   const [filterStage, setFilterStage] = useState('');
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<DraftCandidate>(emptyDraft);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const owners = useMemo(() => {
     const s = new Set<string>();
@@ -81,7 +83,7 @@ export default function CandidatesPage() {
       if (filterOwner && (c.owning_ta_email || '') !== filterOwner) return false;
       if (filterStage && c.stage !== filterStage) return false;
       if (needle) {
-        const hay = `${c.name} ${c.email} ${c.phone} ${c.source} ${reqLabel(c.requisition_id)}`.toLowerCase();
+        const hay = `${c.name} ${c.email} ${c.phone} ${c.source} ${reqLabel(c.requisition_id)} ${(c.skills || []).join(' ')} ${c.profile_summary || ''}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
@@ -101,6 +103,7 @@ export default function CandidatesPage() {
       email: draft.email.trim(),
       phone: draft.phone.trim(),
       owning_ta_email: draft.owning_ta_email.trim().toLowerCase() || undefined,
+      linkedin_url: draft.linkedin_url.trim() || undefined,
     });
     setAdding(false);
     setDraft({ ...emptyDraft, owning_ta_email: (currentUser?.email || '').toLowerCase() });
@@ -129,7 +132,7 @@ export default function CandidatesPage() {
       <Card className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <input
-            placeholder="Search name / email / req…"
+            placeholder="Search name / email / req / skill…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -183,6 +186,9 @@ export default function CandidatesPage() {
             <input placeholder="Owning TA email" value={draft.owning_ta_email}
                    onChange={(e) => setDraft({ ...draft, owning_ta_email: e.target.value })}
                    className="border border-slate-300 rounded-md px-3 py-2 text-sm" />
+            <input placeholder="LinkedIn URL (https://linkedin.com/in/…)" value={draft.linkedin_url}
+                   onChange={(e) => setDraft({ ...draft, linkedin_url: e.target.value })}
+                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-6" />
             <div className="md:col-span-6 flex items-center justify-end gap-2">
               <button type="button" onClick={() => setAdding(false)}
                       className="text-xs font-semibold text-slate-500 hover:text-slate-700 flex items-center gap-1">
@@ -195,6 +201,9 @@ export default function CandidatesPage() {
               </button>
             </div>
           </div>
+          <p className="text-[11px] text-slate-500 mt-2">
+            Tip: after adding, click <strong>▸</strong> on the row to upload the resume — it'll auto-extract skills + summary.
+          </p>
         </Card>
       )}
 
@@ -209,12 +218,14 @@ export default function CandidatesPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                  <th className="py-2 pr-3 font-semibold w-6"></th>
                   <th className="py-2 pr-3 font-semibold">Name</th>
                   <th className="py-2 pr-3 font-semibold">Requisition</th>
                   <th className="py-2 pr-3 font-semibold">Stage</th>
                   <th className="py-2 pr-3 font-semibold">Source</th>
                   <th className="py-2 pr-3 font-semibold">Owning TA</th>
                   <th className="py-2 pr-3 font-semibold">Email / Phone</th>
+                  <th className="py-2 pr-3 font-semibold">Resume / LinkedIn</th>
                   <th className="py-2 pr-3 font-semibold w-12"></th>
                 </tr>
               </thead>
@@ -225,6 +236,12 @@ export default function CandidatesPage() {
                     c={c}
                     requisitions={requisitions}
                     accountName={accountName}
+                    expanded={expanded.has(c.id)}
+                    onToggleExpand={() => {
+                      const next = new Set(expanded);
+                      if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                      setExpanded(next);
+                    }}
                     onChange={(patch) => updateCandidate(c.id, patch)}
                     onRemove={() => removeCandidate(c.id)}
                   />
@@ -238,87 +255,284 @@ export default function CandidatesPage() {
   );
 }
 
-function CandidateRow({ c, requisitions, accountName, onChange, onRemove }: {
+function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, onChange, onRemove }: {
   c: StaffingCandidate;
   requisitions: { id: string; title: string; account_id: string }[];
   accountName: (rid: string) => string;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onChange: (patch: Partial<StaffingCandidate>) => void;
   onRemove: () => void;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleUpload = async (file: File | null) => {
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const res = await db.uploadCandidateResume(c.id, file);
+      if ('error' in res) { setError(res.error); return; }
+      onChange({
+        resume_url: res.path,
+        resume_filename: res.filename,
+        resume_uploaded_at: new Date().toISOString(),
+      });
+      // Auto-parse immediately
+      setParsing(true);
+      const parsed = await db.parseCandidateResume(c.id);
+      if (parsed.ok) {
+        onChange({ skills: parsed.skills, profile_summary: parsed.summary, parsed_at: parsed.parsedAt });
+      } else {
+        setError(parsed.error);
+      }
+    } finally {
+      setUploading(false);
+      setParsing(false);
+    }
+  };
+
+  const handleReparse = async () => {
+    setError(null);
+    setParsing(true);
+    try {
+      const parsed = await db.parseCandidateResume(c.id);
+      if (parsed.ok) {
+        onChange({ skills: parsed.skills, profile_summary: parsed.summary, parsed_at: parsed.parsedAt });
+      } else {
+        setError(parsed.error);
+      }
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const handleOpenResume = async () => {
+    if (!c.resume_url) return;
+    const url = await db.signedResumeUrl(c.resume_url, 300);
+    if (url) window.open(url, '_blank');
+  };
+
   return (
-    <tr className="hover:bg-slate-50/60">
-      <td className="py-2 pr-3">
-        <input
-          value={c.name}
-          onChange={(e) => onChange({ name: e.target.value })}
-          className="w-full text-sm font-medium text-slate-900 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </td>
-      <td className="py-2 pr-3">
-        <select
-          value={c.requisition_id}
-          onChange={(e) => onChange({ requisition_id: e.target.value })}
-          className="text-xs border border-slate-200 rounded px-2 py-1 bg-white max-w-[220px]"
-        >
-          {requisitions.map((r) => (
-            <option key={r.id} value={r.id}>{r.title} — {accountName(r.id)}</option>
-          ))}
-        </select>
-      </td>
-      <td className="py-2 pr-3">
-        <select
-          value={c.stage}
-          onChange={(e) => onChange({ stage: e.target.value as CandidateStage })}
-          style={{ borderLeft: `3px solid ${CANDIDATE_STAGE_COLORS[c.stage]}` }}
-          className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
-        >
-          {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </td>
-      <td className="py-2 pr-3">
-        <select
-          value={c.source}
-          onChange={(e) => onChange({ source: e.target.value })}
-          className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
-        >
-          {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          {c.source && !SOURCE_OPTIONS.includes(c.source) && (
-            <option value={c.source}>{c.source}</option>
+    <>
+      <tr className="hover:bg-slate-50/60">
+        <td className="py-2 pr-1 align-top">
+          <button type="button" onClick={onToggleExpand} className="text-slate-400 hover:text-slate-700">
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+        </td>
+        <td className="py-2 pr-3 align-top">
+          <input
+            value={c.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+            className="w-full text-sm font-medium text-slate-900 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          {(c.skills && c.skills.length > 0) && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {c.skills.slice(0, 4).map((s) => (
+                <span key={s} className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">{s}</span>
+              ))}
+              {c.skills.length > 4 && (
+                <span className="text-[10px] text-slate-400">+{c.skills.length - 4}</span>
+              )}
+            </div>
           )}
-        </select>
-      </td>
-      <td className="py-2 pr-3">
-        <input
-          value={c.owning_ta_email ?? ''}
-          onChange={(e) => onChange({ owning_ta_email: e.target.value.toLowerCase() })}
-          placeholder="ta@…"
-          className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
-        />
-      </td>
-      <td className="py-2 pr-3 text-xs text-slate-500">
-        <input
-          value={c.email}
-          onChange={(e) => onChange({ email: e.target.value })}
-          placeholder="email"
-          className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
-        />
-        <input
-          value={c.phone}
-          onChange={(e) => onChange({ phone: e.target.value })}
-          placeholder="phone"
-          className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-32 mt-0.5"
-        />
-      </td>
-      <td className="py-2 pr-3 text-right">
-        <button
-          type="button"
-          onClick={() => { if (confirm(`Delete ${c.name}?`)) onRemove(); }}
-          className="text-red-500 hover:text-red-700"
-          title="Delete candidate"
-        >
-          <Trash2 size={14} />
-        </button>
-      </td>
-    </tr>
+        </td>
+        <td className="py-2 pr-3 align-top">
+          <select
+            value={c.requisition_id}
+            onChange={(e) => onChange({ requisition_id: e.target.value })}
+            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white max-w-[220px]"
+          >
+            {requisitions.map((r) => (
+              <option key={r.id} value={r.id}>{r.title} — {accountName(r.id)}</option>
+            ))}
+          </select>
+        </td>
+        <td className="py-2 pr-3 align-top">
+          <select
+            value={c.stage}
+            onChange={(e) => onChange({ stage: e.target.value as CandidateStage })}
+            style={{ borderLeft: `3px solid ${CANDIDATE_STAGE_COLORS[c.stage]}` }}
+            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+          >
+            {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </td>
+        <td className="py-2 pr-3 align-top">
+          <select
+            value={c.source}
+            onChange={(e) => onChange({ source: e.target.value })}
+            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+          >
+            {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {c.source && !SOURCE_OPTIONS.includes(c.source) && (
+              <option value={c.source}>{c.source}</option>
+            )}
+          </select>
+        </td>
+        <td className="py-2 pr-3 align-top">
+          <input
+            value={c.owning_ta_email ?? ''}
+            onChange={(e) => onChange({ owning_ta_email: e.target.value.toLowerCase() })}
+            placeholder="ta@…"
+            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+          />
+        </td>
+        <td className="py-2 pr-3 align-top text-xs text-slate-500">
+          <input
+            value={c.email}
+            onChange={(e) => onChange({ email: e.target.value })}
+            placeholder="email"
+            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+          />
+          <input
+            value={c.phone}
+            onChange={(e) => onChange({ phone: e.target.value })}
+            placeholder="phone"
+            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-32 mt-0.5"
+          />
+        </td>
+        <td className="py-2 pr-3 align-top">
+          <div className="flex items-center gap-2 flex-wrap">
+            {c.resume_url ? (
+              <button
+                type="button"
+                onClick={handleOpenResume}
+                title={c.resume_filename || 'View resume'}
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 underline underline-offset-2"
+              >
+                <FileText size={12} /> Resume
+              </button>
+            ) : (
+              <label className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer">
+                <Upload size={12} />
+                {uploading ? 'Uploading…' : 'Upload CV'}
+                <input
+                  type="file"
+                  accept=".pdf,.txt,application/pdf,text/plain"
+                  className="hidden"
+                  onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
+                  disabled={uploading || parsing}
+                />
+              </label>
+            )}
+            {c.linkedin_url ? (
+              <a
+                href={c.linkedin_url}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-sky-600 hover:text-sky-800 underline underline-offset-2"
+                title={c.linkedin_url}
+              >
+                <Linkedin size={12} /> LinkedIn
+              </a>
+            ) : null}
+          </div>
+        </td>
+        <td className="py-2 pr-3 text-right align-top">
+          <button
+            type="button"
+            onClick={() => { if (confirm(`Delete ${c.name}?`)) onRemove(); }}
+            className="text-red-500 hover:text-red-700"
+            title="Delete candidate"
+          >
+            <Trash2 size={14} />
+          </button>
+        </td>
+      </tr>
+
+      {expanded && (
+        <tr className="bg-slate-50/50">
+          <td colSpan={9} className="px-3 py-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* LinkedIn + resume controls */}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">LinkedIn URL</div>
+                <input
+                  value={c.linkedin_url ?? ''}
+                  onChange={(e) => onChange({ linkedin_url: e.target.value.trim() || undefined })}
+                  placeholder="https://linkedin.com/in/jane-doe"
+                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+                {c.linkedin_url && (
+                  <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
+                     className="mt-1 inline-flex items-center gap-1 text-[11px] text-sky-600 hover:underline">
+                    <ExternalLink size={11} /> Open profile
+                  </a>
+                )}
+
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 mt-3">Resume / CV</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="inline-flex items-center gap-1 text-xs bg-white border border-slate-300 rounded-md px-2.5 py-1.5 hover:bg-slate-100 cursor-pointer">
+                    <Upload size={12} />
+                    {c.resume_url ? 'Replace file' : 'Upload PDF or .txt'}
+                    <input
+                      type="file"
+                      accept=".pdf,.txt,application/pdf,text/plain"
+                      className="hidden"
+                      onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
+                      disabled={uploading || parsing}
+                    />
+                  </label>
+                  {c.resume_url && (
+                    <>
+                      <button type="button" onClick={handleOpenResume}
+                              className="text-xs inline-flex items-center gap-1 text-primary hover:underline">
+                        <FileText size={12} /> {c.resume_filename || 'View resume'}
+                      </button>
+                      <button type="button" onClick={handleReparse}
+                              disabled={parsing}
+                              className="text-xs inline-flex items-center gap-1 bg-amber-100 text-amber-900 hover:bg-amber-200 rounded-md px-2.5 py-1.5 disabled:opacity-50">
+                        <Sparkles size={12} /> {parsing ? 'Parsing…' : (c.parsed_at ? 'Reparse' : 'Parse now')}
+                      </button>
+                    </>
+                  )}
+                </div>
+                {c.resume_uploaded_at && (
+                  <div className="text-[10px] text-slate-400 mt-1">
+                    Uploaded {new Date(c.resume_uploaded_at).toLocaleString()}
+                  </div>
+                )}
+                {error && (
+                  <div className="text-[11px] text-red-600 mt-1">{error}</div>
+                )}
+              </div>
+
+              {/* Skills */}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                  Skills {c.parsed_at && <span className="text-slate-400 normal-case">· parsed {new Date(c.parsed_at).toLocaleDateString()}</span>}
+                </div>
+                {(c.skills && c.skills.length > 0) ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {c.skills.map((s) => (
+                      <span key={s} className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">{s}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-400 italic">
+                    {c.resume_url ? 'No skills extracted yet — click Parse now.' : 'Upload a resume to auto-extract skills.'}
+                  </div>
+                )}
+              </div>
+
+              {/* Summary */}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Profile summary</div>
+                {c.profile_summary ? (
+                  <p className="text-xs text-slate-700 leading-relaxed">{c.profile_summary}</p>
+                ) : (
+                  <div className="text-[11px] text-slate-400 italic">
+                    {c.resume_url ? 'No summary yet — click Parse now.' : 'Upload a resume to auto-generate a summary.'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

@@ -209,6 +209,13 @@ function candidateToRow(c: StaffingCandidate) {
     email: c.email,
     phone: c.phone,
     owning_ta_email: c.owning_ta_email ?? null,
+    linkedin_url: c.linkedin_url ?? null,
+    resume_url: c.resume_url ?? null,
+    resume_filename: c.resume_filename ?? null,
+    resume_uploaded_at: c.resume_uploaded_at ?? null,
+    skills: c.skills ?? [],
+    profile_summary: c.profile_summary ?? null,
+    parsed_at: c.parsed_at ?? null,
     created_at: c.created_at,
     updated_at: c.updated_at,
     updated_by: CLIENT_ID,
@@ -228,6 +235,13 @@ function rowToCandidate(row: any): StaffingCandidate {
     email: row.email ?? '',
     phone: row.phone ?? '',
     owning_ta_email: row.owning_ta_email ?? undefined,
+    linkedin_url: row.linkedin_url ?? undefined,
+    resume_url: row.resume_url ?? undefined,
+    resume_filename: row.resume_filename ?? undefined,
+    resume_uploaded_at: row.resume_uploaded_at ?? undefined,
+    skills: Array.isArray(row.skills) ? row.skills : [],
+    profile_summary: row.profile_summary ?? undefined,
+    parsed_at: row.parsed_at ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -993,6 +1007,56 @@ export const db = {
   async replaceAllUSRoster(members: USRosterMember[]) {
     await supabase.from('us_roster').delete().neq('id', '');
     if (members.length) await supabase.from('us_roster').insert(members.map(usRosterToRow));
+  },
+
+  // --- Candidate resumes (Supabase Storage + parse-resume edge function) ---
+  /** Upload a resume file to storage and return the object path stored on the candidate row. */
+  async uploadCandidateResume(candidateId: string, file: File): Promise<{ path: string; filename: string } | { error: string }> {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_');
+    const path = `${candidateId}/${Date.now()}-${safeName}`;
+    const { error } = await supabase.storage
+      .from('candidate-resumes')
+      .upload(path, file, { upsert: true, contentType: file.type || undefined });
+    if (error) {
+      console.warn('[supabase] upload resume failed:', error);
+      return { error: error.message };
+    }
+    return { path, filename: file.name };
+  },
+
+  /** Get a temporary download URL for a stored resume. */
+  async signedResumeUrl(path: string, ttlSeconds = 300): Promise<string | null> {
+    const { data, error } = await supabase.storage
+      .from('candidate-resumes')
+      .createSignedUrl(path, ttlSeconds);
+    if (error) {
+      console.warn('[supabase] signed url failed:', error);
+      return null;
+    }
+    return data?.signedUrl || null;
+  },
+
+  /** Invoke the parse-resume edge function. Returns the parsed skills + summary. */
+  async parseCandidateResume(candidateId: string): Promise<
+    | { ok: true; skills: string[]; summary: string; parsedAt: string }
+    | { ok: false; error: string }
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      skills?: string[];
+      summary?: string;
+      parsedAt?: string;
+      error?: string;
+      detail?: string;
+    }>('parse-resume', { body: { candidateId } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    return {
+      ok: true,
+      skills: data?.skills || [],
+      summary: data?.summary || '',
+      parsedAt: data?.parsedAt || new Date().toISOString(),
+    };
   },
 
   // --- TA Daily Log ---

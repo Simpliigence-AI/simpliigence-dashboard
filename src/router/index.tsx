@@ -26,6 +26,7 @@ import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
+import { RoleOnly } from '../components/RoleOnly';
 
 export const router = createBrowserRouter(
   [
@@ -41,14 +42,15 @@ export const router = createBrowserRouter(
         // Team Time — manager/admin approval queue (page itself enforces the role gate)
         { path: 'my-team-time', element: <TeamTimePage /> },
 
-        // Projects section
-        { path: 'team', element: <TeamRosterPage /> },              // "Project Team"
-        { path: 'actual-hours', element: <ActualHoursPage /> },      // NEW — Zoho People actuals
-        { path: 'projects', element: <ProjectPipelinePage /> },      // Current Projects
-        { path: 'pipeline', element: <PipelinePage /> },             // Pipeline Projects
-        { path: 'forecasting', element: <ForecastingPage /> },       // "Utilization Forecast"
-        { path: 'hiring-forecast', element: <HiringForecastPage /> },
-        { path: 'financials', element: <FinancialsPage /> },
+        // Projects section — admin only. TA Managers (role='manager') see
+        // these in neither the sidebar nor when typing the URL directly.
+        { path: 'team', element: <RoleOnly allow={['admin']}><TeamRosterPage /></RoleOnly> },
+        { path: 'actual-hours', element: <RoleOnly allow={['admin']}><ActualHoursPage /></RoleOnly> },
+        { path: 'projects', element: <RoleOnly allow={['admin']}><ProjectPipelinePage /></RoleOnly> },
+        { path: 'pipeline', element: <RoleOnly allow={['admin']}><PipelinePage /></RoleOnly> },
+        { path: 'forecasting', element: <RoleOnly allow={['admin']}><ForecastingPage /></RoleOnly> },
+        { path: 'hiring-forecast', element: <RoleOnly allow={['admin']}><HiringForecastPage /></RoleOnly> },
+        { path: 'financials', element: <RoleOnly allow={['admin']}><FinancialsPage /></RoleOnly> },
 
         // India T&M section
         { path: 'india-staffing', element: <IndiaStaffingPage /> },         // "India Demand"

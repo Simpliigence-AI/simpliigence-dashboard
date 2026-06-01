@@ -128,18 +128,26 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
 
   // Build role-appropriate nav:
   //   - employee: only "My Work · My Time"
-  //   - admin: full nav + Admin section, with "My Time" injected under Projects
-  //   - manager / unknown role: same as admin minus the Admin section
+  //   - TA Manager (role='manager'): everything EXCEPT the "Projects" section
+  //     (no delivery/financials visibility). My Time + Team Time go into their
+  //     own "My Work" group at the top.
+  //   - admin: full nav + Admin section, with "My Time" + "Team Time" injected
+  //     under Projects.
   const visibleSections = isEmployee
     ? employeeOnlySections
-    : (() => {
-        const base = sections.map((s) =>
-          s.label === 'Projects'
-            ? { ...s, items: [myTimeItem, teamTimeItem, ...s.items] }
-            : s,
-        );
-        return isAdmin ? [...base, adminSection] : base;
-      })();
+    : isAdmin
+      ? sections
+          .map((s) =>
+            s.label === 'Projects'
+              ? { ...s, items: [myTimeItem, teamTimeItem, ...s.items] }
+              : s,
+          )
+          .concat([adminSection])
+      : // TA Manager
+        [
+          { label: 'My Work', items: [myTimeItem, teamTimeItem] } as NavSection,
+          ...sections.filter((s) => s.label !== 'Projects'),
+        ];
 
   useEffect(() => {
     let mounted = true;

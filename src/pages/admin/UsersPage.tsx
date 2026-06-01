@@ -216,7 +216,7 @@ export default function UsersPage() {
                   className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white"
                 >
                   <option value="employee">Employee</option>
-                  <option value="manager">Manager</option>
+                  <option value="manager">TA Manager</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
@@ -264,7 +264,7 @@ export default function UsersPage() {
               </div>
             </div>
             <p className="mt-2 text-[10px] text-slate-400">
-              Employees signed in with role=employee see only /my-time. Managers can approve their direct reports on /my-team-time. Set the manager email here so that report→manager relationship is wired up.
+              Employees signed in with role=employee see only /my-time. <strong>TA Managers</strong> can approve their direct reports on /my-team-time and access the India T&amp;M section (no visibility to Projects / Financials). Set the manager email here so that report→manager relationship is wired up.
             </p>
           </div>
         )}
@@ -302,7 +302,7 @@ export default function UsersPage() {
                       className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
                     >
                       <option value="employee">Employee</option>
-                      <option value="manager">Manager</option>
+                      <option value="manager">TA Manager</option>
                       <option value="admin">Admin</option>
                     </select>
                     {r.is_admin && r.role !== 'admin' && (

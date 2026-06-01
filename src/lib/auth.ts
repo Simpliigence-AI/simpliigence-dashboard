@@ -64,6 +64,20 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string 
   return { ok: true };
 }
 
+/** Sign in with a Microsoft 365 / Entra ID account. Requires Azure provider
+ *  enabled in Supabase Dashboard → Authentication → Providers → Azure. */
+export async function signInWithMicrosoft(): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'azure',
+    options: {
+      redirectTo: getRedirectTo(),
+      scopes: 'email openid profile',
+    },
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 /** Sign the user out, clearing the local session. */
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();

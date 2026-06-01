@@ -1,19 +1,21 @@
 /**
  * Sign-in screen. Shown by AuthGate when no Supabase session is active.
- * Magic-link first; Google OAuth as a one-click alternative.
+ *
+ * Layout (primary → fallback):
+ *   1. Microsoft 365 OAuth  ← Simpliigence's identity provider; one click
+ *   2. Google OAuth          ← for users on Google Workspace (external collaborators)
+ *   3. Magic link via email  ← collapsed; rate-limited (Supabase built-in SMTP)
  */
 import { useState } from 'react';
 import { Zap, Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { signInWithMagicLink, signInWithGoogle } from '../lib/auth';
+import { signInWithMagicLink, signInWithGoogle, signInWithMicrosoft } from '../lib/auth';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Magic-link section is hidden by default — pushes everyone toward Google sign-in,
-   *  which doesn't go through Supabase's email rate limit. Click "Or sign in with
-   *  email" to reveal the input. */
+  /** Magic-link section hides by default — most people use Microsoft SSO. */
   const [showEmail, setShowEmail] = useState(false);
 
   const handleMagicLink = async () => {
@@ -34,9 +36,18 @@ export default function SignInPage() {
     try {
       const res = await signInWithGoogle();
       if (!res.ok) setError(res.error ?? 'Google sign-in failed.');
-      // On success the page will redirect, so we don't need to clear loading.
     } finally {
-      // If we're still here, something didn't redirect — release the spinner.
+      setLoading(false);
+    }
+  };
+
+  const handleMicrosoft = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await signInWithMicrosoft();
+      if (!res.ok) setError(res.error ?? 'Microsoft sign-in failed.');
+    } finally {
       setLoading(false);
     }
   };
@@ -59,7 +70,7 @@ export default function SignInPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h1 className="text-xl font-bold text-slate-900 mb-1">Sign in to continue</h1>
           <p className="text-sm text-slate-500 mb-6">
-            Use your work email — we'll send a one-click sign-in link.
+            Use your Simpliigence work account.
           </p>
 
           {sent ? (
@@ -82,59 +93,71 @@ export default function SignInPage() {
             </div>
           ) : (
             <>
-              {/* Primary: Google sign-in. Recommended for everyone on @simpliigence.com — no email rate limit. */}
+              {/* Primary: Microsoft 365 SSO. */}
+              <button
+                onClick={handleMicrosoft}
+                disabled={loading}
+                className="w-full py-3 px-4 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
+                <MicrosoftIcon />
+                Continue with Microsoft
+              </button>
+              <p className="text-[11px] text-slate-500 text-center mt-2 mb-4">
+                Recommended — uses your Simpliigence Microsoft 365 account.
+              </p>
+
+              {/* Secondary: Google OAuth (for users with Google accounts). */}
               <button
                 onClick={handleGoogle}
                 disabled={loading}
-                className="w-full py-3 px-4 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-2 px-4 bg-white border border-slate-300 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 <GoogleIcon />
                 Continue with Google
               </button>
-              <p className="text-[11px] text-slate-500 text-center mt-2 mb-5">
-                Recommended — uses your @simpliigence.com account.
-              </p>
 
-              {/* Secondary: magic-link via email. Collapsed by default. */}
-              {!showEmail ? (
-                <button
-                  type="button"
-                  onClick={() => setShowEmail(true)}
-                  className="w-full text-xs text-slate-500 hover:text-slate-800 underline-offset-4 hover:underline transition-colors py-2"
-                >
-                  Or sign in with email (magic link)
-                </button>
-              ) : (
-                <div className="border-t border-slate-200 pt-4">
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                    Work email
-                  </label>
-                  <div className="relative mb-3">
-                    <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && email) handleMagicLink(); }}
-                      placeholder="you@simpliigence.com"
-                      disabled={loading}
-                      autoFocus
-                      className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-50"
-                    />
-                  </div>
+              {/* Tertiary: magic-link via email. Collapsed by default. */}
+              <div className="mt-3">
+                {!showEmail ? (
                   <button
-                    onClick={handleMagicLink}
-                    disabled={loading || !email.trim()}
-                    className="w-full py-2 px-4 bg-white border border-slate-300 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={() => setShowEmail(true)}
+                    className="w-full text-xs text-slate-500 hover:text-slate-800 underline-offset-4 hover:underline transition-colors py-2"
                   >
-                    {loading ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
-                    {loading ? 'Sending…' : 'Send magic link'}
+                    Or sign in with email (magic link)
                   </button>
-                  <p className="text-[10px] text-slate-400 text-center mt-2">
-                    Magic-link email has a low rate limit — use Google sign-in if you hit a wall.
-                  </p>
-                </div>
-              )}
+                ) : (
+                  <div className="border-t border-slate-200 pt-4">
+                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                      Work email
+                    </label>
+                    <div className="relative mb-3">
+                      <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && email) handleMagicLink(); }}
+                        placeholder="you@simpliigence.com"
+                        disabled={loading}
+                        autoFocus
+                        className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-50"
+                      />
+                    </div>
+                    <button
+                      onClick={handleMagicLink}
+                      disabled={loading || !email.trim()}
+                      className="w-full py-2 px-4 bg-white border border-slate-300 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    >
+                      {loading ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+                      {loading ? 'Sending…' : 'Send magic link'}
+                    </button>
+                    <p className="text-[10px] text-slate-400 text-center mt-2">
+                      Magic-link email has a low rate limit — Microsoft sign-in is preferred.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {error && (
                 <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 flex items-start gap-2">
@@ -152,6 +175,18 @@ export default function SignInPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+/** Microsoft 4-square logo (no extra dep). */
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 23 23" aria-hidden>
+      <rect x="1"  y="1"  width="10" height="10" fill="#F25022" />
+      <rect x="12" y="1"  width="10" height="10" fill="#7FBA00" />
+      <rect x="1"  y="12" width="10" height="10" fill="#00A4EF" />
+      <rect x="12" y="12" width="10" height="10" fill="#FFB900" />
+    </svg>
   );
 }
 

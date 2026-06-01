@@ -120,11 +120,18 @@ export default function UsersPage() {
       if (patch.role !== undefined) update.is_admin = patch.role === 'admin';
       if (patch.manager_email !== undefined) update.manager_email = patch.manager_email?.toLowerCase() || null;
       if (patch.employee_code !== undefined) update.employee_code = patch.employee_code || null;
-      const { error: e } = await supabase
+      // `.select()` returns the updated rows; if RLS silently filtered the write
+      // out, `data` is an empty array. Treat that as an error so the UI doesn't
+      // claim "Saved" when nothing changed.
+      const { data, error: e } = await supabase
         .from('authorized_users')
         .update(update)
-        .eq('email', email);
+        .eq('email', email)
+        .select();
       if (e) throw e;
+      if (!data || data.length === 0) {
+        throw new Error('Update affected 0 rows. You may not have admin permission, or an RLS policy is blocking the change.');
+      }
       flashSaved(email);
       void refresh();
     } catch (e) {

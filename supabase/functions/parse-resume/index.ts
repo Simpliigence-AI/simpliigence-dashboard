@@ -66,6 +66,8 @@ interface ParsedResult {
   phone?: string;
   linkedinUrl?: string;
   currentTitle?: string;
+  /** Current location — city + state/country if present. Used for sourcing/search. */
+  location?: string;
   yearsExperience?: number;
   skills: string[];
   summary: string;
@@ -92,6 +94,7 @@ Extract these fields and return ONLY valid JSON. If a field is not present, OMIT
   - "phone": phone number as it appears (preserve country code if shown).
   - "linkedinUrl": the LinkedIn profile URL if present, including https://.
   - "currentTitle": the candidate's CURRENT job title (most recent role).
+  - "location": the candidate's CURRENT location (city + state/country). Examples: "Bangalore, India", "Pune, MH, India", "New York, NY, USA", "Remote — IST". If only a city is visible, just return the city. Skip historical/past locations.
   - "yearsExperience": integer total years of professional experience if inferable.
   - "skills": array of 8–25 distinct technical skills, tools, languages, frameworks, methodologies, certifications. Each item must be a short noun phrase ("TypeScript", "AWS Lambda", "PMP"). Deduplicate. Skip generic soft skills.
   - "summary": 2–4 sentence third-person professional summary describing experience, specialization, years, and standout strengths. Plain text, no markdown.
@@ -120,7 +123,7 @@ Deno.serve(async (req: Request) => {
     // 1. Look up candidate row (full row so we know what's blank)
     const { data: cand, error: candErr } = await supabase
       .from('india_staffing_candidates')
-      .select('id, name, email, phone, linkedin_url, resume_url, resume_filename, experience')
+      .select('id, name, email, phone, linkedin_url, location, resume_url, resume_filename, experience')
       .eq('id', candidateId)
       .single();
     if (candErr || !cand) {
@@ -206,6 +209,7 @@ Deno.serve(async (req: Request) => {
     const phone = typeof parsed.phone === 'string' ? parsed.phone.trim() : '';
     const linkedinUrl = typeof parsed.linkedinUrl === 'string' ? parsed.linkedinUrl.trim() : '';
     const currentTitle = typeof parsed.currentTitle === 'string' ? parsed.currentTitle.trim() : '';
+    const location = typeof parsed.location === 'string' ? parsed.location.trim() : '';
     const yearsExperience = typeof parsed.yearsExperience === 'number' ? parsed.yearsExperience : undefined;
 
     // 6. Write back — skills + summary always; identity fields only when blank.
@@ -230,6 +234,7 @@ Deno.serve(async (req: Request) => {
     if (email && blank(cand.email)) updates.email = email;
     if (phone && blank(cand.phone)) updates.phone = phone;
     if (linkedinUrl && blank(cand.linkedin_url)) updates.linkedin_url = linkedinUrl;
+    if (location && blank(cand.location)) updates.location = location;
     // Use "experience" column to hold the current title if it's a placeholder
     // (it's free-text, originally for years). Only fill when blank.
     if (currentTitle && blank(cand.experience)) updates.experience = currentTitle;
@@ -254,6 +259,7 @@ Deno.serve(async (req: Request) => {
       phone: phone || undefined,
       linkedinUrl: linkedinUrl || undefined,
       currentTitle: currentTitle || undefined,
+      location: location || undefined,
       yearsExperience,
       parsedAt,
     }), { headers: corsHeaders });

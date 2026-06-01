@@ -35,6 +35,7 @@ interface DraftCandidate {
   stage: CandidateStage;
   owning_ta_email: string;
   linkedin_url: string;
+  location: string;
 }
 
 const emptyDraft: DraftCandidate = {
@@ -46,6 +47,7 @@ const emptyDraft: DraftCandidate = {
   stage: 'Submitted',
   owning_ta_email: '',
   linkedin_url: '',
+  location: '',
 };
 
 export default function CandidatesPage() {
@@ -56,6 +58,7 @@ export default function CandidatesPage() {
   const [filterReq, setFilterReq] = useState('');
   const [filterOwner, setFilterOwner] = useState('');
   const [filterStage, setFilterStage] = useState('');
+  const [filterLocation, setFilterLocation] = useState('');
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<DraftCandidate>(emptyDraft);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -100,6 +103,12 @@ export default function CandidatesPage() {
     return Array.from(s).sort();
   }, [candidates]);
 
+  const locations = useMemo(() => {
+    const s = new Set<string>();
+    candidates.forEach((c) => { if (c.location && c.location.trim()) s.add(c.location.trim()); });
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [candidates]);
+
   const accountName = (rid: string) => {
     const req = requisitions.find((r) => r.id === rid);
     if (!req) return '—';
@@ -122,13 +131,20 @@ export default function CandidatesPage() {
       }
       if (filterOwner && (c.owning_ta_email || '') !== filterOwner) return false;
       if (filterStage && c.stage !== filterStage) return false;
+      // Location filter is a substring match (case-insensitive) so "Bangalore"
+      // also matches "Bangalore, India" or "Bengaluru, KA".
+      if (filterLocation) {
+        const want = filterLocation.toLowerCase();
+        const have = (c.location || '').toLowerCase();
+        if (!have.includes(want)) return false;
+      }
       if (needle) {
-        const hay = `${c.name} ${c.email} ${c.phone} ${c.source} ${reqLabel(c.requisition_id)} ${(c.skills || []).join(' ')} ${c.profile_summary || ''}`.toLowerCase();
+        const hay = `${c.name} ${c.email} ${c.phone} ${c.source} ${reqLabel(c.requisition_id)} ${(c.skills || []).join(' ')} ${c.profile_summary || ''} ${c.location || ''}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [candidates, q, filterReq, filterOwner, filterStage, requisitions, accounts, aiMatchSet]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [candidates, q, filterReq, filterOwner, filterStage, filterLocation, requisitions, accounts, aiMatchSet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const commitAdd = async () => {
     if (!draft.name.trim()) return;
@@ -144,6 +160,7 @@ export default function CandidatesPage() {
       phone: draft.phone.trim(),
       owning_ta_email: draft.owning_ta_email.trim().toLowerCase() || undefined,
       linkedin_url: draft.linkedin_url.trim() || undefined,
+      location: draft.location.trim() || undefined,
     });
     setAdding(false);
     setDraft({ ...emptyDraft, owning_ta_email: (currentUser?.email || '').toLowerCase() });
@@ -232,9 +249,9 @@ export default function CandidatesPage() {
 
       {/* Filters */}
       <Card className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <input
-            placeholder="Search name / email / req / skill…"
+            placeholder="Search name / email / skill / location…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -264,6 +281,17 @@ export default function CandidatesPage() {
             <option value="">All stages</option>
             {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
+          <input
+            list="candidate-location-options"
+            placeholder="Location (e.g. Bangalore)"
+            value={filterLocation}
+            onChange={(e) => setFilterLocation(e.target.value)}
+            className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            title="Substring match — type 'Bangalore' to find candidates whose location contains it"
+          />
+          <datalist id="candidate-location-options">
+            {locations.map((l) => <option key={l} value={l} />)}
+          </datalist>
         </div>
       </Card>
 
@@ -289,9 +317,13 @@ export default function CandidatesPage() {
             <input placeholder="Owning TA email" value={draft.owning_ta_email}
                    onChange={(e) => setDraft({ ...draft, owning_ta_email: e.target.value })}
                    className="border border-slate-300 rounded-md px-3 py-2 text-sm" />
+            <input placeholder="Location (e.g. Bangalore, India)" value={draft.location}
+                   onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                   list="candidate-location-options"
+                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-2" />
             <input placeholder="LinkedIn URL (https://linkedin.com/in/…)" value={draft.linkedin_url}
                    onChange={(e) => setDraft({ ...draft, linkedin_url: e.target.value })}
-                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-6" />
+                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-4" />
             <div className="md:col-span-6 flex items-center justify-end gap-2">
               <button type="button" onClick={() => setAdding(false)}
                       className="text-xs font-semibold text-slate-500 hover:text-slate-700 flex items-center gap-1">
@@ -326,6 +358,7 @@ export default function CandidatesPage() {
                   <th className="py-2 pr-3 font-semibold">Requisition</th>
                   <th className="py-2 pr-3 font-semibold">Stage</th>
                   <th className="py-2 pr-3 font-semibold">Source</th>
+                  <th className="py-2 pr-3 font-semibold">Location</th>
                   <th className="py-2 pr-3 font-semibold">Owning TA</th>
                   <th className="py-2 pr-3 font-semibold">Email / Phone</th>
                   <th className="py-2 pr-3 font-semibold">Resume / LinkedIn</th>
@@ -398,6 +431,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
         if (parsed.email && blank(c.email)) patch.email = parsed.email;
         if (parsed.phone && blank(c.phone)) patch.phone = parsed.phone;
         if (parsed.linkedinUrl && blank(c.linkedin_url)) patch.linkedin_url = parsed.linkedinUrl;
+        if (parsed.location && blank(c.location)) patch.location = parsed.location;
         if (parsed.currentTitle && blank(c.experience)) patch.experience = parsed.currentTitle;
         onChange(patch);
       } else {
@@ -492,6 +526,15 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
         </td>
         <td className="py-2 pr-3 align-top">
           <input
+            value={c.location ?? ''}
+            onChange={(e) => onChange({ location: e.target.value || undefined })}
+            placeholder="—"
+            list="candidate-location-options"
+            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-36"
+          />
+        </td>
+        <td className="py-2 pr-3 align-top">
+          <input
             value={c.owning_ta_email ?? ''}
             onChange={(e) => onChange({ owning_ta_email: e.target.value.toLowerCase() })}
             placeholder="ta@…"
@@ -562,11 +605,20 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
 
       {expanded && (
         <tr className="bg-slate-50/50">
-          <td colSpan={9} className="px-3 py-4">
+          <td colSpan={10} className="px-3 py-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* LinkedIn + resume controls */}
+              {/* LinkedIn + location + resume controls */}
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">LinkedIn URL</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Location</div>
+                <input
+                  value={c.location ?? ''}
+                  onChange={(e) => onChange({ location: e.target.value || undefined })}
+                  placeholder="e.g. Bangalore, India"
+                  list="candidate-location-options"
+                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 mt-3">LinkedIn URL</div>
                 <input
                   value={c.linkedin_url ?? ''}
                   onChange={(e) => onChange({ linkedin_url: e.target.value.trim() || undefined })}

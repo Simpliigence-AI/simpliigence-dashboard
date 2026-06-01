@@ -1166,6 +1166,30 @@ export const db = {
     };
   },
 
+  /** Invoke the candidate-search edge function. Semantic Claude match across
+   *  name + skills + summary + stage + source. */
+  async searchCandidates(query: string): Promise<
+    | { ok: true; matchedIds: string[]; explanation: string; totalScanned: number }
+    | { ok: false; error: string }
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      matchedIds?: string[];
+      explanation?: string;
+      totalScanned?: number;
+      error?: string;
+      detail?: string;
+    }>('candidate-search', { body: { query } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    return {
+      ok: true,
+      matchedIds: data?.matchedIds || [],
+      explanation: data?.explanation || '',
+      totalScanned: data?.totalScanned || 0,
+    };
+  },
+
   // --- TA Daily Log ---
   async upsertTaLog(e: TADailyLogEntry) {
     const { error } = await supabase.from('ta_daily_log').upsert(taLogToRow(e), { onConflict: 'id' });

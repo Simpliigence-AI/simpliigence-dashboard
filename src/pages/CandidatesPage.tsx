@@ -61,6 +61,39 @@ export default function CandidatesPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
 
+  // ── AI search state ──
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMatchSet, setAiMatchSet] = useState<Set<string> | null>(null);
+  const [aiExplanation, setAiExplanation] = useState('');
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const runAiSearch = async () => {
+    const q = aiQuery.trim();
+    if (!q) return;
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const res = await db.searchCandidates(q);
+      if (res.ok) {
+        setAiMatchSet(new Set(res.matchedIds));
+        setAiExplanation(res.explanation);
+      } else {
+        setAiError(res.error);
+        setAiMatchSet(null);
+      }
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const clearAiSearch = () => {
+    setAiQuery('');
+    setAiMatchSet(null);
+    setAiExplanation('');
+    setAiError(null);
+  };
+
   const owners = useMemo(() => {
     const s = new Set<string>();
     candidates.forEach((c) => { if (c.owning_ta_email) s.add(c.owning_ta_email); });
@@ -80,6 +113,8 @@ export default function CandidatesPage() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return candidates.filter((c) => {
+      // When an AI search is active, restrict to its match set first.
+      if (aiMatchSet && !aiMatchSet.has(c.id)) return false;
       if (filterReq === '__unassigned__') {
         if (c.requisition_id) return false;
       } else if (filterReq && c.requisition_id !== filterReq) {
@@ -93,7 +128,7 @@ export default function CandidatesPage() {
       }
       return true;
     });
-  }, [candidates, q, filterReq, filterOwner, filterStage, requisitions, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [candidates, q, filterReq, filterOwner, filterStage, requisitions, accounts, aiMatchSet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const commitAdd = async () => {
     if (!draft.name.trim()) return;
@@ -151,6 +186,49 @@ export default function CandidatesPage() {
           onClose={() => setBulkOpen(false)}
         />
       )}
+
+      {/* AI search bar */}
+      <Card className="mb-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Sparkles size={16} className="text-amber-500 flex-shrink-0" />
+          <input
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') runAiSearch(); }}
+            placeholder='Ask Claude: e.g. "all servicemax candidates" or "salesforce architects in bangalore"'
+            className="flex-1 min-w-[200px] border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+          />
+          <button
+            type="button"
+            onClick={runAiSearch}
+            disabled={aiBusy || !aiQuery.trim()}
+            className="text-xs font-semibold bg-amber-500 text-white px-3 py-2 rounded-md hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1"
+          >
+            <Sparkles size={12} /> {aiBusy ? 'Searching…' : 'Ask Claude'}
+          </button>
+          {aiMatchSet && (
+            <button
+              type="button"
+              onClick={clearAiSearch}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 inline-flex items-center gap-1"
+              title="Clear AI search"
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+        </div>
+        {aiMatchSet && (
+          <div className="mt-2 text-[11px] text-slate-600">
+            <span className="font-semibold text-amber-700">
+              {aiMatchSet.size} match{aiMatchSet.size === 1 ? '' : 'es'}
+            </span>
+            {aiExplanation && <span className="text-slate-500"> · {aiExplanation}</span>}
+          </div>
+        )}
+        {aiError && (
+          <div className="mt-2 text-[11px] text-red-700">{aiError}</div>
+        )}
+      </Card>
 
       {/* Filters */}
       <Card className="mb-4">

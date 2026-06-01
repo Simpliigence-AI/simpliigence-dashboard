@@ -11,6 +11,7 @@
  * which already write to Supabase via db.upsertIndiaCandidate / deleteIndiaCandidate.
  */
 import { useMemo, useState } from 'react';
+import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Briefcase, Mail, Phone, Zap } from 'lucide-react';
 import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
@@ -20,6 +21,7 @@ import { db } from '../lib/supabaseSync';
 import {
   CANDIDATE_STAGES,
   CANDIDATE_STAGE_COLORS,
+  ACTIVE_CANDIDATE_STAGES,
   type CandidateStage,
   type StaffingCandidate,
 } from '../types/staffing';
@@ -63,6 +65,7 @@ export default function CandidatesPage() {
   const [draft, setDraft] = useState<DraftCandidate>(emptyDraft);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   // ── AI search state ──
   const [aiQuery, setAiQuery] = useState('');
@@ -146,6 +149,19 @@ export default function CandidatesPage() {
     });
   }, [candidates, q, filterReq, filterOwner, filterStage, filterLocation, requisitions, accounts, aiMatchSet]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // KPI strip stats (across ALL candidates, not filtered — gives a true at-a-glance view)
+  const kpis = useMemo(() => {
+    const total = candidates.length;
+    const active = candidates.filter((c) => ACTIVE_CANDIDATE_STAGES.includes(c.stage)).length;
+    const parsed = candidates.filter((c) => c.parsed_at).length;
+    const sevenDaysAgo = Date.now() - 7 * 86400 * 1000;
+    const recent = candidates.filter((c) => {
+      const t = c.submit_date ? Date.parse(c.submit_date) : NaN;
+      return !Number.isNaN(t) && t >= sevenDaysAgo;
+    }).length;
+    return { total, active, parsed, recent };
+  }, [candidates]);
+
   const commitAdd = async () => {
     if (!draft.name.trim()) return;
     addCandidate({
@@ -204,8 +220,16 @@ export default function CandidatesPage() {
         />
       )}
 
-      {/* AI search bar */}
-      <Card className="mb-4">
+      {/* KPI strip — colorful at-a-glance counters */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <KpiTile color="indigo" icon={<UsersIcon size={18} />} label="All candidates" value={kpis.total} />
+        <KpiTile color="emerald" icon={<Zap size={18} />} label="Active" value={kpis.active} subtitle="in funnel" />
+        <KpiTile color="amber" icon={<FileCheck2 size={18} />} label="Resume parsed" value={kpis.parsed} subtitle={`${kpis.total ? Math.round((kpis.parsed / kpis.total) * 100) : 0}% of total`} />
+        <KpiTile color="sky" icon={<CalendarRange size={18} />} label="Added · last 7d" value={kpis.recent} />
+      </div>
+
+      {/* AI search bar — gradient pop */}
+      <div className="mb-4 rounded-xl bg-gradient-to-r from-amber-100/70 via-orange-50 to-rose-50 border border-amber-200/70 shadow-sm p-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Sparkles size={16} className="text-amber-500 flex-shrink-0" />
           <input
@@ -213,13 +237,13 @@ export default function CandidatesPage() {
             onChange={(e) => setAiQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') runAiSearch(); }}
             placeholder='Ask Claude: e.g. "all servicemax candidates" or "salesforce architects in bangalore"'
-            className="flex-1 min-w-[200px] border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+            className="flex-1 min-w-[200px] bg-white/90 border border-amber-200 rounded-lg px-3 py-2 text-sm placeholder:text-amber-700/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
           />
           <button
             type="button"
             onClick={runAiSearch}
             disabled={aiBusy || !aiQuery.trim()}
-            className="text-xs font-semibold bg-amber-500 text-white px-3 py-2 rounded-md hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1"
+            className="text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 inline-flex items-center gap-1.5 shadow-sm"
           >
             <Sparkles size={12} /> {aiBusy ? 'Searching…' : 'Ask Claude'}
           </button>
@@ -245,7 +269,7 @@ export default function CandidatesPage() {
         {aiError && (
           <div className="mt-2 text-[11px] text-red-700">{aiError}</div>
         )}
-      </Card>
+      </div>
 
       {/* Filters */}
       <Card className="mb-4">
@@ -342,13 +366,66 @@ export default function CandidatesPage() {
         </Card>
       )}
 
-      {/* List */}
-      <Card title={`${filtered.length} candidate${filtered.length === 1 ? '' : 's'}`}>
-        {filtered.length === 0 ? (
+      {/* List header w/ count + view toggle */}
+      <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+        <div className="text-sm font-semibold text-slate-700">
+          {filtered.length} candidate{filtered.length === 1 ? '' : 's'}
+          {filtered.length !== candidates.length && (
+            <span className="ml-1 text-slate-400 font-normal">of {candidates.length}</span>
+          )}
+        </div>
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+              viewMode === 'cards' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="Card view — rich, browse-friendly"
+          >
+            <LayoutGrid size={12} /> Cards
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+              viewMode === 'table' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="Table view — dense, power-user editing"
+          >
+            <TableIcon size={12} /> Table
+          </button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card>
           <div className="text-sm text-slate-500 text-center py-12">
-            No candidates match. Use <strong>+ Add candidate</strong> to create one.
+            <UsersIcon size={32} className="mx-auto mb-2 text-slate-300" />
+            <div>No candidates match your filters.</div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              Try clearing filters or use <strong>+ Add candidate</strong> at the top.
+            </div>
           </div>
-        ) : (
+        </Card>
+      ) : viewMode === 'cards' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map((c) => (
+            <CandidateCard
+              key={c.id}
+              c={c}
+              requisitionLabel={reqLabel(c.requisition_id)}
+              onOpen={() => {
+                setViewMode('table');
+                const next = new Set(expanded);
+                next.add(c.id);
+                setExpanded(next);
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <Card>
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full text-sm">
               <thead>
@@ -385,9 +462,179 @@ export default function CandidatesPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
+  );
+}
+
+/* ── KPI tile — colored top-of-page stat ── */
+function KpiTile({ color, icon, label, value, subtitle }: {
+  color: 'indigo' | 'emerald' | 'amber' | 'sky';
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  subtitle?: string;
+}) {
+  const palette: Record<typeof color, { bg: string; iconBg: string; iconColor: string; ring: string }> = {
+    indigo:  { bg: 'from-indigo-50 to-violet-50',  iconBg: 'bg-indigo-100',  iconColor: 'text-indigo-600',  ring: 'border-indigo-100' },
+    emerald: { bg: 'from-emerald-50 to-teal-50',    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', ring: 'border-emerald-100' },
+    amber:   { bg: 'from-amber-50 to-orange-50',    iconBg: 'bg-amber-100',   iconColor: 'text-amber-600',   ring: 'border-amber-100' },
+    sky:     { bg: 'from-sky-50 to-cyan-50',        iconBg: 'bg-sky-100',     iconColor: 'text-sky-600',     ring: 'border-sky-100' },
+  };
+  const p = palette[color];
+  return (
+    <div className={`rounded-xl bg-gradient-to-br ${p.bg} border ${p.ring} px-4 py-3 shadow-sm hover:shadow transition-shadow`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
+          <div className="text-2xl font-extrabold text-slate-900 mt-0.5 tabular-nums">{value}</div>
+          {subtitle && <div className="text-[10px] text-slate-500 mt-0.5">{subtitle}</div>}
+        </div>
+        <div className={`w-9 h-9 rounded-lg ${p.iconBg} ${p.iconColor} flex items-center justify-center flex-shrink-0`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Candidate card — colorful browse-friendly tile ── */
+function CandidateCard({ c, requisitionLabel, onOpen }: {
+  c: StaffingCandidate;
+  requisitionLabel: string;
+  onOpen: () => void;
+}) {
+  const stageColor = CANDIDATE_STAGE_COLORS[c.stage] || '#94a3b8';
+  // Avatar bubble — initials + tint derived from stage so the grid looks varied
+  const initials = (c.name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase() || '?';
+  const titleLine = c.experience || '—';
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="text-left bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group"
+    >
+      {/* Top accent bar coloured by stage */}
+      <div className="h-1" style={{ backgroundColor: stageColor }} />
+
+      <div className="p-4 space-y-3">
+        {/* Header row: avatar, name, stage chip */}
+        <div className="flex items-start gap-3">
+          <div
+            className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
+            style={{ backgroundColor: stageColor }}
+            aria-hidden
+          >
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-slate-900 truncate group-hover:text-primary transition-colors">
+              {c.name || '(unnamed)'}
+            </div>
+            <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+              <Briefcase size={11} className="text-slate-400" />
+              {titleLine}
+            </div>
+          </div>
+          <span
+            className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full text-white whitespace-nowrap"
+            style={{ backgroundColor: stageColor }}
+          >
+            {c.stage}
+          </span>
+        </div>
+
+        {/* Location + requisition */}
+        <div className="space-y-1 text-[11px]">
+          {c.location && (
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <MapPin size={11} className="text-slate-400 flex-shrink-0" />
+              <span className="truncate">{c.location}</span>
+            </div>
+          )}
+          {requisitionLabel !== '—' && (
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <Briefcase size={11} className="text-slate-400 flex-shrink-0" />
+              <span className="truncate">{requisitionLabel}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Skills chips — top 6, colored by index for variety */}
+        {(c.skills && c.skills.length > 0) && (
+          <div className="flex flex-wrap gap-1">
+            {c.skills.slice(0, 6).map((s, i) => {
+              const skillPalette = [
+                'bg-indigo-50 text-indigo-700 border-indigo-100',
+                'bg-emerald-50 text-emerald-700 border-emerald-100',
+                'bg-amber-50 text-amber-700 border-amber-100',
+                'bg-sky-50 text-sky-700 border-sky-100',
+                'bg-rose-50 text-rose-700 border-rose-100',
+                'bg-violet-50 text-violet-700 border-violet-100',
+              ];
+              return (
+                <span key={s} className={`text-[10px] px-1.5 py-0.5 rounded-md border ${skillPalette[i % skillPalette.length]}`}>
+                  {s}
+                </span>
+              );
+            })}
+            {c.skills.length > 6 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md text-slate-500 bg-slate-50 border border-slate-100">
+                +{c.skills.length - 6}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Footer row: contact icons + actions */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2 text-slate-400 text-[11px] min-w-0 flex-1">
+            {c.email && (
+              <a
+                href={`mailto:${c.email}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 hover:text-slate-700 truncate"
+                title={c.email}
+              >
+                <Mail size={11} /> <span className="truncate">{c.email}</span>
+              </a>
+            )}
+            {!c.email && c.phone && (
+              <span className="inline-flex items-center gap-1" title={c.phone}>
+                <Phone size={11} /> {c.phone}
+              </span>
+            )}
+            {!c.email && !c.phone && <span className="text-slate-300">No contact</span>}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {c.resume_url && (
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 text-primary" title="Has resume">
+                <FileText size={12} />
+              </span>
+            )}
+            {c.linkedin_url && (
+              <a
+                href={c.linkedin_url}
+                target="_blank" rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-sky-50 text-sky-600 hover:bg-sky-100"
+                title="LinkedIn"
+              >
+                <Linkedin size={12} />
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
   );
 }
 

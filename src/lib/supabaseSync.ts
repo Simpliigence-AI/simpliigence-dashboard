@@ -213,6 +213,7 @@ function candidateToRow(c: StaffingCandidate) {
     email: c.email,
     phone: c.phone,
     owning_ta_email: c.owning_ta_email ?? null,
+    location: c.location ?? null,
     linkedin_url: c.linkedin_url ?? null,
     resume_url: c.resume_url ?? null,
     resume_filename: c.resume_filename ?? null,
@@ -239,6 +240,7 @@ function rowToCandidate(row: any): StaffingCandidate {
     email: row.email ?? '',
     phone: row.phone ?? '',
     owning_ta_email: row.owning_ta_email ?? undefined,
+    location: row.location ?? undefined,
     linkedin_url: row.linkedin_url ?? undefined,
     resume_url: row.resume_url ?? undefined,
     resume_filename: row.resume_filename ?? undefined,
@@ -1128,6 +1130,7 @@ export const db = {
         phone?: string;
         linkedinUrl?: string;
         currentTitle?: string;
+        location?: string;
         yearsExperience?: number;
       }
     | { ok: false; error: string }
@@ -1144,6 +1147,7 @@ export const db = {
       phone?: string;
       linkedinUrl?: string;
       currentTitle?: string;
+      location?: string;
       yearsExperience?: number;
       error?: string;
       detail?: string;
@@ -1162,6 +1166,7 @@ export const db = {
       phone: data?.phone,
       linkedinUrl: data?.linkedinUrl,
       currentTitle: data?.currentTitle,
+      location: data?.location,
       yearsExperience: data?.yearsExperience,
     };
   },

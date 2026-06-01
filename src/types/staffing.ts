@@ -127,6 +127,8 @@ export interface StaffingCandidate {
   phone: string;
   /** TA who owns this candidate (auth email). Drives the "My Day" auto-populated req list. */
   owning_ta_email?: string;
+  /** Candidate's current location — free text, e.g. "Bangalore, India" or "Remote (US-EST)". Searchable. */
+  location?: string;
   /** Candidate's LinkedIn profile URL (optional). */
   linkedin_url?: string;
   /** Storage object path within the `candidate-resumes` bucket (optional). */

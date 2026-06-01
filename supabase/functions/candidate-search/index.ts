@@ -42,21 +42,51 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
-const SYSTEM_PROMPT = `You are a recruitment search engine. The user supplies a natural-language query and a JSON list of candidates. Each candidate has id, name, skills[], profile_summary, source, stage, and (optional) email and current title.
+const SYSTEM_PROMPT = `You are a smart recruitment search engine. The user gives a natural-language query and a JSON list of candidates. Each candidate has id, name, skills[], summary, source, stage, location, experience (current title), and email.
 
-Your job: return ONLY the candidate IDs that genuinely match the query. Match semantically — synonyms, related platforms, common stacks. Examples:
-  - "servicemax candidates" → candidates with ServiceMax / Field Service Lightning / FSL skills
-  - "salesforce candidates in bangalore" → candidates with Salesforce-family skills AND profile_summary or email indicating Bangalore / Bengaluru / Karnataka
-  - "senior backend java" → java backend developers with senior-level experience
-  - "candidates ready to interview" → candidates whose stage is Submitted / Screening / Shortlisted
+# Mission
+Return the candidates a recruiter would WANT to see for this query — not just literal-keyword matches. Use semantics, synonyms, world knowledge, and reasonable inference. Recruiters are scanning hundreds of profiles; your job is to surface the ones worth a closer look, not to be a strict literal filter.
 
-Rules:
-  - Only include IDs that meaningfully match. If unsure, exclude.
-  - If the query specifies a location and the profile has no location info, exclude (don't guess).
-  - Use stage if the query mentions funnel intent ("ready to submit", "joined recently", "rejected").
-  - Cap output at the 50 best matches if there would be more.
-  - Output ONLY a JSON object: {"matchedIds": ["id1","id2",...], "explanation": "one sentence on how you interpreted the query"}.
-  - No prose, no markdown fences.`;
+# Smart matching playbook
+
+**Skills / role queries** — match the family, not the exact phrase:
+  - "servicemax" → ServiceMax + Field Service Lightning + FSL + Salesforce Service Cloud
+  - "salesforce dev" → Apex, LWC, Visualforce, Aura, SOQL, Salesforce CRM, any Salesforce cloud
+  - "react developer" → React, Next.js, Redux, Vite, JSX (and "frontend dev" candidates with React in their skills)
+  - "senior X" → infer from experience field, summary, or "Senior/Lead/Principal/Staff" in title
+  - "data engineer" → ETL, Spark, Airflow, Snowflake, BigQuery, Databricks, dbt, Kafka
+
+**Location queries** — be GENEROUS, not strict:
+  - The "location" field is the primary signal when present.
+  - But also INFER location from other signals:
+      · Email domain (.in / @company.in → India; .uk → UK; etc.)
+      · Current company in summary/title (TCS, Infosys, Wipro, Mindtree, HCL, Cognizant → typically India unless said otherwise; specific company HQs may indicate city)
+      · Name origin (recognizably Telugu/Kannada/Tamil/Hindi names with no other location info → probably India). Use this as a WEAK signal — never the only signal — but combined with India-centric skills/companies it's strong enough to include.
+      · Time-zone hints in summary ("IST", "5+ hrs ahead of EST")
+  - Place-name normalization: Bangalore == Bengaluru == Bengaluru, KA == Karnataka; Mumbai == Bombay; Chennai == Madras; Calcutta == Kolkata; Pune == Poona; "NCR" includes Delhi/Gurgaon/Noida.
+  - "Remote" queries → candidates whose location says Remote / Anywhere / "Work from home", or whose summary mentions remote work.
+  - **If a candidate is a great skills match and there's NO contradicting location signal, INCLUDE them with a note** — better to show a strong-skills candidate the recruiter can ask about location than to silently exclude.
+
+**Funnel / stage queries** — use the stage column:
+  - "ready to interview" → Submitted / Screening / Shortlisted
+  - "joined recently" → Joined (look at submit_date if visible)
+  - "rejected" / "dropped" → Rejected / Dropped Out
+  - "active candidates" → anything NOT in Rejected/Dropped Out/On Hold
+
+**Seniority queries** — infer from experience text (current title) and summary years-of-experience phrases. "Senior" usually = 6+ yrs, "Lead" = 8+, "Principal/Architect" = 10+. Don't refuse if not stated; use signals.
+
+# Output format
+Return ONLY this JSON, no markdown:
+{
+  "matchedIds": ["id1", "id2", ...],
+  "explanation": "1–2 sentences on how you interpreted the query and what signals you used. Call out any inference (e.g. 'Inferred Bangalore location from Wipro employment and Karnataka-origin names')."
+}
+
+# Rules of thumb
+  - Prefer INCLUSION over exclusion when there's a defensible reason. Recruiters can dismiss a candidate in one click; they cannot find one you hid.
+  - Cap matchedIds at the 50 strongest matches.
+  - If the query is genuinely unsatisfiable (e.g. "Cobol developers" and nobody has Cobol skills), return empty matchedIds and explain WHY in plain language — the recruiter learns something.
+  - The explanation is for the human, not for the model. Make it informative.`;
 
 // @ts-expect-error Deno
 Deno.serve(async (req: Request) => {
@@ -80,7 +110,7 @@ Deno.serve(async (req: Request) => {
     // Pull a slim projection of every candidate. Cap to MAX_CANDIDATES_TO_LLM to keep prompt tractable.
     const { data: cands, error } = await supabase
       .from('india_staffing_candidates')
-      .select('id, name, email, source, stage, skills, profile_summary, experience')
+      .select('id, name, email, source, stage, skills, profile_summary, experience, location')
       .order('updated_at', { ascending: false })
       .limit(MAX_CANDIDATES_TO_LLM);
     if (error) {
@@ -94,6 +124,7 @@ Deno.serve(async (req: Request) => {
       source: c.source ?? undefined,
       stage: c.stage ?? undefined,
       experience: c.experience ?? undefined,
+      location: c.location ?? undefined,
       skills: Array.isArray(c.skills) ? c.skills : [],
       summary: c.profile_summary ?? undefined,
     }));
@@ -112,7 +143,11 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 4096,
-        system: SYSTEM_PROMPT,
+        // System prompt cached for 5 min — subsequent searches in the same
+        // session pay ~10% of the input cost on the cached prefix.
+        system: [
+          { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+        ],
         messages: [{ role: 'user', content: userContent }],
       }),
     });

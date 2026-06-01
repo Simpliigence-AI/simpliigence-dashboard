@@ -10,7 +10,7 @@
  * Persists via useStaffingStore.{addCandidate, updateCandidate, removeCandidate},
  * which already write to Supabase via db.upsertIndiaCandidate / deleteIndiaCandidate.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Briefcase, Mail, Phone, Zap } from 'lucide-react';
 import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
@@ -971,6 +971,14 @@ interface BulkRow {
  *      + skills + summary and writes back into the row (only filling blanks).
  * Realtime broadcasts the update so the new candidate appears in the table.
  */
+/** How many resume parses can run concurrently. Anthropic rate limits + the
+ *  edge-function cold-start budget put a soft ceiling around 6–8. */
+const BULK_CONCURRENCY = 6;
+/** Rough per-resume cost (USD) used for the live estimate. ~$3/MTok input on
+ *  Sonnet 4.5 × ~5k tokens + ~700 output tokens. Prompt caching pulls actual
+ *  cost down ~30–40% after the first call lands. */
+const COST_PER_RESUME_USD = 0.025;
+
 function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: {
   requisitions: { id: string; title: string; account_id: string }[];
   accountName: (rid: string) => string;
@@ -984,6 +992,15 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
   const [files, setFiles] = useState<File[]>([]);
   const [results, setResults] = useState<BulkRow[]>([]);
   const [running, setRunning] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  /** Tick once a second while running so the elapsed / ETA labels stay live.
+   *  We don't read `tick` directly — its only job is to force a re-render. */
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
 
   const canStart = files.length > 0 && !running;
 
@@ -998,77 +1015,91 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
     setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const processOne = async (idx: number, file: File, updateRow: (patch: Partial<BulkRow>) => void) => {
+    try {
+      updateRow({ status: 'uploading' });
+      const placeholder = file.name.replace(/\.(pdf|txt)$/i, '');
+      const created = addCandidate({
+        requisition_id: requisitionId || '',
+        name: placeholder,
+        experience: '',
+        stage: 'Submitted',
+        submit_date: new Date().toISOString().slice(0, 10),
+        feedback: '',
+        source,
+        email: '',
+        phone: '',
+        owning_ta_email: owner || undefined,
+      });
+
+      const up = await db.uploadCandidateResume(created.id, file);
+      if ('error' in up) {
+        updateRow({ status: 'failed', error: `Upload failed: ${up.error}` });
+        return;
+      }
+      updateCandidate(created.id, {
+        resume_url: up.path,
+        resume_filename: up.filename,
+        resume_uploaded_at: new Date().toISOString(),
+      });
+
+      updateRow({ status: 'parsing' });
+      const parsed = await db.parseCandidateResume(created.id);
+      if (!parsed.ok) {
+        updateRow({ status: 'failed', error: parsed.error });
+        return;
+      }
+      const patch: Partial<StaffingCandidate> = {
+        skills: parsed.skills,
+        profile_summary: parsed.summary,
+        parsed_at: parsed.parsedAt,
+      };
+      if (parsed.fullName) patch.name = parsed.fullName;
+      if (parsed.email) patch.email = parsed.email;
+      if (parsed.phone) patch.phone = parsed.phone;
+      if (parsed.linkedinUrl) patch.linkedin_url = parsed.linkedinUrl;
+      if (parsed.currentTitle) patch.experience = parsed.currentTitle;
+      updateCandidate(created.id, patch);
+
+      updateRow({ status: 'done', name: parsed.fullName || placeholder, email: parsed.email });
+    } catch (e) {
+      updateRow({ status: 'failed', error: (e as Error).message });
+    }
+    void idx; // silence unused-var lint (idx used by closure caller)
+  };
+
   const start = async () => {
     if (!canStart) return;
     setRunning(true);
+    setStartedAt(Date.now());
     const initial: BulkRow[] = files.map((f) => ({ filename: f.name, status: 'pending' }));
     setResults(initial);
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const updateRow = (patch: Partial<BulkRow>) => {
-        setResults((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-      };
-      try {
-        updateRow({ status: 'uploading' });
-        // 1. Create candidate row with placeholder name (the filename minus ext).
-        // Requisition is optional — if not picked, the candidate row is created
-        // unassigned and a TA can attach it to a req later from the table.
-        const placeholder = file.name.replace(/\.(pdf|txt)$/i, '');
-        const created = addCandidate({
-          requisition_id: requisitionId || '',
-          name: placeholder,
-          experience: '',
-          stage: 'Submitted',
-          submit_date: new Date().toISOString().slice(0, 10),
-          feedback: '',
-          source,
-          email: '',
-          phone: '',
-          owning_ta_email: owner || undefined,
-        });
+    // Worker-pool pattern: BULK_CONCURRENCY parallel workers pull from a shared queue.
+    // Wall-clock ≈ ceil(N / concurrency) × per-resume time.
+    let next = 0;
+    const total = files.length;
+    const claim = () => {
+      const i = next;
+      next += 1;
+      return i < total ? i : -1;
+    };
+    const updateRow = (idx: number, patch: Partial<BulkRow>) => {
+      setResults((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+    };
 
-        // 2. Upload the file
-        const up = await db.uploadCandidateResume(created.id, file);
-        if ('error' in up) {
-          updateRow({ status: 'failed', error: `Upload failed: ${up.error}` });
-          continue;
-        }
-        updateCandidate(created.id, {
-          resume_url: up.path,
-          resume_filename: up.filename,
-          resume_uploaded_at: new Date().toISOString(),
-        });
-
-        // 3. Parse via edge fn — it writes name/email/etc. into the row server-side
-        updateRow({ status: 'parsing' });
-        const parsed = await db.parseCandidateResume(created.id);
-        if (!parsed.ok) {
-          updateRow({ status: 'failed', error: parsed.error });
-          continue;
-        }
-        // Mirror server-side write into our local store so the table updates instantly
-        const patch: Partial<StaffingCandidate> = {
-          skills: parsed.skills,
-          profile_summary: parsed.summary,
-          parsed_at: parsed.parsedAt,
-        };
-        if (parsed.fullName) patch.name = parsed.fullName;
-        if (parsed.email) patch.email = parsed.email;
-        if (parsed.phone) patch.phone = parsed.phone;
-        if (parsed.linkedinUrl) patch.linkedin_url = parsed.linkedinUrl;
-        if (parsed.currentTitle) patch.experience = parsed.currentTitle;
-        updateCandidate(created.id, patch);
-
-        updateRow({
-          status: 'done',
-          name: parsed.fullName || placeholder,
-          email: parsed.email,
-        });
-      } catch (e) {
-        updateRow({ status: 'failed', error: (e as Error).message });
+    const worker = async () => {
+      while (true) {
+        const idx = claim();
+        if (idx < 0) return;
+        // eslint-disable-next-line no-await-in-loop
+        await processOne(idx, files[idx], (patch) => updateRow(idx, patch));
       }
-    }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(BULK_CONCURRENCY, total) }, () => worker()),
+    );
     setRunning(false);
   };
 
@@ -1142,6 +1173,59 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
               />
             </label>
           )}
+
+          {/* Live progress bar (while running or after a run) */}
+          {results.length > 0 && (() => {
+            const total = results.length;
+            const done = results.filter((r) => r.status === 'done').length;
+            const failed = results.filter((r) => r.status === 'failed').length;
+            const completed = done + failed;
+            const inFlight = results.filter((r) => r.status === 'uploading' || r.status === 'parsing').length;
+            const pct = Math.round((completed / total) * 100);
+            const elapsedMs = startedAt ? Date.now() - startedAt : 0;
+            const fmt = (ms: number) => {
+              const s = Math.floor(ms / 1000);
+              const m = Math.floor(s / 60);
+              return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+            };
+            const avgPerItemMs = completed > 0 ? elapsedMs / completed : 0;
+            const remaining = total - completed;
+            // With BULK_CONCURRENCY in flight, remaining wall-clock ≈
+            //   ceil(remaining / concurrency) × avg-per-item
+            const etaMs = avgPerItemMs > 0 && remaining > 0
+              ? Math.ceil(remaining / BULK_CONCURRENCY) * avgPerItemMs
+              : 0;
+            const costSoFar = done * COST_PER_RESUME_USD;
+            const costRemaining = remaining * COST_PER_RESUME_USD;
+            return (
+              <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-600">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-900">
+                      {completed} of {total}
+                    </span>
+                    <span>·</span>
+                    <span className="text-emerald-700">{done} parsed</span>
+                    {failed > 0 && <><span>·</span><span className="text-red-700">{failed} failed</span></>}
+                    {inFlight > 0 && <><span>·</span><span className="text-sky-700">{inFlight} in flight</span></>}
+                  </div>
+                  <div className="text-slate-500 tabular-nums">
+                    {running ? <>elapsed {fmt(elapsedMs)}{etaMs > 0 && ` · ETA ~${fmt(etaMs)}`}</> : <>completed in {fmt(elapsedMs)}</>}
+                  </div>
+                </div>
+                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-slate-500 tabular-nums">
+                  est. spent ${costSoFar.toFixed(2)}{remaining > 0 && ` · est. remaining $${costRemaining.toFixed(2)}`}
+                  <span className="ml-1 text-slate-400">(prompt-cached calls run cheaper — these are upper bounds)</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* File list / progress */}
           {(files.length > 0 || results.length > 0) && (

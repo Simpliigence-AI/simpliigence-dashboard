@@ -18,6 +18,7 @@ import IndiaHiringForecastPage from '../pages/IndiaHiringForecastPage';
 import USRosterPage from '../pages/USRosterPage';
 import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
+import TAMetricsPage from '../pages/TAMetricsPage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
 import UsersPage from '../pages/admin/UsersPage';
@@ -54,6 +55,7 @@ export const router = createBrowserRouter(
         { path: 'india-roster', element: <IndiaRosterPage /> },             // NEW
         { path: 'india-hiring-forecast', element: <IndiaHiringForecastPage /> }, // NEW
         { path: 'ta-daily-log', element: <TADailyLogPage /> },              // NEW — TA "My Day"
+        { path: 'ta-metrics', element: <TAMetricsPage /> },                 // NEW — TA performance dashboard
         { path: 'candidates', element: <CandidatesPage /> },                // NEW — bulk candidate CRUD
 
         // US T&M section

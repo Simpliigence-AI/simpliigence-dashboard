@@ -3,12 +3,14 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import {
   Users, Plus, Trash2, Pencil, Building2, ChevronDown, ChevronRight,
   Globe, TrendingUp, CheckCircle, AlertTriangle, Clock, Brain,
+  Sparkles, Loader2, Save, RefreshCw,
 } from 'lucide-react';
 import { useUSStaffingStore } from '../store/useUSStaffingStore';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { USStaffingStage, AccountCategory } from '../types/usStaffing';
 import { US_STAGE_COLORS } from '../types/usStaffing';
+import { db } from '../lib/supabaseSync';
 
 /* —— Editable Cell Component —— */
 function EditableCell({ value, onSave, type = 'text', options, className = '', displayContent }: {
@@ -91,6 +93,45 @@ export default function USStaffingPage() {
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [filterStage, setFilterStage] = useState<string>('All');
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+
+  // ── JD generator state (US side; mirror of India Demand) ──
+  const [jdReqId, setJdReqId] = useState<string | null>(null);
+  const [jdText, setJdText] = useState('');
+  const [jdState, setJdState] = useState<'idle' | 'loading' | 'ready' | 'saving' | 'error'>('idle');
+  const [jdError, setJdError] = useState<string | null>(null);
+  const [jdGeneratedAt, setJdGeneratedAt] = useState<string | null>(null);
+  const [jdCachedFromDb, setJdCachedFromDb] = useState(false);
+  const [jdDirty, setJdDirty] = useState(false);
+
+  const openJdDrawer = useCallback(async (reqId: string, opts: { regenerate?: boolean } = {}) => {
+    setJdReqId(reqId);
+    setJdState('loading');
+    setJdError(null);
+    setJdDirty(false);
+    try {
+      const res = await db.generateUsJobDescription(reqId, !!opts.regenerate);
+      if (res.ok) {
+        setJdText(res.jobDescription);
+        setJdGeneratedAt(res.generatedAt);
+        setJdCachedFromDb(res.cached);
+        setJdState('ready');
+      } else {
+        setJdError(res.error); setJdState('error');
+      }
+    } catch (e) { setJdError((e as Error).message); setJdState('error'); }
+  }, []);
+
+  const closeJdDrawer = () => { setJdReqId(null); setJdText(''); setJdState('idle'); setJdError(null); setJdDirty(false); };
+  const saveJd = async () => {
+    if (!jdReqId) return;
+    setJdState('saving');
+    try {
+      const r = await db.saveUsJobDescription(jdReqId, jdText);
+      if (!r.ok) { setJdError(r.error || 'Save failed'); setJdState('error'); return; }
+      setJdGeneratedAt(new Date().toISOString()); setJdCachedFromDb(true); setJdDirty(false); setJdState('ready');
+    } catch (e) { setJdError((e as Error).message); setJdState('error'); }
+  };
+  const copyJd = async () => { try { await navigator.clipboard.writeText(jdText); } catch { /* ignore */ } };
 
   // New req form
   const [newAccountId, setNewAccountId] = useState('');
@@ -361,7 +402,17 @@ export default function USStaffingPage() {
                           <td className="px-3 py-2 max-w-[260px]">
                             <EditableCell value={req.notes} type="textarea" onSave={(v) => handleCellSave(req.id, 'notes', v)} />
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-3 py-2 text-center whitespace-nowrap">
+                            <button
+                              onClick={() => openJdDrawer(req.id)}
+                              disabled={jdReqId === req.id && jdState === 'loading'}
+                              className="p-1 mr-0.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors disabled:opacity-50"
+                              title="Generate / view JD"
+                            >
+                              {jdReqId === req.id && jdState === 'loading'
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : <Sparkles size={13} />}
+                            </button>
                             <button onClick={() => { if (confirm(`Delete "${req.role}"?`)) removeRequisition(req.id); }} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Delete requisition">
                               <Trash2 size={13} />
                             </button>
@@ -698,6 +749,75 @@ export default function USStaffingPage() {
           </Card>
         </>
       ) : renderRequisitions()}
+
+      {/* ── Generate JD drawer ── */}
+      {jdReqId && (() => {
+        const reqRow = requisitions.find((rq) => rq.id === jdReqId);
+        const acctName = reqRow ? (accounts.find((a) => a.id === reqRow.account_id)?.name || '—') : '—';
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40"
+            onClick={(e) => { if (e.target === e.currentTarget) closeJdDrawer(); }}
+          >
+            <div className="bg-white w-full max-w-2xl h-full flex flex-col shadow-xl">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Sparkles size={14} className="text-amber-500 flex-shrink-0" />
+                    {reqRow?.role || 'Job description'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    US · {acctName}
+                    {jdGeneratedAt && (<> · {jdCachedFromDb ? 'cached' : 'generated'} {new Date(jdGeneratedAt).toLocaleString()}</>)}
+                  </div>
+                </div>
+                <button onClick={closeJdDrawer} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+              </div>
+
+              {jdState === 'loading' && (
+                <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-900 flex items-center gap-2">
+                  <Loader2 size={12} className="animate-spin" /> Asking Claude to draft the JD…
+                </div>
+              )}
+              {jdState === 'error' && (
+                <div className="px-5 py-3 bg-red-50 border-b border-red-200 text-[11px] text-red-700">{jdError}</div>
+              )}
+              {jdState === 'ready' && jdDirty && (
+                <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-900">
+                  Unsaved edits — click <strong>Save</strong>.
+                </div>
+              )}
+
+              <div className="flex-1 overflow-auto p-5">
+                <textarea
+                  value={jdText}
+                  onChange={(e) => { setJdText(e.target.value); setJdDirty(true); }}
+                  disabled={jdState === 'loading'}
+                  className="w-full h-full min-h-[400px] text-xs font-mono leading-relaxed border border-slate-200 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-400"
+                  placeholder="Generated JD will appear here…"
+                />
+              </div>
+
+              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                <div className="text-[11px] text-slate-500">Edit freely — your changes save to the requisition.</div>
+                <div className="flex items-center gap-2">
+                  <button onClick={copyJd} disabled={!jdText || jdState === 'loading'}
+                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40">Copy</button>
+                  <button onClick={() => openJdDrawer(jdReqId, { regenerate: true })} disabled={jdState === 'loading'}
+                          className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-md hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+                          title="Throw away current JD and ask Claude for a fresh draft">
+                    <RefreshCw size={12} /> Regenerate
+                  </button>
+                  <button onClick={saveJd} disabled={!jdDirty || jdState === 'saving' || jdState === 'loading'}
+                          className="text-xs font-semibold bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1">
+                    <Save size={12} /> {jdState === 'saving' ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

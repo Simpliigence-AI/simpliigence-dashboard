@@ -22,11 +22,14 @@ interface TaLogState {
   setTeamMembers: (members: TeamMember[]) => void;
 
   // mutators
-  /** Insert or update a single counter-set + notes for (taEmail, logDate, requisitionId). */
+  /** Insert or update a single counter-set + notes for (taEmail, logDate, requisitionId|activityType).
+   *  Pass either `requisitionId` (requisition-keyed work) or `activityType`
+   *  (non-requisition work like "Vendor Coordination") — but not both. */
   upsertEntry: (params: {
     taEmail: string;
     logDate: string;
-    requisitionId: string;
+    requisitionId?: string | null;
+    activityType?: string | null;
     counters?: Partial<Record<TALogCounterKey, number>>;
     notes?: string;
     dailyStatusId?: string | null;
@@ -46,9 +49,20 @@ export const useTaLogStore = create<TaLogState>()(
       setEntries: (entries) => set({ entries }),
       setTeamMembers: (teamMembers) => set({ teamMembers }),
 
-      upsertEntry: async ({ taEmail, logDate, requisitionId, counters, notes, dailyStatusId }) => {
+      upsertEntry: async ({ taEmail, logDate, requisitionId, activityType, counters, notes, dailyStatusId }) => {
+        const reqId = requisitionId ?? null;
+        const actType = activityType ?? null;
+        if (!reqId && !actType) {
+          console.warn('[ta-log] upsertEntry called with neither requisitionId nor activityType');
+          return;
+        }
+        // Uniqueness: match on (taEmail, logDate, requisitionId) OR (taEmail, logDate, activityType)
+        // — mirrors the partial-unique indexes on the DB.
         const existing = get().entries.find(
-          (e) => e.taEmail === taEmail && e.logDate === logDate && e.requisitionId === requisitionId,
+          (e) =>
+            e.taEmail === taEmail &&
+            e.logDate === logDate &&
+            (reqId ? e.requisitionId === reqId : e.requisitionId === null && e.activityType === actType),
         );
         const now = new Date().toISOString();
         const merged: TADailyLogEntry = existing
@@ -65,7 +79,8 @@ export const useTaLogStore = create<TaLogState>()(
               id: nanoid(),
               taEmail,
               logDate,
-              requisitionId,
+              requisitionId: reqId,
+              activityType: actType,
               sourcedOutreach: counters?.sourcedOutreach ?? 0,
               screensCompleted: counters?.screensCompleted ?? 0,
               submissionsInterviews: counters?.submissionsInterviews ?? 0,
@@ -74,7 +89,6 @@ export const useTaLogStore = create<TaLogState>()(
               createdAt: now,
               updatedAt: now,
             };
-        // Optimistic local update
         const next = existing
           ? get().entries.map((e) => (e.id === merged.id ? merged : e))
           : [...get().entries, merged];

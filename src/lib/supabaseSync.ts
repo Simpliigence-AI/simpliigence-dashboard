@@ -1503,6 +1503,44 @@ export const db = {
     return { ok: true };
   },
 
+  /** US-side JD generator. Same shape as `generateJobDescription` but reads from
+   *  `us_staffing_requisitions` and uses a US-flavored prompt. */
+  async generateUsJobDescription(requisitionId: string, regenerate = false): Promise<
+    | { ok: true; jobDescription: string; generatedAt: string; cached: boolean }
+    | { ok: false; error: string }
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      jobDescription?: string;
+      generatedAt?: string;
+      cached?: boolean;
+      error?: string;
+      detail?: string;
+    }>('generate-jd-us', { body: { requisitionId, regenerate } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    return {
+      ok: true,
+      jobDescription: data?.jobDescription || '',
+      generatedAt: data?.generatedAt || new Date().toISOString(),
+      cached: !!data?.cached,
+    };
+  },
+
+  /** Persist a manually edited JD on a US requisition. */
+  async saveUsJobDescription(requisitionId: string, jd: string): Promise<{ ok: boolean; error?: string }> {
+    const { error } = await supabase
+      .from('us_staffing_requisitions')
+      .update({
+        job_description: jd,
+        job_description_at: new Date().toISOString(),
+        updated_by: CLIENT_ID,
+      })
+      .eq('id', requisitionId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
   /** Invoke the send-vendor-email edge function (Resend under the hood).
    *  Phase 2 of the SendToVendor flow — replaces opening mailto: links with
    *  actual server-side delivery. Returns the Resend message id on success

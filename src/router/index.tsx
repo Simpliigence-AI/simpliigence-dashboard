@@ -19,6 +19,7 @@ import USRosterPage from '../pages/USRosterPage';
 import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
 import TAMetricsPage from '../pages/TAMetricsPage';
+import ProfileFormatPage from '../pages/ProfileFormatPage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
 import UsersPage from '../pages/admin/UsersPage';
@@ -59,6 +60,7 @@ export const router = createBrowserRouter(
         { path: 'ta-daily-log', element: <TADailyLogPage /> },              // NEW — TA "My Day"
         { path: 'ta-metrics', element: <TAMetricsPage /> },                 // NEW — TA performance dashboard
         { path: 'candidates', element: <CandidatesPage /> },                // NEW — bulk candidate CRUD
+        { path: 'profile-format', element: <ProfileFormatPage /> },         // NEW — Claude-powered resume reformatter
 
         // US T&M section
         { path: 'us-staffing', element: <USStaffingPage /> },        // "US Demand"

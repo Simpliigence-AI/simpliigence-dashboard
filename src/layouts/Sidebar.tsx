@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   Contact,
   BarChart3,
+  FileEdit,
   UserCog,
   Activity,
   History,
@@ -63,6 +64,7 @@ const sections: NavSection[] = [
       { to: '/ta-daily-log', icon: CalendarCheck, label: 'TA Daily Log' },
       { to: '/ta-metrics', icon: BarChart3, label: 'TA Metrics' },
       { to: '/candidates', icon: Contact, label: 'Candidates' },
+      { to: '/profile-format', icon: FileEdit, label: 'Profile Format' },
     ],
   },
   {

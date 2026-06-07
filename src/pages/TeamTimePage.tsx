@@ -14,7 +14,7 @@
  * approve checkbox column at the left for blasting through a backlog.
  */
 import { useMemo, useState } from 'react';
-import { Check, X, Filter, CheckCheck } from 'lucide-react';
+import { Check, X, Filter, CheckCheck, Download } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
@@ -119,6 +119,45 @@ export default function TeamTimePage() {
     setRejectReason('');
   };
 
+  /** Build a CSV string from the currently-visible entries and download it.
+   *  Reflects exactly what the table shows — tab + filter both apply.
+   *  Filename includes the tab + ISO date so accounting can identify the run. */
+  const exportCsv = () => {
+    const cols: { label: string; value: (e: TimeEntry) => string }[] = [
+      { label: 'Date',        value: (e) => e.workDate },
+      { label: 'Employee',    value: (e) => e.employeeEmail },
+      { label: 'Project',     value: (e) => e.projectName },
+      { label: 'Hours',       value: (e) => e.hours.toFixed(2) },
+      { label: 'Billable',    value: (e) => (e.billable ? 'Yes' : 'No') },
+      { label: 'Status',      value: (e) => e.status },
+      { label: 'Submitted',   value: (e) => e.submittedAt ?? '' },
+      { label: 'Approved by', value: (e) => e.approvedBy ?? '' },
+      { label: 'Approved at', value: (e) => e.approvedAt ?? '' },
+      { label: 'Reject reason', value: (e) => e.rejectReason ?? '' },
+      { label: 'Notes',       value: (e) => e.notes ?? '' },
+    ];
+    const esc = (s: string) => {
+      // RFC 4180: quote fields containing comma, quote, or newline; double internal quotes.
+      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const header = cols.map((c) => c.label).join(',');
+    const rows = visibleEntries.map((e) => cols.map((c) => esc(c.value(e))).join(','));
+    const csv = [header, ...rows].join('\r\n');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const filename = `time-entries-${tab}-${today}.csv`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
@@ -133,6 +172,15 @@ export default function TeamTimePage() {
               onChange={(e) => setFilterEmployee(e.target.value)}
               className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 w-56"
             />
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={visibleEntries.length === 0}
+              className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1.5"
+              title={`Download ${visibleEntries.length} entries as CSV`}
+            >
+              <Download size={12} /> Export CSV
+            </button>
           </div>
         }
       />

@@ -76,12 +76,12 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
                     key={geo.rsmKey}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     geography={geo as any}
-                    fill="#e2e8f0"
-                    stroke="#cbd5e1"
-                    strokeWidth={0.4}
+                    fill="#cbd5e1"
+                    stroke="#64748b"
+                    strokeWidth={0.8}
                     style={{
                       default: { outline: 'none' },
-                      hover:   { fill: '#f1f5f9', outline: 'none' },
+                      hover:   { fill: '#94a3b8', outline: 'none' },
                       pressed: { outline: 'none' },
                     }}
                   />

@@ -1511,8 +1511,13 @@ export const db = {
     to: string;
     subject: string;
     body: string;
-    replyTo?: string;
+    /** Per-call sender. Must be on the edge function's allow-listed domain
+     *  (defaults to the domain of FROM_EMAIL). If omitted, the function
+     *  falls back to FROM_EMAIL. We pass the signed-in recruiter so vendor
+     *  replies route to their inbox, not the shared hr@ alias. */
+    from?: string;
     fromName?: string;
+    replyTo?: string;
   }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
     const { data, error } = await supabase.functions.invoke<{
       ok?: boolean;

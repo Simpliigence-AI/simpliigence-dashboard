@@ -1549,10 +1549,11 @@ export const db = {
     to: string;
     subject: string;
     body: string;
-    /** Per-call sender. Must be on the edge function's allow-listed domain
-     *  (defaults to the domain of FROM_EMAIL). If omitted, the function
-     *  falls back to FROM_EMAIL. We pass the signed-in recruiter so vendor
-     *  replies route to their inbox, not the shared hr@ alias. */
+    /** Per-call sender override. Only honoured if its domain is on the edge
+     *  function's allow-listed domain — otherwise the function rejects with
+     *  400. Currently we DON'T pass this from the UI because Resend only has
+     *  hr@simpliigence.com (the mailbox) verified, not the full domain.
+     *  Display name + Reply-To carry the recruiter's identity instead. */
     from?: string;
     fromName?: string;
     replyTo?: string;
@@ -1563,7 +1564,33 @@ export const db = {
       error?: string;
       detail?: string;
     }>('send-vendor-email', { body: params });
-    if (error) return { ok: false, error: error.message };
+
+    // supabase-js's FunctionsHttpError swallows the response body and gives us
+    // a generic "Edge Function returned a non-2xx status code" — useless for
+    // debugging. The actual JSON {error, detail} is on `error.context`
+    // (a Response). Re-read it here so the UI shows the real reason.
+    if (error) {
+      let detail = error.message;
+      const ctx = (error as unknown as { context?: Response }).context;
+      if (ctx && typeof ctx.text === 'function') {
+        try {
+          const raw = await ctx.text();
+          try {
+            const parsed = JSON.parse(raw) as { error?: string; detail?: string };
+            if (parsed.error) {
+              detail = parsed.detail ? `${parsed.error} — ${parsed.detail}` : parsed.error;
+            } else if (raw.trim()) {
+              detail = raw.slice(0, 500);
+            }
+          } catch {
+            if (raw.trim()) detail = raw.slice(0, 500);
+          }
+        } catch {
+          // Response body already consumed — fall back to error.message.
+        }
+      }
+      return { ok: false, error: detail };
+    }
     if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
     if (!data?.id) return { ok: false, error: 'No message id returned' };
     return { ok: true, id: data.id };

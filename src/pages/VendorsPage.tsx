@@ -440,11 +440,25 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
   const reqTitleById = (id: string) => requisitions.find((r) => r.id === id)?.title ?? id.slice(0, 8);
 
   const [showAll, setShowAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<VendorOutreachStatus | 'all'>('all');
 
   const recent = useMemo(() => {
     const sorted = [...outreach].sort((a, b) => b.sentAt.localeCompare(a.sentAt));
-    return showAll ? sorted : sorted.slice(0, 20);
-  }, [outreach, showAll]);
+    const filtered = statusFilter === 'all'
+      ? sorted
+      : sorted.filter((o) => o.sendStatus === statusFilter);
+    return showAll ? filtered : filtered.slice(0, 20);
+  }, [outreach, showAll, statusFilter]);
+
+  // Per-status counts for chip labels
+  const statusCounts = useMemo(() => {
+    const c: Record<VendorOutreachStatus | 'all', number> = {
+      all: outreach.length,
+      composed: 0, sent: 0, bounced: 0, replied: 0,
+    };
+    for (const o of outreach) c[o.sendStatus] = (c[o.sendStatus] ?? 0) + 1;
+    return c;
+  }, [outreach]);
 
   const today = new Date().toISOString().slice(0, 10);
   const todayOnly = outreach.filter((o) => o.sentAt.startsWith(today));
@@ -457,8 +471,37 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
     ? ` · today: ${sentToday} sent${failedToday > 0 ? ` · ${failedToday} failed` : ''}`
     : '';
 
+  /** Filter chips for triage. Order matches a typical recruiter mental model:
+   *  see all first, then narrow by what's actionable now. */
+  const chips: { key: VendorOutreachStatus | 'all'; label: string; cls: string }[] = [
+    { key: 'all',      label: 'All',      cls: 'bg-slate-100 text-slate-700' },
+    { key: 'sent',     label: 'Sent',     cls: 'bg-emerald-100 text-emerald-800' },
+    { key: 'replied',  label: 'Replied',  cls: 'bg-sky-100 text-sky-800' },
+    { key: 'bounced',  label: 'Failed',   cls: 'bg-red-100 text-red-700' },
+    { key: 'composed', label: 'Composed', cls: 'bg-slate-100 text-slate-600' },
+  ];
+
   return (
     <Card className="mb-4" title={`Recent outreach activity · ${outreach.length} total${titleSuffix}`}>
+      <div className="flex items-center gap-1.5 flex-wrap mb-3">
+        {chips.map((c) => {
+          const active = statusFilter === c.key;
+          const n = statusCounts[c.key] ?? 0;
+          if (c.key !== 'all' && n === 0) return null; // hide empty buckets
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setStatusFilter(c.key)}
+              className={`text-[10px] font-semibold inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
+                active ? `${c.cls} ring-2 ring-offset-1 ring-current` : `${c.cls} opacity-60 hover:opacity-100`
+              }`}
+            >
+              {c.label} <span className="tabular-nums">{n}</span>
+            </button>
+          );
+        })}
+      </div>
       <div className="overflow-x-auto -mx-6 px-6">
         <table className="min-w-full text-sm [&_td]:align-middle [&_th]:align-middle">
           <thead>

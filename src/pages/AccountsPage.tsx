@@ -32,6 +32,7 @@ import { useAccountStore } from '../store/useAccountStore';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { useUSRosterStore } from '../store/useUSRosterStore';
 import { STALE_CONNECT_DAYS } from '../types/accountMgmt';
+import { ClientContactsTab } from './accounts/ClientContactsTab';
 import type {
   Account, AccountConnect, AccountActionItem, ActionStatus, ConnectType, AccountStatus,
 } from '../types/accountMgmt';
@@ -313,7 +314,7 @@ function AccountRow({ account, derived, isOpen, onToggle }: {
 
 /* ── Expanded detail: tabs (Overview / Sales / Delivery / Actions / Team) ── */
 
-type AccountTab = 'overview' | 'sales' | 'delivery' | 'actions' | 'team';
+type AccountTab = 'overview' | 'sales' | 'delivery' | 'contacts' | 'actions' | 'team';
 
 interface TeamMemberLite { name: string; role: string; project: string; status: string; email: string; location: string | null; }
 
@@ -341,6 +342,7 @@ function AccountDetail(props: {
     { key: 'overview', label: 'Overview' },
     { key: 'sales', label: 'Sales connects', count: sales.length },
     { key: 'delivery', label: 'Delivery connects', count: delivery.length },
+    { key: 'contacts', label: 'Client contacts' },
     { key: 'actions', label: 'Actions', count: actions.filter((a) => a.status === 'open' || a.status === 'in_progress').length },
     { key: 'team', label: 'Team', count: team.length },
   ];
@@ -393,6 +395,9 @@ function AccountDetail(props: {
           onRemove={props.onRemoveAction}
           onSetStatus={props.onSetActionStatus}
         />
+      )}
+      {activeTab === 'contacts' && (
+        <ClientContactsTab accountId={account.id} />
       )}
       {activeTab === 'team' && (
         <TeamTab account={account} team={team} />

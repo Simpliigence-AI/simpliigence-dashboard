@@ -22,6 +22,7 @@ import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 import type { TimeEntry } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
+import type { Vendor, VendorOutreach } from '../types/vendor';
 
 // ─── Conversion helpers ────────────────────────────────────────────
 

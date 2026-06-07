@@ -22,6 +22,7 @@ import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 import type { TimeEntry } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
+import type { Vendor, VendorOutreach } from '../types/vendor';
 
 // ─── Conversion helpers ────────────────────────────────────────────
 
@@ -579,6 +580,82 @@ export async function fetchAccountManagement(): Promise<{
     accounts: (accRes.data || []).map(rowToAccount),
     connects: (conRes.data || []).map(rowToAccountConnect),
     actions: (actRes.data || []).map(rowToAccountAction),
+  };
+}
+
+// ─── Vendor converters ─────────────────────────────────────────────
+
+function vendorToRow(v: Vendor) {
+  return {
+    id: v.id,
+    company_name: v.companyName,
+    spoc_name: v.spocName,
+    spoc_email: v.spocEmail?.toLowerCase() ?? null,
+    alt_emails: v.altEmails ?? [],
+    skills: v.skills ?? [],
+    notes: v.notes ?? '',
+    active: v.active,
+    updated_by: CLIENT_ID,
+    updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToVendor(row: any): Vendor {
+  return {
+    id: row.id,
+    companyName: row.company_name,
+    spocName: row.spoc_name ?? null,
+    spocEmail: row.spoc_email ?? null,
+    altEmails: Array.isArray(row.alt_emails) ? row.alt_emails : [],
+    skills: Array.isArray(row.skills) ? row.skills : [],
+    notes: row.notes ?? '',
+    active: row.active !== false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function vendorOutreachToRow(o: VendorOutreach) {
+  return {
+    id: o.id,
+    vendor_id: o.vendorId,
+    requisition_id: o.requisitionId,
+    sent_at: o.sentAt,
+    sent_by: o.sentBy,
+    subject: o.subject ?? '',
+    body_preview: (o.bodyPreview ?? '').slice(0, 500),
+    send_status: o.sendStatus,
+    send_error: o.sendError,
+    updated_by: CLIENT_ID,
+    updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToVendorOutreach(row: any): VendorOutreach {
+  return {
+    id: row.id,
+    vendorId: row.vendor_id,
+    requisitionId: row.requisition_id,
+    sentAt: row.sent_at,
+    sentBy: row.sent_by ?? null,
+    subject: row.subject ?? '',
+    bodyPreview: row.body_preview ?? '',
+    sendStatus: (row.send_status ?? 'composed') as VendorOutreach['sendStatus'],
+    sendError: row.send_error ?? null,
+  };
+}
+
+export async function fetchVendors(): Promise<{
+  vendors: Vendor[]; outreach: VendorOutreach[];
+} | null> {
+  const [vRes, oRes] = await Promise.all([
+    supabase.from('vendors').select('*'),
+    supabase.from('vendor_outreach').select('*').order('sent_at', { ascending: false }),
+  ]);
+  if (vRes.error) { console.warn('[supabase] fetch vendors failed:', vRes.error); return null; }
+  return {
+    vendors: (vRes.data || []).map(rowToVendor),
+    outreach: (oRes.data || []).map(rowToVendorOutreach),
   };
 }
 
@@ -1204,6 +1281,20 @@ export const db = {
     if (error) console.warn('[supabase] delete account_action failed:', error);
   },
 
+  // --- Vendors ---
+  async upsertVendor(v: Vendor) {
+    const { error } = await supabase.from('vendors').upsert(vendorToRow(v), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert vendor failed:', error);
+  },
+  async deleteVendor(id: string) {
+    const { error } = await supabase.from('vendors').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete vendor failed:', error);
+  },
+  async upsertVendorOutreach(o: VendorOutreach) {
+    const { error } = await supabase.from('vendor_outreach').upsert(vendorOutreachToRow(o), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert vendor_outreach failed:', error);
+  },
+
   // --- Time entries ---
   async upsertTimeEntry(e: TimeEntry) {
     const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
@@ -1469,6 +1560,8 @@ export const db = {
       supabase.from('account_action_items').delete().neq('id', ''),
       supabase.from('account_connects').delete().neq('id', ''),
       supabase.from('accounts').delete().neq('id', ''),
+      supabase.from('vendor_outreach').delete().neq('id', ''),
+      supabase.from('vendors').delete().neq('id', ''),
     ]);
   },
 };
@@ -1491,6 +1584,7 @@ type StoreSetters = {
   setTimeEntries?: (entries: TimeEntry[]) => void;
   setActualHours?: (rows: ActualHourEntry[]) => void;
   setAccountManagement?: (data: { accounts: Account[]; connects: AccountConnect[]; actions: AccountActionItem[] }) => void;
+  setVendors?: (data: { vendors: Vendor[]; outreach: VendorOutreach[] }) => void;
   getForecastAssignments: () => ForecastAssignment[];
   getStaffingRequests: () => StaffingRequest[];
   getPipelineProjects: () => ZohoPipelineProject[];
@@ -1777,6 +1871,23 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
         if (!setters.setAccountManagement) return;
         fetchAccountManagement().then((data) => {
           if (data) setters.setAccountManagement!(data);
+        });
+      },
+    );
+  }
+
+  // --- Vendors: refetch bundle on any change to vendors | vendor_outreach.
+  for (const table of ['vendors', 'vendor_outreach'] as const) {
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table },
+      (payload) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const row = (payload.new || payload.old) as any;
+        if (row?.updated_by === CLIENT_ID) return;
+        if (!setters.setVendors) return;
+        fetchVendors().then((data) => {
+          if (data) setters.setVendors!(data);
         });
       },
     );

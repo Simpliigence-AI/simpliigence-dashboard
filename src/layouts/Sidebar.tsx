@@ -23,6 +23,7 @@ import {
   Contact,
   BarChart3,
   Building2,
+  Handshake,
   ChevronDown,
   ChevronRight,
   FileEdit,
@@ -82,6 +83,7 @@ const sections: NavSection[] = [
     label: 'Account Management',
     items: [
       { to: '/accounts', icon: Building2, label: 'Accounts' },
+      { to: '/vendors',  icon: Handshake, label: 'Vendors' },
     ],
   },
   {

@@ -17,10 +17,9 @@
  * with an edge function that sends from hr@simpliigence.com directly.
  */
 import { useMemo, useState } from 'react';
-import { X, Send, Search, Mail, CheckSquare, Square, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, Search, Mail, CheckSquare, Square, Sparkles, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useVendorStore } from '../../store/useVendorStore';
-import type { Vendor } from '../../types/vendor';
 import type { StaffingRequisition } from '../../types/staffing';
 
 /** Default subject line. */

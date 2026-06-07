@@ -21,6 +21,7 @@ import CandidatesPage from '../pages/CandidatesPage';
 import TAMetricsPage from '../pages/TAMetricsPage';
 import ProfileFormatPage from '../pages/ProfileFormatPage';
 import AccountsPage from '../pages/AccountsPage';
+import VendorsPage from '../pages/VendorsPage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
 import UsersPage from '../pages/admin/UsersPage';
@@ -75,6 +76,7 @@ export const router = createBrowserRouter(
 
         // Account Management
         { path: 'accounts', element: <AccountsPage /> },
+        { path: 'vendors',  element: <VendorsPage /> },
 
         // Other
         { path: 'concierge', element: <ConciergePage /> },

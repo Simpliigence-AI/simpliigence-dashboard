@@ -11,6 +11,7 @@ import { useUSRosterStore } from './store/useUSRosterStore';
 import { useTaLogStore } from './store/useTaLogStore';
 import { useTimeEntryStore } from './store/useTimeEntryStore';
 import { useAccountStore } from './store/useAccountStore';
+import { useVendorStore } from './store/useVendorStore';
 import { ZOHO_SEED_PROJECTS } from './data/zohoSeed';
 import {
   fetchAssignments,
@@ -29,6 +30,7 @@ import {
   fetchTeamMembers,
   fetchTimeEntries,
   fetchAccountManagement,
+  fetchVendors,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -78,6 +80,7 @@ function useSupabaseInit() {
           teamMembersRes,
           timeEntriesRes,
           accountMgmtRes,
+          vendorsRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -95,6 +98,7 @@ function useSupabaseInit() {
           withTimeout(fetchTeamMembers()),
           withTimeout(fetchTimeEntries()),
           withTimeout(fetchAccountManagement()),
+          withTimeout(fetchVendors()),
         ]);
 
         // --- Forecast assignments ---
@@ -334,6 +338,18 @@ function useSupabaseInit() {
           console.warn('[supabase] Account mgmt fetch timed out — using localStorage');
         }
 
+        // --- Vendors ---
+        if (!vendorsRes.timedOut) {
+          const data = vendorsRes.value;
+          if (data) {
+            useVendorStore.getState().setAll(data);
+            console.log('[supabase] Loaded vendors:', data.vendors.length, 'vendors /',
+              data.outreach.length, 'outreaches');
+          }
+        } else {
+          console.warn('[supabase] Vendors fetch timed out — using localStorage');
+        }
+
         // Set up realtime subscriptions
         cleanup = setupRealtimeSubscriptions({
           setForecastState: (assignments, weekDates) => {
@@ -389,6 +405,9 @@ function useSupabaseInit() {
           },
           setAccountManagement: (data) => {
             useAccountStore.getState().setAll(data);
+          },
+          setVendors: (data) => {
+            useVendorStore.getState().setAll(data);
           },
           setUSRoster: (members) => {
             useUSRosterStore.setState({ members });

@@ -60,7 +60,7 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       {/* Map */}
-      <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ center: [82, 22], scale: 800 }}
@@ -76,12 +76,12 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
                     key={geo.rsmKey}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     geography={geo as any}
-                    fill="#cbd5e1"
-                    stroke="#64748b"
-                    strokeWidth={0.8}
+                    fill="#e2e8f0"
+                    stroke="#475569"
+                    strokeWidth={1.1}
                     style={{
                       default: { outline: 'none' },
-                      hover:   { fill: '#94a3b8', outline: 'none' },
+                      hover:   { fill: '#cbd5e1', outline: 'none' },
                       pressed: { outline: 'none' },
                     }}
                   />

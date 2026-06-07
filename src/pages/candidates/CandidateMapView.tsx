@@ -16,10 +16,9 @@ import { MapPin, X, Linkedin, Mail, Phone } from 'lucide-react';
 import { INDIA_CITIES, matchIndianCity } from '../../data/indiaCities';
 import { TaIdentity } from '../../components/TaIdentity';
 import type { StaffingCandidate } from '../../types/staffing';
-
-// Public India states GeoJSON (no auth needed). Falls back silently to a
-// blank canvas if the fetch errors — pins still render.
-const INDIA_GEO_URL = 'https://cdn.jsdelivr.net/gh/Anujarya300/bubble_maps@1.0.0/data/geography-data/india.topo.json';
+// Vendored India states GeoJSON (~93 KB, simplified 1% from datameet/maps).
+// Bundled at build time so the basemap works offline + survives CDN churn.
+import indiaGeo from '../../data/india-states.json';
 
 interface ClusterInfo {
   city: string;
@@ -70,14 +69,13 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
           style={{ width: '100%', height: 'auto' }}
         >
           <ZoomableGroup minZoom={0.9} maxZoom={4}>
-            <Geographies geography={INDIA_GEO_URL}>
-              {({ geographies }: { geographies: unknown[] }) =>
-                geographies.map((g, idx) => (
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            <Geographies geography={indiaGeo}>
+              {({ geographies }: { geographies: Array<{ rsmKey: string }> }) =>
+                geographies.map((geo) => (
                   <Geography
-                    key={(g as { rsmKey?: string }).rsmKey ?? idx}
+                    key={geo.rsmKey}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    geography={g as any}
+                    geography={geo as any}
                     fill="#e2e8f0"
                     stroke="#cbd5e1"
                     strokeWidth={0.4}

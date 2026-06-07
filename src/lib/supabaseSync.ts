@@ -1105,6 +1105,37 @@ export const db = {
     if (error) console.warn('[supabase] delete time_entry failed:', error);
   },
 
+  // --- User avatars (Supabase Storage: user-avatars bucket) ---
+  /** Upload an avatar image and return the storage object path. */
+  async uploadUserAvatar(email: string, file: File): Promise<{ path: string } | { error: string }> {
+    const safeEmail = email.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '_');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${safeEmail}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from('user-avatars')
+      .upload(path, file, { upsert: true, contentType: file.type || undefined });
+    if (error) {
+      console.warn('[supabase] upload avatar failed:', error);
+      return { error: error.message };
+    }
+    return { path };
+  },
+
+  /** Public URL for an avatar storage path. */
+  publicAvatarUrl(path: string): string | null {
+    const { data } = supabase.storage.from('user-avatars').getPublicUrl(path);
+    return data?.publicUrl || null;
+  },
+
+  /** Update an authorized_users row's avatar_url. */
+  async setUserAvatar(email: string, avatarUrl: string | null) {
+    const { error } = await supabase
+      .from('authorized_users')
+      .update({ avatar_url: avatarUrl })
+      .eq('email', email.trim().toLowerCase());
+    if (error) console.warn('[supabase] setUserAvatar failed:', error);
+  },
+
   // --- Candidate resumes (Supabase Storage + parse-resume edge function) ---
   /** Upload a resume file to storage and return the object path stored on the candidate row. */
   async uploadCandidateResume(candidateId: string, file: File): Promise<{ path: string; filename: string } | { error: string }> {

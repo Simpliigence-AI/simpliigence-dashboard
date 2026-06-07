@@ -18,6 +18,7 @@ import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { db } from '../lib/supabaseSync';
+import { TaIdentity } from '../components/TaIdentity';
 import {
   CANDIDATE_STAGES,
   CANDIDATE_STAGE_COLORS,
@@ -815,12 +816,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           />
         </td>
         <td className="py-2 pr-3 align-top">
-          <input
-            value={c.owning_ta_email ?? ''}
-            onChange={(e) => onChange({ owning_ta_email: e.target.value.toLowerCase() })}
-            placeholder="ta@…"
-            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
-          />
+          <OwnerCell email={c.owning_ta_email ?? ''} onChange={(v) => onChange({ owning_ta_email: v || undefined })} />
         </td>
         <td className="py-2 pr-3 align-top text-xs text-slate-500">
           <input
@@ -1065,6 +1061,11 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                       <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1.5 flex items-center gap-1">
                         <UserPlus size={11} /> Referred by
                       </div>
+                      {c.referrer_email && (
+                        <div className="mb-2 bg-white rounded-md border border-emerald-200 px-2.5 py-1.5">
+                          <TaIdentity email={c.referrer_email} avatarSize={26} nameSize="text-xs" showEmail />
+                        </div>
+                      )}
                       <input
                         value={c.referrer_email ?? ''}
                         onChange={(e) => onChange({ referrer_email: e.target.value.trim().toLowerCase() || undefined })}
@@ -1442,6 +1443,67 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
         </div>
       </div>
     </div>
+  );
+}
+
+/** Inline owner cell — shows the assigned TA's name + avatar in display mode,
+ *  becomes a typeable input when clicked. Hits Save on blur. */
+function OwnerCell({ email, onChange }: { email: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(email);
+  const directory = useAuthStore((s) => s.directory);
+  const allEmails = Object.keys(directory);
+
+  useEffect(() => { setDraft(email); }, [email]);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        list="owner-cell-emails"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.toLowerCase())}
+        onBlur={() => {
+          setEditing(false);
+          if (draft !== email) onChange(draft);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          if (e.key === 'Escape') { setDraft(email); setEditing(false); }
+        }}
+        placeholder="ta@simpliigence.com"
+        className="text-xs bg-white border border-slate-300 px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+      />
+    );
+  }
+
+  if (!email) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="text-[11px] text-slate-400 italic hover:text-slate-700 hover:bg-slate-50 rounded px-1.5 py-0.5"
+      >
+        Unassigned — assign…
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="hover:bg-slate-50 rounded px-1 py-0.5 -mx-1"
+        title="Click to change"
+      >
+        <TaIdentity email={email} avatarSize={22} nameSize="text-xs" />
+      </button>
+      {/* Shared datalist for known TA emails — populated once per render */}
+      <datalist id="owner-cell-emails">
+        {allEmails.map((e) => <option key={e} value={e} />)}
+      </datalist>
+    </>
   );
 }
 

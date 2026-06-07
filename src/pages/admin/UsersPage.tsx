@@ -4,16 +4,20 @@
  * as admin) and remove existing ones.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, Upload, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, Badge, ConfirmDialog } from '../../components/ui';
+import { UserAvatar } from '../../components/UserAvatar';
+import { db } from '../../lib/supabaseSync';
+import { useAuthStore } from '../../store/useAuthStore';
 
 type UserRole = 'admin' | 'manager' | 'employee';
 
 interface AuthorizedUserRow {
   email: string;
   full_name: string | null;
+  avatar_url: string | null;
   is_admin: boolean;
   role: UserRole;
   manager_email: string | null;
@@ -29,6 +33,26 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   /** Map of email → 'saving' | 'saved' for the brief flash next to a row after a save. */
   const [savedFlash, setSavedFlash] = useState<Record<string, 'saving' | 'saved'>>({});
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const patchDirectory = useAuthStore((s) => s.patchDirectory);
+
+  const handleAvatarUpload = async (email: string, file: File | null) => {
+    if (!file) return;
+    setUploadingFor(email);
+    try {
+      const up = await db.uploadUserAvatar(email, file);
+      if ('error' in up) {
+        console.warn('[users] avatar upload failed:', up.error);
+        return;
+      }
+      await db.setUserAvatar(email, up.path);
+      // Optimistic local + directory updates
+      setRows((prev) => prev.map((r) => (r.email === email ? { ...r, avatar_url: up.path } : r)));
+      patchDirectory(email, { avatarUrl: up.path });
+    } finally {
+      setUploadingFor(null);
+    }
+  };
   const flashSaving = (email: string) => setSavedFlash((s) => ({ ...s, [email]: 'saving' }));
   const flashSaved = (email: string) => {
     setSavedFlash((s) => ({ ...s, [email]: 'saved' }));
@@ -50,7 +74,7 @@ export default function UsersPage() {
     try {
       const { data, error: e } = await supabase
         .from('authorized_users')
-        .select('email, full_name, is_admin, role, manager_email, employee_code, added_by, added_at, notes')
+        .select('email, full_name, is_admin, role, manager_email, employee_code, avatar_url, added_by, added_at, notes')
         .order('added_at', { ascending: false });
       if (e) throw e;
       setRows(data as AuthorizedUserRow[]);
@@ -133,6 +157,14 @@ export default function UsersPage() {
         throw new Error('Update affected 0 rows. You may not have admin permission, or an RLS policy is blocking the change.');
       }
       flashSaved(email);
+      // Mirror name/role changes into the global directory so <TaIdentity>
+      // re-renders everywhere without a full refetch.
+      if (patch.full_name !== undefined || patch.role !== undefined) {
+        patchDirectory(email, {
+          fullName: patch.full_name ?? undefined,
+          role: patch.role,
+        });
+      }
       void refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -292,7 +324,26 @@ export default function UsersPage() {
               )}
               {rows.map((r) => (
                 <tr key={r.email} className="border-b border-slate-100 hover:bg-slate-50 group">
-                  <td className="py-2.5 pr-3 font-medium text-slate-800">{r.email}</td>
+                  <td className="py-2.5 pr-3">
+                    <div className="flex items-center gap-2.5">
+                      <label className="relative cursor-pointer group/avatar" title="Upload a profile photo">
+                        <UserAvatar email={r.email} name={r.full_name} avatarUrl={r.avatar_url} size={32} />
+                        <span className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                          {uploadingFor === r.email
+                            ? <Loader2 size={12} className="animate-spin" />
+                            : <Upload size={12} />}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="hidden"
+                          onChange={(e) => handleAvatarUpload(r.email, e.target.files?.[0] ?? null)}
+                          disabled={uploadingFor === r.email}
+                        />
+                      </label>
+                      <span className="font-medium text-slate-800">{r.email}</span>
+                    </div>
+                  </td>
                   <td className="py-2.5 pr-3 text-slate-600">{r.full_name || <span className="text-slate-300">—</span>}</td>
                   <td className="py-2.5 pr-3">
                     <select

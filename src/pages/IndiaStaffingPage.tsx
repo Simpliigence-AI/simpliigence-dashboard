@@ -70,14 +70,16 @@ function EditableCell({ value, onSave, type = 'text', options, className = '', d
     if (e.key === 'Escape') cancel();
   };
 
+  // All cells (display + editing) target a 28px row height so badges, dates,
+  // chips, and inputs sit on the same baseline.
   if (!editing) {
     return (
       <div
-        className={`group cursor-pointer rounded px-1 -mx-1 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 transition-all min-h-[24px] flex items-center ${className}`}
+        className={`group cursor-pointer rounded px-1 -mx-1 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 transition-all h-7 flex items-center ${className}`}
         onClick={() => { setDraft(value); setEditing(true); focus(); }}
         title="Click to edit"
       >
-        {displayContent || <span>{value}</span>}
+        {displayContent || <span className="text-xs truncate">{value}</span>}
         <Pencil size={10} className="ml-1 opacity-0 group-hover:opacity-40 flex-shrink-0" />
       </div>
     );
@@ -86,7 +88,7 @@ function EditableCell({ value, onSave, type = 'text', options, className = '', d
   if (type === 'select' && options) {
     return (
       <select ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={handleKey}
-        className="w-full px-1 py-0.5 text-xs border border-blue-300 rounded bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        className="w-full h-7 px-2 text-xs leading-tight border border-blue-300 rounded bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400">
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     );
@@ -95,7 +97,7 @@ function EditableCell({ value, onSave, type = 'text', options, className = '', d
   return (
     <input ref={inputRef} type={type} value={draft}
       onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={handleKey}
-      className={`w-full px-1 py-0.5 text-xs border border-blue-300 rounded bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400 ${type === 'number' ? 'w-16 text-center' : ''}`}
+      className={`h-7 px-2 text-xs leading-tight border border-blue-300 rounded bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400 ${type === 'number' ? 'w-16 text-center' : 'w-full'}`}
       min={type === 'number' ? 0 : undefined}
     />
   );
@@ -437,9 +439,9 @@ export default function IndiaStaffingPage() {
 
     return (
       <React.Fragment key={r.id}>
-        <tr className={`border-b border-slate-50 hover:bg-slate-50/50 ${opts.archived ? 'opacity-75' : ''} ${isChecked ? 'bg-blue-50/40' : ''}`}>
+        <tr className={`border-b border-slate-50 hover:bg-slate-50/50 [&>td]:align-middle ${opts.archived ? 'opacity-75' : ''} ${isChecked ? 'bg-blue-50/40' : ''}`}>
           {opts.selectable && (
-            <td className="p-1 text-center">
+            <td className="p-2 text-center">
               <input
                 type="checkbox"
                 checked={isChecked}
@@ -456,7 +458,7 @@ export default function IndiaStaffingPage() {
             </td>
           )}
           {/* Expand */}
-          <td className="p-1 text-center">
+          <td className="p-2 text-center">
             <button onClick={() => toggleRow(r.id)} className="p-0.5 rounded hover:bg-slate-100" title="Show status & audit history">
               {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </button>
@@ -494,20 +496,20 @@ export default function IndiaStaffingPage() {
           {/* Start Date */}
           <td className="p-2">
             <input type="date" value={r.startDate}
-              className="px-1 py-0.5 text-[11px] border border-slate-200 rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px]"
+              className="px-2 py-1 text-[11px] leading-tight border border-slate-200 rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
               onChange={(e) => handleCellSave(r.id, 'start_date', e.target.value)} />
           </td>
           {/* Close Date */}
           <td className="p-2">
             <input type="date" value={r.closeByDate}
-              className="px-1 py-0.5 text-[11px] border border-slate-200 rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px]"
+              className="px-2 py-1 text-[11px] leading-tight border border-slate-200 rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
               onChange={(e) => handleCellSave(r.id, 'close_by_date', e.target.value)} />
             {r.expectedClosure && <div className="text-[9px] text-slate-400 italic mt-0.5">{r.expectedClosure}</div>}
           </td>
           {/* Ageing */}
           <td className="p-2 text-center">
             <span
-              className="font-bold text-[11px] px-2 py-0.5 rounded"
+              className="inline-flex items-center justify-center h-6 font-bold text-[11px] px-2 rounded"
               style={{
                 color: r.ageing >= 30 ? '#b91c1c' : r.ageing >= 14 ? '#b45309' : '#334155',
                 background: r.ageing >= 30 ? '#fee2e2' : r.ageing >= 14 ? '#fef3c7' : '#f1f5f9',
@@ -569,7 +571,7 @@ export default function IndiaStaffingPage() {
           <td className="p-2">
             <input
               placeholder="Quick status update..."
-              className="w-full px-2 py-1 text-[11px] border border-slate-200 rounded bg-white hover:border-blue-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full h-7 px-2 text-[11px] leading-tight border border-slate-200 rounded bg-white hover:border-blue-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const input = e.target as HTMLInputElement;
@@ -579,17 +581,17 @@ export default function IndiaStaffingPage() {
               }}
             />
             {reqStatuses[0] && (
-              <div className="text-[9px] text-slate-400 mt-0.5 truncate max-w-[170px]" title={reqStatuses[0].status_text}>
+              <div className="text-[9px] text-slate-400 mt-1 truncate max-w-[170px]" title={reqStatuses[0].status_text}>
                 {reqStatuses[0].status_date.slice(5)}: {reqStatuses[0].status_text}
               </div>
             )}
           </td>
-          {/* Delete */}
-          <td className="p-1">
+          {/* Actions: Generate JD + Delete */}
+          <td className="p-2 whitespace-nowrap text-right">
             <button
               onClick={() => openJdDrawer(r.id)}
               disabled={jdReqId === r.id && jdState === 'loading'}
-              className="p-1 rounded mr-0.5 transition-colors text-slate-300 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
+              className="p-1 rounded mr-0.5 align-middle transition-colors text-slate-300 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
               title="Generate / view JD"
             >
               {jdReqId === r.id && jdState === 'loading'
@@ -597,7 +599,7 @@ export default function IndiaStaffingPage() {
                 : <Sparkles size={12} />}
             </button>
             <button onClick={() => { if (confirm(`Delete "${r.requisition}"?`)) removeRequisition(r.id); }}
-              className="p-1 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors" title="Delete requisition">
+              className="p-1 rounded align-middle hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors" title="Delete requisition">
               <Trash2 size={12} />
             </button>
           </td>

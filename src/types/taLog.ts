@@ -4,7 +4,12 @@ export interface TADailyLogEntry {
   id: string;
   taEmail: string;
   logDate: string;                 // YYYY-MM-DD
-  requisitionId: string;
+  /** EITHER `requisitionId` is set (work against a specific req) OR
+   *  `activityType` is set (non-req work — vendor coord, training, etc).
+   *  Server-side CHECK enforces at least one is set. */
+  requisitionId: string | null;
+  /** Label for non-requisition work. See ACTIVITY_TYPES below for the canonical set. */
+  activityType: string | null;
   /** Top-of-funnel: profiles sourced + outreach (calls/emails/InMails) sent. */
   sourcedOutreach: number;
   /** Recruiter screens completed today. */
@@ -17,6 +22,19 @@ export interface TADailyLogEntry {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Canonical non-requisition activity types. "Other" is the catch-all — the
+ *  TA can then type a freeform label in the notes field. */
+export const ACTIVITY_TYPES = [
+  'Vendor Coordination',
+  'Strategic Sourcing',
+  'Training',
+  'Documentation',
+  'Team Meeting / 1:1',
+  'Process Improvement',
+  'Other',
+] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 export const TA_LOG_COUNTERS = [
   { key: 'sourcedOutreach',       label: 'Sourced + Outreach',           short: 'Sourced' },

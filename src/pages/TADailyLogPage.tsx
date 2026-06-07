@@ -22,15 +22,20 @@
  * Persists via useTaLogStore.upsertEntry → Supabase + realtime broadcast.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2, Eye, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Save, Trash2, Eye, Users, Briefcase, Sparkles } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useTaLogStore } from '../store/useTaLogStore';
-import { TA_LOG_COUNTERS } from '../types/taLog';
+import { TA_LOG_COUNTERS, ACTIVITY_TYPES } from '../types/taLog';
 import type { TADailyLogEntry, TALogCounterKey } from '../types/taLog';
 import type { StaffingRequisition } from '../types/staffing';
+
+/** A row in the My Day list — either a requisition or a non-req activity bucket. */
+type DailyRow =
+  | { kind: 'req'; key: string; req: StaffingRequisition; accountName: string }
+  | { kind: 'activity'; key: string; activityType: string };
 
 /** YYYY-MM-DD for a given Date (local time). */
 function toIsoDate(d: Date): string {
@@ -64,8 +69,9 @@ export default function TADailyLogPage() {
   const { entries, upsertEntry, deleteEntry } = useTaLogStore();
 
   const [selectedDate, setSelectedDate] = useState(toIsoDate(new Date()));
-  const [openReqs, setOpenReqs] = useState<Set<string>>(new Set());
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set());
   const [showAddReq, setShowAddReq] = useState(false);
+  const [showAddActivity, setShowAddActivity] = useState(false);
   /** Admin-only: when set, render this TA's day instead of self (read-only). */
   const [viewAsEmail, setViewAsEmail] = useState<string>('');
   /** Tab: "my-day" (editable, own only) | "team" (read-only, everyone). */
@@ -90,27 +96,61 @@ export default function TADailyLogPage() {
   //   2. reqs taEmail has a log entry against (any date)
   const myReqIds = useMemo(() => {
     const ids = new Set<string>();
-    candidates.forEach((c) => { if ((c.owning_ta_email || '').toLowerCase() === taEmail) ids.add(c.requisition_id); });
-    entries.forEach((e) => { if (e.taEmail.toLowerCase() === taEmail) ids.add(e.requisitionId); });
+    candidates.forEach((c) => {
+      if ((c.owning_ta_email || '').toLowerCase() === taEmail && c.requisition_id) {
+        ids.add(c.requisition_id);
+      }
+    });
+    entries.forEach((e) => {
+      if (e.taEmail.toLowerCase() === taEmail && e.requisitionId) ids.add(e.requisitionId);
+    });
     return ids;
   }, [candidates, entries, taEmail]);
 
-  const myReqs = useMemo(
-    () => requisitions.filter((r) => myReqIds.has(r.id)),
-    [requisitions, myReqIds],
-  );
+  // Activity buckets the TA has ever logged on (stickiness — once you use one,
+  // it stays in the list)
+  const myActivities = useMemo(() => {
+    const s = new Set<string>();
+    entries.forEach((e) => {
+      if (e.taEmail.toLowerCase() === taEmail && e.activityType) s.add(e.activityType);
+    });
+    return Array.from(s).sort();
+  }, [entries, taEmail]);
 
-  // Map requisition_id → existing entry for the selected day (if any)
-  const entriesByReq = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof getEntry>>();
-    function getEntry(rid: string) {
-      return entries.find(
-        (e) => e.taEmail.toLowerCase() === taEmail && e.logDate === selectedDate && e.requisitionId === rid,
+  // Unified row list. Requisitions first (in pipeline-stage order), then activities.
+  const dailyRows: DailyRow[] = useMemo(() => {
+    const reqRows: DailyRow[] = requisitions
+      .filter((r) => myReqIds.has(r.id))
+      .map((req) => ({
+        kind: 'req',
+        key: `req:${req.id}`,
+        req,
+        accountName: accounts.find((a) => a.id === req.account_id)?.name ?? '—',
+      }));
+    const actRows: DailyRow[] = myActivities.map((at) => ({
+      kind: 'activity',
+      key: `activity:${at}`,
+      activityType: at,
+    }));
+    return [...reqRows, ...actRows];
+  }, [requisitions, accounts, myReqIds, myActivities]);
+
+  // Map row.key → existing entry for the selected day (if any)
+  const entriesByKey = useMemo(() => {
+    const map = new Map<string, TADailyLogEntry | undefined>();
+    const todayEntries = entries.filter(
+      (e) => e.taEmail.toLowerCase() === taEmail && e.logDate === selectedDate,
+    );
+    dailyRows.forEach((row) => {
+      const found = todayEntries.find((e) =>
+        row.kind === 'req'
+          ? e.requisitionId === row.req.id
+          : e.activityType === row.activityType && !e.requisitionId,
       );
-    }
-    myReqs.forEach((r) => map.set(r.id, getEntry(r.id)));
+      map.set(row.key, found);
+    });
     return map;
-  }, [entries, taEmail, selectedDate, myReqs]);
+  }, [entries, taEmail, selectedDate, dailyRows]);
 
   // Weekly KPI: this week vs last week sums (across all of my reqs, by counter key)
   const weeklyTotals = useMemo(() => {
@@ -139,12 +179,12 @@ export default function TADailyLogPage() {
     return acc;
   }, [entries, taEmail, selectedDate]);
 
-  // Open the first req by default once data is in
+  // Open the first row by default once data is in
   useEffect(() => {
-    if (openReqs.size === 0 && myReqs.length > 0) {
-      setOpenReqs(new Set([myReqs[0].id]));
+    if (openRows.size === 0 && dailyRows.length > 0) {
+      setOpenRows(new Set([dailyRows[0].key]));
     }
-  }, [myReqs, openReqs.size]);
+  }, [dailyRows, openRows.size]);
 
   if (!currentUser) {
     return (
@@ -160,6 +200,8 @@ export default function TADailyLogPage() {
 
   // Reqs not yet in the list — for the "+ Add requisition" picker
   const eligibleToAdd = requisitions.filter((r) => !myReqIds.has(r.id));
+  // Activity types not yet in the list — for the "+ Add activity" picker
+  const eligibleActivities = (ACTIVITY_TYPES as readonly string[]).filter((a) => !myActivities.includes(a));
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -277,38 +319,47 @@ export default function TADailyLogPage() {
             })}
           </div>
 
-          {/* Requisition accordion list */}
-          <Card title={`Requisitions for ${niceDate}`} action={readOnly ? null : (
-            <button
-              type="button"
-              onClick={() => setShowAddReq(true)}
-              disabled={eligibleToAdd.length === 0}
-              className="text-xs font-semibold text-primary hover:text-primary/80 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={eligibleToAdd.length === 0 ? 'No more requisitions to add' : 'Add a requisition to log against'}
-            >
-              <Plus size={14} /> Add requisition
-            </button>
+          {/* Daily entries — requisitions + activities */}
+          <Card title={`Entries for ${niceDate}`} action={readOnly ? null : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowAddReq(true)}
+                disabled={eligibleToAdd.length === 0}
+                className="text-[11px] font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-md px-2.5 py-1.5 flex items-center gap-1"
+                title={eligibleToAdd.length === 0 ? 'No more requisitions to add' : 'Log against a specific requisition'}
+              >
+                <Briefcase size={12} /> Requisition
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddActivity(true)}
+                disabled={eligibleActivities.length === 0}
+                className="text-[11px] font-semibold text-primary border border-primary/30 hover:bg-primary/5 disabled:opacity-40 disabled:cursor-not-allowed rounded-md px-2.5 py-1.5 flex items-center gap-1"
+                title="Log non-requisition work (vendor coord, training, etc)"
+              >
+                <Sparkles size={12} /> Activity
+              </button>
+            </div>
           )}>
-            {myReqs.length === 0 ? (
-              <div className="text-sm text-slate-500 py-8 text-center">
-                No requisitions are assigned to you yet. Open the Candidates page and set yourself as the owning TA on a candidate, or click <strong>+ Add requisition</strong> above.
+            {dailyRows.length === 0 ? (
+              <div className="text-sm text-slate-500 py-10 text-center px-4">
+                Nothing here yet. Tap <strong>+ Requisition</strong> for a specific opening, or <strong>+ Activity</strong> for vendor coordination, training, or other non-req work.
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {myReqs.map((req) => {
-                  const acct = accounts.find((a) => a.id === req.account_id);
-                  const isOpen = openReqs.has(req.id);
-                  const entry = entriesByReq.get(req.id);
+                {dailyRows.map((row) => {
+                  const isOpen = openRows.has(row.key);
+                  const entry = entriesByKey.get(row.key);
                   return (
-                    <RequisitionRow
-                      key={req.id}
-                      req={req}
-                      accountName={acct?.name ?? '—'}
+                    <EntryRow
+                      key={row.key}
+                      row={row}
                       isOpen={isOpen}
                       onToggle={() => {
-                        const next = new Set(openReqs);
-                        if (isOpen) next.delete(req.id); else next.add(req.id);
-                        setOpenReqs(next);
+                        const next = new Set(openRows);
+                        if (isOpen) next.delete(row.key); else next.add(row.key);
+                        setOpenRows(next);
                       }}
                       initialCounters={{
                         sourcedOutreach: entry?.sourcedOutreach ?? 0,
@@ -322,7 +373,8 @@ export default function TADailyLogPage() {
                         await upsertEntry({
                           taEmail,
                           logDate: selectedDate,
-                          requisitionId: req.id,
+                          requisitionId: row.kind === 'req' ? row.req.id : null,
+                          activityType: row.kind === 'activity' ? row.activityType : null,
                           counters,
                           notes,
                         });
@@ -341,7 +393,6 @@ export default function TADailyLogPage() {
               accountName={(rid: string) => accounts.find((a) => a.id === rid)?.name ?? '—'}
               onClose={() => setShowAddReq(false)}
               onPick={async (rid) => {
-                // Seed a zero-counter row to make the req appear in the list immediately
                 await upsertEntry({
                   taEmail,
                   logDate: selectedDate,
@@ -349,8 +400,26 @@ export default function TADailyLogPage() {
                   counters: { sourcedOutreach: 0, screensCompleted: 0, submissionsInterviews: 0 },
                   notes: '',
                 });
-                setOpenReqs((s) => new Set(s).add(rid));
+                setOpenRows((s) => new Set(s).add(`req:${rid}`));
                 setShowAddReq(false);
+              }}
+            />
+          )}
+
+          {showAddActivity && (
+            <AddActivityDialog
+              available={eligibleActivities}
+              onClose={() => setShowAddActivity(false)}
+              onPick={async (activity) => {
+                await upsertEntry({
+                  taEmail,
+                  logDate: selectedDate,
+                  activityType: activity,
+                  counters: { sourcedOutreach: 0, screensCompleted: 0, submissionsInterviews: 0 },
+                  notes: '',
+                });
+                setOpenRows((s) => new Set(s).add(`activity:${activity}`));
+                setShowAddActivity(false);
               }}
             />
           )}
@@ -360,11 +429,10 @@ export default function TADailyLogPage() {
   );
 }
 
-/* ── Single requisition row (header + expandable editor) ── */
+/* ── Daily entry row (header + expandable editor) — works for both reqs and activities ── */
 
 interface RowProps {
-  req: StaffingRequisition;
-  accountName: string;
+  row: DailyRow;
   isOpen: boolean;
   onToggle: () => void;
   initialCounters: Record<TALogCounterKey, number>;
@@ -375,7 +443,7 @@ interface RowProps {
   onDelete?: () => void | Promise<void>;
 }
 
-function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, initialNotes, entryId, readOnly = false, onSave, onDelete }: RowProps) {
+function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, entryId, readOnly = false, onSave, onDelete }: RowProps) {
   const [counters, setCounters] = useState(initialCounters);
   const [notes, setNotes] = useState(initialNotes);
   const [saving, setSaving] = useState(false);
@@ -402,24 +470,38 @@ function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, i
     }
   };
 
+  const isReq = row.kind === 'req';
+  const title = isReq ? row.req.title : row.activityType;
+  const subtitle = isReq
+    ? `${row.accountName} · ${row.req.stage} · ${row.req.status_field}`
+    : 'Non-requisition activity';
+  const Icon = isReq ? Briefcase : Sparkles;
+  const iconColor = isReq ? 'text-slate-400' : 'text-amber-500';
+  const notesPlaceholder = isReq
+    ? 'What did you do today on this req?'
+    : 'What did you work on?';
+
   return (
-    <div className="py-3">
+    <div className="py-2">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between text-left hover:bg-slate-50 -mx-3 px-3 py-2 rounded-md transition-colors"
+        className="w-full flex items-center justify-between text-left hover:bg-slate-50 -mx-3 px-3 py-3 rounded-lg transition-colors min-h-[56px]"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          {isOpen ? <ChevronDown size={16} className="text-slate-400 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />}
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900 truncate">{req.title}</div>
-            <div className="text-[11px] text-slate-500 truncate">{accountName} · {req.stage} · {req.status_field}</div>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="flex-shrink-0">
+            {isOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+          </span>
+          <Icon size={14} className={`${iconColor} flex-shrink-0`} />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-slate-900 truncate">{title}</div>
+            <div className="text-[11px] text-slate-500 truncate">{subtitle}</div>
           </div>
         </div>
-        <div className="flex-shrink-0 flex items-center gap-2 ml-3">
+        <div className="flex-shrink-0 flex items-center gap-2 ml-2">
           {total > 0 && (
-            <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-              {total} today
+            <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {total}
             </span>
           )}
           {entryId && (
@@ -429,7 +511,7 @@ function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, i
       </button>
 
       {isOpen && (
-        <div className="mt-3 ml-7 mr-2 grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="mt-2 sm:ml-7 mr-1 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {TA_LOG_COUNTERS.map((c) => (
             <div key={c.key}>
               <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
@@ -438,14 +520,15 @@ function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, i
               <input
                 type="number"
                 min={0}
+                inputMode="numeric"
                 value={counters[c.key]}
                 disabled={readOnly}
                 onChange={(e) => setCounters({ ...counters, [c.key]: Math.max(0, Number(e.target.value) || 0) })}
-                className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
+                className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
           ))}
-          <div className="lg:col-span-1">
+          <div className="sm:col-span-3">
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Notes
             </label>
@@ -454,12 +537,12 @@ function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, i
               value={notes}
               disabled={readOnly}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder={readOnly ? '' : 'What did you do today on this req?'}
-              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y disabled:bg-slate-50 disabled:text-slate-500"
+              placeholder={readOnly ? '' : notesPlaceholder}
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
           {!readOnly && (
-            <div className="lg:col-span-4 flex items-center justify-end gap-2">
+            <div className="sm:col-span-3 flex items-center justify-end gap-3 flex-wrap pt-1">
               {savedAt && !dirty && (
                 <span className="text-[11px] text-emerald-600">Saved {savedAt}</span>
               )}
@@ -467,18 +550,18 @@ function RequisitionRow({ req, accountName, isOpen, onToggle, initialCounters, i
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-1"
+                  className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-1 px-2 py-1.5"
                 >
-                  <Trash2 size={12} /> Delete entry
+                  <Trash2 size={12} /> Delete
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={!dirty || saving}
-                className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                className="text-sm font-semibold bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
               >
-                <Save size={12} /> {saving ? 'Saving…' : 'Save'}
+                <Save size={14} /> {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
           )}
@@ -631,6 +714,50 @@ function AddRequisitionDialog({ requisitions, accountName, onPick, onClose }: {
   );
 }
 
+/* ── "Add activity" picker dialog (non-requisition work buckets) ── */
+
+function AddActivityDialog({ available, onPick, onClose }: {
+  available: string[];
+  onPick: (activity: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Log non-requisition activity</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">For vendor coordination, training, or other internal work that isn't tied to a specific req.</div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {available.length === 0 ? (
+            <div className="p-6 text-sm text-slate-500 text-center">
+              You've already logged on every activity type for the week.
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {available.map((a) => (
+                <li key={a}>
+                  <button
+                    type="button"
+                    onClick={() => onPick(a)}
+                    className="w-full text-left px-5 py-3 hover:bg-slate-50 flex items-center gap-3"
+                  >
+                    <Sparkles size={14} className="text-amber-500 flex-shrink-0" />
+                    <span className="text-sm font-medium text-slate-900">{a}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Team Activity view ──
  *  Read-only snapshot of every TA's entries for the selected date, grouped by
  *  requisition. Lets the whole team see "what's being worked on today" with
@@ -651,66 +778,77 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
     return accounts.find((a) => a.id === req.account_id)?.name ?? '—';
   };
 
-  // Group entries for the selected date by requisition_id, only keeping rows
-  // with non-zero activity OR a note (zero-counter empty rows are noise).
-  const byReq = useMemo(() => {
+  // Group entries for the selected date by composite key — either
+  // `req:<id>` or `activity:<label>`. Only keep rows with non-zero activity
+  // OR a note (zero-counter empty rows are noise).
+  const byGroup = useMemo(() => {
     const map = new Map<string, TADailyLogEntry[]>();
     for (const e of entries) {
       if (e.logDate !== selectedDate) continue;
       const total = e.sourcedOutreach + e.screensCompleted + e.submissionsInterviews;
       if (total === 0 && !(e.notes && e.notes.trim())) continue;
-      if (!map.has(e.requisitionId)) map.set(e.requisitionId, []);
-      map.get(e.requisitionId)!.push(e);
+      const key = e.requisitionId
+        ? `req:${e.requisitionId}`
+        : e.activityType
+          ? `activity:${e.activityType}`
+          : null;
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
     }
     return map;
   }, [entries, selectedDate]);
 
-  // Build list of active reqs, sorted by total activity desc
-  const activeReqs = useMemo(() => {
-    return Array.from(byReq.entries())
-      .map(([rid, list]) => {
-        const req = requisitions.find((r) => r.id === rid);
+  // Build a list of active groups (reqs + activities), sorted by total activity desc
+  const activeGroups = useMemo(() => {
+    return Array.from(byGroup.entries())
+      .map(([key, list]) => {
+        const isReq = key.startsWith('req:');
+        const id = key.slice(isReq ? 4 : 9);
+        const req = isReq ? requisitions.find((r) => r.id === id) : undefined;
         const total = list.reduce(
           (s, e) => s + e.sourcedOutreach + e.screensCompleted + e.submissionsInterviews,
           0,
         );
-        return { rid, req, list, total };
+        return { key, isReq, id, req, list, total };
       })
-      .filter((x) => x.req !== undefined)
+      .filter((x) => !x.isReq || x.req !== undefined)
       .filter((x) => {
         if (!filter.trim()) return true;
         const q = filter.toLowerCase();
+        const headline = x.isReq
+          ? `${x.req!.title} ${accountName(x.id)}`
+          : x.id; // activity name
         return (
-          x.req!.title.toLowerCase().includes(q) ||
-          accountName(x.rid).toLowerCase().includes(q) ||
+          headline.toLowerCase().includes(q) ||
           x.list.some((e) => e.taEmail.toLowerCase().includes(q))
         );
       })
       .sort((a, b) => b.total - a.total);
-  }, [byReq, requisitions, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [byGroup, requisitions, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Distinct TAs active today (for the header chip)
   const activeTas = useMemo(() => {
     const s = new Set<string>();
-    for (const list of byReq.values()) for (const e of list) s.add(e.taEmail.toLowerCase());
+    for (const list of byGroup.values()) for (const e of list) s.add(e.taEmail.toLowerCase());
     return s.size;
-  }, [byReq]);
+  }, [byGroup]);
 
   const totalAll = useMemo(() => {
     let t = 0;
-    for (const list of byReq.values()) {
+    for (const list of byGroup.values()) {
       for (const e of list) t += e.sourcedOutreach + e.screensCompleted + e.submissionsInterviews;
     }
     return t;
-  }, [byReq]);
+  }, [byGroup]);
 
   return (
     <>
       {/* Header strip */}
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 text-xs text-slate-600">
-          <span className="font-semibold text-slate-900 tabular-nums text-base">{activeReqs.length}</span>
-          <span>active req{activeReqs.length === 1 ? '' : 's'}</span>
+          <span className="font-semibold text-slate-900 tabular-nums text-base">{activeGroups.length}</span>
+          <span>active item{activeGroups.length === 1 ? '' : 's'}</span>
           <span className="text-slate-300">·</span>
           <span className="font-semibold text-slate-900 tabular-nums">{activeTas}</span>
           <span>TA{activeTas === 1 ? '' : 's'} active</span>
@@ -726,7 +864,7 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
         />
       </div>
 
-      {activeReqs.length === 0 ? (
+      {activeGroups.length === 0 ? (
         <Card>
           <div className="text-sm text-slate-500 text-center py-12">
             No team activity logged for this date{filter ? ' that matches your filter' : ''}.
@@ -734,12 +872,23 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
         </Card>
       ) : (
         <div className="space-y-3">
-          {activeReqs.map(({ rid, req, list, total }) => (
-            <Card key={rid}>
+          {activeGroups.map(({ key, isReq, id, req, list, total }) => (
+            <Card key={key}>
               <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">{req!.title}</div>
-                  <div className="text-[11px] text-slate-500 truncate">{accountName(rid)} · {req!.stage} · {req!.status_field}</div>
+                <div className="min-w-0 flex items-center gap-2">
+                  {isReq
+                    ? <Briefcase size={14} className="text-slate-400 flex-shrink-0" />
+                    : <Sparkles size={14} className="text-amber-500 flex-shrink-0" />}
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 truncate">
+                      {isReq ? req!.title : id}
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">
+                      {isReq
+                        ? `${accountName(id)} · ${req!.stage} · ${req!.status_field}`
+                        : 'Non-requisition activity'}
+                    </div>
+                  </div>
                 </div>
                 <span className="flex-shrink-0 text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                   {total} today · {list.length} TA{list.length === 1 ? '' : 's'}

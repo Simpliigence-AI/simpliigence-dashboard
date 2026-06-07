@@ -447,7 +447,7 @@ export default function CandidatesPage() {
       ) : viewMode === 'map' ? (
         <CandidateMapView candidates={filtered} />
       ) : viewMode === 'cards' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
           {filtered.map((c) => (
             <CandidateCard
               key={c.id}
@@ -558,12 +558,12 @@ function CandidateCard({ c, requisitionLabel, onOpen }: {
     <button
       type="button"
       onClick={onOpen}
-      className="text-left bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group"
+      className="text-left bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group h-full flex flex-col"
     >
       {/* Top accent bar coloured by stage */}
-      <div className="h-1" style={{ backgroundColor: stageColor }} />
+      <div className="h-1 flex-shrink-0" style={{ backgroundColor: stageColor }} />
 
-      <div className="p-4 space-y-3">
+      <div className="p-4 flex flex-col flex-1 gap-3">
         {/* Header row: avatar, name, stage chip */}
         <div className="flex items-start gap-3">
           <div
@@ -632,8 +632,8 @@ function CandidateCard({ c, requisitionLabel, onOpen }: {
           </div>
         )}
 
-        {/* Footer row: contact icons + actions */}
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+        {/* Footer row: contact icons + actions — pinned to bottom so all cards align */}
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
           <div className="flex items-center gap-2 text-slate-400 text-[11px] min-w-0 flex-1">
             {c.email && (
               <a

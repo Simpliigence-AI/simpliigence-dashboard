@@ -1373,6 +1373,45 @@ export const db = {
     };
   },
 
+  /** Invoke the generate-jd edge function. By default returns the cached JD
+   *  on the requisition if one exists; pass regenerate=true to force a fresh
+   *  Claude call (the new JD is written back to the row). */
+  async generateJobDescription(requisitionId: string, regenerate = false): Promise<
+    | { ok: true; jobDescription: string; generatedAt: string; cached: boolean }
+    | { ok: false; error: string }
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      jobDescription?: string;
+      generatedAt?: string;
+      cached?: boolean;
+      error?: string;
+      detail?: string;
+    }>('generate-jd', { body: { requisitionId, regenerate } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    return {
+      ok: true,
+      jobDescription: data?.jobDescription || '',
+      generatedAt: data?.generatedAt || new Date().toISOString(),
+      cached: !!data?.cached,
+    };
+  },
+
+  /** Persist a manually edited JD back to the requisition. */
+  async saveJobDescription(requisitionId: string, jd: string): Promise<{ ok: boolean; error?: string }> {
+    const { error } = await supabase
+      .from('india_staffing_requisitions')
+      .update({
+        job_description: jd,
+        job_description_at: new Date().toISOString(),
+        updated_by: CLIENT_ID,
+      })
+      .eq('id', requisitionId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
   // --- TA Daily Log ---
   async upsertTaLog(e: TADailyLogEntry) {
     const { error } = await supabase.from('ta_daily_log').upsert(taLogToRow(e), { onConflict: 'id' });
@@ -1427,6 +1466,9 @@ export const db = {
       supabase.from('team_members').delete().neq('id', ''),
       supabase.from('time_entries').delete().neq('id', ''),
       supabase.from('time_entry_periods').delete().neq('id', ''),
+      supabase.from('account_action_items').delete().neq('id', ''),
+      supabase.from('account_connects').delete().neq('id', ''),
+      supabase.from('accounts').delete().neq('id', ''),
     ]);
   },
 };
@@ -1448,6 +1490,7 @@ type StoreSetters = {
   setTeamMembers?: (members: TeamMember[]) => void;
   setTimeEntries?: (entries: TimeEntry[]) => void;
   setActualHours?: (rows: ActualHourEntry[]) => void;
+  setAccountManagement?: (data: { accounts: Account[]; connects: AccountConnect[]; actions: AccountActionItem[] }) => void;
   getForecastAssignments: () => ForecastAssignment[];
   getStaffingRequests: () => StaffingRequest[];
   getPipelineProjects: () => ZohoPipelineProject[];
@@ -1721,6 +1764,23 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       });
     },
   );
+
+  // --- Account Management: any change to accounts / connects / action_items → refetch the bundle.
+  for (const table of ['accounts', 'account_connects', 'account_action_items'] as const) {
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table },
+      (payload) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const row = (payload.new || payload.old) as any;
+        if (row?.updated_by === CLIENT_ID) return;
+        if (!setters.setAccountManagement) return;
+        fetchAccountManagement().then((data) => {
+          if (data) setters.setAccountManagement!(data);
+        });
+      },
+    );
+  }
 
   channel.subscribe();
   return () => { supabase.removeChannel(channel); };

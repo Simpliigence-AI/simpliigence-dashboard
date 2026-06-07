@@ -10,6 +10,7 @@ import { useIndiaRosterStore } from './store/useIndiaRosterStore';
 import { useUSRosterStore } from './store/useUSRosterStore';
 import { useTaLogStore } from './store/useTaLogStore';
 import { useTimeEntryStore } from './store/useTimeEntryStore';
+import { useAccountStore } from './store/useAccountStore';
 import { ZOHO_SEED_PROJECTS } from './data/zohoSeed';
 import {
   fetchAssignments,
@@ -27,6 +28,7 @@ import {
   fetchTaDailyLog,
   fetchTeamMembers,
   fetchTimeEntries,
+  fetchAccountManagement,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -75,6 +77,7 @@ function useSupabaseInit() {
           taLogRes,
           teamMembersRes,
           timeEntriesRes,
+          accountMgmtRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -91,6 +94,7 @@ function useSupabaseInit() {
           withTimeout(fetchTaDailyLog()),
           withTimeout(fetchTeamMembers()),
           withTimeout(fetchTimeEntries()),
+          withTimeout(fetchAccountManagement()),
         ]);
 
         // --- Forecast assignments ---
@@ -318,6 +322,18 @@ function useSupabaseInit() {
           console.warn('[supabase] Time entries fetch timed out — using localStorage');
         }
 
+        // --- Account Management ---
+        if (!accountMgmtRes.timedOut) {
+          const data = accountMgmtRes.value;
+          if (data) {
+            useAccountStore.getState().setAll(data);
+            console.log('[supabase] Loaded account mgmt:', data.accounts.length, 'accounts /',
+              data.connects.length, 'connects /', data.actions.length, 'actions');
+          }
+        } else {
+          console.warn('[supabase] Account mgmt fetch timed out — using localStorage');
+        }
+
         // Set up realtime subscriptions
         cleanup = setupRealtimeSubscriptions({
           setForecastState: (assignments, weekDates) => {
@@ -370,6 +386,9 @@ function useSupabaseInit() {
           },
           setActualHours: (rows) => {
             useActualHoursStore.setState({ entries: rows });
+          },
+          setAccountManagement: (data) => {
+            useAccountStore.getState().setAll(data);
           },
           setUSRoster: (members) => {
             useUSRosterStore.setState({ members });

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -22,6 +22,9 @@ import {
   CalendarCheck,
   Contact,
   BarChart3,
+  Building2,
+  ChevronDown,
+  ChevronRight,
   FileEdit,
   UserCog,
   Activity,
@@ -73,6 +76,12 @@ const sections: NavSection[] = [
       { to: '/us-staffing', icon: Globe, label: 'US Demand' },
       { to: '/us-roster', icon: Users, label: 'US Roster' },
       { to: '/open-bench', icon: UserCheck, label: 'Open Bench' },
+    ],
+  },
+  {
+    label: 'Account Management',
+    items: [
+      { to: '/accounts', icon: Building2, label: 'Accounts' },
     ],
   },
   {
@@ -162,6 +171,41 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
+  // ── Collapsible section state ──
+  const SECTION_STATE_KEY = 'sidebar-sections-expanded';
+  const location = useLocation();
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem(SECTION_STATE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return {};
+  });
+  const activeSectionLabel = useMemo(() => {
+    const path = location.pathname;
+    for (const section of visibleSections) {
+      if (section.items.some((i) =>
+        path === i.to
+        || (i.to !== '/' && path.startsWith(i.to + '/'))
+        || (i.to === '/' && path === '/'))) {
+        return section.label;
+      }
+    }
+    return null;
+  }, [location.pathname, visibleSections]);
+  useEffect(() => {
+    if (Object.keys(expandedSections).length === 0 && activeSectionLabel) {
+      setExpandedSections({ [activeSectionLabel]: true });
+    }
+  }, [activeSectionLabel]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    try { localStorage.setItem(SECTION_STATE_KEY, JSON.stringify(expandedSections)); } catch { /* ignore */ }
+  }, [expandedSections]);
+  const isSectionExpanded = (label: string) =>
+    label === activeSectionLabel || expandedSections[label] === true;
+  const toggleSection = (label: string) =>
+    setExpandedSections((s) => ({ ...s, [label]: !isSectionExpanded(label) }));
+
   return (
     <aside
       className={`
@@ -197,40 +241,101 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       </div>
 
       {/* Nav — grouped by section */}
-      <nav className={`flex-1 ${eff ? 'px-2' : 'px-3'} pb-2 space-y-3 overflow-y-auto overflow-x-hidden`}>
-        {visibleSections.map((section, idx) => (
-          <div key={section.label}>
-            {!eff && (
-              <div className="px-3 pb-1 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                {section.label}
+      <nav className={`flex-1 ${eff ? 'px-2' : 'px-3'} pb-2 space-y-2 overflow-y-auto overflow-x-hidden`}>
+        {visibleSections.map((section, idx) => {
+          // Desktop icon-only mode: show all items, no toggles.
+          if (eff) {
+            return (
+              <div key={section.label}>
+                {idx > 0 && <div className="mx-2 my-2 border-t border-slate-700/40" />}
+                <div className="space-y-0.5">
+                  {section.items.map(({ to, icon: Icon, label }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={to === '/'}
+                      title={`${section.label} — ${label}`}
+                      className={({ isActive }) =>
+                        `flex items-center justify-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-sidebar-active text-white'
+                            : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                        }`
+                      }
+                    >
+                      <Icon size={17} className="flex-shrink-0" />
+                    </NavLink>
+                  ))}
+                </div>
               </div>
-            )}
-            {/* When collapsed, render a thin divider between groups instead of the label */}
-            {eff && idx > 0 && (
-              <div className="mx-2 my-2 border-t border-slate-700/40" />
-            )}
-            <div className="space-y-0.5">
-              {section.items.map(({ to, icon: Icon, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={to === '/'}
-                  title={eff ? `${section.label} — ${label}` : undefined}
-                  className={({ isActive }) =>
-                    `flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-sidebar-active text-white'
-                        : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
-                    }`
-                  }
-                >
-                  <Icon size={17} className="flex-shrink-0" />
-                  {!eff && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
-                </NavLink>
-              ))}
+            );
+          }
+          // Expanded sidebar: section header toggles. Active section is forced open.
+          const expanded = isSectionExpanded(section.label);
+          const isActiveSection = section.label === activeSectionLabel;
+          return (
+            <div key={section.label}>
+              <button
+                type="button"
+                onClick={() => toggleSection(section.label)}
+                aria-expanded={expanded}
+                className={`w-full flex items-center justify-between gap-2 px-3 pb-1 pt-1 rounded-md text-[9px] font-bold uppercase tracking-widest hover:bg-sidebar-hover transition-colors ${
+                  isActiveSection ? 'text-slate-300' : 'text-slate-500 hover:text-slate-300'
+                }`}
+                title={expanded ? 'Collapse section' : 'Expand section'}
+              >
+                <span className="truncate">{section.label}</span>
+                <span className="flex items-center gap-1.5">
+                  {!expanded && (
+                    <span className="text-[9px] font-normal tracking-normal text-slate-500 normal-case">
+                      {section.items.length}
+                    </span>
+                  )}
+                  {expanded
+                    ? <ChevronDown size={11} className="flex-shrink-0" />
+                    : <ChevronRight size={11} className="flex-shrink-0" />}
+                </span>
+              </button>
+              {expanded && (
+                <div className="space-y-0.5 mt-0.5">
+                  {section.items.map(({ to, icon: Icon, label }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={to === '/'}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-sidebar-active text-white'
+                            : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                        }`
+                      }
+                    >
+                      <Icon size={17} className="flex-shrink-0" />
+                      <span className="whitespace-nowrap overflow-hidden">{label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              )}
             </div>
+          );
+        })}
+        {!eff && visibleSections.length > 1 && (
+          <div className="px-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                const allExpanded = visibleSections.every((s) => isSectionExpanded(s.label));
+                const next: Record<string, boolean> = {};
+                for (const s of visibleSections) next[s.label] = !allExpanded;
+                setExpandedSections(next);
+              }}
+              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              {visibleSections.every((s) => isSectionExpanded(s.label)) ? 'Collapse all' : 'Expand all'}
+            </button>
           </div>
-        ))}
+        )}
       </nav>
 
       {/* User identity + sign-out */}

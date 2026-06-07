@@ -46,6 +46,9 @@ const TABLES = [
   'team_members',
   'time_entries',
   'time_entry_periods',
+  'accounts',
+  'account_connects',
+  'account_action_items',
 ] as const;
 
 export interface BackupPayload {

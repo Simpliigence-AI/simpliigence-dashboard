@@ -20,6 +20,7 @@ import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
 import TAMetricsPage from '../pages/TAMetricsPage';
 import ProfileFormatPage from '../pages/ProfileFormatPage';
+import AccountsPage from '../pages/AccountsPage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
 import UsersPage from '../pages/admin/UsersPage';
@@ -71,6 +72,9 @@ export const router = createBrowserRouter(
         { path: 'admin/users',    element: <AdminOnly><UsersPage /></AdminOnly> },
         { path: 'admin/activity', element: <AdminOnly><ActivityPage /></AdminOnly> },
         { path: 'admin/audit',    element: <AdminOnly><AuditLogPage /></AdminOnly> },
+
+        // Account Management
+        { path: 'accounts', element: <AccountsPage /> },
 
         // Other
         { path: 'concierge', element: <ConciergePage /> },

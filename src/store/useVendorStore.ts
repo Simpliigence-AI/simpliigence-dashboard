@@ -35,6 +35,10 @@ interface VendorState {
     bodyPreview?: string;
     sendStatus?: VendorOutreachStatus;
   }) => Promise<VendorOutreach>;
+
+  /** Manually flip an existing outreach row's status — used by the recruiter
+   *  to close the loop without a Resend webhook (mark replied / bounced). */
+  setOutreachStatus: (id: string, status: VendorOutreachStatus) => Promise<void>;
 }
 
 export const useVendorStore = create<VendorState>()(
@@ -95,6 +99,14 @@ export const useVendorStore = create<VendorState>()(
         set({ outreach: [o, ...get().outreach] });
         await db.upsertVendorOutreach(o);
         return o;
+      },
+
+      setOutreachStatus: async (id, status) => {
+        const cur = get().outreach.find((o) => o.id === id);
+        if (!cur) return;
+        const next: VendorOutreach = { ...cur, sendStatus: status };
+        set({ outreach: get().outreach.map((o) => (o.id === id ? next : o)) });
+        await db.upsertVendorOutreach(next);
       },
     }),
     {

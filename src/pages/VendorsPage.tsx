@@ -436,6 +436,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
   vendorNameById: (id: string) => string;
 }) {
   const { requisitions } = useStaffingStore();
+  const setOutreachStatus = useVendorStore((s) => s.setOutreachStatus);
   const reqTitleById = (id: string) => requisitions.find((r) => r.id === id)?.title ?? id.slice(0, 8);
 
   const [showAll, setShowAll] = useState(false);
@@ -468,6 +469,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
               <th className="py-2 pr-3 font-semibold">Subject</th>
               <th className="py-2 pr-3 font-semibold">By</th>
               <th className="py-2 pr-3 font-semibold">Status</th>
+              <th className="py-2 pr-3 font-semibold w-32">Mark</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -494,6 +496,33 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
                     <span className={`text-[10px] font-semibold inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${meta.cls}`} title={o.sendError ?? meta.label}>
                       <meta.Icon size={10} /> {meta.label}
                     </span>
+                  </td>
+                  <td className="py-2 pr-3">
+                    {/* Manual status flip — closes the loop without webhooks.
+                     *  Only offered while the row is in `sent` (already-replied
+                     *  / bounced / composed rows don't get this affordance). */}
+                    {o.sendStatus === 'sent' ? (
+                      <span className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void setOutreachStatus(o.id, 'replied')}
+                          className="text-[10px] font-semibold text-sky-700 hover:text-sky-900 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-sky-50"
+                          title="They replied — mark as replied"
+                        >
+                          <Inbox size={10} /> Replied
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void setOutreachStatus(o.id, 'bounced')}
+                          className="text-[10px] font-semibold text-red-700 hover:text-red-900 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-red-50"
+                          title="Bounced or undeliverable"
+                        >
+                          <AlertCircle size={10} /> Bounced
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">—</span>
+                    )}
                   </td>
                 </tr>
               );

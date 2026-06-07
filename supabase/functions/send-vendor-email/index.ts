@@ -10,18 +10,22 @@
  *
  * Required secrets (set with `supabase secrets set ...`):
  *   RESEND_API_KEY        — re_xxx key from Resend dashboard
- *   FROM_EMAIL            — verified sender, e.g. "hr@simpliigence.com"
- *                           (must match a domain verified in Resend)
+ *   FROM_EMAIL            — fallback sender, e.g. "no-reply@simpliigence.com"
+ *                           (its domain must be verified in Resend).
+ *                           Used only when the caller does not pass `from`.
  * Optional:
  *   FROM_NAME             — display name on the From header. Default: "Simpliigence Hiring".
+ *   FROM_DOMAIN_ALLOWLIST — comma-separated list of domains the caller is
+ *                           allowed to send AS. Defaults to the domain of FROM_EMAIL.
  *
  * Request body:
  *   {
  *     to: string | string[],     // single email or array
  *     subject: string,
  *     body: string,              // plain text (newlines preserved)
- *     replyTo?: string,          // override Reply-To
- *     fromName?: string,         // per-call override of FROM_NAME
+ *     from?: string,             // per-call sender — must be on the allow-listed domain
+ *     fromName?: string,         // display name override (e.g. "Raghu Seetharam")
+ *     replyTo?: string,          // override Reply-To (defaults to `from` so vendors reply to the recruiter)
  *   }
  *
  * Response (success):
@@ -48,6 +52,23 @@ const env = (name: string) => Deno.env.get(name);
 const RESEND_API_KEY = env('RESEND_API_KEY');
 const FROM_EMAIL = env('FROM_EMAIL');
 const FROM_NAME_DEFAULT = env('FROM_NAME') || 'Simpliigence Hiring';
+const FROM_DOMAIN_ALLOWLIST = (env('FROM_DOMAIN_ALLOWLIST') || '')
+  .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+/** Pull the domain part out of "user@domain.tld". */
+function emailDomain(addr: string): string {
+  const idx = addr.lastIndexOf('@');
+  return idx > 0 ? addr.slice(idx + 1).toLowerCase() : '';
+}
+
+/** Domains the caller is allowed to send AS via the `from` param.
+ *  Defaults to the domain of FROM_EMAIL. Override with
+ *  FROM_DOMAIN_ALLOWLIST=simpliigence.com,foo.com to allow extras. */
+function allowedFromDomains(): string[] {
+  if (FROM_DOMAIN_ALLOWLIST.length > 0) return FROM_DOMAIN_ALLOWLIST;
+  const d = FROM_EMAIL ? emailDomain(FROM_EMAIL) : '';
+  return d ? [d] : [];
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,6 +81,7 @@ interface ReqBody {
   to?: string | string[];
   subject?: string;
   body?: string;
+  from?: string;
   replyTo?: string;
   fromName?: string;
 }
@@ -106,7 +128,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { to, subject, body, replyTo, fromName } = await req.json() as ReqBody;
+    const { to, subject, body, from, replyTo, fromName } = await req.json() as ReqBody;
     if (!to || (Array.isArray(to) ? to.length === 0 : !to.trim())) {
       return new Response(JSON.stringify({ error: 'Missing "to" — supply a string or array' }), { status: 400, headers: corsHeaders });
     }
@@ -117,8 +139,36 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Missing "body"' }), { status: 400, headers: corsHeaders });
     }
 
-    const fromHeader = `${(fromName || FROM_NAME_DEFAULT).replace(/[<>]/g, '')} <${FROM_EMAIL}>`;
+    // Resolve the actual sender:
+    //   - If the caller passed `from` and its domain is on the allowlist,
+    //     use it. This is how each recruiter sends AS themselves so vendor
+    //     replies land directly in their inbox.
+    //   - If `from` is on a non-allowlisted domain, reject — otherwise this
+    //     function would let anyone spoof any domain through the verified
+    //     Resend setup.
+    //   - If `from` is omitted, fall back to FROM_EMAIL (the old behaviour).
+    const allowed = allowedFromDomains();
+    let sender = FROM_EMAIL;
+    if (from && from.trim()) {
+      const reqDomain = emailDomain(from.trim());
+      if (!reqDomain || !allowed.includes(reqDomain)) {
+        return new Response(
+          JSON.stringify({
+            error: `Sender domain "${reqDomain || from}" is not allowed`,
+            detail: `Allowed sending domains: ${allowed.join(', ') || '(none — set FROM_DOMAIN_ALLOWLIST or FROM_EMAIL)'}`,
+          }),
+          { status: 400, headers: corsHeaders },
+        );
+      }
+      sender = from.trim();
+    }
+
+    const displayName = (fromName || FROM_NAME_DEFAULT).replace(/[<>]/g, '');
+    const fromHeader = `${displayName} <${sender}>`;
     const toList = Array.isArray(to) ? to.filter(Boolean) : [to];
+    // Default Reply-To to the sender so replies bounce back to the recruiter
+    // even if a mail client rewrites the visible From header.
+    const effectiveReplyTo = replyTo || sender;
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -132,7 +182,7 @@ Deno.serve(async (req: Request) => {
         subject: subject.trim(),
         text: body,
         html: bodyToHtml(body),
-        ...(replyTo ? { reply_to: replyTo } : {}),
+        reply_to: effectiveReplyTo,
       }),
     });
 

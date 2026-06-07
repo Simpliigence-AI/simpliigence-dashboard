@@ -10,10 +10,11 @@
  * `requisition.job_description`.
  *
  * Phase 2 (current): Send fires the `send-vendor-email` edge function per
- * vendor, which delivers via Resend from FROM_EMAIL (typically
- * hr@simpliigence.com). Each vendor sees a personalised email (their SPOC
- * name in the greeting) and never sees other vendors. Outcome per vendor
- * is shown inline as ✓ sent / ✗ failed (with reason).
+ * vendor, which delivers via Resend. The From address is the *signed-in
+ * recruiter's* @simpliigence.com email so vendor replies go straight to
+ * their inbox — not a shared hr@ alias. Each vendor sees a personalised
+ * email (their SPOC name in the greeting) and never sees other vendors.
+ * Outcome per vendor is shown inline as ✓ sent / ✗ failed (with reason).
  */
 import { useMemo, useState } from 'react';
 import { Send, Search, Mail, CheckSquare, Square, Sparkles, AlertCircle, Check, X as XIcon, Loader2 } from 'lucide-react';
@@ -32,8 +33,17 @@ function defaultSubject(req: StaffingRequisition, accountName: string): string {
   return `Requirement: ${parts}`;
 }
 
-/** Default body template — replaces tokens at send time per vendor. */
-function buildBody(req: StaffingRequisition, accountName: string, jd?: string, spocName?: string | null) {
+/** Default body template — replaces tokens at send time per vendor.
+ *  The footer signature uses the *signed-in recruiter's* identity so
+ *  vendors know who they're actually corresponding with (and replies
+ *  land in the right inbox). */
+function buildBody(
+  req: StaffingRequisition,
+  accountName: string,
+  jd: string | undefined,
+  spocName: string | null | undefined,
+  sender: { name: string; email: string },
+) {
   const greet = spocName ? `Hi ${spocName.split(' ')[0]},` : 'Hi,';
   const head = `${greet}
 
@@ -51,13 +61,25 @@ REQUISITION DETAILS
     ? `\n\nJOB DESCRIPTION\n${jd.trim()}`
     : `\n\n(Please reply to this email — we will share the detailed JD on request.)`;
 
-  const foot = `\n\nKindly send 2–3 matching profiles at your earliest. Reply to this email; we will route from there.
+  const foot = `\n\nKindly send 2–3 matching profiles at your earliest. Reply directly to this email and they'll come straight to me.
 
 Thanks,
+${sender.name}
 Simpliigence Talent Team
-hr@simpliigence.com`;
+${sender.email}`;
 
   return head + jdBlock + foot;
+}
+
+/** Turn an email like "raghu.seetharam@simpliigence.com" into "Raghu Seetharam".
+ *  Used only as a fallback when the user has no `fullName` on their profile. */
+function nameFromEmail(email: string): string {
+  const local = email.split('@')[0] || '';
+  return local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
 }
 
 /** Extract probable skills from a requisition title — quick heuristic. */
@@ -73,7 +95,12 @@ interface Props {
 }
 
 export function SendToVendorDialog({ requisition, accountName, onClose }: Props) {
-  const myEmail = (useAuthStore.getState().currentUser?.email || '').toLowerCase();
+  const me = useAuthStore.getState().currentUser;
+  const myEmail = (me?.email || '').toLowerCase();
+  const myName = (me?.fullName?.trim()) || (myEmail ? nameFromEmail(myEmail) : 'Simpliigence Talent Team');
+  // Vendor reply-to / From identity. We default to the signed-in recruiter
+  // so vendor responses come straight to them — not a shared alias.
+  const sender = { name: myName, email: myEmail };
   const { vendors, logOutreach } = useVendorStore();
 
   // Inferred skills from the req title — used to suggest vendors
@@ -101,7 +128,7 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
   });
   const [q, setQ] = useState('');
   const [subject, setSubject] = useState(defaultSubject(requisition, accountName));
-  const [body, setBody] = useState(buildBody(requisition, accountName, requisition.job_description ?? undefined));
+  const [body, setBody] = useState(buildBody(requisition, accountName, requisition.job_description ?? undefined, null, sender));
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(0);
   /** vendorId → result of the most recent send attempt. */
@@ -142,13 +169,19 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
       }
       setResults((s) => ({ ...s, [v.id]: { status: 'sending' } }));
 
-      const personalBody = buildBody(requisition, accountName, requisition.job_description ?? undefined, v.spocName);
+      const personalBody = buildBody(requisition, accountName, requisition.job_description ?? undefined, v.spocName, sender);
 
       // eslint-disable-next-line no-await-in-loop
       const res = await db.sendVendorEmail({
         to: v.spocEmail,
         subject,
         body: personalBody,
+        // Send AS the recruiter so vendor replies hit their inbox directly.
+        // Requires the recruiter's @simpliigence.com domain to be on the
+        // FROM_DOMAIN_ALLOWLIST / verified in Resend (the edge function
+        // falls back to FROM_EMAIL with a precise error if it isn't).
+        from: myEmail || undefined,
+        fromName: myName,
         replyTo: myEmail || undefined,
       });
 
@@ -334,8 +367,9 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
               />
               <div className="text-[10px] text-slate-400 mt-1.5">
-                Each vendor gets a separately addressed email from <code className="font-mono">hr@simpliigence.com</code> (via Resend).
-                They never see each other. Send outcome shows ✓ / ✗ per vendor below.
+                Each vendor gets a separately addressed email sent from{' '}
+                <code className="font-mono">{myEmail || 'your inbox'}</code> (via Resend) — replies come back to you.
+                Vendors never see each other. Send outcome shows ✓ / ✗ per vendor below.
               </div>
             </div>
 

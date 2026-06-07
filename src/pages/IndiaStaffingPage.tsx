@@ -10,6 +10,7 @@ import { analyzeStaffingStatus } from '../lib/staffingAnalysis';
 import { computeStageTiming } from '../lib/staffingAlerts';
 import { computeFunnel } from '../lib/staffingFunnel';
 import { runStaffingBriefing, type StaffingBriefing } from '../lib/claudeQuery';
+import { db } from '../lib/supabaseSync';
 import { StaffingKanban } from '../components/staffing/StaffingKanban';
 import { StageFunnel } from '../components/staffing/StageFunnel';
 import { StaffingSmartQuery } from '../components/staffing/StaffingSmartQuery';
@@ -126,6 +127,61 @@ export default function IndiaStaffingPage() {
   const [briefing, setBriefing] = useState<StaffingBriefing | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [briefingExpanded, setBriefingExpanded] = useState(true);
+
+  // ── JD generator state ──
+  const [jdReqId, setJdReqId] = useState<string | null>(null);
+  const [jdText, setJdText] = useState('');
+  const [jdState, setJdState] = useState<'idle' | 'loading' | 'ready' | 'saving' | 'error'>('idle');
+  const [jdError, setJdError] = useState<string | null>(null);
+  const [jdGeneratedAt, setJdGeneratedAt] = useState<string | null>(null);
+  const [jdCachedFromDb, setJdCachedFromDb] = useState(false);
+  const [jdDirty, setJdDirty] = useState(false);
+
+  const openJdDrawer = useCallback(async (reqId: string, opts: { regenerate?: boolean } = {}) => {
+    setJdReqId(reqId);
+    setJdState('loading');
+    setJdError(null);
+    setJdDirty(false);
+    try {
+      const res = await db.generateJobDescription(reqId, !!opts.regenerate);
+      if (res.ok) {
+        setJdText(res.jobDescription);
+        setJdGeneratedAt(res.generatedAt);
+        setJdCachedFromDb(res.cached);
+        setJdState('ready');
+      } else {
+        setJdError(res.error);
+        setJdState('error');
+      }
+    } catch (e) {
+      setJdError((e as Error).message);
+      setJdState('error');
+    }
+  }, []);
+
+  const closeJdDrawer = () => {
+    setJdReqId(null); setJdText(''); setJdState('idle'); setJdError(null); setJdDirty(false);
+  };
+
+  const saveJd = async () => {
+    if (!jdReqId) return;
+    setJdState('saving');
+    try {
+      const r = await db.saveJobDescription(jdReqId, jdText);
+      if (!r.ok) { setJdError(r.error || 'Save failed'); setJdState('error'); return; }
+      setJdGeneratedAt(new Date().toISOString());
+      setJdCachedFromDb(true);
+      setJdDirty(false);
+      setJdState('ready');
+    } catch (e) {
+      setJdError((e as Error).message);
+      setJdState('error');
+    }
+  };
+
+  const copyJd = async () => {
+    try { await navigator.clipboard.writeText(jdText); } catch { /* ignore */ }
+  };
 
   const accountNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -530,6 +586,16 @@ export default function IndiaStaffingPage() {
           </td>
           {/* Delete */}
           <td className="p-1">
+            <button
+              onClick={() => openJdDrawer(r.id)}
+              disabled={jdReqId === r.id && jdState === 'loading'}
+              className="p-1 rounded mr-0.5 transition-colors text-slate-300 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
+              title="Generate / view JD"
+            >
+              {jdReqId === r.id && jdState === 'loading'
+                ? <Loader2 size={12} className="animate-spin" />
+                : <Sparkles size={12} />}
+            </button>
             <button onClick={() => { if (confirm(`Delete "${r.requisition}"?`)) removeRequisition(r.id); }}
               className="p-1 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors" title="Delete requisition">
               <Trash2 size={12} />
@@ -1256,6 +1322,84 @@ export default function IndiaStaffingPage() {
           </Card>
         </>
       )}
+
+      {/* ── Generate JD drawer ── */}
+      {jdReqId && (() => {
+        const reqRow = requisitions.find((rq) => rq.id === jdReqId);
+        const acctName = reqRow ? (accounts.find((a) => a.id === reqRow.account_id)?.name || '—') : '—';
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40"
+            onClick={(e) => { if (e.target === e.currentTarget) closeJdDrawer(); }}
+          >
+            <div className="bg-white w-full max-w-2xl h-full flex flex-col shadow-xl">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Sparkles size={14} className="text-amber-500 flex-shrink-0" />
+                    {reqRow?.title || 'Job description'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    {acctName}
+                    {jdGeneratedAt && (<> · {jdCachedFromDb ? 'cached' : 'generated'} {new Date(jdGeneratedAt).toLocaleString()}</>)}
+                  </div>
+                </div>
+                <button onClick={closeJdDrawer} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+              </div>
+
+              {jdState === 'loading' && (
+                <div className="px-5 py-3 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-900 flex items-center gap-2">
+                  <Loader2 size={12} className="animate-spin" /> Asking Claude to draft the JD…
+                </div>
+              )}
+              {jdState === 'error' && (
+                <div className="px-5 py-3 bg-red-50 border-b border-red-200 text-[11px] text-red-700">{jdError}</div>
+              )}
+              {jdState === 'ready' && jdDirty && (
+                <div className="px-5 py-2 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-900">
+                  Unsaved edits — click <strong>Save</strong>.
+                </div>
+              )}
+
+              <div className="flex-1 overflow-auto p-5">
+                <textarea
+                  value={jdText}
+                  onChange={(e) => { setJdText(e.target.value); setJdDirty(true); }}
+                  disabled={jdState === 'loading'}
+                  className="w-full h-full min-h-[400px] text-xs font-mono leading-relaxed border border-slate-200 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-400"
+                  placeholder="Generated JD will appear here…"
+                />
+              </div>
+
+              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+                <div className="text-[11px] text-slate-500">Edit freely — your changes save to the requisition.</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={copyJd}
+                    disabled={!jdText || jdState === 'loading'}
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40"
+                  >Copy</button>
+                  <button
+                    onClick={() => openJdDrawer(jdReqId, { regenerate: true })}
+                    disabled={jdState === 'loading'}
+                    className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-md hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+                    title="Throw away current JD and ask Claude for a fresh draft"
+                  >
+                    <RefreshCw size={12} /> Regenerate
+                  </button>
+                  <button
+                    onClick={saveJd}
+                    disabled={!jdDirty || jdState === 'saving' || jdState === 'loading'}
+                    className="text-xs font-semibold bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1"
+                  >
+                    <Save size={12} /> {jdState === 'saving' ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

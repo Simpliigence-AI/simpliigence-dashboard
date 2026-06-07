@@ -19,6 +19,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { db } from '../lib/supabaseSync';
 import { TaIdentity } from '../components/TaIdentity';
+import { CandidateMapView } from './candidates/CandidateMapView';
 import {
   CANDIDATE_STAGES,
   CANDIDATE_STAGE_COLORS,
@@ -69,7 +70,7 @@ export default function CandidatesPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'map'>('cards');
 
   // ── AI search state ──
   const [aiQuery, setAiQuery] = useState('');
@@ -420,6 +421,16 @@ export default function CandidatesPage() {
           >
             <TableIcon size={12} /> Table
           </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('map')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+              viewMode === 'map' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="Map view — candidates plotted on India by city"
+          >
+            <MapPin size={12} /> Map
+          </button>
         </div>
       </div>
 
@@ -433,6 +444,8 @@ export default function CandidatesPage() {
             </div>
           </div>
         </Card>
+      ) : viewMode === 'map' ? (
+        <CandidateMapView candidates={filtered} />
       ) : viewMode === 'cards' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((c) => (

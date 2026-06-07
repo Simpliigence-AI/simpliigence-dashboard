@@ -22,7 +22,7 @@
  * Persists via useTaLogStore.upsertEntry → Supabase + realtime broadcast.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Save, Trash2, Eye, Users, Briefcase, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronRight, Save, Trash2, Eye, Users, Briefcase, Sparkles, Minus, Plus, Clock } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
@@ -347,7 +347,7 @@ export default function TADailyLogPage() {
                 Nothing here yet. Tap <strong>+ Requisition</strong> for a specific opening, or <strong>+ Activity</strong> for vendor coordination, training, or other non-req work.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="-my-2">
                 {dailyRows.map((row) => {
                   const isOpen = openRows.has(row.key);
                   const entry = entriesByKey.get(row.key);
@@ -368,15 +368,17 @@ export default function TADailyLogPage() {
                       }}
                       initialNotes={entry?.notes ?? ''}
                       initialCustomerName={entry?.customerName ?? ''}
+                      initialMinutesSpent={entry?.minutesSpent ?? 0}
                       entryId={entry?.id ?? null}
                       readOnly={readOnly}
-                      onSave={async ({ counters, notes, customerName }) => {
+                      onSave={async ({ counters, notes, customerName, minutesSpent }) => {
                         await upsertEntry({
                           taEmail,
                           logDate: selectedDate,
                           requisitionId: row.kind === 'req' ? row.req.id : null,
                           activityType: row.kind === 'activity' ? row.activityType : null,
                           customerName: row.kind === 'activity' ? (customerName || null) : null,
+                          minutesSpent,
                           counters,
                           notes,
                         });
@@ -440,20 +442,65 @@ interface RowProps {
   initialCounters: Record<TALogCounterKey, number>;
   initialNotes: string;
   initialCustomerName: string;
+  initialMinutesSpent: number;
   entryId: string | null;
   readOnly?: boolean;
   onSave: (params: {
     counters: Record<TALogCounterKey, number>;
     notes: string;
     customerName: string;
+    minutesSpent: number;
   }) => Promise<void>;
   onDelete?: () => void | Promise<void>;
 }
 
-function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initialCustomerName, entryId, readOnly = false, onSave, onDelete }: RowProps) {
+/** Format minutes as "Xh Ym" / "Xh" / "Ym". */
+function fmtMinutes(m: number): string {
+  if (!m) return '—';
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  if (h && mm) return `${h}h ${mm}m`;
+  if (h) return `${h}h`;
+  return `${mm}m`;
+}
+
+/** 30-min stepper. value in minutes; max 12h (720m). */
+function TimeStepper({ value, onChange, disabled }: { value: number; onChange: (n: number) => void; disabled?: boolean }) {
+  const dec = () => onChange(Math.max(0, value - 30));
+  const inc = () => onChange(Math.min(720, value + 30));
+  return (
+    <div className="inline-flex items-center bg-slate-100 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={dec}
+        disabled={disabled || value === 0}
+        className="px-3 py-2 hover:bg-slate-200 active:bg-slate-300 transition-colors text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="Decrease by 30 minutes"
+      >
+        <Minus size={14} />
+      </button>
+      <div className="px-3 py-1.5 min-w-[88px] text-center bg-white border-x border-slate-200">
+        <div className="text-base font-bold tabular-nums text-slate-900">{fmtMinutes(value)}</div>
+        <div className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold -mt-0.5">Time</div>
+      </div>
+      <button
+        type="button"
+        onClick={inc}
+        disabled={disabled || value >= 720}
+        className="px-3 py-2 hover:bg-slate-200 active:bg-slate-300 transition-colors text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="Increase by 30 minutes"
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  );
+}
+
+function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initialCustomerName, initialMinutesSpent, entryId, readOnly = false, onSave, onDelete }: RowProps) {
   const [counters, setCounters] = useState(initialCounters);
   const [notes, setNotes] = useState(initialNotes);
   const [customerName, setCustomerName] = useState(initialCustomerName);
+  const [minutesSpent, setMinutesSpent] = useState(initialMinutesSpent);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
@@ -461,6 +508,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
   useEffect(() => { setCounters(initialCounters); }, [initialCounters.sourcedOutreach, initialCounters.screensCompleted, initialCounters.submissionsInterviews]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setNotes(initialNotes); }, [initialNotes]);
   useEffect(() => { setCustomerName(initialCustomerName); }, [initialCustomerName]);
+  useEffect(() => { setMinutesSpent(initialMinutesSpent); }, [initialMinutesSpent]);
 
   const isReq = row.kind === 'req';
   const total = counters.sourcedOutreach + counters.screensCompleted + counters.submissionsInterviews;
@@ -468,13 +516,14 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
     ? (counters.sourcedOutreach !== initialCounters.sourcedOutreach ||
        counters.screensCompleted !== initialCounters.screensCompleted ||
        counters.submissionsInterviews !== initialCounters.submissionsInterviews ||
+       minutesSpent !== initialMinutesSpent ||
        notes !== initialNotes)
-    : (customerName !== initialCustomerName || notes !== initialNotes);
+    : (customerName !== initialCustomerName || minutesSpent !== initialMinutesSpent || notes !== initialNotes);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave({ counters, notes, customerName });
+      await onSave({ counters, notes, customerName, minutesSpent });
       setSavedAt(new Date().toLocaleTimeString());
     } finally {
       setSaving(false);
@@ -484,66 +533,81 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
   const title = isReq ? row.req.title : row.activityType;
   const subtitle = isReq
     ? `${row.accountName} · ${row.req.stage} · ${row.req.status_field}`
-    : (customerName?.trim() ? `Customer / topic: ${customerName.trim()}` : 'Non-requisition activity');
+    : (customerName?.trim() ? customerName.trim() : 'Non-requisition activity');
   const Icon = isReq ? Briefcase : Sparkles;
-  const iconColor = isReq ? 'text-slate-400' : 'text-amber-500';
+  const accentColor = isReq ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700';
+  const accentBar   = isReq ? 'bg-sky-400' : 'bg-amber-400';
+  const cardBorder  = isOpen ? (isReq ? 'border-sky-200' : 'border-amber-200') : 'border-transparent';
   const notesPlaceholder = isReq
     ? 'What did you do today on this req?'
     : 'Describe what happened — meeting outcome, blockers, decisions, follow-ups.';
 
   return (
-    <div className="py-2">
+    <div className={`my-2 rounded-xl border ${cardBorder} ${isOpen ? 'bg-white shadow-sm' : 'bg-transparent'} transition-all`}>
+      {/* Accent bar on open state */}
+      {isOpen && (
+        <div className={`h-1 ${accentBar} rounded-t-xl`} />
+      )}
+
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between text-left hover:bg-slate-50 -mx-3 px-3 py-3 rounded-lg transition-colors min-h-[56px]"
+        className={`w-full flex items-center justify-between text-left px-4 py-3.5 rounded-xl min-h-[60px] ${
+          isOpen ? '' : 'hover:bg-slate-50'
+        } transition-colors`}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="flex-shrink-0">
-            {isOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+          <span className={`flex-shrink-0 w-9 h-9 rounded-lg ${accentColor} flex items-center justify-center`}>
+            <Icon size={16} />
           </span>
-          <Icon size={14} className={`${iconColor} flex-shrink-0`} />
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold text-slate-900 truncate">{title}</div>
             <div className="text-[11px] text-slate-500 truncate">{subtitle}</div>
           </div>
         </div>
         <div className="flex-shrink-0 flex items-center gap-2 ml-2">
+          {minutesSpent > 0 && (
+            <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap">
+              <Clock size={10} /> {fmtMinutes(minutesSpent)}
+            </span>
+          )}
           {isReq && total > 0 && (
             <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">
               {total}
             </span>
           )}
-          {entryId && (
-            <span className="text-[10px] text-emerald-600 font-medium">●</span>
+          {entryId && !dirty && (
+            <span className="text-[10px] text-emerald-600 font-medium" title="Saved">●</span>
           )}
+          {isOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
         </div>
       </button>
 
       {isOpen && (
-        <div className="mt-2 sm:ml-7 mr-1 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="px-4 pb-4 space-y-4">
+          {/* Top section — counters OR customer/topic */}
           {isReq ? (
-            // Requisition entry — funnel counters
-            TA_LOG_COUNTERS.map((c) => (
-              <div key={c.key}>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                  {c.label}
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  value={counters[c.key]}
-                  disabled={readOnly}
-                  onChange={(e) => setCounters({ ...counters, [c.key]: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
-                />
-              </div>
-            ))
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {TA_LOG_COUNTERS.map((c) => (
+                <div key={c.key}>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    {c.label}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={counters[c.key]}
+                    disabled={readOnly}
+                    onChange={(e) => setCounters({ ...counters, [c.key]: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-lg font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                </div>
+              ))}
+            </div>
           ) : (
-            // Activity entry — customer/topic instead of counters
-            <div className="sm:col-span-3">
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                 Customer / topic
               </label>
               <input
@@ -552,33 +616,45 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
                 disabled={readOnly}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="e.g. Acme Corp, Naukri rep, Kafka 101, Quarterly all-hands"
-                className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
           )}
-          <div className="sm:col-span-3">
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-              Description
-            </label>
-            <textarea
-              rows={isReq ? 2 : 3}
-              value={notes}
-              disabled={readOnly}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={readOnly ? '' : notesPlaceholder}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y disabled:bg-slate-50 disabled:text-slate-500"
-            />
+
+          {/* Time spent stepper + Description */}
+          <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-4 items-start">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                Time spent
+              </label>
+              <TimeStepper value={minutesSpent} onChange={setMinutesSpent} disabled={readOnly} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                Description
+              </label>
+              <textarea
+                rows={isReq ? 2 : 3}
+                value={notes}
+                disabled={readOnly}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={readOnly ? '' : notesPlaceholder}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary resize-y disabled:bg-slate-50 disabled:text-slate-500"
+              />
+            </div>
           </div>
+
+          {/* Action bar */}
           {!readOnly && (
-            <div className="sm:col-span-3 flex items-center justify-end gap-3 flex-wrap pt-1">
+            <div className="flex items-center justify-end gap-3 flex-wrap pt-1">
               {savedAt && !dirty && (
-                <span className="text-[11px] text-emerald-600">Saved {savedAt}</span>
+                <span className="text-[11px] text-emerald-600 font-medium">✓ Saved {savedAt}</span>
               )}
               {onDelete && (
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-1 px-2 py-1.5"
+                  className="text-[11px] text-red-600 hover:text-red-800 flex items-center gap-1 px-2 py-1.5 hover:bg-red-50 rounded-md transition-colors"
                 >
                   <Trash2 size={12} /> Delete
                 </button>
@@ -587,7 +663,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
                 type="button"
                 onClick={handleSave}
                 disabled={!dirty || saving}
-                className="text-sm font-semibold bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
+                className="text-sm font-semibold bg-primary text-white px-5 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
               >
                 <Save size={14} /> {saving ? 'Saving…' : 'Save'}
               </button>

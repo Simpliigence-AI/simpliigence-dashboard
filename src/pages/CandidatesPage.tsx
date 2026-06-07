@@ -885,178 +885,208 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
       </tr>
 
       {expanded && (
-        <tr className="bg-slate-50/50">
-          <td colSpan={10} className="px-3 py-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* LinkedIn + location + resume controls */}
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Location</div>
-                <input
-                  value={c.location ?? ''}
-                  onChange={(e) => onChange({ location: e.target.value || undefined })}
-                  placeholder="e.g. Bangalore, India"
-                  list="candidate-location-options"
-                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
+        <tr className="bg-slate-50/60">
+          <td colSpan={10} className="px-4 py-5">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-5">
 
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 mt-3">LinkedIn URL</div>
-                <input
-                  value={c.linkedin_url ?? ''}
-                  onChange={(e) => onChange({ linkedin_url: e.target.value.trim() || undefined })}
-                  placeholder="https://linkedin.com/in/jane-doe"
-                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-                {c.linkedin_url && (
-                  <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
-                     className="mt-1 inline-flex items-center gap-1 text-[11px] text-sky-600 hover:underline">
-                    <ExternalLink size={11} /> Open profile
-                  </a>
-                )}
-
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 mt-3">Resume / CV</div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <label className="inline-flex items-center gap-1 text-xs bg-white border border-slate-300 rounded-md px-2.5 py-1.5 hover:bg-slate-100 cursor-pointer">
-                    <Upload size={12} />
-                    {c.resume_url ? 'Replace file' : 'Upload PDF or .txt'}
-                    <input
-                      type="file"
-                      accept=".pdf,.txt,application/pdf,text/plain"
-                      className="hidden"
-                      onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
-                      disabled={uploading || parsing}
-                    />
-                  </label>
-                  {c.resume_url && (
-                    <>
-                      <button type="button" onClick={handleOpenResume}
-                              className="text-xs inline-flex items-center gap-1 text-primary hover:underline">
-                        <FileText size={12} /> {c.resume_filename || 'View resume'}
-                      </button>
-                      <button type="button" onClick={handleReparse}
-                              disabled={parsing}
-                              className="text-xs inline-flex items-center gap-1 bg-amber-100 text-amber-900 hover:bg-amber-200 rounded-md px-2.5 py-1.5 disabled:opacity-50">
-                        <Sparkles size={12} /> {parsing ? 'Parsing…' : (c.parsed_at ? 'Reparse' : 'Parse now')}
-                      </button>
-                    </>
-                  )}
-                </div>
-                {c.resume_uploaded_at && (
-                  <div className="text-[10px] text-slate-400 mt-1">
-                    Uploaded {new Date(c.resume_uploaded_at).toLocaleString()}
+              {/* — Header strip: summary as quote-style or empty-state — */}
+              {c.profile_summary ? (
+                <div className="border-l-4 border-primary/40 pl-4 py-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-2">
+                    Profile summary
+                    {c.parsed_at && (
+                      <span className="text-[10px] text-slate-400 normal-case font-normal">
+                        · parsed {new Date(c.parsed_at).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
-                )}
-                {error && (
-                  <div className="text-[11px] text-red-600 mt-1">{error}</div>
-                )}
-              </div>
+                  <p className="text-sm text-slate-800 leading-relaxed italic">"{c.profile_summary}"</p>
+                </div>
+              ) : (
+                <div className="text-[12px] text-slate-400 italic border-l-4 border-slate-200 pl-4 py-1">
+                  {c.resume_url
+                    ? 'No summary yet — upload triggered parsing; click Reparse below if it stalled.'
+                    : 'Upload a resume to auto-generate a profile summary + skills.'}
+                </div>
+              )}
 
-              {/* Skills */}
+              {/* — Skills row (full width) — */}
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                  Skills {c.parsed_at && <span className="text-slate-400 normal-case">· parsed {new Date(c.parsed_at).toLocaleDateString()}</span>}
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Skills {c.skills && c.skills.length > 0 && (
+                    <span className="text-slate-400 normal-case font-normal">· {c.skills.length}</span>
+                  )}
                 </div>
                 {(c.skills && c.skills.length > 0) ? (
                   <div className="flex flex-wrap gap-1.5">
                     {c.skills.map((s) => (
-                      <span key={s} className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">{s}</span>
+                      <span key={s} className="text-[11px] bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">{s}</span>
                     ))}
                   </div>
                 ) : (
                   <div className="text-[11px] text-slate-400 italic">
-                    {c.resume_url ? 'No skills extracted yet — click Parse now.' : 'Upload a resume to auto-extract skills.'}
+                    {c.resume_url ? 'No skills extracted yet — click Reparse below.' : 'Upload a resume to auto-extract skills.'}
                   </div>
                 )}
               </div>
 
-              {/* Summary */}
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Profile summary</div>
-                {c.profile_summary ? (
-                  <p className="text-xs text-slate-700 leading-relaxed">{c.profile_summary}</p>
-                ) : (
-                  <div className="text-[11px] text-slate-400 italic">
-                    {c.resume_url ? 'No summary yet — click Parse now.' : 'Upload a resume to auto-generate a summary.'}
-                  </div>
-                )}
-              </div>
+              {/* — Two-column lower grid: Contact + Hiring details — */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-              {/* Availability + Expected salary (always shown) */}
-              <div className="lg:col-span-3 border-t border-slate-200 pt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Open to</div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {(['full_time', 'contracting'] as AvailabilityKind[]).map((kind) => {
-                      const checked = (c.availability ?? []).includes(kind);
-                      return (
-                        <label
-                          key={kind}
-                          className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                            checked
-                              ? 'bg-primary text-white border-primary'
-                              : 'bg-white text-slate-600 border-slate-300 hover:border-primary hover:text-primary'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="hidden"
-                            checked={checked}
-                            onChange={() => {
-                              const cur = c.availability ?? [];
-                              const next = checked ? cur.filter((x) => x !== kind) : [...cur, kind];
-                              onChange({ availability: next });
-                            }}
-                          />
-                          {AVAILABILITY_LABELS[kind]}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {(!c.availability || c.availability.length === 0) && (
-                    <p className="text-[10px] text-slate-400 italic mt-1">Not specified.</p>
-                  )}
-                </div>
+                {/* Contact column */}
+                <section className="rounded-lg border border-slate-200 p-4 space-y-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Linkedin size={11} /> Contact + Resume
+                  </h4>
 
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Expected salary</div>
-                  <div className="relative">
-                    <IndianRupee size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      value={c.expected_salary ?? ''}
-                      onChange={(e) => onChange({ expected_salary: e.target.value || undefined })}
-                      placeholder="e.g. 12-14 LPA, $60/hr, Negotiable"
-                      className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">Free-text — annual, hourly, or range.</p>
-                </div>
-
-                {/* Referrer info — shown only when this is a referral (source='Referral'
-                    OR referrer fields already populated). */}
-                {(c.source === 'Referral' || c.referrer_email || c.referrer_name) && (
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 mb-1 flex items-center gap-1">
-                      <UserPlus size={11} /> Referred by
-                    </div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Location</label>
                     <input
-                      value={c.referrer_email ?? ''}
-                      onChange={(e) => onChange({ referrer_email: e.target.value.trim().toLowerCase() || undefined })}
-                      placeholder="employee@simpliigence.com"
-                      className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 mb-1"
+                      value={c.location ?? ''}
+                      onChange={(e) => onChange({ location: e.target.value || undefined })}
+                      placeholder="e.g. Bangalore, India"
+                      list="candidate-location-options"
+                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">LinkedIn URL</label>
                     <input
-                      value={c.referrer_name ?? ''}
-                      onChange={(e) => onChange({ referrer_name: e.target.value || undefined })}
-                      placeholder="Referrer display name (optional)"
-                      className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 mb-1"
+                      value={c.linkedin_url ?? ''}
+                      onChange={(e) => onChange({ linkedin_url: e.target.value.trim() || undefined })}
+                      placeholder="https://linkedin.com/in/jane-doe"
+                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
-                    {c.referred_at && (
-                      <p className="text-[10px] text-slate-400">
-                        Referred {new Date(c.referred_at).toLocaleDateString()}
-                      </p>
+                    {c.linkedin_url && (
+                      <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
+                         className="mt-1 inline-flex items-center gap-1 text-[11px] text-sky-600 hover:underline">
+                        <ExternalLink size={11} /> Open profile
+                      </a>
                     )}
                   </div>
-                )}
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Resume / CV</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="inline-flex items-center gap-1 text-xs bg-white border border-slate-300 rounded-md px-2.5 py-1.5 hover:bg-slate-100 cursor-pointer">
+                        <Upload size={12} />
+                        {c.resume_url ? 'Replace' : 'Upload PDF / .txt'}
+                        <input
+                          type="file"
+                          accept=".pdf,.txt,application/pdf,text/plain"
+                          className="hidden"
+                          onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
+                          disabled={uploading || parsing}
+                        />
+                      </label>
+                      {c.resume_url && (
+                        <>
+                          <button type="button" onClick={handleOpenResume}
+                                  className="text-xs inline-flex items-center gap-1 text-primary hover:underline">
+                            <FileText size={12} /> {c.resume_filename || 'View'}
+                          </button>
+                          <button type="button" onClick={handleReparse}
+                                  disabled={parsing}
+                                  className="text-xs inline-flex items-center gap-1 bg-amber-100 text-amber-900 hover:bg-amber-200 rounded-md px-2.5 py-1.5 disabled:opacity-50">
+                            <Sparkles size={12} /> {parsing ? 'Parsing…' : (c.parsed_at ? 'Reparse' : 'Parse now')}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {c.resume_uploaded_at && (
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Uploaded {new Date(c.resume_uploaded_at).toLocaleString()}
+                      </div>
+                    )}
+                    {(uploading || parsing) && (
+                      <div className="text-[11px] text-sky-600 mt-1 inline-flex items-center gap-1">
+                        <Loader2 size={11} className="animate-spin" /> {uploading ? 'Uploading…' : 'Parsing…'}
+                      </div>
+                    )}
+                    {error && (
+                      <div className="text-[11px] text-red-600 mt-1">{error}</div>
+                    )}
+                  </div>
+                </section>
+
+                {/* Hiring details column */}
+                <section className="rounded-lg border border-slate-200 p-4 space-y-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <IndianRupee size={11} /> Hiring details
+                  </h4>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Open to</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(['full_time', 'contracting'] as AvailabilityKind[]).map((kind) => {
+                        const checked = (c.availability ?? []).includes(kind);
+                        return (
+                          <label
+                            key={kind}
+                            className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                              checked
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-white text-slate-600 border-slate-300 hover:border-primary hover:text-primary'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="hidden"
+                              checked={checked}
+                              onChange={() => {
+                                const cur = c.availability ?? [];
+                                const next = checked ? cur.filter((x) => x !== kind) : [...cur, kind];
+                                onChange({ availability: next });
+                              }}
+                            />
+                            {AVAILABILITY_LABELS[kind]}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Expected salary</label>
+                    <div className="relative">
+                      <IndianRupee size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        value={c.expected_salary ?? ''}
+                        onChange={(e) => onChange({ expected_salary: e.target.value || undefined })}
+                        placeholder="e.g. 12-14 LPA, $60/hr"
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    </div>
+                  </div>
+
+                  {(c.source === 'Referral' || c.referrer_email || c.referrer_name) && (
+                    <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1.5 flex items-center gap-1">
+                        <UserPlus size={11} /> Referred by
+                      </div>
+                      <input
+                        value={c.referrer_email ?? ''}
+                        onChange={(e) => onChange({ referrer_email: e.target.value.trim().toLowerCase() || undefined })}
+                        placeholder="employee@simpliigence.com"
+                        className="w-full border border-emerald-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 mb-1 bg-white"
+                      />
+                      <input
+                        value={c.referrer_name ?? ''}
+                        onChange={(e) => onChange({ referrer_name: e.target.value || undefined })}
+                        placeholder="Referrer name (optional)"
+                        className="w-full border border-emerald-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+                      />
+                      {c.referred_at && (
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Referred on {new Date(c.referred_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </section>
               </div>
+
             </div>
           </td>
         </tr>

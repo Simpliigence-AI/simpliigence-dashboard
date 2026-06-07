@@ -21,6 +21,7 @@ import type { USRosterMember, USRosterStatus } from '../types/usRoster';
 import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 import type { TimeEntry } from '../types/timeEntry';
+import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 
 // ─── Conversion helpers ────────────────────────────────────────────
 
@@ -497,6 +498,88 @@ export async function fetchPipelineProjects(): Promise<ZohoPipelineProject[] | n
   const { data, error } = await supabase.from('pipeline_projects').select('*');
   if (error) return null;
   return (data || []).map(pipelineRowToProject);
+}
+
+// ─── Account Management converters ─────────────────────────────────
+
+function accountToRow(a: Account) {
+  return {
+    id: a.id,
+    name: a.name,
+    sales_owner_email: a.salesOwnerEmail?.toLowerCase() ?? null,
+    delivery_owner_email: a.deliveryOwnerEmail?.toLowerCase() ?? null,
+    status: a.status,
+    industry: a.industry,
+    notes: a.notes ?? '',
+    updated_by: CLIENT_ID,
+    updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToAccount(row: any): Account {
+  return {
+    id: row.id, name: row.name,
+    salesOwnerEmail: row.sales_owner_email ?? null,
+    deliveryOwnerEmail: row.delivery_owner_email ?? null,
+    status: row.status ?? 'active',
+    industry: row.industry ?? null,
+    notes: row.notes ?? '',
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+function accountConnectToRow(c: AccountConnect) {
+  return {
+    id: c.id, account_id: c.accountId, connect_type: c.connectType,
+    meeting_date: c.meetingDate, attendees: c.attendees ?? '',
+    discussion: c.discussion ?? '', outcome: c.outcome ?? '',
+    created_by: c.createdBy ?? CLIENT_ID,
+    updated_by: CLIENT_ID, updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToAccountConnect(row: any): AccountConnect {
+  return {
+    id: row.id, accountId: row.account_id, connectType: row.connect_type,
+    meetingDate: row.meeting_date,
+    attendees: row.attendees ?? '', discussion: row.discussion ?? '', outcome: row.outcome ?? '',
+    createdAt: row.created_at, updatedAt: row.updated_at,
+    createdBy: row.created_by ?? null, updatedBy: row.updated_by ?? null,
+  };
+}
+function accountActionToRow(a: AccountActionItem) {
+  return {
+    id: a.id, account_id: a.accountId, connect_id: a.connectId,
+    title: a.title, description: a.description ?? '',
+    owner_email: a.ownerEmail?.toLowerCase() ?? null,
+    due_date: a.dueDate, status: a.status, completed_at: a.completedAt,
+    updated_by: CLIENT_ID, updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToAccountAction(row: any): AccountActionItem {
+  return {
+    id: row.id, accountId: row.account_id, connectId: row.connect_id ?? null,
+    title: row.title, description: row.description ?? '',
+    ownerEmail: row.owner_email ?? null, dueDate: row.due_date ?? null,
+    status: row.status ?? 'open', completedAt: row.completed_at ?? null,
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchAccountManagement(): Promise<{
+  accounts: Account[]; connects: AccountConnect[]; actions: AccountActionItem[];
+} | null> {
+  const [accRes, conRes, actRes] = await Promise.all([
+    supabase.from('accounts').select('*'),
+    supabase.from('account_connects').select('*'),
+    supabase.from('account_action_items').select('*'),
+  ]);
+  if (accRes.error) { console.warn('[supabase] fetch accounts failed:', accRes.error); return null; }
+  return {
+    accounts: (accRes.data || []).map(rowToAccount),
+    connects: (conRes.data || []).map(rowToAccountConnect),
+    actions: (actRes.data || []).map(rowToAccountAction),
+  };
 }
 
 export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
@@ -1093,6 +1176,32 @@ export const db = {
   async replaceAllUSRoster(members: USRosterMember[]) {
     await supabase.from('us_roster').delete().neq('id', '');
     if (members.length) await supabase.from('us_roster').insert(members.map(usRosterToRow));
+  },
+
+  // --- Account Management ---
+  async upsertAccount(a: Account) {
+    const { error } = await supabase.from('accounts').upsert(accountToRow(a), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert account failed:', error);
+  },
+  async deleteAccount(id: string) {
+    const { error } = await supabase.from('accounts').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete account failed:', error);
+  },
+  async upsertAccountConnect(c: AccountConnect) {
+    const { error } = await supabase.from('account_connects').upsert(accountConnectToRow(c), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert account_connect failed:', error);
+  },
+  async deleteAccountConnect(id: string) {
+    const { error } = await supabase.from('account_connects').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete account_connect failed:', error);
+  },
+  async upsertAccountAction(a: AccountActionItem) {
+    const { error } = await supabase.from('account_action_items').upsert(accountActionToRow(a), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert account_action failed:', error);
+  },
+  async deleteAccountAction(id: string) {
+    const { error } = await supabase.from('account_action_items').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete account_action failed:', error);
   },
 
   // --- Time entries ---

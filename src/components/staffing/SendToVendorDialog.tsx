@@ -176,11 +176,12 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
         to: v.spocEmail,
         subject,
         body: personalBody,
-        // Send AS the recruiter so vendor replies hit their inbox directly.
-        // Requires the recruiter's @simpliigence.com domain to be on the
-        // FROM_DOMAIN_ALLOWLIST / verified in Resend (the edge function
-        // falls back to FROM_EMAIL with a precise error if it isn't).
-        from: myEmail || undefined,
+        // Use the recruiter's name as the visible "From" display name and
+        // route replies straight to their inbox via Reply-To. The envelope
+        // From address stays as the FROM_EMAIL secret because that's the
+        // only sender Resend has verified — sending AS any other address on
+        // simpliigence.com would require domain-level (DKIM/SPF) verification
+        // in Resend, which isn't set up yet.
         fromName: myName,
         replyTo: myEmail || undefined,
       });
@@ -367,8 +368,9 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
               />
               <div className="text-[10px] text-slate-400 mt-1.5">
-                Each vendor gets a separately addressed email sent from{' '}
-                <code className="font-mono">{myEmail || 'your inbox'}</code> (via Resend) — replies come back to you.
+                Each vendor gets a separately addressed email sent via Resend. Display name is{' '}
+                <code className="font-mono">{myName}</code> and Reply-To is{' '}
+                <code className="font-mono">{myEmail || 'your inbox'}</code> — so when vendors hit reply, it comes back to you, not hr@.
                 Vendors never see each other. Send outcome shows ✓ / ✗ per vendor below.
               </div>
             </div>

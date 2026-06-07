@@ -12,7 +12,7 @@
  * other tabs/browsers fresh.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Save, X, Building2, Mail, Send, Activity, Check, AlertCircle, Inbox, Clock } from 'lucide-react';
+import { Plus, Trash2, Save, X, Building2, Mail, Send, Activity, Check, AlertCircle, Inbox, Clock, Download } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useVendorStore } from '../store/useVendorStore';
@@ -481,6 +481,34 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
     { key: 'composed', label: 'Composed', cls: 'bg-slate-100 text-slate-600' },
   ];
 
+  /** Download the currently-filtered outreach list as CSV. Reflects exactly
+   *  what the table shows (status filter + show-all/show-20 BOTH applied via
+   *  `recent`) so accounting/operations can run a monthly vendor report
+   *  matching the same view they see on screen. */
+  const exportCsv = () => {
+    const cols: { label: string; value: (o: VendorOutreach) => string }[] = [
+      { label: 'When',        value: (o) => o.sentAt },
+      { label: 'Vendor',      value: (o) => vendorNameById(o.vendorId) },
+      { label: 'Requisition', value: (o) => reqTitleById(o.requisitionId) },
+      { label: 'Subject',     value: (o) => o.subject },
+      { label: 'Sent by',     value: (o) => o.sentBy ?? '' },
+      { label: 'Status',      value: (o) => o.sendStatus },
+      { label: 'Error',       value: (o) => o.sendError ?? '' },
+    ];
+    const esc = (s: string) => /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    const header = cols.map((c) => c.label).join(',');
+    const rows = recent.map((o) => cols.map((c) => esc(c.value(o))).join(','));
+    const csv = [header, ...rows].join('\r\n');
+    const today = new Date().toISOString().slice(0, 10);
+    const filename = `vendor-outreach-${statusFilter}-${today}.csv`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card className="mb-4" title={`Recent outreach activity · ${outreach.length} total${titleSuffix}`}>
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
@@ -501,6 +529,15 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={exportCsv}
+          disabled={recent.length === 0}
+          className="ml-auto text-[10px] font-semibold bg-white border border-slate-300 text-slate-700 px-2 py-0.5 rounded-full hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1"
+          title={`Download ${recent.length} event${recent.length === 1 ? '' : 's'} as CSV`}
+        >
+          <Download size={10} /> Export
+        </button>
       </div>
       <div className="overflow-x-auto -mx-6 px-6">
         <table className="min-w-full text-sm [&_td]:align-middle [&_th]:align-middle">

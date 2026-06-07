@@ -28,16 +28,35 @@ export default function VendorsPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // Per-vendor outreach stats
+  // Per-vendor outreach stats — count, last activity, plus a stale-follow-up
+  // signal. A vendor "needs follow-up" if their newest `sent` outreach is
+  // older than FOLLOW_UP_THRESHOLD_DAYS AND has not been superseded by a
+  // `replied` event. `bounced` doesn't count as needing follow-up (different
+  // failure mode — fix the address).
+  const FOLLOW_UP_THRESHOLD_DAYS = 3;
   const statsByVendor = useMemo(() => {
-    const m = new Map<string, { count: number; last: string | null }>();
+    const m = new Map<string, { count: number; last: string | null; lastSentAt: string | null; hasReply: boolean }>();
     for (const o of outreach) {
-      const s = m.get(o.vendorId) || { count: 0, last: null };
+      const s = m.get(o.vendorId) || { count: 0, last: null, lastSentAt: null, hasReply: false };
       s.count += 1;
       if (!s.last || o.sentAt > s.last) s.last = o.sentAt;
+      if (o.sendStatus === 'sent' && (!s.lastSentAt || o.sentAt > s.lastSentAt)) s.lastSentAt = o.sentAt;
+      if (o.sendStatus === 'replied') s.hasReply = true;
       m.set(o.vendorId, s);
     }
-    return m;
+    // Layer in derived `needsFollowupDays`
+    const now = Date.now();
+    const dayMs = 86_400_000;
+    const out = new Map<string, { count: number; last: string | null; needsFollowupDays: number | null }>();
+    for (const [id, s] of m) {
+      let needs: number | null = null;
+      if (!s.hasReply && s.lastSentAt) {
+        const age = Math.floor((now - Date.parse(s.lastSentAt)) / dayMs);
+        if (age >= FOLLOW_UP_THRESHOLD_DAYS) needs = age;
+      }
+      out.set(id, { count: s.count, last: s.last, needsFollowupDays: needs });
+    }
+    return out;
   }, [outreach]);
 
   const filtered = useMemo(() => {
@@ -125,6 +144,7 @@ export default function VendorsPage() {
                 vendor={v}
                 outreachCount={statsByVendor.get(v.id)?.count ?? 0}
                 lastContactedAt={statsByVendor.get(v.id)?.last ?? null}
+                needsFollowupDays={statsByVendor.get(v.id)?.needsFollowupDays ?? null}
                 onPatch={(patch) => updateVendor(v.id, patch)}
                 onRemove={() => {
                   if (confirm(`Remove vendor "${v.companyName}"? Outreach history will be deleted too.`)) {
@@ -142,10 +162,13 @@ export default function VendorsPage() {
 
 /* ── Single vendor row (inline editable) ── */
 
-function VendorRow({ vendor, outreachCount, lastContactedAt, onPatch, onRemove }: {
+function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, onPatch, onRemove }: {
   vendor: Vendor;
   outreachCount: number;
   lastContactedAt: string | null;
+  /** Number of days since the last `sent` outreach if it's been ≥3 days without
+   *  a reply. null when the vendor is fresh, replied, or never emailed. */
+  needsFollowupDays: number | null;
   onPatch: (patch: Partial<Vendor>) => void | Promise<void>;
   onRemove: () => void;
 }) {
@@ -160,7 +183,17 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, onPatch, onRemove }
       <div className="flex-1 min-w-0">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1.5">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Company</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              Company
+              {needsFollowupDays !== null && (
+                <span
+                  className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800"
+                  title={`Last 'sent' outreach was ${needsFollowupDays} days ago and the vendor hasn't replied. Time to nudge.`}
+                >
+                  <AlertCircle size={9} /> Needs follow-up · {needsFollowupDays}d
+                </span>
+              )}
+            </div>
             <input
               value={vendor.companyName}
               onChange={(e) => onPatch({ companyName: e.target.value })}

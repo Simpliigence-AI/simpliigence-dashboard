@@ -1136,6 +1136,25 @@ export const db = {
     if (error) console.warn('[supabase] setUserAvatar failed:', error);
   },
 
+  // --- Profile Format (format-resume edge function) ---
+  /** Invoke format-resume. Pass exactly one of pdfBase64 / resumeText / priorDraft. */
+  async formatResume(input: {
+    pdfBase64?: string;
+    resumeText?: string;
+    priorDraft?: string;
+    instructions?: string;
+  }): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      markdown?: string;
+      error?: string;
+      detail?: string;
+    }>('format-resume', { body: input });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    return { ok: true, markdown: data?.markdown || '' };
+  },
+
   // --- Candidate resumes (Supabase Storage + parse-resume edge function) ---
   /** Upload a resume file to storage and return the object path stored on the candidate row. */
   async uploadCandidateResume(candidateId: string, file: File): Promise<{ path: string; filename: string } | { error: string }> {

@@ -143,9 +143,26 @@ export interface StaffingCandidate {
   profile_summary?: string;
   /** ISO timestamp the resume was last parsed by Claude. */
   parsed_at?: string;
+  /** When the candidate was sourced via an employee referral, the referring
+   *  employee's email — drives the source='Referral' UI on the row. */
+  referrer_email?: string;
+  /** Optional display name for the referrer ("Scott Murray"). */
+  referrer_name?: string;
+  /** ISO date (YYYY-MM-DD) the referral was submitted. */
+  referred_at?: string;
+  /** Which engagement types the candidate is open to: 'full_time', 'contracting'. */
+  availability?: AvailabilityKind[];
+  /** Free-text expected salary ("10-12 LPA", "$60/hr", "Negotiable"). */
+  expected_salary?: string;
   created_at: string;
   updated_at: string;
 }
+
+export type AvailabilityKind = 'full_time' | 'contracting';
+export const AVAILABILITY_LABELS: Record<AvailabilityKind, string> = {
+  full_time: 'Full-time',
+  contracting: 'Contracting',
+};
 
 export type RiskLevel = 'high' | 'medium' | 'low';
 

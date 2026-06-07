@@ -9,18 +9,21 @@
  * title, account, and (if generated) the full Markdown JD that lives on
  * `requisition.job_description`.
  *
- * On Send, we open a `mailto:` link per vendor (Phase 1 — no server-side
- * delivery yet) AND log a row to `vendor_outreach` for each. Vendors do NOT
- * see each other since each email is composed individually.
- *
- * Phase 2 (when M365/SMTP creds are available) will replace the `mailto:`
- * with an edge function that sends from hr@simpliigence.com directly.
+ * Phase 2 (current): Send fires the `send-vendor-email` edge function per
+ * vendor, which delivers via Resend from FROM_EMAIL (typically
+ * hr@simpliigence.com). Each vendor sees a personalised email (their SPOC
+ * name in the greeting) and never sees other vendors. Outcome per vendor
+ * is shown inline as ✓ sent / ✗ failed (with reason).
  */
 import { useMemo, useState } from 'react';
-import { Send, Search, Mail, CheckSquare, Square, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, Search, Mail, CheckSquare, Square, Sparkles, AlertCircle, Check, X as XIcon, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useVendorStore } from '../../store/useVendorStore';
+import { db } from '../../lib/supabaseSync';
 import type { StaffingRequisition } from '../../types/staffing';
+
+/** Per-vendor send result tracked in dialog state. */
+type SendResult = { status: 'sending' } | { status: 'sent'; id: string } | { status: 'failed'; error: string };
 
 /** Default subject line. */
 function defaultSubject(req: StaffingRequisition, accountName: string): string {
@@ -101,6 +104,8 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
   const [body, setBody] = useState(buildBody(requisition, accountName, requisition.job_description ?? undefined));
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(0);
+  /** vendorId → result of the most recent send attempt. */
+  const [results, setResults] = useState<Record<string, SendResult>>({});
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -121,31 +126,59 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
     else setSelected(new Set(visible.map((r) => r.v.id)));
   };
 
+  /** Send each picked vendor an email via the send-vendor-email edge function.
+   *  Per-vendor result lands in `results` so the row can render ✓ / ✗ inline.
+   *  Outreach log row gets the actual send_status ('sent' or 'bounced') so the
+   *  Vendors page activity feed reflects reality, not just composition. */
   const handleSend = async () => {
     setSending(true);
     const picked = vendors.filter((v) => selected.has(v.id));
-    let count = 0;
+    let successCount = 0;
+
     for (const v of picked) {
-      if (!v.spocEmail) continue;
-      // Each email is composed per-vendor with the SPOC's name in the greeting
-      // so vendors get a personal greeting + never see each other.
+      if (!v.spocEmail) {
+        setResults((s) => ({ ...s, [v.id]: { status: 'failed', error: 'No SPOC email on this vendor' } }));
+        continue;
+      }
+      setResults((s) => ({ ...s, [v.id]: { status: 'sending' } }));
+
       const personalBody = buildBody(requisition, accountName, requisition.job_description ?? undefined, v.spocName);
-      const mailto = `mailto:${encodeURIComponent(v.spocEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(personalBody)}`;
-      // Open in a new window per vendor — most mail clients honour mailto: links.
-      window.open(mailto, '_blank');
-      await logOutreach({
-        vendorId: v.id,
-        requisitionId: requisition.id,
-        sentBy: myEmail,
+
+      // eslint-disable-next-line no-await-in-loop
+      const res = await db.sendVendorEmail({
+        to: v.spocEmail,
         subject,
-        bodyPreview: personalBody,
-        sendStatus: 'composed',
+        body: personalBody,
+        replyTo: myEmail || undefined,
       });
-      count += 1;
-      // Tiny pause between mailto opens so the browser doesn't suppress them
-      await new Promise((r) => setTimeout(r, 250));
+
+      if (res.ok) {
+        setResults((s) => ({ ...s, [v.id]: { status: 'sent', id: res.id } }));
+        // eslint-disable-next-line no-await-in-loop
+        await logOutreach({
+          vendorId: v.id,
+          requisitionId: requisition.id,
+          sentBy: myEmail,
+          subject,
+          bodyPreview: personalBody,
+          sendStatus: 'sent',
+        });
+        successCount += 1;
+      } else {
+        setResults((s) => ({ ...s, [v.id]: { status: 'failed', error: res.error } }));
+        // eslint-disable-next-line no-await-in-loop
+        await logOutreach({
+          vendorId: v.id,
+          requisitionId: requisition.id,
+          sentBy: myEmail,
+          subject,
+          bodyPreview: personalBody,
+          sendStatus: 'bounced',
+        });
+      }
     }
-    setSent(count);
+
+    setSent(successCount);
     setSending(false);
   };
 
@@ -212,12 +245,14 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                 ) : (
                   visible.map(({ v, matches }) => {
                     const checked = selected.has(v.id);
+                    const result = results[v.id];
                     return (
                       <li key={v.id}>
                         <button
                           type="button"
                           onClick={() => toggle(v.id)}
-                          className={`w-full text-left px-2 py-1.5 rounded border ${
+                          disabled={sending}
+                          className={`w-full text-left px-2 py-1.5 rounded border disabled:cursor-default ${
                             checked ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                         >
@@ -233,11 +268,31 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                                     {matches} skill match{matches === 1 ? '' : 'es'}
                                   </span>
                                 )}
+                                {result?.status === 'sending' && (
+                                  <span className="text-[10px] text-sky-700 inline-flex items-center gap-1">
+                                    <Loader2 size={10} className="animate-spin" /> sending…
+                                  </span>
+                                )}
+                                {result?.status === 'sent' && (
+                                  <span className="text-[10px] text-emerald-700 font-semibold inline-flex items-center gap-1">
+                                    <Check size={10} /> sent
+                                  </span>
+                                )}
+                                {result?.status === 'failed' && (
+                                  <span className="text-[10px] text-red-700 font-semibold inline-flex items-center gap-1" title={result.error}>
+                                    <XIcon size={10} /> failed
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[11px] text-slate-500 inline-flex items-center gap-1 mt-0.5">
                                 <Mail size={10} /> {v.spocEmail || <span className="italic">no email</span>}
                                 {v.spocName && <span>· {v.spocName}</span>}
                               </div>
+                              {result?.status === 'failed' && (
+                                <div className="text-[10px] text-red-700 italic mt-0.5 truncate" title={result.error}>
+                                  {result.error}
+                                </div>
+                              )}
                               {v.skills.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {v.skills.slice(0, 6).map((s) => (
@@ -279,8 +334,8 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
               />
               <div className="text-[10px] text-slate-400 mt-1.5">
-                Phase 1 sends via your default mail app (one window per vendor — they don't see each other).
-                Phase 2 will send from <code className="font-mono">hr@simpliigence.com</code> via Microsoft 365.
+                Each vendor gets a separately addressed email from <code className="font-mono">hr@simpliigence.com</code> (via Resend).
+                They never see each other. Send outcome shows ✓ / ✗ per vendor below.
               </div>
             </div>
 
@@ -290,18 +345,25 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
           <div className="text-[11px] text-slate-600">
-            {sent > 0 ? (
-              <span className="text-emerald-700 font-semibold">
-                ✓ Opened {sent} mail draft{sent === 1 ? '' : 's'}. Outreach logged.
-              </span>
-            ) : (
-              <>Will compose <strong className="text-slate-900">{totalPicked}</strong> one-on-one email{totalPicked === 1 ? '' : 's'}.</>
-            )}
+            {(() => {
+              const failedCount = Object.values(results).filter((r) => r.status === 'failed').length;
+              if (sending) return <>Sending {Object.values(results).filter((r) => r.status === 'sending').length} of {totalPicked}…</>;
+              if (sent === 0 && failedCount === 0) {
+                return <>Will send <strong className="text-slate-900">{totalPicked}</strong> separately addressed email{totalPicked === 1 ? '' : 's'}.</>;
+              }
+              return (
+                <span>
+                  <span className="text-emerald-700 font-semibold">✓ {sent} sent</span>
+                  {failedCount > 0 && <span className="text-red-700 font-semibold ml-2">· {failedCount} failed</span>}
+                  <span className="text-slate-500"> · outreach logged</span>
+                </span>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose} disabled={sending}
                     className="text-xs text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40">
-              {sent > 0 ? 'Close' : 'Cancel'}
+              {sent > 0 || Object.keys(results).length > 0 ? 'Close' : 'Cancel'}
             </button>
             <button
               type="button"
@@ -309,7 +371,7 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
               disabled={sending || totalPicked === 0}
               className="text-xs font-semibold bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1"
             >
-              <Send size={12} /> {sending ? 'Composing…' : `Send to ${totalPicked} vendor${totalPicked === 1 ? '' : 's'}`}
+              <Send size={12} /> {sending ? 'Sending…' : `Send to ${totalPicked} vendor${totalPicked === 1 ? '' : 's'}`}
             </button>
           </div>
         </div>

@@ -1503,6 +1503,29 @@ export const db = {
     return { ok: true };
   },
 
+  /** Invoke the send-vendor-email edge function (Resend under the hood).
+   *  Phase 2 of the SendToVendor flow — replaces opening mailto: links with
+   *  actual server-side delivery. Returns the Resend message id on success
+   *  or a precise error so the dialog can show "✗ <reason>" per vendor. */
+  async sendVendorEmail(params: {
+    to: string;
+    subject: string;
+    body: string;
+    replyTo?: string;
+    fromName?: string;
+  }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      id?: string;
+      error?: string;
+      detail?: string;
+    }>('send-vendor-email', { body: params });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    if (!data?.id) return { ok: false, error: 'No message id returned' };
+    return { ok: true, id: data.id };
+  },
+
   // --- TA Daily Log ---
   async upsertTaLog(e: TADailyLogEntry) {
     const { error } = await supabase.from('ta_daily_log').upsert(taLogToRow(e), { onConflict: 'id' });

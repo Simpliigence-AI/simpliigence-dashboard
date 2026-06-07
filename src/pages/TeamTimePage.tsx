@@ -20,6 +20,7 @@ import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
+import { TaIdentity } from '../components/TaIdentity';
 import type { TimeEntry } from '../types/timeEntry';
 
 type TabKey = 'pending' | 'approved' | 'rejected' | 'all';
@@ -219,7 +220,7 @@ export default function TeamTimePage() {
                       </td>
                     )}
                     <td className="py-2 pr-3 align-top text-xs tabular-nums text-slate-700">{e.workDate}</td>
-                    <td className="py-2 pr-3 align-top text-xs text-slate-900 font-medium">{e.employeeEmail}</td>
+                    <td className="py-2 pr-3 align-top"><TaIdentity email={e.employeeEmail} avatarSize={26} nameSize="text-xs" /></td>
                     <td className="py-2 pr-3 align-top text-xs">{e.projectName}</td>
                     <td className="py-2 pr-3 align-top text-xs tabular-nums text-right font-semibold">{e.hours.toFixed(2)}</td>
                     <td className="py-2 pr-3 align-top">

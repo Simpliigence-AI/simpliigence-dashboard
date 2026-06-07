@@ -21,6 +21,7 @@ export function AuthGate({ children }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const loadCurrentUser = useAuthStore((s) => s.loadCurrentUser);
+  const loadDirectory = useAuthStore((s) => s.loadDirectory);
   const clearAuth = useAuthStore((s) => s.clear);
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export function AuthGate({ children }: Props) {
         // Fire-and-forget — these shouldn't block app mount.
         void startSession(newSession.user.id, newSession.user.email ?? '');
         void loadCurrentUser();
+        void loadDirectory();
       } else {
         void endSession();
         clearAuth();
@@ -54,7 +56,7 @@ export function AuthGate({ children }: Props) {
       mounted = false;
       subscription.subscription.unsubscribe();
     };
-  }, [loadCurrentUser, clearAuth]);
+  }, [loadCurrentUser, loadDirectory, clearAuth]);
 
   if (loading) {
     return (

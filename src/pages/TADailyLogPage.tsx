@@ -25,6 +25,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Save, Trash2, Eye, Users, Briefcase, Sparkles, Minus, Plus, Clock } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
+import { TaIdentity } from '../components/TaIdentity';
+import { lookupProfile } from '../store/useAuthStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useTaLogStore } from '../store/useTaLogStore';
@@ -62,6 +64,11 @@ function addDays(d: Date, n: number): Date {
 
 export default function TADailyLogPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
+  const directory = useAuthStore((s) => s.directory);
+  const lookupName = (email: string) => {
+    const p = lookupProfile(email, directory);
+    return p.fullName || p.email;
+  };
   const myEmail = (currentUser?.email || '').toLowerCase();
   const isAdmin = currentUser?.isAdmin === true;
 
@@ -206,8 +213,8 @@ export default function TADailyLogPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <PageHeader
-        title={isViewingSelf ? 'My Day — TA Daily Log' : `${taEmail}'s Day — TA Daily Log`}
-        subtitle={`${isViewingSelf ? currentUser.email : taEmail + ' (read-only)'} · ${niceDate}`}
+        title="TA Daily Log"
+        subtitle={niceDate}
         action={
           <div className="flex items-center gap-3 flex-wrap">
             {isAdmin && (
@@ -220,9 +227,9 @@ export default function TADailyLogPage() {
                   className="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white max-w-[220px]"
                   title="Admin: inspect any TA's day (read-only)"
                 >
-                  <option value="">Myself ({myEmail})</option>
+                  <option value="">Myself</option>
                   {allTaEmails.filter((e) => e !== myEmail).map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                    <option key={e} value={e}>{lookupName(e)}</option>
                   ))}
                 </select>
               </div>
@@ -271,11 +278,22 @@ export default function TADailyLogPage() {
         />
       ) : (
         <>
+          {/* Whose-day hero strip */}
+          <div className="mb-4 rounded-xl bg-gradient-to-r from-slate-50 to-white border border-slate-200 px-4 py-3 flex items-center gap-3">
+            <TaIdentity email={taEmail} avatarSize={40} nameSize="text-base" showEmail />
+            <div className="ml-auto text-right">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                {isViewingSelf ? 'My day' : 'Viewing day'}
+              </div>
+              <div className="text-sm font-semibold text-slate-700">{niceDate}</div>
+            </div>
+          </div>
+
           {/* Read-only banner when viewing another TA */}
           {readOnly && (
             <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between">
               <span>
-                <strong>Read-only.</strong> You're viewing <span className="font-mono">{taEmail}</span>'s day as an admin. Switch back to "Myself" in the View as dropdown to log your own activity.
+                <strong>Read-only.</strong> You're viewing <strong>{lookupName(taEmail)}</strong>'s day as an admin. Switch back to "Myself" in the View as dropdown to log your own activity.
               </span>
               <button
                 type="button"
@@ -735,7 +753,7 @@ function TeamOverview({ entries, allTaEmails, onViewAs }: {
               })();
               return (
                 <tr key={s.email} className="hover:bg-slate-50/60">
-                  <td className="py-2 pr-3 text-xs font-medium text-slate-900">{s.email}</td>
+                  <td className="py-2 pr-3"><TaIdentity email={s.email} avatarSize={28} nameSize="text-sm" /></td>
                   <td className="py-2 pr-3 text-right tabular-nums font-semibold">{s.thisWeek}</td>
                   <td className="py-2 pr-3 text-right tabular-nums text-slate-500">{s.lastWeek}</td>
                   <td className={`py-2 pr-3 text-xs font-semibold ${trendColor}`}>
@@ -1019,7 +1037,7 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
                         (a.sourcedOutreach + a.screensCompleted + a.submissionsInterviews))
                       .map((e) => (
                       <tr key={e.id}>
-                        <td className="py-1.5 pr-3 font-medium text-slate-900 whitespace-nowrap">{e.taEmail}</td>
+                        <td className="py-1.5 pr-3 whitespace-nowrap"><TaIdentity email={e.taEmail} avatarSize={24} nameSize="text-xs" /></td>
                         {TA_LOG_COUNTERS.map((c) => (
                           <td key={c.key} className="py-1.5 pr-3 text-right tabular-nums">
                             {(e as unknown as Record<string, number>)[c.key] || ''}

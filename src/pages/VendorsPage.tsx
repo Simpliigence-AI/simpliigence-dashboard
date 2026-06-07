@@ -12,12 +12,13 @@
  * other tabs/browsers fresh.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Save, X, Building2, Mail, Send } from 'lucide-react';
+import { Plus, Trash2, Save, X, Building2, Mail, Send, Activity, Check, AlertCircle, Inbox, Clock } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useVendorStore } from '../store/useVendorStore';
+import { useStaffingStore } from '../store/useStaffingStore';
 import { VENDOR_SKILL_PRESETS } from '../types/vendor';
-import type { Vendor } from '../types/vendor';
+import type { Vendor, VendorOutreach, VendorOutreachStatus } from '../types/vendor';
 
 export default function VendorsPage() {
   const { vendors, outreach, addVendor, updateVendor, removeVendor } = useVendorStore();
@@ -103,6 +104,11 @@ export default function VendorsPage() {
           }}
         />
       )}
+
+      <RecentOutreachCard
+        outreach={outreach}
+        vendorNameById={(id) => vendors.find((v) => v.id === id)?.companyName ?? '—'}
+      />
 
       <Card title={`${filtered.length} vendor${filtered.length === 1 ? '' : 's'}`}>
         {filtered.length === 0 ? (
@@ -379,6 +385,100 @@ function AddVendorForm({ onCancel, onAdd }: {
           <Save size={12} /> Add vendor
         </button>
       </div>
+    </Card>
+  );
+}
+
+/* ── Recent outreach activity feed ─────────────────────────────── */
+
+const OUTREACH_STATUS_META: Record<VendorOutreachStatus, { label: string; cls: string; Icon: typeof Check }> = {
+  composed: { label: 'Composed', cls: 'bg-slate-100 text-slate-600',    Icon: Clock },
+  sent:     { label: 'Sent',     cls: 'bg-emerald-100 text-emerald-800', Icon: Check },
+  bounced:  { label: 'Failed',   cls: 'bg-red-100 text-red-700',         Icon: AlertCircle },
+  replied:  { label: 'Replied',  cls: 'bg-sky-100 text-sky-800',         Icon: Inbox },
+};
+
+function RecentOutreachCard({ outreach, vendorNameById }: {
+  outreach: VendorOutreach[];
+  vendorNameById: (id: string) => string;
+}) {
+  const { requisitions } = useStaffingStore();
+  const reqTitleById = (id: string) => requisitions.find((r) => r.id === id)?.title ?? id.slice(0, 8);
+
+  const [showAll, setShowAll] = useState(false);
+
+  const recent = useMemo(() => {
+    const sorted = [...outreach].sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+    return showAll ? sorted : sorted.slice(0, 20);
+  }, [outreach, showAll]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const todayOnly = outreach.filter((o) => o.sentAt.startsWith(today));
+  const sentToday = todayOnly.filter((o) => o.sendStatus === 'sent').length;
+  const failedToday = todayOnly.filter((o) => o.sendStatus === 'bounced').length;
+
+  if (outreach.length === 0) return null;
+
+  const titleSuffix = (sentToday > 0 || failedToday > 0)
+    ? ` · today: ${sentToday} sent${failedToday > 0 ? ` · ${failedToday} failed` : ''}`
+    : '';
+
+  return (
+    <Card className="mb-4" title={`Recent outreach activity · ${outreach.length} total${titleSuffix}`}>
+      <div className="overflow-x-auto -mx-6 px-6">
+        <table className="min-w-full text-sm [&_td]:align-middle [&_th]:align-middle">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+              <th className="py-2 pr-3 font-semibold"><Activity size={10} className="inline mr-1" />When</th>
+              <th className="py-2 pr-3 font-semibold">Vendor</th>
+              <th className="py-2 pr-3 font-semibold">Requisition</th>
+              <th className="py-2 pr-3 font-semibold">Subject</th>
+              <th className="py-2 pr-3 font-semibold">By</th>
+              <th className="py-2 pr-3 font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {recent.map((o) => {
+              const meta = OUTREACH_STATUS_META[o.sendStatus] ?? OUTREACH_STATUS_META.composed;
+              return (
+                <tr key={o.id} className="hover:bg-slate-50/60">
+                  <td className="py-2 pr-3 text-[11px] tabular-nums text-slate-500">
+                    {new Date(o.sentAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td className="py-2 pr-3 text-xs font-medium text-slate-900 truncate max-w-[160px]" title={vendorNameById(o.vendorId)}>
+                    {vendorNameById(o.vendorId)}
+                  </td>
+                  <td className="py-2 pr-3 text-xs text-slate-700 truncate max-w-[200px]" title={reqTitleById(o.requisitionId)}>
+                    {reqTitleById(o.requisitionId)}
+                  </td>
+                  <td className="py-2 pr-3 text-xs text-slate-600 truncate max-w-[240px]" title={o.subject}>
+                    {o.subject}
+                  </td>
+                  <td className="py-2 pr-3 text-[11px] text-slate-500 truncate max-w-[160px]" title={o.sentBy ?? ''}>
+                    {o.sentBy ?? '—'}
+                  </td>
+                  <td className="py-2 pr-3">
+                    <span className={`text-[10px] font-semibold inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${meta.cls}`} title={o.sendError ?? meta.label}>
+                      <meta.Icon size={10} /> {meta.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {outreach.length > 20 && (
+        <div className="text-center mt-2">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="text-[11px] text-primary font-semibold hover:underline"
+          >
+            {showAll ? 'Show only latest 20' : `Show all ${outreach.length} events`}
+          </button>
+        </div>
+      )}
     </Card>
   );
 }

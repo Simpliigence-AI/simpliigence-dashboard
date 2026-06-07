@@ -38,6 +38,10 @@ export interface StaffingRequisition {
   probability: number;
   /** AI-derived probability (0–100). Re-calculated automatically from status text + anticipation. */
   ai_probability: number;
+  /** Persisted JD markdown (set by the Generate JD flow). Null/undefined until generated. */
+  job_description?: string | null;
+  /** ISO timestamp when `job_description` was last set. */
+  job_description_at?: string | null;
   created_at: string;
   updated_at: string;
 }

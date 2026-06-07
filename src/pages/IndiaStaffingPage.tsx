@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useCallback, useEffect, Fragment } fr
 import {
   Users, AlertTriangle, TrendingUp, CheckCircle, Upload,
   Download, Brain, BarChart3, Building2, Pencil, Trash2, Save, X, ChevronDown, ChevronRight, Plus, Archive, History,
-  Columns, RefreshCw, Sparkles, Loader2, Clock,
+  Columns, RefreshCw, Sparkles, Loader2, Clock, Send,
 } from 'lucide-react';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { analyzeStaffingStatus } from '../lib/staffingAnalysis';
@@ -15,6 +15,7 @@ import { StaffingKanban } from '../components/staffing/StaffingKanban';
 import { StageFunnel } from '../components/staffing/StageFunnel';
 import { StaffingSmartQuery } from '../components/staffing/StaffingSmartQuery';
 import { CandidatePipeline } from '../components/staffing/CandidatePipeline';
+import { SendToVendorDialog } from '../components/staffing/SendToVendorDialog';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { StaffingRow, RiskLevel, PipelineStage, StaffingStatus } from '../types/staffing';
@@ -129,6 +130,9 @@ export default function IndiaStaffingPage() {
   const [briefing, setBriefing] = useState<StaffingBriefing | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [briefingExpanded, setBriefingExpanded] = useState(true);
+
+  // ── Send-to-vendor state ──
+  const [sendVendorReqId, setSendVendorReqId] = useState<string | null>(null);
 
   // ── JD generator state ──
   const [jdReqId, setJdReqId] = useState<string | null>(null);
@@ -586,7 +590,7 @@ export default function IndiaStaffingPage() {
               </div>
             )}
           </td>
-          {/* Actions: Generate JD + Delete */}
+          {/* Actions: Generate JD + Send to Vendor + Delete */}
           <td className="p-2 whitespace-nowrap text-right">
             <button
               onClick={() => openJdDrawer(r.id)}
@@ -597,6 +601,13 @@ export default function IndiaStaffingPage() {
               {jdReqId === r.id && jdState === 'loading'
                 ? <Loader2 size={12} className="animate-spin" />
                 : <Sparkles size={12} />}
+            </button>
+            <button
+              onClick={() => setSendVendorReqId(r.id)}
+              className="p-1 rounded mr-0.5 align-middle transition-colors text-slate-300 hover:bg-primary/10 hover:text-primary"
+              title="Send to vendor — request candidates"
+            >
+              <Send size={12} />
             </button>
             <button onClick={() => { if (confirm(`Delete "${r.requisition}"?`)) removeRequisition(r.id); }}
               className="p-1 rounded align-middle hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors" title="Delete requisition">
@@ -1324,6 +1335,20 @@ export default function IndiaStaffingPage() {
           </Card>
         </>
       )}
+
+      {/* ── Send-to-Vendor dialog ── */}
+      {sendVendorReqId && (() => {
+        const r = requisitions.find((x) => x.id === sendVendorReqId);
+        if (!r) return null;
+        const acct = accounts.find((a) => a.id === r.account_id);
+        return (
+          <SendToVendorDialog
+            requisition={r}
+            accountName={acct?.name ?? ''}
+            onClose={() => setSendVendorReqId(null)}
+          />
+        );
+      })()}
 
       {/* ── Generate JD drawer ── */}
       {jdReqId && (() => {

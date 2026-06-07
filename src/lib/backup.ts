@@ -49,6 +49,8 @@ const TABLES = [
   'accounts',
   'account_connects',
   'account_action_items',
+  'vendors',
+  'vendor_outreach',
 ] as const;
 
 export interface BackupPayload {

@@ -30,6 +30,8 @@ interface TaLogState {
     logDate: string;
     requisitionId?: string | null;
     activityType?: string | null;
+    /** Free-text subject for activity rows ("Acme Corp", "Jane Doe", "Kafka 101"). Ignored for req rows. */
+    customerName?: string | null;
     counters?: Partial<Record<TALogCounterKey, number>>;
     notes?: string;
     dailyStatusId?: string | null;
@@ -49,7 +51,7 @@ export const useTaLogStore = create<TaLogState>()(
       setEntries: (entries) => set({ entries }),
       setTeamMembers: (teamMembers) => set({ teamMembers }),
 
-      upsertEntry: async ({ taEmail, logDate, requisitionId, activityType, counters, notes, dailyStatusId }) => {
+      upsertEntry: async ({ taEmail, logDate, requisitionId, activityType, customerName, counters, notes, dailyStatusId }) => {
         const reqId = requisitionId ?? null;
         const actType = activityType ?? null;
         if (!reqId && !actType) {
@@ -71,6 +73,7 @@ export const useTaLogStore = create<TaLogState>()(
               sourcedOutreach: counters?.sourcedOutreach ?? existing.sourcedOutreach,
               screensCompleted: counters?.screensCompleted ?? existing.screensCompleted,
               submissionsInterviews: counters?.submissionsInterviews ?? existing.submissionsInterviews,
+              customerName: customerName !== undefined ? customerName : existing.customerName,
               notes: notes ?? existing.notes,
               dailyStatusId: dailyStatusId ?? existing.dailyStatusId,
               updatedAt: now,
@@ -81,6 +84,7 @@ export const useTaLogStore = create<TaLogState>()(
               logDate,
               requisitionId: reqId,
               activityType: actType,
+              customerName: customerName ?? null,
               sourcedOutreach: counters?.sourcedOutreach ?? 0,
               screensCompleted: counters?.screensCompleted ?? 0,
               submissionsInterviews: counters?.submissionsInterviews ?? 0,

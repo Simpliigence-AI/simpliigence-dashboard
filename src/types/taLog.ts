@@ -10,6 +10,9 @@ export interface TADailyLogEntry {
   requisitionId: string | null;
   /** Label for non-requisition work. See ACTIVITY_TYPES below for the canonical set. */
   activityType: string | null;
+  /** What the activity was about — vendor name, client name, training topic, meeting subject.
+   *  Only meaningful for activity entries; ignored for requisition entries. */
+  customerName: string | null;
   /** Top-of-funnel: profiles sourced + outreach (calls/emails/InMails) sent. */
   sourcedOutreach: number;
   /** Recruiter screens completed today. */

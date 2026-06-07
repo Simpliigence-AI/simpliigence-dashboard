@@ -367,14 +367,16 @@ export default function TADailyLogPage() {
                         submissionsInterviews: entry?.submissionsInterviews ?? 0,
                       }}
                       initialNotes={entry?.notes ?? ''}
+                      initialCustomerName={entry?.customerName ?? ''}
                       entryId={entry?.id ?? null}
                       readOnly={readOnly}
-                      onSave={async (counters, notes) => {
+                      onSave={async ({ counters, notes, customerName }) => {
                         await upsertEntry({
                           taEmail,
                           logDate: selectedDate,
                           requisitionId: row.kind === 'req' ? row.req.id : null,
                           activityType: row.kind === 'activity' ? row.activityType : null,
+                          customerName: row.kind === 'activity' ? (customerName || null) : null,
                           counters,
                           notes,
                         });
@@ -437,49 +439,57 @@ interface RowProps {
   onToggle: () => void;
   initialCounters: Record<TALogCounterKey, number>;
   initialNotes: string;
+  initialCustomerName: string;
   entryId: string | null;
   readOnly?: boolean;
-  onSave: (counters: Record<TALogCounterKey, number>, notes: string) => Promise<void>;
+  onSave: (params: {
+    counters: Record<TALogCounterKey, number>;
+    notes: string;
+    customerName: string;
+  }) => Promise<void>;
   onDelete?: () => void | Promise<void>;
 }
 
-function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, entryId, readOnly = false, onSave, onDelete }: RowProps) {
+function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initialCustomerName, entryId, readOnly = false, onSave, onDelete }: RowProps) {
   const [counters, setCounters] = useState(initialCounters);
   const [notes, setNotes] = useState(initialNotes);
+  const [customerName, setCustomerName] = useState(initialCustomerName);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   // Sync local state when the underlying entry changes (e.g. switched dates)
   useEffect(() => { setCounters(initialCounters); }, [initialCounters.sourcedOutreach, initialCounters.screensCompleted, initialCounters.submissionsInterviews]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setNotes(initialNotes); }, [initialNotes]);
+  useEffect(() => { setCustomerName(initialCustomerName); }, [initialCustomerName]);
 
+  const isReq = row.kind === 'req';
   const total = counters.sourcedOutreach + counters.screensCompleted + counters.submissionsInterviews;
-  const dirty =
-    counters.sourcedOutreach !== initialCounters.sourcedOutreach ||
-    counters.screensCompleted !== initialCounters.screensCompleted ||
-    counters.submissionsInterviews !== initialCounters.submissionsInterviews ||
-    notes !== initialNotes;
+  const dirty = isReq
+    ? (counters.sourcedOutreach !== initialCounters.sourcedOutreach ||
+       counters.screensCompleted !== initialCounters.screensCompleted ||
+       counters.submissionsInterviews !== initialCounters.submissionsInterviews ||
+       notes !== initialNotes)
+    : (customerName !== initialCustomerName || notes !== initialNotes);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(counters, notes);
+      await onSave({ counters, notes, customerName });
       setSavedAt(new Date().toLocaleTimeString());
     } finally {
       setSaving(false);
     }
   };
 
-  const isReq = row.kind === 'req';
   const title = isReq ? row.req.title : row.activityType;
   const subtitle = isReq
     ? `${row.accountName} · ${row.req.stage} · ${row.req.status_field}`
-    : 'Non-requisition activity';
+    : (customerName?.trim() ? `Customer / topic: ${customerName.trim()}` : 'Non-requisition activity');
   const Icon = isReq ? Briefcase : Sparkles;
   const iconColor = isReq ? 'text-slate-400' : 'text-amber-500';
   const notesPlaceholder = isReq
     ? 'What did you do today on this req?'
-    : 'What did you work on?';
+    : 'Describe what happened — meeting outcome, blockers, decisions, follow-ups.';
 
   return (
     <div className="py-2">
@@ -499,7 +509,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, entryI
           </div>
         </div>
         <div className="flex-shrink-0 flex items-center gap-2 ml-2">
-          {total > 0 && (
+          {isReq && total > 0 && (
             <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">
               {total}
             </span>
@@ -512,28 +522,46 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, entryI
 
       {isOpen && (
         <div className="mt-2 sm:ml-7 mr-1 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          {TA_LOG_COUNTERS.map((c) => (
-            <div key={c.key}>
+          {isReq ? (
+            // Requisition entry — funnel counters
+            TA_LOG_COUNTERS.map((c) => (
+              <div key={c.key}>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                  {c.label}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={counters[c.key]}
+                  disabled={readOnly}
+                  onChange={(e) => setCounters({ ...counters, [c.key]: Math.max(0, Number(e.target.value) || 0) })}
+                  className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
+                />
+              </div>
+            ))
+          ) : (
+            // Activity entry — customer/topic instead of counters
+            <div className="sm:col-span-3">
               <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                {c.label}
+                Customer / topic
               </label>
               <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={counters[c.key]}
+                type="text"
+                value={customerName}
                 disabled={readOnly}
-                onChange={(e) => setCounters({ ...counters, [c.key]: Math.max(0, Number(e.target.value) || 0) })}
-                className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="e.g. Acme Corp, Naukri rep, Kafka 101, Quarterly all-hands"
+                className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
-          ))}
+          )}
           <div className="sm:col-span-3">
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-              Notes
+              Description
             </label>
             <textarea
-              rows={2}
+              rows={isReq ? 2 : 3}
               value={notes}
               disabled={readOnly}
               onChange={(e) => setNotes(e.target.value)}

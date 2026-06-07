@@ -359,6 +359,7 @@ function taLogToRow(e: TADailyLogEntry) {
     requisition_id: e.requisitionId,        // null for activity-type rows
     activity_type: e.activityType,          // null for requisition rows
     customer_name: e.customerName,          // free-text subject for activity rows
+    minutes_spent: e.minutesSpent ?? 0,
     sourced_outreach: e.sourcedOutreach,
     screens_completed: e.screensCompleted,
     submissions_interviews: e.submissionsInterviews,
@@ -378,6 +379,7 @@ function rowToTaLog(row: any): TADailyLogEntry {
     requisitionId: row.requisition_id ?? null,
     activityType: row.activity_type ?? null,
     customerName: row.customer_name ?? null,
+    minutesSpent: Number(row.minutes_spent ?? 0),
     sourcedOutreach: Number(row.sourced_outreach ?? 0),
     screensCompleted: Number(row.screens_completed ?? 0),
     submissionsInterviews: Number(row.submissions_interviews ?? 0),

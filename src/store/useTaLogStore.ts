@@ -32,6 +32,8 @@ interface TaLogState {
     activityType?: string | null;
     /** Free-text subject for activity rows ("Acme Corp", "Jane Doe", "Kafka 101"). Ignored for req rows. */
     customerName?: string | null;
+    /** Minutes the TA spent on this entry today. 30-min increments via stepper UI. */
+    minutesSpent?: number;
     counters?: Partial<Record<TALogCounterKey, number>>;
     notes?: string;
     dailyStatusId?: string | null;
@@ -51,7 +53,7 @@ export const useTaLogStore = create<TaLogState>()(
       setEntries: (entries) => set({ entries }),
       setTeamMembers: (teamMembers) => set({ teamMembers }),
 
-      upsertEntry: async ({ taEmail, logDate, requisitionId, activityType, customerName, counters, notes, dailyStatusId }) => {
+      upsertEntry: async ({ taEmail, logDate, requisitionId, activityType, customerName, minutesSpent, counters, notes, dailyStatusId }) => {
         const reqId = requisitionId ?? null;
         const actType = activityType ?? null;
         if (!reqId && !actType) {
@@ -74,6 +76,7 @@ export const useTaLogStore = create<TaLogState>()(
               screensCompleted: counters?.screensCompleted ?? existing.screensCompleted,
               submissionsInterviews: counters?.submissionsInterviews ?? existing.submissionsInterviews,
               customerName: customerName !== undefined ? customerName : existing.customerName,
+              minutesSpent: minutesSpent !== undefined ? minutesSpent : existing.minutesSpent,
               notes: notes ?? existing.notes,
               dailyStatusId: dailyStatusId ?? existing.dailyStatusId,
               updatedAt: now,
@@ -85,6 +88,7 @@ export const useTaLogStore = create<TaLogState>()(
               requisitionId: reqId,
               activityType: actType,
               customerName: customerName ?? null,
+              minutesSpent: minutesSpent ?? 0,
               sourcedOutreach: counters?.sourcedOutreach ?? 0,
               screensCompleted: counters?.screensCompleted ?? 0,
               submissionsInterviews: counters?.submissionsInterviews ?? 0,

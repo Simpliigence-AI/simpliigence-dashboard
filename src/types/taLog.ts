@@ -13,6 +13,9 @@ export interface TADailyLogEntry {
   /** What the activity was about — vendor name, client name, training topic, meeting subject.
    *  Only meaningful for activity entries; ignored for requisition entries. */
   customerName: string | null;
+  /** Minutes the TA spent on this entry today. Stored in 30-minute increments
+   *  via the time stepper. 0 means "not tracked". */
+  minutesSpent: number;
   /** Top-of-funnel: profiles sourced + outreach (calls/emails/InMails) sent. */
   sourcedOutreach: number;
   /** Recruiter screens completed today. */

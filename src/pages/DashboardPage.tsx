@@ -11,6 +11,7 @@ import {
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { useUSRosterStore } from '../store/useUSRosterStore';
 import { useOpenBenchStore } from '../store/useOpenBenchStore';
+import { useVendorStore } from '../store/useVendorStore';
 import { StatCard, Card } from '../components/ui';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Sensitive } from '../components/Sensitive';
@@ -589,6 +590,78 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </Card>
       </div>
+
+      <AutomationActivityWidget />
     </>
+  );
+}
+
+/* ── Recent automation activity (Vendors outreach + JDs generated) ─────
+ * Surfaces what the AI tooling has been doing this week so the home
+ * dashboard doesn't only look backward at forecast. Cheap KPIs derived
+ * from existing in-memory stores — no extra fetches. */
+function AutomationActivityWidget() {
+  const outreach = useVendorStore((s) => s.outreach);
+  const vendors  = useVendorStore((s) => s.vendors);
+  const indiaReqs = useStaffingStore((s) => s.requisitions);
+  const usReqs    = useUSStaffingStore((s) => s.requisitions);
+
+  // 7-day window
+  const sinceIso = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString(); })();
+  const last7 = outreach.filter((o) => o.sentAt >= sinceIso);
+  const sentCount    = last7.filter((o) => o.sendStatus === 'sent').length;
+  const failedCount  = last7.filter((o) => o.sendStatus === 'bounced').length;
+  const repliedCount = last7.filter((o) => o.sendStatus === 'replied').length;
+
+  // JDs generated this week (India + US). job_description_at is the strongest signal.
+  const sevenDaysAgo = Date.parse(sinceIso);
+  const jdCountThisWeek = [...indiaReqs, ...usReqs].filter((r) => {
+    const at = (r as { job_description_at?: string | null }).job_description_at;
+    return at ? Date.parse(at) >= sevenDaysAgo : false;
+  }).length;
+  const totalReqsWithJD = [...indiaReqs, ...usReqs].filter((r) =>
+    !!(r as { job_description?: string | null }).job_description,
+  ).length;
+
+  // Last 5 outreach events for a mini-feed
+  const recent5 = [...outreach].sort((a, b) => b.sentAt.localeCompare(a.sentAt)).slice(0, 5);
+  const vendorName = (id: string) => vendors.find((v) => v.id === id)?.companyName ?? '—';
+
+  if (outreach.length === 0 && jdCountThisWeek === 0 && totalReqsWithJD === 0) return null;
+
+  return (
+    <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <StatCard
+        label="Vendor emails (7d)"
+        value={last7.length}
+        subtitle={`${sentCount} sent · ${failedCount} failed${repliedCount > 0 ? ` · ${repliedCount} replied` : ''}`}
+      />
+      <StatCard
+        label="JDs generated (7d)"
+        value={jdCountThisWeek}
+        subtitle={`${totalReqsWithJD} requisitions have a saved JD total`}
+      />
+      <Card title="Latest vendor outreach">
+        {recent5.length === 0 ? (
+          <div className="text-xs text-slate-500 italic py-2">No outreach yet.</div>
+        ) : (
+          <ul className="space-y-1.5 text-xs">
+            {recent5.map((o) => (
+              <li key={o.id} className="flex items-baseline gap-2 truncate" title={`${o.subject} → ${o.sentBy ?? ''}`}>
+                <span className="text-[10px] tabular-nums text-slate-400 flex-shrink-0">
+                  {new Date(o.sentAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </span>
+                <span className="font-medium text-slate-800 truncate">{vendorName(o.vendorId)}</span>
+                <span className={`text-[9px] uppercase tracking-wider font-semibold flex-shrink-0 ${
+                  o.sendStatus === 'sent'    ? 'text-emerald-700' :
+                  o.sendStatus === 'replied' ? 'text-sky-700'     :
+                  o.sendStatus === 'bounced' ? 'text-red-700'     : 'text-slate-500'
+                }`}>{o.sendStatus}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
   );
 }

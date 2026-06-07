@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Briefcase, Mail, Phone, Zap } from 'lucide-react';
-import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
@@ -22,8 +22,10 @@ import {
   CANDIDATE_STAGES,
   CANDIDATE_STAGE_COLORS,
   ACTIVE_CANDIDATE_STAGES,
+  AVAILABILITY_LABELS,
   type CandidateStage,
   type StaffingCandidate,
+  type AvailabilityKind,
 } from '../types/staffing';
 
 const SOURCE_OPTIONS = ['LinkedIn', 'Naukri', 'Referral', 'Vendor', 'Internal DB', 'Other'];
@@ -65,6 +67,7 @@ export default function CandidatesPage() {
   const [draft, setDraft] = useState<DraftCandidate>(emptyDraft);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [referralOpen, setReferralOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   // ── AI search state ──
@@ -188,7 +191,15 @@ export default function CandidatesPage() {
         title="Candidates"
         subtitle="All candidates currently being worked across India Staffing requisitions"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setReferralOpen(true)}
+              className="text-xs font-semibold bg-white border border-emerald-300 text-emerald-800 px-3 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-1"
+              title="Submit a candidate referral on behalf of an employee"
+            >
+              <UserPlus size={14} /> Add referral
+            </button>
             <button
               type="button"
               onClick={() => setBulkOpen(true)}
@@ -210,6 +221,19 @@ export default function CandidatesPage() {
           </div>
         }
       />
+
+      {referralOpen && (
+        <AddReferralDialog
+          requisitions={requisitions}
+          accountName={accountName}
+          defaultOwner={(currentUser?.email || '').toLowerCase()}
+          onClose={() => setReferralOpen(false)}
+          onSubmit={(input) => {
+            addCandidate(input);
+            setReferralOpen(false);
+          }}
+        />
+      )}
 
       {bulkOpen && (
         <BulkImportDialog
@@ -721,11 +745,21 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           </button>
         </td>
         <td className="py-2 pr-3 align-top">
-          <input
-            value={c.name}
-            onChange={(e) => onChange({ name: e.target.value })}
-            className="w-full text-sm font-medium text-slate-900 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
+          <div className="flex items-center gap-1.5">
+            <input
+              value={c.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              className="flex-1 text-sm font-medium text-slate-900 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+            {c.source === 'Referral' && (
+              <span
+                className="text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap"
+                title={c.referrer_email ? `Referred by ${c.referrer_email}` : 'Employee referral'}
+              >
+                <UserPlus size={9} /> Referral
+              </span>
+            )}
+          </div>
           {(c.skills && c.skills.length > 0) && (
             <div className="mt-1 flex flex-wrap gap-1">
               {c.skills.slice(0, 4).map((s) => (
@@ -942,6 +976,84 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 ) : (
                   <div className="text-[11px] text-slate-400 italic">
                     {c.resume_url ? 'No summary yet — click Parse now.' : 'Upload a resume to auto-generate a summary.'}
+                  </div>
+                )}
+              </div>
+
+              {/* Availability + Expected salary (always shown) */}
+              <div className="lg:col-span-3 border-t border-slate-200 pt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Open to</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(['full_time', 'contracting'] as AvailabilityKind[]).map((kind) => {
+                      const checked = (c.availability ?? []).includes(kind);
+                      return (
+                        <label
+                          key={kind}
+                          className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                            checked
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-white text-slate-600 border-slate-300 hover:border-primary hover:text-primary'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={checked}
+                            onChange={() => {
+                              const cur = c.availability ?? [];
+                              const next = checked ? cur.filter((x) => x !== kind) : [...cur, kind];
+                              onChange({ availability: next });
+                            }}
+                          />
+                          {AVAILABILITY_LABELS[kind]}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {(!c.availability || c.availability.length === 0) && (
+                    <p className="text-[10px] text-slate-400 italic mt-1">Not specified.</p>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Expected salary</div>
+                  <div className="relative">
+                    <IndianRupee size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={c.expected_salary ?? ''}
+                      onChange={(e) => onChange({ expected_salary: e.target.value || undefined })}
+                      placeholder="e.g. 12-14 LPA, $60/hr, Negotiable"
+                      className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Free-text — annual, hourly, or range.</p>
+                </div>
+
+                {/* Referrer info — shown only when this is a referral (source='Referral'
+                    OR referrer fields already populated). */}
+                {(c.source === 'Referral' || c.referrer_email || c.referrer_name) && (
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 mb-1 flex items-center gap-1">
+                      <UserPlus size={11} /> Referred by
+                    </div>
+                    <input
+                      value={c.referrer_email ?? ''}
+                      onChange={(e) => onChange({ referrer_email: e.target.value.trim().toLowerCase() || undefined })}
+                      placeholder="employee@simpliigence.com"
+                      className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 mb-1"
+                    />
+                    <input
+                      value={c.referrer_name ?? ''}
+                      onChange={(e) => onChange({ referrer_name: e.target.value || undefined })}
+                      placeholder="Referrer display name (optional)"
+                      className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 mb-1"
+                    />
+                    {c.referred_at && (
+                      <p className="text-[10px] text-slate-400">
+                        Referred {new Date(c.referred_at).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1309,4 +1421,222 @@ function StatusIcon({ status }: { status: 'pending' | 'uploading' | 'parsing' | 
   if (status === 'parsing')  return <Loader2 size={14} className="text-amber-500 animate-spin flex-shrink-0" />;
   if (status === 'done')     return <CheckCircle size={14} className="text-emerald-600 flex-shrink-0" />;
   return <AlertCircle size={14} className="text-red-600 flex-shrink-0" />;
+}
+
+/* ── Add referral dialog ──
+ *  Quick way for a TA (or admin) to capture an employee referral. Creates a
+ *  candidate row with source='Referral' + referrer fields populated.
+ */
+function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, onSubmit }: {
+  requisitions: { id: string; title: string; account_id: string }[];
+  accountName: (rid: string) => string;
+  defaultOwner: string;
+  onClose: () => void;
+  onSubmit: (input: Omit<StaffingCandidate, 'id' | 'created_at' | 'updated_at'>) => void;
+}) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [requisitionId, setRequisitionId] = useState('');
+  const [referrerEmail, setReferrerEmail] = useState('');
+  const [referrerName, setReferrerName] = useState('');
+  const [expectedSalary, setExpectedSalary] = useState('');
+  const [availability, setAvailability] = useState<AvailabilityKind[]>(['full_time']);
+  const [notes, setNotes] = useState('');
+
+  const canSubmit = name.trim() && referrerEmail.trim();
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    onSubmit({
+      requisition_id: requisitionId || '',
+      name: name.trim(),
+      experience: '',
+      stage: 'Submitted',
+      submit_date: new Date().toISOString().slice(0, 10),
+      feedback: notes.trim(),
+      source: 'Referral',
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      owning_ta_email: defaultOwner || undefined,
+      linkedin_url: linkedinUrl.trim() || undefined,
+      referrer_email: referrerEmail.trim().toLowerCase(),
+      referrer_name: referrerName.trim() || undefined,
+      referred_at: new Date().toISOString().slice(0, 10),
+      availability,
+      expected_salary: expectedSalary.trim() || undefined,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <UserPlus size={14} className="text-emerald-600" /> Add employee referral
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Capture a candidate referred by a Simpliigence employee.</div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Referrer */}
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-2">Referred by</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Employee email *</label>
+                <input
+                  value={referrerEmail}
+                  onChange={(e) => setReferrerEmail(e.target.value)}
+                  placeholder="employee@simpliigence.com"
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Display name</label>
+                <input
+                  value={referrerName}
+                  onChange={(e) => setReferrerName(e.target.value)}
+                  placeholder="Optional"
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Candidate */}
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-2">Candidate</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Name *</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jane Doe"
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Email</label>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="jane@example.com"
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Phone</label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 …"
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">LinkedIn URL</label>
+                <input
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  placeholder="https://linkedin.com/in/…"
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Fit details */}
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-2">Fit details</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Requisition (optional)</label>
+                <select
+                  value={requisitionId}
+                  onChange={(e) => setRequisitionId(e.target.value)}
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">Unassigned (attach later)</option>
+                  {requisitions.map((r) => (
+                    <option key={r.id} value={r.id}>{r.title} — {accountName(r.id)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Expected salary</label>
+                <input
+                  value={expectedSalary}
+                  onChange={(e) => setExpectedSalary(e.target.value)}
+                  placeholder="e.g. 12-14 LPA, $60/hr"
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Open to</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(['full_time', 'contracting'] as AvailabilityKind[]).map((kind) => {
+                    const checked = availability.includes(kind);
+                    return (
+                      <label
+                        key={kind}
+                        className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                          checked
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-white text-slate-600 border-slate-300 hover:border-primary hover:text-primary'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="hidden"
+                          checked={checked}
+                          onChange={() => {
+                            setAvailability((cur) =>
+                              checked ? cur.filter((x) => x !== kind) : [...cur, kind],
+                            );
+                          }}
+                        />
+                        {AVAILABILITY_LABELS[kind]}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Notes</label>
+                <textarea
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Why this candidate? Notable strengths, recent role, etc."
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
+          <button
+            onClick={onClose}
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="text-xs font-semibold bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
+          >
+            <UserPlus size={12} /> Submit referral
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

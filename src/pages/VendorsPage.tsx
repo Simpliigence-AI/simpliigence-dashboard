@@ -12,7 +12,7 @@
  * other tabs/browsers fresh.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Save, X, Building2, Mail, Send, Activity, Check, AlertCircle, Inbox, Clock, Download } from 'lucide-react';
+import { Plus, Trash2, Save, X, Building2, Mail, Send, Activity, Check, AlertCircle, Inbox, Clock, Download, Copy } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useVendorStore } from '../store/useVendorStore';
@@ -616,8 +616,22 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
                   <td className="py-2 pr-3 text-xs text-slate-700 truncate max-w-[200px]" title={reqTitleById(o.requisitionId)}>
                     {reqTitleById(o.requisitionId)}
                   </td>
-                  <td className="py-2 pr-3 text-xs text-slate-600 truncate max-w-[240px]" title={o.subject}>
-                    {o.subject}
+                  <td className="py-2 pr-3 text-xs text-slate-600 max-w-[240px]" title={o.subject}>
+                    <div className="flex items-center gap-1">
+                      <span className="truncate">{o.subject}</span>
+                      {o.bodyPreview && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(o.bodyPreview);
+                          }}
+                          className="text-slate-300 hover:text-primary p-0.5 rounded hover:bg-primary/10 flex-shrink-0"
+                          title={`Copy body to clipboard\n\n${o.bodyPreview.slice(0, 240)}${o.bodyPreview.length > 240 ? '…' : ''}`}
+                        >
+                          <Copy size={10} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2 pr-3 text-[11px] text-slate-500 truncate max-w-[160px]" title={o.sentBy ?? ''}>
                     {o.sentBy ?? '—'}

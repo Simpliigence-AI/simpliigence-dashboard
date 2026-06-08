@@ -27,6 +27,7 @@ export default function VendorsPage() {
   const [filterSkill, setFilterSkill] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'last' | 'outreach'>('name');
 
   // Per-vendor outreach stats — count, last activity, plus a stale-follow-up
   // signal. A vendor "needs follow-up" if their newest `sent` outreach is
@@ -71,8 +72,25 @@ export default function VendorsPage() {
         }
         return true;
       })
-      .sort((a, b) => a.companyName.localeCompare(b.companyName));
-  }, [vendors, q, filterSkill, showInactive]);
+      .sort((a, b) => {
+        if (sortBy === 'last') {
+          const la = statsByVendor.get(a.id)?.last ?? '';
+          const lb = statsByVendor.get(b.id)?.last ?? '';
+          // Most-recent first; empty strings sink to the bottom
+          if (!la && !lb) return a.companyName.localeCompare(b.companyName);
+          if (!la) return 1;
+          if (!lb) return -1;
+          return lb.localeCompare(la);
+        }
+        if (sortBy === 'outreach') {
+          const ca = statsByVendor.get(a.id)?.count ?? 0;
+          const cb = statsByVendor.get(b.id)?.count ?? 0;
+          if (ca !== cb) return cb - ca;          // highest first
+          return a.companyName.localeCompare(b.companyName);
+        }
+        return a.companyName.localeCompare(b.companyName);
+      });
+  }, [vendors, q, filterSkill, showInactive, sortBy, statsByVendor]);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -92,7 +110,7 @@ export default function VendorsPage() {
 
       {/* Filters */}
       <Card className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <input
             placeholder="Search company / SPOC / email / skill…"
             value={q}
@@ -106,6 +124,16 @@ export default function VendorsPage() {
           >
             <option value="">All skills</option>
             {VENDOR_SKILL_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'last' | 'outreach')}
+            className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            title="Sort vendors"
+          >
+            <option value="name">Sort: Name (A→Z)</option>
+            <option value="last">Sort: Last contacted (recent first)</option>
+            <option value="outreach">Sort: Outreach count (highest first)</option>
           </select>
           <label className="text-xs text-slate-600 inline-flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />

@@ -12,12 +12,15 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Briefcase, Mail, Phone, Zap } from 'lucide-react';
-import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee } from 'lucide-react';
+import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee, PhoneOutgoing, PhoneCall } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
+import { useCallsStore } from '../store/useCallsStore';
 import { db } from '../lib/supabaseSync';
+import { ACTIVE_CALL_STATUSES } from '../types/candidateCalls';
+import type { CallTemplate, CandidateCall } from '../types/candidateCalls';
 import { TaIdentity } from '../components/TaIdentity';
 import { CandidateMapView } from './candidates/CandidateMapView';
 import {
@@ -879,7 +882,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 <Linkedin size={12} /> LinkedIn
               </a>
             ) : null}
-            {/* CallControls placeholder — feature lands in a separate PR */}
+            <CallControls candidate={c} />
           </div>
         </td>
         <td className="py-2 pr-3 text-right align-top">
@@ -1518,6 +1521,251 @@ function OwnerCell({ email, onChange }: { email: string; onChange: (v: string) =
         {allEmails.map((e) => <option key={e} value={e} />)}
       </datalist>
     </>
+  );
+}
+
+/* ── Outbound AI calling ──
+ *  CallControls — 📞 button + status pill on each candidate row.
+ *  CallModal     — picks a template, confirms phone + consent, fires.
+ *  CallHistoryPanel — transcript + extracted answers inside the row's
+ *                    expanded detail.
+ */
+
+const CALL_STATUS_PILL: Record<CandidateCall['status'], { label: string; cls: string }> = {
+  queued:        { label: 'Queued',      cls: 'bg-slate-100 text-slate-600' },
+  dialing:       { label: 'Dialing…',    cls: 'bg-amber-100 text-amber-800' },
+  ringing:       { label: 'Ringing…',    cls: 'bg-amber-100 text-amber-800' },
+  'in-progress': { label: 'Talking',     cls: 'bg-sky-100 text-sky-800' },
+  completed:     { label: 'Done',        cls: 'bg-emerald-100 text-emerald-800' },
+  'no-answer':   { label: 'No answer',   cls: 'bg-slate-200 text-slate-700' },
+  failed:        { label: 'Failed',      cls: 'bg-red-100 text-red-700' },
+  cancelled:     { label: 'Cancelled',   cls: 'bg-slate-100 text-slate-500' },
+};
+
+function CallControls({ candidate }: { candidate: StaffingCandidate }) {
+  const latestCall = useCallsStore((s) => s.latestCallFor(candidate.id));
+  const templates = useCallsStore((s) => s.templates);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const isActive = !!latestCall && ACTIVE_CALL_STATUSES.includes(latestCall.status);
+  const pill = latestCall ? CALL_STATUS_PILL[latestCall.status] : null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setModalOpen(true)}
+        disabled={isActive || !candidate.phone}
+        title={
+          !candidate.phone
+            ? 'Add a phone number on the candidate first'
+            : isActive
+              ? 'A call is already in progress — wait for it to finish'
+              : 'Start an AI screening call to this candidate'
+        }
+        className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-900 underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isActive
+          ? <Loader2 size={12} className="animate-spin" />
+          : <PhoneOutgoing size={12} />}
+        Call
+      </button>
+      {pill && (
+        <span
+          className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${pill.cls}`}
+          title={`Last call: ${pill.label}${latestCall?.endedAt ? ' · ' + new Date(latestCall.endedAt).toLocaleString() : ''}`}
+        >
+          {pill.label}
+        </span>
+      )}
+      {modalOpen && (
+        <CallModal
+          candidate={candidate}
+          templates={templates.filter((t) => t.active)}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function CallModal({ candidate, templates, onClose }: {
+  candidate: StaffingCandidate;
+  templates: CallTemplate[];
+  onClose: () => void;
+}) {
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const startCall = useCallsStore((s) => s.startCall);
+  const [templateId, setTemplateId] = useState<string>(templates[0]?.id ?? 'tmpl-india-v1');
+  const [roleTitle, setRoleTitle] = useState('');
+  const [phone, setPhone] = useState(candidate.phone || '');
+  const [consent, setConsent] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const tpl = templates.find((t) => t.id === templateId);
+  const canStart = !!phone.trim() && consent && !starting;
+
+  const handleStart = async () => {
+    if (!canStart) return;
+    setError(null);
+    setStarting(true);
+    try {
+      const res = await startCall({
+        candidateId: candidate.id,
+        templateId,
+        roleTitle: roleTitle.trim() || undefined,
+        triggeredBy: currentUser?.email ?? undefined,
+      });
+      if (res.ok) onClose();
+      else setError(res.error);
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">📞 Call {candidate.name || 'candidate'}</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Outbound AI screening via Vapi</div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Template</label>
+            <select
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            >
+              {templates.length === 0 && <option value="tmpl-india-v1">India · Candidate Screening v1</option>}
+              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            {tpl && (
+              <p className="text-[10px] text-slate-500 mt-1">
+                {tpl.questions.length} question{tpl.questions.length === 1 ? '' : 's'} · ~3–5 min call
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Role title (optional)</label>
+            <input
+              type="text"
+              value={roleTitle}
+              onChange={(e) => setRoleTitle(e.target.value)}
+              placeholder="e.g. Senior Salesforce Developer"
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+            />
+            <p className="text-[10px] text-slate-500 mt-1">Used in the AI's opening line.</p>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Phone</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 …"
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tabular-nums"
+            />
+            <p className="text-[10px] text-slate-500 mt-1">10-digit Indian numbers auto-prefix +91.</p>
+          </div>
+          <label className="flex items-start gap-2 text-[11px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              I confirm the candidate consented to screening calls when they shared their resume / applied. The opening line will disclose this is an AI assistant and the call is being recorded.
+            </span>
+          </label>
+          {error && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{error}</div>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2">Cancel</button>
+          <button
+            onClick={handleStart}
+            disabled={!canStart}
+            className="text-xs font-semibold bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
+          >
+            <PhoneCall size={12} /> {starting ? 'Dialing…' : 'Start call'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// @ts-expect-error -- temporary: unused while candidate-call UI is behind flag
+function CallHistoryPanel({ candidateId }: { candidateId: string }) {
+  const calls = useCallsStore((s) => s.calls.filter((c) => c.candidateId === candidateId));
+  if (calls.length === 0) return null;
+  const latest = [...calls].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+  const pill = CALL_STATUS_PILL[latest.status];
+  return (
+    <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Latest AI call</div>
+        <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${pill.cls}`}>
+          {pill.label}
+        </span>
+      </div>
+      <div className="text-[11px] text-slate-500 mb-3">
+        Triggered by <span className="font-medium">{latest.triggeredBy || '—'}</span>
+        {latest.startedAt && ` · ${new Date(latest.startedAt).toLocaleString()}`}
+        {latest.durationSec != null && ` · ${Math.round(latest.durationSec)}s`}
+        {latest.costUsd != null && ` · $${latest.costUsd.toFixed(3)}`}
+      </div>
+      {latest.errorMsg && (
+        <div className="text-[11px] text-red-700 mb-2 italic">{latest.errorMsg}</div>
+      )}
+      {latest.extractedAnswers && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          {[
+            ['Employer', latest.extractedAnswers.current_employer],
+            ['Location', latest.extractedAnswers.current_location],
+            ['Relocate?', latest.extractedAnswers.willing_to_relocate == null ? '' : (latest.extractedAnswers.willing_to_relocate ? 'Yes' : 'No')],
+            ['Current CTC', latest.extractedAnswers.current_ctc_inr ? `₹${(latest.extractedAnswers.current_ctc_inr / 100000).toFixed(1)} LPA` : ''],
+            ['Expected CTC', latest.extractedAnswers.expected_ctc_inr ? `₹${(latest.extractedAnswers.expected_ctc_inr / 100000).toFixed(1)} LPA` : ''],
+            ['Notice', latest.extractedAnswers.notice_period_days != null ? `${latest.extractedAnswers.notice_period_days} days` : ''],
+            ['Engagement', latest.extractedAnswers.engagement || ''],
+          ].filter(([, v]) => v).map(([label, value]) => (
+            <div key={label as string} className="bg-white rounded border border-slate-200 px-2 py-1.5">
+              <div className="text-[9px] uppercase tracking-wider text-slate-500">{label}</div>
+              <div className="text-xs font-medium text-slate-900 mt-0.5">{value as string}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {latest.extractedAnswers?.overall_summary && (
+        <p className="text-xs text-slate-700 italic border-l-4 border-emerald-400 pl-3 mb-3">
+          {latest.extractedAnswers.overall_summary}
+        </p>
+      )}
+      {latest.transcript && (
+        <details>
+          <summary className="text-[11px] text-slate-500 cursor-pointer hover:text-slate-800">
+            Show transcript ({latest.transcript.length.toLocaleString()} chars)
+          </summary>
+          <pre className="mt-2 text-[11px] text-slate-700 bg-white border border-slate-200 rounded p-3 max-h-72 overflow-y-auto whitespace-pre-wrap font-mono">{latest.transcript}</pre>
+        </details>
+      )}
+      {latest.recordingUrl && (
+        <div className="mt-2">
+          <audio controls src={latest.recordingUrl} className="w-full h-8" />
+        </div>
+      )}
+      {calls.length > 1 && (
+        <div className="text-[10px] text-slate-400 mt-2">{calls.length} total calls to this candidate</div>
+      )}
+    </section>
   );
 }
 

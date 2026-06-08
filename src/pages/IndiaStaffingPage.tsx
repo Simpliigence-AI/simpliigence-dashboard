@@ -595,12 +595,16 @@ export default function IndiaStaffingPage() {
             <button
               onClick={() => openJdDrawer(r.id)}
               disabled={jdReqId === r.id && jdState === 'loading'}
-              className="p-1 rounded mr-0.5 align-middle transition-colors text-slate-300 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
-              title="Generate / view JD"
+              className={`p-1 rounded mr-0.5 align-middle transition-colors disabled:opacity-50 ${
+                r.job_description?.trim()
+                  ? 'text-amber-600 hover:bg-amber-50'
+                  : 'text-slate-300 hover:bg-amber-50 hover:text-amber-600'
+              }`}
+              title={r.job_description?.trim() ? 'View / edit JD' : 'Generate JD'}
             >
               {jdReqId === r.id && jdState === 'loading'
                 ? <Loader2 size={12} className="animate-spin" />
-                : <Sparkles size={12} />}
+                : <Sparkles size={12} className={r.job_description?.trim() ? 'fill-amber-200' : ''} />}
             </button>
             <button
               onClick={() => setSendVendorReqId(r.id)}

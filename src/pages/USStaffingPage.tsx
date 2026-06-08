@@ -406,12 +406,16 @@ export default function USStaffingPage() {
                             <button
                               onClick={() => openJdDrawer(req.id)}
                               disabled={jdReqId === req.id && jdState === 'loading'}
-                              className="p-1 mr-0.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors disabled:opacity-50"
-                              title="Generate / view JD"
+                              className={`p-1 mr-0.5 rounded transition-colors disabled:opacity-50 ${
+                                req.job_description?.trim()
+                                  ? 'text-amber-600 hover:bg-amber-50'
+                                  : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                              }`}
+                              title={req.job_description?.trim() ? 'View / edit JD' : 'Generate JD'}
                             >
                               {jdReqId === req.id && jdState === 'loading'
                                 ? <Loader2 size={13} className="animate-spin" />
-                                : <Sparkles size={13} />}
+                                : <Sparkles size={13} className={req.job_description?.trim() ? 'fill-amber-200' : ''} />}
                             </button>
                             <button onClick={() => { if (confirm(`Delete "${req.role}"?`)) removeRequisition(req.id); }} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Delete requisition">
                               <Trash2 size={13} />

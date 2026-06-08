@@ -589,6 +589,18 @@ export default function IndiaStaffingPage() {
                 {reqStatuses[0].status_date.slice(5)}: {reqStatuses[0].status_text}
               </div>
             )}
+            {!opts.archived && (() => {
+              // Stale = latest status > 7 days old (or no status ever, but req exists)
+              const latestDate = reqStatuses[0]?.status_date;
+              if (!latestDate) return null;
+              const days = Math.floor((Date.now() - new Date(latestDate).getTime()) / 86_400_000);
+              if (days < 7) return null;
+              return (
+                <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`No status update in ${days} days`}>
+                  <Clock size={9} /> Stale · {days}d
+                </span>
+              );
+            })()}
           </td>
           {/* Actions: Generate JD + Send to Vendor + Delete */}
           <td className="p-2 whitespace-nowrap text-right">

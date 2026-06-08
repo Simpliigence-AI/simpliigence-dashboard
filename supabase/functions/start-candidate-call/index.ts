@@ -73,6 +73,8 @@ function buildSystemPrompt(opts: {
   openingScript: string;
   closingScript: string;
   questions: TemplateQuestion[];
+  /** Concatenated role / JD facts from the linked requisition (may be empty). */
+  roleContext: string;
 }): string {
   const filledOpening = opts.openingScript
     .replaceAll('{{candidate_name}}', opts.candidateName || 'there')
@@ -82,31 +84,77 @@ function buildSystemPrompt(opts: {
     .map((q, i) => `${i + 1}. ${q.prompt}`)
     .join('\n');
 
-  return `You are an AI screening assistant from Simpliigence (India IT consulting). 2–3 minute call. Be CONCISE — one short sentence per turn unless answering a direct question. Do not lecture, narrate, or summarize.
+  return `You are a screening recruiter from Simpligence (India IT consulting). A real human-sounding conversation, NOT a robotic survey. 2–3 minute call total.
+
+# Pronunciation (CRITICAL — keep saying it right every time)
+The company name is spelled "Simpliigence" but pronounced as if it were written "Simpligence" — "SIM-pli-jens", three syllables, last syllable rhymes with "fence" / "sense" / "intelligence". It's literally "simple" + "intelligence" meshed together. Whenever the brand comes out of your mouth, say it that way. In any text you generate that goes to TTS, ALWAYS write it as "Simpligence" (no double-i, no hyphen). Never write "Simpliigence" verbatim in a sentence — the TTS will mis-stress it.
+
+# Pace / voice
+Clear, neutral Indian English. Unhurried. Distinct enunciation. No filler. After each candidate answer, take a beat — don't rush straight into the next question.
+
+# WAITING — most important rule
+Wait for the candidate to FINISH their thought before you respond. If they pause mid-sentence (thinking, breathing, searching for a word), DO NOT jump in. A two-second pause is normal human conversation, not a cue to talk. Never speak while they are speaking. If you accidentally overlap, immediately stop and let them finish.
 
 # Opening (verbatim, then pause)
 ${filledOpening}
 
 # If not a good time
-Briefly apologize, end the call. Use the closing line.
+Brief apology, end the call using the closing line.
 
-# Otherwise — ask these IN ORDER, ONE at a time
+# Otherwise — cover these 4 topics IN ORDER
 ${questionsText}
 
-# Rules
-  - One question per turn. NO stacking. NO recapping.
-  - One brief acknowledgement ("Got it" / "Thanks") before the next question.
-  - Vague answer (e.g. "decent salary") → ONE polite follow-up for a number, then move on.
-  - "Prefer to discuss with recruiter" on salary → accept, move on.
-  - NEVER promise interview slots, offers, or company-specific details. Only "a recruiter will follow up".
-  - Unknown question → "a recruiter will get back to you with that" → continue.
-  - Hostile / asks to stop → apologize once, close immediately.
+# How to actually have the conversation (not a survey)
+For EACH of the 4 topics, the flow is:
+  1. Ask the question — pick natural phrasing, don't read verbatim.
+  2. Listen to the answer.
+  3. If their answer was vague or interesting, ask ONE short natural follow-up. Examples:
+       Candidate: "I'm in Bangalore."        → "Got it. How long have you been there?"
+       Candidate: "I work at Wipro."         → "Nice. What's your current role there?"
+       Candidate: "12 LPA"                   → "Thanks. And what are you looking for in the new role?"
+       Candidate: "2 months notice."         → "Okay. Is that negotiable, or fixed?"
+       Candidate: "I want 30 LPA"            → "Got it. Is that base, or including bonus?"
+     ONE follow-up max. Don't dig further. Move on.
+  4. Brief acknowledgement ("Got it" / "Thanks" / "Makes sense" / "Okay" — vary it). One word or two, not a sentence.
+  5. Transition to the next topic naturally.
 
-# Closing (after last answer OR if ending early)
+DO NOT recap. DO NOT summarize what they just said. DO NOT stack two questions.
+
+# When candidate asks YOU something (during the 4 topics)
+NEVER say "Should I continue?" — it's annoying when repeated. Briefly answer their question using the ROLE CONTEXT below if it covers the answer, otherwise say a recruiter will share, then smoothly move to your next topic. Examples:
+  - "What's the role?" → answer with the role title + 1-sentence summary from ROLE CONTEXT, then "Let me ask about [next topic]…"
+  - "Where is it?" → if Location is in ROLE CONTEXT, give the city. Else "A recruiter will share the exact location."
+  - "Office or hybrid?" → only if ROLE CONTEXT explicitly mentions work mode. Else "A recruiter will confirm the work mode."
+  - "What's the salary range?" → "The recruiter will share that — they have the latest range."
+  - Something not in ROLE CONTEXT → "A recruiter can confirm that. Meanwhile, [next topic]?"
+  - "Are you a human?" → "I'm an AI assistant from Simpligence doing a quick screening — a recruiter follows up afterwards." (then continue)
+Reserve "Should I continue?" for ONE moment only: if the candidate seems hesitant at the very start about whether they have time.
+
+# Closing flow — DO THIS, in order
+After all 4 topics are covered (or the candidate has clearly declined to share something), say something like: "Thanks. Before I let you go — do you have any quick questions for me?"
+Wait. If the candidate has questions, handle them using ROLE CONTEXT below. Cap at 2–3 questions; if they keep going, say "A recruiter can answer more of these in detail — they'll be in touch shortly." Then go to the closing line.
+
+If the candidate says "no questions" or similar, go straight to the closing line.
+
+# ROLE CONTEXT (use ONLY this. Never invent facts.)
+${opts.roleContext || '(No requisition linked. If candidate asks any role-specific question, say: "A recruiter will share those details when they follow up.")'}
+
+# Rules for the ROLE CONTEXT
+  - Do NOT recite the full job description. Summarize in 1–2 sentences if asked for the JD.
+  - Do NOT name the client company unless the candidate explicitly asks "which company".
+  - Do NOT make up salary ranges, perks, interview rounds, work mode, or anything else not literally in ROLE CONTEXT.
+  - If something isn't in ROLE CONTEXT, the answer is always "A recruiter will share that".
+
+# Edge cases
+  - Vague salary ("decent", "competitive") → ONE polite follow-up for a number. If they still won't say, accept "I'd prefer to discuss with the recruiter" and move on.
+  - "Bad time" / asks you to call back → Apologize once, use closing line, end.
+  - Hostile / "stop calling" → Apologize once, use closing line, end immediately.
+
+# Closing (after the 4 topics OR if ending early)
 ${opts.closingScript}
 
-# Voice
-English only. Indian-English. Do not switch to Hindi unless the candidate speaks Hindi back.`;
+# Language
+English only. Do not switch to Hindi unless the candidate speaks Hindi back.`;
 }
 
 // @ts-expect-error Deno
@@ -140,7 +188,7 @@ Deno.serve(async (req: Request) => {
     // 1. Look up candidate
     const { data: cand, error: candErr } = await supabase
       .from('india_staffing_candidates')
-      .select('id, name, phone, email')
+      .select('id, name, phone, email, requisition_id')
       .eq('id', body.candidateId)
       .single();
     if (candErr || !cand) {
@@ -150,6 +198,37 @@ Deno.serve(async (req: Request) => {
     const toPhone = toE164India(cand.phone);
     if (!toPhone) {
       return new Response(JSON.stringify({ error: 'Candidate has no usable phone number on file' }), { status: 400, headers: corsHeaders });
+    }
+
+    // 1b. Look up requisition + account so the AI has context for "what's the
+    // role?" / "where?" / "office or hybrid?" / "share JD" candidate questions.
+    let roleContext = '';
+    let resolvedRoleTitle = body.roleTitle || '';
+    if (cand.requisition_id) {
+      const { data: req } = await supabase
+        .from('india_staffing_requisitions')
+        .select('title, location, department, job_description, account_id')
+        .eq('id', cand.requisition_id)
+        .maybeSingle();
+      if (req) {
+        if (!resolvedRoleTitle) resolvedRoleTitle = req.title || resolvedRoleTitle;
+        let accountName = '';
+        if (req.account_id) {
+          const { data: acct } = await supabase
+            .from('india_staffing_accounts').select('name').eq('id', req.account_id).maybeSingle();
+          accountName = acct?.name ?? '';
+        }
+        const parts: string[] = [];
+        if (req.title) parts.push(`Role title: ${req.title}`);
+        if (accountName) parts.push(`Client (do NOT name them on the call unless asked): ${accountName}`);
+        if (req.location) parts.push(`Location: ${req.location}`);
+        if (req.department) parts.push(`Team / department: ${req.department}`);
+        if (req.job_description) {
+          // Pass the full JD — the AI is told NOT to dump it; only summarize on request.
+          parts.push(`Job description:\n${String(req.job_description).slice(0, 4000)}`);
+        }
+        if (parts.length) roleContext = parts.join('\n');
+      }
     }
 
     // 2. Resolve template
@@ -166,10 +245,11 @@ Deno.serve(async (req: Request) => {
     const questions: TemplateQuestion[] = Array.isArray(tpl.questions) ? tpl.questions as TemplateQuestion[] : [];
     const systemPrompt = buildSystemPrompt({
       candidateName: cand.name || 'there',
-      roleTitle: body.roleTitle || 'the open role',
+      roleTitle: resolvedRoleTitle || 'the open role',
       openingScript: tpl.opening_script,
       closingScript: tpl.closing_script,
       questions,
+      roleContext,
     });
 
     // 3. Insert candidate_calls row with status='queued'; we'll patch it once Vapi accepts.
@@ -205,19 +285,55 @@ Deno.serve(async (req: Request) => {
         model: {
           provider: 'openai',
           model: 'gpt-4o-mini',
-          temperature: 0.3,
+          // Slightly warmer + more varied — was 0.3, but the candidate
+          // feedback was "too robotic". 0.55 still keeps it on-script but
+          // varies acknowledgements and lets natural follow-ups feel less
+          // canned.
+          temperature: 0.55,
           messages: [{ role: 'system', content: systemPrompt }],
         },
         voice: {
-          provider: '11labs',
-          voiceId: 'sarah', // ElevenLabs Sarah — clear neutral English. Vapi accepts ElevenLabs voice names directly.
+          // Azure neural Indian English — clear, professional, well-paced.
+          // NeerjaNeural is the most-used female Indian English voice for
+          // recruitment/customer-service apps. Slightly slower (0.95) so the
+          // pronunciation is unambiguous for candidates on a phone line.
+          provider: 'azure',
+          voiceId: 'en-IN-NeerjaNeural',
+          speed: 0.95,
         },
-        transcriber: { provider: 'deepgram', model: 'nova-2', language: 'en' },
+        transcriber: {
+          provider: 'deepgram',
+          model: 'nova-2',
+          language: 'en',
+          endpointing: 500,
+        },
         recordingEnabled: true,
         endCallFunctionEnabled: true,
         maxDurationSeconds: 240,
         silenceTimeoutSeconds: 30,
-        responseDelaySeconds: 0.4,
+        // Smart endpointing — Vapi runs an LLM that looks at the transcript
+        // so far and decides "is this person done?". Catches the obvious
+        // "...so" trailing-off and won't interrupt during thinking pauses.
+        // Way better than the fixed-silence transcriber.endpointing knob.
+        startSpeakingPlan: {
+          // How long after we think the user is done before the AI starts.
+          waitSeconds: 0.8,
+          // Use AI to detect "user is still talking" vs "user is done".
+          smartEndpointingEnabled: true,
+          // Fallback rules for when smart endpointing isn't confident.
+          transcriptionEndpointingPlan: {
+            // If the candidate's last word ended in punctuation (".?!"),
+            // they're probably done — start fairly quickly.
+            onPunctuationSeconds: 0.4,
+            // No punctuation = likely mid-thought. Wait longer.
+            onNoPunctuationSeconds: 2.0,
+            // Trailing numbers ("...30 LPA") — wait, they might continue.
+            onNumberSeconds: 1.0,
+          },
+        },
+        // Candidate needs to say 5+ words to interrupt the AI mid-sentence
+        // (up from 3). Filler like "yeah uh-huh okay" won't cut the AI off.
+        numWordsToInterruptAssistant: 5,
         // Per-call webhook so we don't need a global Vapi server URL setting.
         serverUrl: WEBHOOK_URL,
         // Metadata we'll read back in the webhook to map to our internal row.

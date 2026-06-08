@@ -209,12 +209,13 @@ export default function AccountsPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100 -mx-6">
-            {filtered.map((acc) => {
+            {filtered.map((acc, idx) => {
               const d = derivedByAccount.get(acc.id)!;
               const isOpen = expanded.has(acc.id);
               return (
                 <div key={acc.id}>
                   <AccountRow
+                    serialNo={idx + 1}
                     account={acc}
                     derived={d}
                     isOpen={isOpen}
@@ -261,7 +262,8 @@ export default function AccountsPage() {
 
 /* ── Top-of-row summary (name, owners, last-connect dates, KPIs) ── */
 
-function AccountRow({ account, derived, isOpen, onToggle }: {
+function AccountRow({ serialNo, account, derived, isOpen, onToggle }: {
+  serialNo: number;
   account: Account;
   derived: { lastSales: AccountConnect | null; lastDelivery: AccountConnect | null; openActions: number; teamCount: number; isStale: boolean };
   isOpen: boolean;
@@ -279,6 +281,13 @@ function AccountRow({ account, derived, isOpen, onToggle }: {
           : 'border-transparent hover:bg-slate-50/80 hover:border-primary/30'
       }`}
     >
+      {/* S. No. — zero-padded 2-digit serial number, monospace + slate so it doesn't fight the name */}
+      <span
+        className="mt-0.5 flex-shrink-0 inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[11px] font-semibold tabular-nums"
+        aria-label={`Serial number ${serialNo}`}
+      >
+        {String(serialNo).padStart(2, '0')}
+      </span>
       {isOpen ? <ChevronDown size={16} className="text-slate-500 mt-1 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 mt-1 flex-shrink-0" />}
       <div className="flex-1 min-w-0">
         {/* Top line: name + status + stale + industry */}

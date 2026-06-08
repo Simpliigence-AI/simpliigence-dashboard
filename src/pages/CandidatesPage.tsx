@@ -12,15 +12,12 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Briefcase, Mail, Phone, Zap } from 'lucide-react';
-import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee, PhoneOutgoing, PhoneCall } from 'lucide-react';
+import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
-import { useCallsStore } from '../store/useCallsStore';
 import { db } from '../lib/supabaseSync';
-import { ACTIVE_CALL_STATUSES } from '../types/candidateCalls';
-import type { CallTemplate, CandidateCall } from '../types/candidateCalls';
 import { TaIdentity } from '../components/TaIdentity';
 import { CandidateMapView } from './candidates/CandidateMapView';
 import {
@@ -882,7 +879,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 <Linkedin size={12} /> LinkedIn
               </a>
             ) : null}
-            <CallControls candidate={c} />
+            {/* CallControls placeholder — feature lands in a separate PR */}
           </div>
         </td>
         <td className="py-2 pr-3 text-right align-top">

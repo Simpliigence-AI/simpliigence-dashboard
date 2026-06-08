@@ -488,6 +488,25 @@ export default function MyTimePage() {
             <span className="font-semibold text-emerald-600 tabular-nums">{weekStats.billable.toFixed(2)}h</span>
             <span className="text-slate-500"> billable</span>
           </div>
+          {/* Shortfall vs the standard 40-hour week. Goes green at ≥40, amber
+              below, hidden once you cross the target so it doesn't nag. */}
+          {(() => {
+            const TARGET = 40;
+            const remaining = TARGET - weekStats.logged;
+            if (remaining <= 0) {
+              return (
+                <div className="text-emerald-600 font-semibold tabular-nums">
+                  ✓ {weekStats.logged.toFixed(2)} / {TARGET}h
+                </div>
+              );
+            }
+            return (
+              <div className="tabular-nums">
+                <span className="font-semibold text-amber-700">{remaining.toFixed(2)}h short</span>
+                <span className="text-slate-400"> of {TARGET}h</span>
+              </div>
+            );
+          })()}
         </div>
         <div className="text-slate-400 text-[10px]">{niceWeek}</div>
       </div>

@@ -1546,7 +1546,17 @@ const CALL_STATUS_PILL: Record<CandidateCall['status'], { label: string; cls: st
 };
 
 function CallControls({ candidate }: { candidate: StaffingCandidate }) {
-  const latestCall = useCallsStore((s) => s.latestCallFor(candidate.id));
+  // Subscribe to the raw `calls` array (stable reference unless it changes),
+  // then derive the latest one for this candidate via useMemo. Avoids running
+  // `.filter().sort()` inside the Zustand selector, which would return a new
+  // value each call and (in combination with realtime store updates) was
+  // suspected of the infinite-render bug on /candidates.
+  const allCalls = useCallsStore((s) => s.calls);
+  const latestCall = useMemo(() => {
+    const matching = allCalls.filter((c) => c.candidateId === candidate.id);
+    if (matching.length === 0) return undefined;
+    return matching.reduce((acc, c) => (c.createdAt > acc.createdAt ? c : acc));
+  }, [allCalls, candidate.id]);
   const templates = useCallsStore((s) => s.templates);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -1707,7 +1717,12 @@ function CallModal({ candidate, templates, onClose }: {
 }
 
 function CallHistoryPanel({ candidateId }: { candidateId: string }) {
-  const calls = useCallsStore((s) => s.calls.filter((c) => c.candidateId === candidateId));
+  // Same pattern as CallControls — subscribe to stable `calls`, filter via useMemo.
+  const allCalls = useCallsStore((s) => s.calls);
+  const calls = useMemo(
+    () => allCalls.filter((c) => c.candidateId === candidateId),
+    [allCalls, candidateId],
+  );
   if (calls.length === 0) return null;
   const latest = [...calls].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
   const pill = CALL_STATUS_PILL[latest.status];

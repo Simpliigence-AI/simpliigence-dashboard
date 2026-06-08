@@ -605,6 +605,7 @@ function AutomationActivityWidget() {
   const vendors  = useVendorStore((s) => s.vendors);
   const indiaReqs = useStaffingStore((s) => s.requisitions);
   const usReqs    = useUSStaffingStore((s) => s.requisitions);
+  const statuses  = useStaffingStore((s) => s.statuses);
 
   // 7-day window
   const sinceIso = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString(); })();
@@ -627,10 +628,24 @@ function AutomationActivityWidget() {
   const recent5 = [...outreach].sort((a, b) => b.sentAt.localeCompare(a.sentAt)).slice(0, 5);
   const vendorName = (id: string) => vendors.find((v) => v.id === id)?.companyName ?? '—';
 
-  if (outreach.length === 0 && jdCountThisWeek === 0 && totalReqsWithJD === 0) return null;
+  // Stale active India requisitions — no status update in 7+ days
+  const STALE_THRESHOLD_MS = 7 * 86_400_000;
+  const now = Date.now();
+  const staleReqs = indiaReqs.filter((r) => {
+    if ((r as { stage?: string }).stage === 'closed') return false;
+    const rs = statuses
+      .filter((s) => s.requisition_id === r.id)
+      .sort((a, b) => b.status_date.localeCompare(a.status_date));
+    const latest = rs[0]?.status_date;
+    if (!latest) return false;
+    return now - new Date(latest).getTime() > STALE_THRESHOLD_MS;
+  });
+  const staleCount = staleReqs.length;
+
+  if (outreach.length === 0 && jdCountThisWeek === 0 && totalReqsWithJD === 0 && staleCount === 0) return null;
 
   return (
-    <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="mt-6 grid grid-cols-1 lg:grid-cols-4 gap-4">
       <StatCard
         label="Vendor emails (7d)"
         value={last7.length}
@@ -640,6 +655,11 @@ function AutomationActivityWidget() {
         label="JDs generated (7d)"
         value={jdCountThisWeek}
         subtitle={`${totalReqsWithJD} requisitions have a saved JD total`}
+      />
+      <StatCard
+        label="Stale reqs (India)"
+        value={staleCount}
+        subtitle={staleCount === 0 ? 'All active reqs updated in last 7 days' : 'No status update in 7+ days'}
       />
       <Card title="Latest vendor outreach">
         {recent5.length === 0 ? (

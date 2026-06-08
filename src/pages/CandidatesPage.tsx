@@ -1105,6 +1105,9 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 </section>
               </div>
 
+              {/* AI call history + latest transcript */}
+              <CallHistoryPanel candidateId={c.id} />
+
             </div>
           </td>
         </tr>
@@ -1703,7 +1706,6 @@ function CallModal({ candidate, templates, onClose }: {
   );
 }
 
-// @ts-expect-error -- temporary: unused while candidate-call UI is behind flag
 function CallHistoryPanel({ candidateId }: { candidateId: string }) {
   const calls = useCallsStore((s) => s.calls.filter((c) => c.candidateId === candidateId));
   if (calls.length === 0) return null;

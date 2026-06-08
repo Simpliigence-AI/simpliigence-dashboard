@@ -10,6 +10,7 @@ import { useIndiaRosterStore } from './store/useIndiaRosterStore';
 import { useUSRosterStore } from './store/useUSRosterStore';
 import { useTaLogStore } from './store/useTaLogStore';
 import { useTimeEntryStore } from './store/useTimeEntryStore';
+import { useCallsStore } from './store/useCallsStore';
 import { useAccountStore } from './store/useAccountStore';
 import { useVendorStore } from './store/useVendorStore';
 import { ZOHO_SEED_PROJECTS } from './data/zohoSeed';
@@ -29,6 +30,8 @@ import {
   fetchTaDailyLog,
   fetchTeamMembers,
   fetchTimeEntries,
+  fetchCandidateCalls,
+  fetchCallTemplates,
   fetchAccountManagement,
   fetchVendors,
   setupRealtimeSubscriptions,
@@ -81,6 +84,8 @@ function useSupabaseInit() {
           timeEntriesRes,
           accountMgmtRes,
           vendorsRes,
+          candidateCallsRes,
+          callTemplatesRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -99,6 +104,8 @@ function useSupabaseInit() {
           withTimeout(fetchTimeEntries()),
           withTimeout(fetchAccountManagement()),
           withTimeout(fetchVendors()),
+          withTimeout(fetchCandidateCalls()),
+          withTimeout(fetchCallTemplates()),
         ]);
 
         // --- Forecast assignments ---
@@ -350,6 +357,19 @@ function useSupabaseInit() {
           console.warn('[supabase] Vendors fetch timed out — using localStorage');
         }
 
+        // --- Candidate AI calls + templates ---
+        if (!candidateCallsRes.timedOut) {
+          const rows = candidateCallsRes.value;
+          if (rows) {
+            useCallsStore.setState({ calls: rows });
+            console.log('[supabase] Loaded candidate calls:', rows.length);
+          }
+        }
+        if (!callTemplatesRes.timedOut) {
+          const rows = callTemplatesRes.value;
+          if (rows) useCallsStore.setState({ templates: rows });
+        }
+
         // Set up realtime subscriptions
         cleanup = setupRealtimeSubscriptions({
           setForecastState: (assignments, weekDates) => {
@@ -408,6 +428,12 @@ function useSupabaseInit() {
           },
           setVendors: (data) => {
             useVendorStore.getState().setAll(data);
+          },
+          setCandidateCalls: (rows) => {
+            useCallsStore.setState({ calls: rows });
+          },
+          setCallTemplates: (rows) => {
+            useCallsStore.setState({ templates: rows });
           },
           setUSRoster: (members) => {
             useUSRosterStore.setState({ members });

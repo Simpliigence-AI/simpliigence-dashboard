@@ -10,11 +10,13 @@
  * `requisition.job_description`.
  *
  * Phase 2 (current): Send fires the `send-vendor-email` edge function per
- * vendor, which delivers via Resend. The From address is the *signed-in
- * recruiter's* @simpliigence.com email so vendor replies go straight to
- * their inbox — not a shared hr@ alias. Each vendor sees a personalised
- * email (their SPOC name in the greeting) and never sees other vendors.
- * Outcome per vendor is shown inline as ✓ sent / ✗ failed (with reason).
+ * vendor, which delivers via Microsoft Graph using the HR Portal Azure app.
+ * The From is a shared mailbox (hr@simpliigence.com, server-controlled);
+ * Reply-To is the signed-in recruiter so vendor replies route to them.
+ * Each vendor sees a personalised email (their SPOC name in the greeting)
+ * and never sees other vendors. The signature in the body shows the
+ * recruiter's identity. Outcome per vendor is shown inline as ✓ sent /
+ * ✗ failed (with reason).
  */
 import { useMemo, useState } from 'react';
 import { Send, Search, Mail, CheckSquare, Square, Sparkles, AlertCircle, Check, X as XIcon, Loader2 } from 'lucide-react';
@@ -176,13 +178,11 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
         to: v.spocEmail,
         subject,
         body: personalBody,
-        // Use the recruiter's name as the visible "From" display name and
-        // route replies straight to their inbox via Reply-To. The envelope
-        // From address stays as the FROM_EMAIL secret because that's the
-        // only sender Resend has verified — sending AS any other address on
-        // simpliigence.com would require domain-level (DKIM/SPF) verification
-        // in Resend, which isn't set up yet.
-        fromName: myName,
+        // Sent via Microsoft Graph using the HR Portal Azure app. The actual
+        // From mailbox is fixed server-side (GRAPH_SENDER_MAILBOX, currently
+        // hr@simpliigence.com). We only pass the per-call display name + the
+        // recruiter's email as Reply-To so vendor replies route to them.
+        fromName: 'Simpliigence Talent',
         replyTo: myEmail || undefined,
       });
 
@@ -368,10 +368,10 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
               />
               <div className="text-[10px] text-slate-400 mt-1.5">
-                Each vendor gets a separately addressed email sent via Resend. Display name is{' '}
-                <code className="font-mono">{myName}</code> and Reply-To is{' '}
-                <code className="font-mono">{myEmail || 'your inbox'}</code> — so when vendors hit reply, it comes back to you, not hr@.
-                Vendors never see each other. Send outcome shows ✓ / ✗ per vendor below.
+                Each vendor gets a separately addressed email sent via Microsoft Graph as{' '}
+                <code className="font-mono">Simpliigence Talent &lt;hr@simpliigence.com&gt;</code>.
+                Reply-To is <code className="font-mono">{myEmail || 'your inbox'}</code> — vendor replies route to you, not hr@.
+                Copy lands in hr@'s Outlook Sent Items automatically. Send outcome shows ✓ / ✗ per vendor below.
               </div>
             </div>
 

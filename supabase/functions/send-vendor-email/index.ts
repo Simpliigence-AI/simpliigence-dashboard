@@ -1,46 +1,45 @@
 /**
  * Supabase Edge Function: send-vendor-email
  *
- * Phase 2 of the Send-to-Vendor flow: actually delivers the email from
- * the server instead of opening a `mailto:` link in the user's mail client.
+ * Sends a vendor outreach email via Microsoft Graph using the "HR Portal"
+ * Azure AD app's application permissions (Mail.Send granted at the tenant
+ * level). The email is sent AS the shared mailbox configured in
+ * GRAPH_SENDER_MAILBOX (e.g. hr@simpliigence.com), so vendors see a single
+ * official identity, not the individual recruiter's address.
  *
- * Email provider: Resend (https://resend.com). Cheapest, simplest API for
- * transactional email. Free tier covers 3,000/month which is plenty for
- * vendor outreach.
+ * Why Graph instead of SMTP / Resend:
+ *   - Reuses the existing HR Portal Azure app — no new vendor signup,
+ *     no DNS records, no app passwords.
+ *   - The email lands in the sender mailbox's Outlook Sent Items folder
+ *     automatically (saveToSentItems: true) — built-in audit trail.
+ *   - Replies route to the recruiter via the Reply-To header.
  *
- * Required secrets (set with `supabase secrets set ...`):
- *   RESEND_API_KEY        — re_xxx key from Resend dashboard
- *   FROM_EMAIL            — fallback sender, e.g. "no-reply@simpliigence.com"
- *                           (its domain must be verified in Resend).
- *                           Used only when the caller does not pass `from`.
+ * Required Supabase secrets (set via Dashboard → Edge Functions → Secrets):
+ *   GRAPH_TENANT_ID        — Azure AD tenant id
+ *   GRAPH_CLIENT_ID        — HR Portal app client id
+ *   GRAPH_CLIENT_SECRET    — HR Portal app client secret value
+ *   GRAPH_SENDER_MAILBOX   — mailbox to send AS, e.g. "hr@simpliigence.com"
+ *                            (this mailbox must exist in the tenant)
+ *
  * Optional:
- *   FROM_NAME             — display name on the From header. Default: "Simpliigence Hiring".
- *   FROM_DOMAIN_ALLOWLIST — comma-separated list of domains the caller is
- *                           allowed to send AS. Defaults to the domain of FROM_EMAIL.
+ *   GRAPH_SENDER_NAME      — display name on the From header.
+ *                            Default: "Simpliigence Talent".
  *
  * Request body:
  *   {
  *     to: string | string[],     // single email or array
  *     subject: string,
  *     body: string,              // plain text (newlines preserved)
- *     from?: string,             // per-call sender — must be on the allow-listed domain
- *     fromName?: string,         // display name override (e.g. "Raghu Seetharam")
- *     replyTo?: string,          // override Reply-To (defaults to `from` so vendors reply to the recruiter)
+ *     fromName?: string,         // override the display name on this send
+ *     replyTo?: string,          // address vendors hit when they Reply
+ *                                // (default: GRAPH_SENDER_MAILBOX)
  *   }
  *
  * Response (success):
- *   { ok: true, id: string }
+ *   { ok: true, id: string }   // synthetic id; Graph returns 202 with no body
  *
  * Response (error):
  *   { error: string, detail?: string } with HTTP 4xx/5xx.
- *
- * Notes:
- *   - The function authenticates the caller via Supabase JWT (verify_jwt=true
- *     on the function). Anyone signed in can send — the SendToVendorDialog
- *     already gates by role on the page side.
- *   - We DO NOT log to vendor_outreach here — the client does that so it can
- *     associate the outreach row with a requisition_id and other context it
- *     already has in hand.
  */
 
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
@@ -49,26 +48,11 @@
 // @ts-expect-error Deno runtime
 const env = (name: string) => Deno.env.get(name);
 
-const RESEND_API_KEY = env('RESEND_API_KEY');
-const FROM_EMAIL = env('FROM_EMAIL');
-const FROM_NAME_DEFAULT = env('FROM_NAME') || 'Simpliigence Hiring';
-const FROM_DOMAIN_ALLOWLIST = (env('FROM_DOMAIN_ALLOWLIST') || '')
-  .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-
-/** Pull the domain part out of "user@domain.tld". */
-function emailDomain(addr: string): string {
-  const idx = addr.lastIndexOf('@');
-  return idx > 0 ? addr.slice(idx + 1).toLowerCase() : '';
-}
-
-/** Domains the caller is allowed to send AS via the `from` param.
- *  Defaults to the domain of FROM_EMAIL. Override with
- *  FROM_DOMAIN_ALLOWLIST=simpliigence.com,foo.com to allow extras. */
-function allowedFromDomains(): string[] {
-  if (FROM_DOMAIN_ALLOWLIST.length > 0) return FROM_DOMAIN_ALLOWLIST;
-  const d = FROM_EMAIL ? emailDomain(FROM_EMAIL) : '';
-  return d ? [d] : [];
-}
+const GRAPH_TENANT_ID = env('GRAPH_TENANT_ID');
+const GRAPH_CLIENT_ID = env('GRAPH_CLIENT_ID');
+const GRAPH_CLIENT_SECRET = env('GRAPH_CLIENT_SECRET');
+const GRAPH_SENDER_MAILBOX = env('GRAPH_SENDER_MAILBOX');
+const GRAPH_SENDER_NAME_DEFAULT = env('GRAPH_SENDER_NAME') || 'Simpliigence Talent';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,24 +65,59 @@ interface ReqBody {
   to?: string | string[];
   subject?: string;
   body?: string;
-  from?: string;
-  replyTo?: string;
   fromName?: string;
+  replyTo?: string;
 }
 
 /** Convert plain-text body (with newlines) to a minimally-HTMLified version
- *  so the email renders with paragraph breaks in any client. We deliberately
- *  keep both `text` and `html` on the Resend payload so plain-text clients
- *  fall back nicely. */
+ *  so the email renders with paragraph breaks in any client. Graph's
+ *  `contentType: 'HTML'` makes the recipient's mail client render it; we
+ *  also include the plain text inline for accessibility. */
 function bodyToHtml(plain: string): string {
   const escape = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  // Wrap each paragraph in <p>; convert single newlines inside a paragraph to <br>.
   const paragraphs = plain.split(/\n{2,}/).map((p) => {
     const inner = escape(p).replace(/\n/g, '<br>');
     return `<p style="margin:0 0 12px 0; line-height:1.5;">${inner}</p>`;
   });
   return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #1e293b;">${paragraphs.join('')}</div>`;
+}
+
+/** Cache the Graph access token in module scope. Tokens are valid for ~60min;
+ *  we refresh ~5min before expiry so a slow request never gets denied. Deno
+ *  edge function instances stay warm long enough to amortize this. */
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getGraphToken(): Promise<string> {
+  const now = Date.now();
+  if (cachedToken && cachedToken.expiresAt > now + 5 * 60 * 1000) {
+    return cachedToken.token;
+  }
+  const url = `https://login.microsoftonline.com/${GRAPH_TENANT_ID}/oauth2/v2.0/token`;
+  const body = new URLSearchParams({
+    client_id: GRAPH_CLIENT_ID!,
+    client_secret: GRAPH_CLIENT_SECRET!,
+    scope: 'https://graph.microsoft.com/.default',
+    grant_type: 'client_credentials',
+  });
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error(`Graph token request failed (${r.status}): ${text.slice(0, 300)}`);
+  }
+  const data = await r.json() as { access_token?: string; expires_in?: number };
+  if (!data.access_token) {
+    throw new Error('Graph token response missing access_token');
+  }
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: now + (data.expires_in ?? 3600) * 1000,
+  };
+  return cachedToken.token;
 }
 
 // @ts-expect-error Deno
@@ -109,26 +128,22 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    if (!RESEND_API_KEY) {
+    const missing: string[] = [];
+    if (!GRAPH_TENANT_ID) missing.push('GRAPH_TENANT_ID');
+    if (!GRAPH_CLIENT_ID) missing.push('GRAPH_CLIENT_ID');
+    if (!GRAPH_CLIENT_SECRET) missing.push('GRAPH_CLIENT_SECRET');
+    if (!GRAPH_SENDER_MAILBOX) missing.push('GRAPH_SENDER_MAILBOX');
+    if (missing.length > 0) {
       return new Response(
         JSON.stringify({
-          error: 'RESEND_API_KEY secret is not set on this Supabase project',
-          detail: 'Sign up at resend.com (free), grab an API key, then run: supabase secrets set RESEND_API_KEY=re_xxx --project-ref <your-project>',
-        }),
-        { status: 500, headers: corsHeaders },
-      );
-    }
-    if (!FROM_EMAIL) {
-      return new Response(
-        JSON.stringify({
-          error: 'FROM_EMAIL secret is not set on this Supabase project',
-          detail: 'Set it via: supabase secrets set FROM_EMAIL=hr@simpliigence.com. The domain must be verified in your Resend dashboard.',
+          error: `Missing edge function secret(s): ${missing.join(', ')}`,
+          detail: 'Set these on https://supabase.com/dashboard/project/<ref>/settings/functions',
         }),
         { status: 500, headers: corsHeaders },
       );
     }
 
-    const { to, subject, body, from, replyTo, fromName } = await req.json() as ReqBody;
+    const { to, subject, body, fromName, replyTo } = await req.json() as ReqBody;
     if (!to || (Array.isArray(to) ? to.length === 0 : !to.trim())) {
       return new Response(JSON.stringify({ error: 'Missing "to" — supply a string or array' }), { status: 400, headers: corsHeaders });
     }
@@ -139,67 +154,56 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Missing "body"' }), { status: 400, headers: corsHeaders });
     }
 
-    // Resolve the actual sender:
-    //   - If the caller passed `from` and its domain is on the allowlist,
-    //     use it. This is how each recruiter sends AS themselves so vendor
-    //     replies land directly in their inbox.
-    //   - If `from` is on a non-allowlisted domain, reject — otherwise this
-    //     function would let anyone spoof any domain through the verified
-    //     Resend setup.
-    //   - If `from` is omitted, fall back to FROM_EMAIL (the old behaviour).
-    const allowed = allowedFromDomains();
-    let sender = FROM_EMAIL;
-    if (from && from.trim()) {
-      const reqDomain = emailDomain(from.trim());
-      if (!reqDomain || !allowed.includes(reqDomain)) {
-        return new Response(
-          JSON.stringify({
-            error: `Sender domain "${reqDomain || from}" is not allowed`,
-            detail: `Allowed sending domains: ${allowed.join(', ') || '(none — set FROM_DOMAIN_ALLOWLIST or FROM_EMAIL)'}`,
-          }),
-          { status: 400, headers: corsHeaders },
-        );
-      }
-      sender = from.trim();
-    }
-
-    const displayName = (fromName || FROM_NAME_DEFAULT).replace(/[<>]/g, '');
-    const fromHeader = `${displayName} <${sender}>`;
     const toList = Array.isArray(to) ? to.filter(Boolean) : [to];
-    // Default Reply-To to the sender so replies bounce back to the recruiter
-    // even if a mail client rewrites the visible From header.
-    const effectiveReplyTo = replyTo || sender;
+    const displayName = (fromName || GRAPH_SENDER_NAME_DEFAULT).replace(/[<>]/g, '');
+    const effectiveReplyTo = (replyTo && replyTo.trim()) || GRAPH_SENDER_MAILBOX!;
 
-    const resendRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromHeader,
-        to: toList,
-        subject: subject.trim(),
-        text: body,
-        html: bodyToHtml(body),
-        reply_to: effectiveReplyTo,
-      }),
-    });
-
-    if (!resendRes.ok) {
-      const text = await resendRes.text();
-      // Resend returns { name, message } JSON on error; surface it intact.
+    let token: string;
+    try {
+      token = await getGraphToken();
+    } catch (e) {
+      const msg = (e as Error).message || String(e);
       return new Response(
-        JSON.stringify({ error: 'Resend rejected the email', detail: text.slice(0, 500) }),
+        JSON.stringify({ error: 'Failed to obtain Graph access token', detail: msg }),
         { status: 502, headers: corsHeaders },
       );
     }
-    const data = await resendRes.json() as { id?: string };
-    if (!data.id) {
-      return new Response(JSON.stringify({ error: 'Resend returned no id', detail: JSON.stringify(data).slice(0, 200) }), { status: 502, headers: corsHeaders });
+
+    const graphPayload = {
+      message: {
+        subject: subject.trim(),
+        body: { contentType: 'HTML', content: bodyToHtml(body) },
+        toRecipients: toList.map((address) => ({ emailAddress: { address } })),
+        from: { emailAddress: { address: GRAPH_SENDER_MAILBOX!, name: displayName } },
+        replyTo: [{ emailAddress: { address: effectiveReplyTo } }],
+      },
+      saveToSentItems: true,
+    };
+
+    const sendUrl = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(GRAPH_SENDER_MAILBOX!)}/sendMail`;
+    const sendRes = await fetch(sendUrl, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(graphPayload),
+    });
+
+    if (!sendRes.ok) {
+      const text = await sendRes.text();
+      // Graph's error shape is { error: { code, message } }; surface it as-is.
+      return new Response(
+        JSON.stringify({
+          error: `Graph rejected sendMail (HTTP ${sendRes.status})`,
+          detail: text.slice(0, 500),
+        }),
+        { status: 502, headers: corsHeaders },
+      );
     }
 
-    return new Response(JSON.stringify({ ok: true, id: data.id }), { headers: corsHeaders });
+    // Graph returns 202 Accepted with an empty body on success — no message id.
+    // Synthesize a client-visible id so the outreach row has something to log.
+    // Format mirrors typical email ids enough that the UI doesn't need special-casing.
+    const syntheticId = `graph-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+    return new Response(JSON.stringify({ ok: true, id: syntheticId }), { headers: corsHeaders });
   } catch (e) {
     const msg = (e as Error).message || String(e);
     console.error('[send-vendor-email]', msg);

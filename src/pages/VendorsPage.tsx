@@ -175,6 +175,14 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
   const niceLast = lastContactedAt
     ? new Date(lastContactedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     : '—';
+  const daysSinceLast = lastContactedAt
+    ? Math.floor((Date.now() - new Date(lastContactedAt).getTime()) / 86_400_000)
+    : null;
+  const ageLabel =
+    daysSinceLast === null ? null :
+    daysSinceLast === 0 ? 'today' :
+    daysSinceLast === 1 ? 'yesterday' :
+    `${daysSinceLast}d ago`;
   return (
     <div className="px-6 py-3 hover:bg-slate-50/60 flex items-start gap-3 group">
       <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -234,7 +242,16 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
             <Send size={11} />
             <span className="font-semibold text-slate-700">{outreachCount}</span> outreach{outreachCount === 1 ? '' : 'es'}
           </span>
-          <span>Last contacted: <span className="font-medium text-slate-700">{niceLast}</span></span>
+          <span>
+            Last contacted: <span className="font-medium text-slate-700">{niceLast}</span>
+            {ageLabel && (
+              <span className={`ml-1 text-[10px] ${
+                daysSinceLast !== null && daysSinceLast <= 7 ? 'text-emerald-600' :
+                daysSinceLast !== null && daysSinceLast <= 30 ? 'text-amber-600' :
+                'text-slate-400'
+              }`}>· {ageLabel}</span>
+            )}
+          </span>
           <label className="inline-flex items-center gap-1.5 cursor-pointer">
             <input
               type="checkbox"

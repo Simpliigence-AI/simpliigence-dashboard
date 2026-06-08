@@ -441,14 +441,23 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
 
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState<VendorOutreachStatus | 'all'>('all');
+  const [q, setQ] = useState('');
 
   const recent = useMemo(() => {
     const sorted = [...outreach].sort((a, b) => b.sentAt.localeCompare(a.sentAt));
-    const filtered = statusFilter === 'all'
+    const byStatus = statusFilter === 'all'
       ? sorted
       : sorted.filter((o) => o.sendStatus === statusFilter);
-    return showAll ? filtered : filtered.slice(0, 20);
-  }, [outreach, showAll, statusFilter]);
+    const needle = q.trim().toLowerCase();
+    const byText = !needle
+      ? byStatus
+      : byStatus.filter((o) => {
+          // Case-insensitive substring across the columns the recruiter sees.
+          const hay = `${vendorNameById(o.vendorId)} ${reqTitleById(o.requisitionId)} ${o.subject} ${o.sentBy ?? ''}`.toLowerCase();
+          return hay.includes(needle);
+        });
+    return showAll ? byText : byText.slice(0, 20);
+  }, [outreach, showAll, statusFilter, q, vendorNameById, reqTitleById]);
 
   // Per-status counts for chip labels
   const statusCounts = useMemo(() => {
@@ -511,6 +520,12 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
 
   return (
     <Card className="mb-4" title={`Recent outreach activity · ${outreach.length} total${titleSuffix}`}>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search subject / vendor / req / sender…"
+        className="w-full mb-2 border border-slate-200 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+      />
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
         {chips.map((c) => {
           const active = statusFilter === c.key;

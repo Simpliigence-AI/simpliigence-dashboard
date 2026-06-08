@@ -23,6 +23,8 @@ import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 import type { TimeEntry } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import type { Vendor, VendorOutreach } from '../types/vendor';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
 
 // ─── Conversion helpers ────────────────────────────────────────────
 
@@ -351,6 +353,61 @@ function rowToTimeEntry(row: any): TimeEntry {
   };
 }
 
+// ─── Candidate AI call converters ───────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function callTemplateToRow(t: CallTemplate) {
+  return {
+    id: t.id,
+    name: t.name,
+    opening_script: t.openingScript,
+    closing_script: t.closingScript,
+    questions: t.questions,
+    active: t.active,
+    updated_by: CLIENT_ID,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToCallTemplate(row: any): CallTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    openingScript: row.opening_script,
+    closingScript: row.closing_script,
+    questions: Array.isArray(row.questions) ? row.questions as TemplateQuestion[] : [],
+    active: !!row.active,
+    createdBy: row.created_by ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToCandidateCall(row: any): CandidateCall {
+  return {
+    id: row.id,
+    candidateId: row.candidate_id,
+    templateId: row.template_id ?? null,
+    triggeredBy: row.triggered_by ?? '',
+    provider: (row.provider ?? 'vapi') as 'vapi',
+    providerCallId: row.provider_call_id ?? null,
+    status: row.status,
+    toPhone: row.to_phone,
+    transcript: row.transcript ?? null,
+    recordingUrl: row.recording_url ?? null,
+    extractedAnswers: row.extracted_answers ?? null,
+    costUsd: row.cost_usd ?? null,
+    durationSec: row.duration_sec ?? null,
+    startedAt: row.started_at ?? null,
+    endedAt: row.ended_at ?? null,
+    errorMsg: row.error_msg ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 // ─── TA daily log + team_members converters ────────────────────────
 
 function taLogToRow(e: TADailyLogEntry) {
@@ -657,6 +714,31 @@ export async function fetchVendors(): Promise<{
     vendors: (vRes.data || []).map(rowToVendor),
     outreach: (oRes.data || []).map(rowToVendorOutreach),
   };
+}
+
+export async function fetchCandidateCalls(): Promise<CandidateCall[] | null> {
+  const { data, error } = await supabase
+    .from('candidate_calls')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.warn('[supabase] fetch candidate_calls failed:', error);
+    return null;
+  }
+  return (data || []).map(rowToCandidateCall);
+}
+
+export async function fetchCallTemplates(): Promise<CallTemplate[] | null> {
+  const { data, error } = await supabase
+    .from('call_templates')
+    .select('*')
+    .eq('active', true)
+    .order('updated_at', { ascending: false });
+  if (error) {
+    console.warn('[supabase] fetch call_templates failed:', error);
+    return null;
+  }
+  return (data || []).map(rowToCallTemplate);
 }
 
 export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
@@ -1295,6 +1377,50 @@ export const db = {
     if (error) console.warn('[supabase] upsert vendor_outreach failed:', error);
   },
 
+  // --- Candidate AI calls ---
+  /** Trigger an outbound AI screening call to a candidate via Vapi. */
+  async startCandidateCall(params: {
+    candidateId: string;
+    templateId?: string;
+    roleTitle?: string;
+    triggeredBy?: string;
+  }): Promise<{ ok: true; callId: string } | { ok: false; error: string }> {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      callId?: string;
+      providerCallId?: string;
+      error?: string;
+      detail?: string;
+    }>('start-candidate-call', { body: params });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    if (!data?.callId) return { ok: false, error: 'Edge function returned no callId' };
+    return { ok: true, callId: data.callId };
+  },
+
+  async upsertCallTemplate(t: CallTemplate) {
+    const { error } = await supabase.from('call_templates').upsert(callTemplateToRow(t), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert call_template failed:', error);
+  },
+
+  async deleteCallTemplate(id: string) {
+    // Soft-delete by toggling active=false so historical candidate_calls
+    // rows still resolve their template_id label.
+    const { error } = await supabase.from('call_templates').update({ active: false, updated_by: CLIENT_ID }).eq('id', id);
+    if (error) console.warn('[supabase] soft-delete call_template failed:', error);
+  },
+
+  /** Manually patch the extracted answers on a call (when a TA hand-corrects mishears). */
+  async patchCallExtractedAnswers(callId: string, patch: Partial<ExtractedAnswers>) {
+    const { data: row } = await supabase.from('candidate_calls').select('extracted_answers').eq('id', callId).maybeSingle();
+    const merged = { ...(row?.extracted_answers || {}), ...patch };
+    const { error } = await supabase
+      .from('candidate_calls')
+      .update({ extracted_answers: merged, updated_by: CLIENT_ID })
+      .eq('id', callId);
+    if (error) console.warn('[supabase] patch call answers failed:', error);
+  },
+
   // --- Time entries ---
   async upsertTimeEntry(e: TimeEntry) {
     const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
@@ -1676,6 +1802,8 @@ type StoreSetters = {
   setTeamMembers?: (members: TeamMember[]) => void;
   setTimeEntries?: (entries: TimeEntry[]) => void;
   setActualHours?: (rows: ActualHourEntry[]) => void;
+  setCandidateCalls?: (rows: CandidateCall[]) => void;
+  setCallTemplates?: (rows: CallTemplate[]) => void;
   setAccountManagement?: (data: { accounts: Account[]; connects: AccountConnect[]; actions: AccountActionItem[] }) => void;
   setVendors?: (data: { vendors: Vendor[]; outreach: VendorOutreach[] }) => void;
   getForecastAssignments: () => ForecastAssignment[];
@@ -1985,6 +2113,25 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       },
     );
   }
+
+  // --- Candidate AI calls (refetch on any change so the UI shows live status) ---
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'candidate_calls' },
+    () => {
+      if (!setters.setCandidateCalls) return;
+      fetchCandidateCalls().then((rows) => { if (rows) setters.setCandidateCalls!(rows); });
+    },
+  );
+
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'call_templates' },
+    () => {
+      if (!setters.setCallTemplates) return;
+      fetchCallTemplates().then((rows) => { if (rows) setters.setCallTemplates!(rows); });
+    },
+  );
 
   channel.subscribe();
   return () => { supabase.removeChannel(channel); };

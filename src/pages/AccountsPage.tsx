@@ -25,8 +25,9 @@ import {
   Plus, Trash2, Save, X, ChevronDown, ChevronRight, AlertTriangle, Users,
   Calendar, Briefcase, CheckCircle2, Circle, PauseCircle, XCircle, Clock,
 } from 'lucide-react';
-import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
+import { UserPicker } from '../components/UserPicker';
+import { TaIdentity } from '../components/TaIdentity';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAccountStore } from '../store/useAccountStore';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
@@ -131,21 +132,40 @@ export default function AccountsPage() {
     setExpanded(next);
   };
 
+  // Quick KPIs for the hero strip
+  const activeCount = accounts.filter((a) => a.status === 'active').length;
+  const totalOpenActions = useMemo(
+    () => actions.filter((a) => a.status === 'open' || a.status === 'in_progress').length,
+    [actions],
+  );
+
   return (
     <div className="max-w-7xl mx-auto">
-      <PageHeader
-        title="Accounts"
-        subtitle={`${accounts.length} accounts · ${staleCount} stale (no sales/delivery connect in ${STALE_CONNECT_DAYS} days)`}
-        action={
+      {/* Hero header — gradient banner with stat strip */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 mb-6 text-white shadow-md">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_60%)] pointer-events-none" />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight">Accounts</h1>
+            <p className="text-sm text-indigo-100 mt-1">
+              Client relationships at a glance — owners, last connects, action items, team size.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="text-xs font-semibold bg-primary text-white px-3 py-2 rounded-md hover:bg-primary/90 flex items-center gap-1"
+            className="text-sm font-semibold bg-white text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 shadow-sm inline-flex items-center gap-1.5"
           >
             <Plus size={14} /> Add account
           </button>
-        }
-      />
+        </div>
+        <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+          <HeroStat label="Total" value={accounts.length} />
+          <HeroStat label="Active" value={activeCount} />
+          <HeroStat label="Open actions" value={totalOpenActions} tone={totalOpenActions > 0 ? 'amber' : 'mute'} />
+          <HeroStat label="Stale" value={staleCount} tone={staleCount > 0 ? 'red' : 'mute'} subtitle={`>${STALE_CONNECT_DAYS}d`} />
+        </div>
+      </div>
 
       {/* Filters */}
       <Card className="mb-4">
@@ -159,7 +179,7 @@ export default function AccountsPage() {
           <button
             type="button"
             onClick={() => setFilterStale((v) => !v)}
-            className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 ${
+            className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 transition-colors ${
               filterStale
                 ? 'bg-red-50 border-red-300 text-red-800'
                 : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
@@ -248,38 +268,27 @@ function AccountRow({ account, derived, isOpen, onToggle }: {
   onToggle: () => void;
 }) {
   const { lastSales, lastDelivery, openActions, teamCount, isStale } = derived;
-  const renderConnect = (c: AccountConnect | null, label: string) => {
-    if (!c) return (
-      <div className="text-[11px] text-red-700">
-        <span className="font-semibold">{label}:</span> never
-      </div>
-    );
-    const days = daysSince(c.meetingDate);
-    const isOver = days > STALE_CONNECT_DAYS;
-    return (
-      <div className={`text-[11px] ${isOver ? 'text-red-700 font-medium' : 'text-slate-600'}`}>
-        <span className="font-semibold">{label}:</span> {c.meetingDate} ({days}d ago)
-      </div>
-    );
-  };
 
   return (
     <button
       type="button"
       onClick={onToggle}
-      className={`w-full text-left px-6 py-3 hover:bg-slate-50/60 flex items-start gap-3 border-l-4 ${
-        isStale ? 'border-red-500 bg-red-50/30' : 'border-transparent'
+      className={`w-full text-left px-6 py-4 flex items-start gap-3 border-l-4 transition-all duration-150 ${
+        isStale
+          ? 'border-red-500 bg-gradient-to-r from-red-50/60 to-transparent hover:from-red-50'
+          : 'border-transparent hover:bg-slate-50/80 hover:border-primary/30'
       }`}
     >
-      {isOpen ? <ChevronDown size={16} className="text-slate-400 mt-0.5 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />}
+      {isOpen ? <ChevronDown size={16} className="text-slate-500 mt-1 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 mt-1 flex-shrink-0" />}
       <div className="flex-1 min-w-0">
+        {/* Top line: name + status + stale + industry */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-slate-900">{account.name}</span>
-          <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${STATUS_COLORS[account.status]}`}>
+          <span className="text-base font-bold text-slate-900 tracking-tight">{account.name}</span>
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_COLORS[account.status]}`}>
             {account.status}
           </span>
           {isStale && (
-            <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 inline-flex items-center gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-800 inline-flex items-center gap-1 ring-1 ring-red-200">
               <AlertTriangle size={10} /> Stale
             </span>
           )}
@@ -289,26 +298,61 @@ function AccountRow({ account, derived, isOpen, onToggle }: {
             </span>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-0.5 mt-1.5">
-          <div className="text-[11px] text-slate-500">
-            <span className="font-semibold">Sales:</span> {account.salesOwnerEmail ?? <span className="text-slate-300">—</span>}
+
+        {/* Owners + last-connect — clean 4-column grid with consistent label widths */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-2 mt-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Sales</span>
+            {account.salesOwnerEmail
+              ? <TaIdentity email={account.salesOwnerEmail} avatarSize={22} nameSize="text-xs" />
+              : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
           </div>
-          <div className="text-[11px] text-slate-500">
-            <span className="font-semibold">Delivery:</span> {account.deliveryOwnerEmail ?? <span className="text-slate-300">—</span>}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Delivery</span>
+            {account.deliveryOwnerEmail
+              ? <TaIdentity email={account.deliveryOwnerEmail} avatarSize={22} nameSize="text-xs" />
+              : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
           </div>
-          {renderConnect(lastSales, 'Last sales')}
-          {renderConnect(lastDelivery, 'Last delivery')}
+          <ConnectChip label="Last sales" connect={lastSales} />
+          <ConnectChip label="Last delivery" connect={lastDelivery} />
         </div>
       </div>
-      <div className="flex items-center gap-3 flex-shrink-0 text-[11px] text-slate-600">
-        <span className="inline-flex items-center gap-1" title="Team members from roster">
+
+      {/* Right-side KPI chips */}
+      <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-1 rounded-md" title="Team members from roster">
           <Users size={11} /> {teamCount}
         </span>
-        <span className="inline-flex items-center gap-1" title="Open action items">
+        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md ${
+          openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
+        }`} title="Open action items">
           <Clock size={11} /> {openActions}
         </span>
       </div>
     </button>
+  );
+}
+
+/* ── Inline-aligned "last-connect" chip ── */
+function ConnectChip({ label, connect }: { label: string; connect: AccountConnect | null }) {
+  if (!connect) {
+    return (
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20 flex-shrink-0">{label}</span>
+        <span className="text-[11px] text-red-700 font-medium">never</span>
+      </div>
+    );
+  }
+  const days = daysSince(connect.meetingDate);
+  const isOver = days > STALE_CONNECT_DAYS;
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20 flex-shrink-0">{label}</span>
+      <span className={`text-[11px] ${isOver ? 'text-red-700 font-semibold' : 'text-slate-600'}`}>
+        {connect.meetingDate}
+        <span className={`ml-1 text-[10px] ${isOver ? 'text-red-700' : 'text-slate-400'}`}>· {days}d ago</span>
+      </span>
+    </div>
   );
 }
 
@@ -428,15 +472,19 @@ function OverviewTab({ account, onPatch, onRemove }: {
           <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
         </Field>
-        <Field label="Sales owner email">
-          <input value={draft.salesOwnerEmail ?? ''} onChange={(e) => setDraft({ ...draft, salesOwnerEmail: e.target.value.toLowerCase() || null })}
-                 placeholder="—"
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+        <Field label="Sales owner">
+          <UserPicker
+            value={draft.salesOwnerEmail}
+            onChange={(email) => setDraft({ ...draft, salesOwnerEmail: email })}
+            placeholder="— Pick a user —"
+          />
         </Field>
-        <Field label="Delivery owner email">
-          <input value={draft.deliveryOwnerEmail ?? ''} onChange={(e) => setDraft({ ...draft, deliveryOwnerEmail: e.target.value.toLowerCase() || null })}
-                 placeholder="—"
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+        <Field label="Delivery owner">
+          <UserPicker
+            value={draft.deliveryOwnerEmail}
+            onChange={(email) => setDraft({ ...draft, deliveryOwnerEmail: email })}
+            placeholder="— Pick a user —"
+          />
         </Field>
       </div>
       <div className="space-y-3">
@@ -631,10 +679,12 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
                      placeholder="e.g. Send updated SOW to client"
                      className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
             </Field>
-            <Field label="Owner email">
-              <input value={d.ownerEmail} onChange={(e) => setD({ ...d, ownerEmail: e.target.value.toLowerCase() })}
-                     placeholder="—"
-                     className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+            <Field label="Owner">
+              <UserPicker
+                value={d.ownerEmail || null}
+                onChange={(email) => setD({ ...d, ownerEmail: email ?? '' })}
+                placeholder="— Pick a user —"
+              />
             </Field>
             <Field label="Due date">
               <input type="date" value={d.dueDate} onChange={(e) => setD({ ...d, dueDate: e.target.value })}
@@ -693,12 +743,13 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
                     </select>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1 flex-wrap">
-                    <input
-                      value={a.ownerEmail ?? ''}
-                      onChange={(e) => onUpdate(a.id, { ownerEmail: e.target.value.toLowerCase() || null })}
-                      placeholder="owner email"
-                      className="text-[11px] bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
-                    />
+                    <div className="w-52">
+                      <UserPicker
+                        value={a.ownerEmail}
+                        onChange={(email) => onUpdate(a.id, { ownerEmail: email })}
+                        placeholder="— Owner —"
+                      />
+                    </div>
                     <input
                       type="date"
                       value={a.dueDate ?? ''}
@@ -791,14 +842,18 @@ function AddAccountForm({ onCancel, onAdd }: {
                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
         </Field>
         <Field label="Sales owner">
-          <input value={d.salesOwnerEmail} onChange={(e) => setD({ ...d, salesOwnerEmail: e.target.value.toLowerCase() })}
-                 placeholder="sales@…"
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+          <UserPicker
+            value={d.salesOwnerEmail || null}
+            onChange={(email) => setD({ ...d, salesOwnerEmail: email ?? '' })}
+            placeholder="— Pick a user —"
+          />
         </Field>
         <Field label="Delivery owner">
-          <input value={d.deliveryOwnerEmail} onChange={(e) => setD({ ...d, deliveryOwnerEmail: e.target.value.toLowerCase() })}
-                 placeholder="delivery@…"
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+          <UserPicker
+            value={d.deliveryOwnerEmail || null}
+            onChange={(email) => setD({ ...d, deliveryOwnerEmail: email ?? '' })}
+            placeholder="— Pick a user —"
+          />
         </Field>
         <Field label="Industry">
           <input value={d.industry} onChange={(e) => setD({ ...d, industry: e.target.value })}
@@ -826,6 +881,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+/* ── Hero stat tile (used in the gradient header strip) ── */
+function HeroStat({ label, value, subtitle, tone = 'mute' }: {
+  label: string;
+  value: number;
+  subtitle?: string;
+  tone?: 'mute' | 'amber' | 'red';
+}) {
+  const valueTone =
+    tone === 'amber' ? 'text-amber-200' :
+    tone === 'red' ? 'text-red-200' :
+    'text-white';
+  return (
+    <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2.5 ring-1 ring-white/20">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-100/90">
+        {label}
+      </div>
+      <div className="flex items-baseline gap-2 mt-1">
+        <span className={`text-2xl font-extrabold tabular-nums ${valueTone}`}>{value}</span>
+        {subtitle && <span className="text-[10px] text-indigo-100/80">{subtitle}</span>}
+      </div>
     </div>
   );
 }

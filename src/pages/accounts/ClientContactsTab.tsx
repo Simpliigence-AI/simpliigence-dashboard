@@ -282,13 +282,28 @@ export function ClientContactsTab({ accountId }: { accountId: string }) {
                         />
                       </td>
                       <td className="px-2 py-1.5">
-                        <input
-                          type="date"
-                          value={c.lastContactAt ?? ''}
-                          onChange={(e) => patchLocal(c.id, { lastContactAt: e.target.value || null })}
-                          onBlur={blur}
-                          className="w-[130px] h-7 px-2 text-xs leading-tight border border-slate-200 rounded bg-white hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
+                        <div className="flex flex-col gap-0.5">
+                          <input
+                            type="date"
+                            value={c.lastContactAt ?? ''}
+                            onChange={(e) => patchLocal(c.id, { lastContactAt: e.target.value || null })}
+                            onBlur={blur}
+                            className="w-[130px] h-7 px-2 text-xs leading-tight border border-slate-200 rounded bg-white hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          {c.lastContactAt && (() => {
+                            const days = Math.floor((Date.now() - new Date(c.lastContactAt).getTime()) / 86_400_000);
+                            if (days < 0) return null;
+                            const tone =
+                              days <= 14 ? 'text-emerald-600' :
+                              days <= 45 ? 'text-amber-600' :
+                              'text-red-600 font-semibold';
+                            return (
+                              <span className={`text-[10px] ${tone}`} title="Days since last contact">
+                                {days === 0 ? 'today' : `${days}d ago`}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="px-2 py-1.5">
                         <input

@@ -82,40 +82,31 @@ function buildSystemPrompt(opts: {
     .map((q, i) => `${i + 1}. ${q.prompt}`)
     .join('\n');
 
-  return `You are an AI recruitment assistant calling a candidate on behalf of Simpliigence, an India-based IT consulting firm. You are conducting a short screening conversation to gather basic information.
+  return `You are an AI screening assistant from Simpliigence (India IT consulting). 2–3 minute call. Be CONCISE — one short sentence per turn unless answering a direct question. Do not lecture, narrate, or summarize.
 
-# Persona
-  - Warm, professional, Indian-English speaker.
-  - Brief and respectful of the candidate's time — total call should be 3–5 minutes.
-  - If asked, identify yourself as an AI assistant working with Simpliigence's recruitment team.
-
-# Opening (use this verbatim, then pause for response)
+# Opening (verbatim, then pause)
 ${filledOpening}
 
-# If the candidate says it's NOT a good time
-  - Apologize, offer to call back, and end the call gracefully (use the closing script below).
+# If not a good time
+Briefly apologize, end the call. Use the closing line.
 
-# If the candidate is willing to talk
-  Walk through these questions one at a time, IN ORDER. Acknowledge each answer briefly before moving on. Do not interrogate.
-
+# Otherwise — ask these IN ORDER, ONE at a time
 ${questionsText}
 
 # Rules
-  - One question at a time. Don't stack questions.
-  - If a candidate gives a vague answer (e.g. "decent salary"), ask a polite follow-up to get a number, but DON'T push more than once per question.
-  - If the candidate seems uncomfortable about salary specifically, accept "I'd prefer to discuss with the recruiter" and move on.
-  - Do not promise interview slots, offers, or specific outcomes. Only say "a recruiter will follow up".
-  - Do not provide any company-specific salary ranges, role details beyond the role title, or competitive information.
-  - If the candidate asks something you don't know, say "a recruiter will get back to you with that" and continue.
-  - If the candidate becomes hostile or asks you to stop, immediately apologize, thank them, and end with the closing script.
+  - One question per turn. NO stacking. NO recapping.
+  - One brief acknowledgement ("Got it" / "Thanks") before the next question.
+  - Vague answer (e.g. "decent salary") → ONE polite follow-up for a number, then move on.
+  - "Prefer to discuss with recruiter" on salary → accept, move on.
+  - NEVER promise interview slots, offers, or company-specific details. Only "a recruiter will follow up".
+  - Unknown question → "a recruiter will get back to you with that" → continue.
+  - Hostile / asks to stop → apologize once, close immediately.
 
-# Closing (use after the last question is answered or the call needs to end)
+# Closing (after last answer OR if ending early)
 ${opts.closingScript}
 
-# Important
-  - You are calling them on their personal phone. Keep it short.
-  - This call is being recorded for the recruiter to review. The opening already covered this disclosure.
-  - English only. Indian-English accent. Do not switch to Hindi unless the candidate explicitly speaks Hindi back.`;
+# Voice
+English only. Indian-English. Do not switch to Hindi unless the candidate speaks Hindi back.`;
 }
 
 // @ts-expect-error Deno
@@ -201,7 +192,10 @@ Deno.serve(async (req: Request) => {
     const vapiBody = {
       phoneNumberId: VAPI_PHONE_NUMBER_ID,
       customer: { number: toPhone, name: cand.name || undefined },
-      // Inline assistant — gpt-4o + ElevenLabs Indian-English voice + Deepgram STT.
+      // Inline assistant — gpt-4o-mini + ElevenLabs Indian-English + Deepgram nova-2.
+      // Tuned for COST: a 4-question screen completes in <3 min and lands ~$0.12/call.
+      // The LLM portion is the biggest cost lever — gpt-4o-mini is ~5× cheaper than
+      // gpt-4o with similar accuracy on this structured-conversation task.
       // We pass the assistant config inline so each call uses the right per-template prompt.
       assistant: {
         firstMessage: tpl.opening_script
@@ -210,8 +204,8 @@ Deno.serve(async (req: Request) => {
         firstMessageMode: 'assistant-speaks-first',
         model: {
           provider: 'openai',
-          model: 'gpt-4o',
-          temperature: 0.4,
+          model: 'gpt-4o-mini',
+          temperature: 0.3,
           messages: [{ role: 'system', content: systemPrompt }],
         },
         voice: {
@@ -221,7 +215,7 @@ Deno.serve(async (req: Request) => {
         transcriber: { provider: 'deepgram', model: 'nova-2', language: 'en' },
         recordingEnabled: true,
         endCallFunctionEnabled: true,
-        maxDurationSeconds: 600,
+        maxDurationSeconds: 240,
         silenceTimeoutSeconds: 30,
         responseDelaySeconds: 0.4,
         // Per-call webhook so we don't need a global Vapi server URL setting.

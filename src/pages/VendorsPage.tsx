@@ -442,22 +442,34 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState<VendorOutreachStatus | 'all'>('all');
   const [q, setQ] = useState('');
+  type RangeKey = 'today' | '7d' | '30d' | 'all';
+  const [rangeFilter, setRangeFilter] = useState<RangeKey>('all');
 
   const recent = useMemo(() => {
     const sorted = [...outreach].sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+    // Date window cutoffs — computed once per useMemo run so 'today' aligns to
+    // the user's local date boundary, not Now().
+    const now = Date.now();
+    const dayMs = 86_400_000;
+    const cutoff: Record<RangeKey, number> = {
+      today: (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })(),
+      '7d':  now - 7 * dayMs,
+      '30d': now - 30 * dayMs,
+      all:   0,
+    };
+    const byRange = sorted.filter((o) => Date.parse(o.sentAt) >= cutoff[rangeFilter]);
     const byStatus = statusFilter === 'all'
-      ? sorted
-      : sorted.filter((o) => o.sendStatus === statusFilter);
+      ? byRange
+      : byRange.filter((o) => o.sendStatus === statusFilter);
     const needle = q.trim().toLowerCase();
     const byText = !needle
       ? byStatus
       : byStatus.filter((o) => {
-          // Case-insensitive substring across the columns the recruiter sees.
           const hay = `${vendorNameById(o.vendorId)} ${reqTitleById(o.requisitionId)} ${o.subject} ${o.sentBy ?? ''}`.toLowerCase();
           return hay.includes(needle);
         });
     return showAll ? byText : byText.slice(0, 20);
-  }, [outreach, showAll, statusFilter, q, vendorNameById, reqTitleById]);
+  }, [outreach, showAll, statusFilter, q, rangeFilter, vendorNameById, reqTitleById]);
 
   // Per-status counts for chip labels
   const statusCounts = useMemo(() => {
@@ -526,6 +538,30 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
         placeholder="Search subject / vendor / req / sender…"
         className="w-full mb-2 border border-slate-200 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
+      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+        {([
+          { key: 'today', label: 'Today' },
+          { key: '7d',    label: 'Last 7 days' },
+          { key: '30d',   label: 'Last 30 days' },
+          { key: 'all',   label: 'All time' },
+        ] as { key: RangeKey; label: string }[]).map((r) => {
+          const active = rangeFilter === r.key;
+          return (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => setRangeFilter(r.key)}
+              className={`text-[10px] font-semibold inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
+                active
+                  ? 'bg-primary text-white'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {r.label}
+            </button>
+          );
+        })}
+      </div>
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
         {chips.map((c) => {
           const active = statusFilter === c.key;

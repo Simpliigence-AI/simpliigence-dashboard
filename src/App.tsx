@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
-import { nanoid } from 'nanoid';
 import { AuthGate } from './components/AuthGate';
-import { buildSeedAssignments } from './data/employeeSeed';
 import { useForecastStore, useFinancialStore, useSyncStore, useHiringForecastStore, usePipelineStore, useStaffingStore, useUSStaffingStore, useActualHoursStore } from './store';
 import { useOpenBenchStore } from './store/useOpenBenchStore';
 import { useIndiaRosterStore } from './store/useIndiaRosterStore';
@@ -13,7 +11,6 @@ import { useTimeEntryStore } from './store/useTimeEntryStore';
 import { useCallsStore } from './store/useCallsStore';
 import { useAccountStore } from './store/useAccountStore';
 import { useVendorStore } from './store/useVendorStore';
-import { ZOHO_SEED_PROJECTS } from './data/zohoSeed';
 import {
   fetchAssignments,
   fetchFinancialSettings,
@@ -109,6 +106,10 @@ function useSupabaseInit() {
         ]);
 
         // --- Forecast assignments ---
+        // Supabase is the source of truth. We no longer auto-seed from localStorage
+        // on empty-fetch — that path caused a destructive wipe on 2026-06-09 when
+        // an admin's session got an empty response and the old code "helpfully"
+        // pushed their stale seed to Supabase, deleting 67+ live requisitions.
         if (!forecastRes.timedOut) {
           const forecastData = forecastRes.value;
           if (forecastData && forecastData.assignments.length > 0) {
@@ -118,18 +119,7 @@ function useSupabaseInit() {
             });
             console.log('[supabase] Loaded', forecastData.assignments.length, 'assignments from Supabase');
           } else {
-            // Supabase is genuinely empty — seed
-            console.log('[supabase] Supabase is empty — seeding...');
-            const localAssignments = useForecastStore.getState().assignments;
-            if (localAssignments.length > 0) {
-              const withIds = localAssignments.map((a) => (a.id ? a : { ...a, id: nanoid() }));
-              useForecastStore.setState({ assignments: withIds });
-              await db.replaceAllAssignments(withIds, useForecastStore.getState().weekDates);
-            } else {
-              const seedAssignments = buildSeedAssignments();
-              useForecastStore.setState({ assignments: seedAssignments, weekDates: [] });
-              await db.replaceAllAssignments(seedAssignments, []);
-            }
+            console.warn('[supabase] Forecast assignments empty in Supabase — not auto-seeding (see commit message)');
           }
         } else {
           console.warn('[supabase] Forecast fetch timed out — using localStorage, not overwriting Supabase');
@@ -182,19 +172,16 @@ function useSupabaseInit() {
           if (pd && pd.length > 0) {
             usePipelineStore.setState({ projects: pd });
           } else {
-            const localProjects = usePipelineStore.getState().projects;
-            if (localProjects.length === 0) {
-              usePipelineStore.setState({ projects: ZOHO_SEED_PROJECTS });
-              await db.replacePipelineProjects(ZOHO_SEED_PROJECTS);
-            } else {
-              await db.replacePipelineProjects(localProjects);
-            }
+            console.warn('[supabase] Pipeline projects empty in Supabase — not auto-seeding');
           }
         } else {
           console.warn('[supabase] Pipeline fetch timed out — using localStorage');
         }
 
         // --- India Staffing ---
+        // THIS is the branch that wiped 67 requisitions on 2026-06-09 when an
+        // admin's session got an empty fetch response. The destructive
+        // db.replaceAllIndiaStaffing call is intentionally gone.
         if (!indiaStaffingRes.timedOut) {
           const id = indiaStaffingRes.value;
           if (id && id.accounts.length > 0) {
@@ -207,12 +194,7 @@ function useSupabaseInit() {
             });
             console.log('[supabase] Loaded india staffing:', id.accounts.length, 'accounts,', id.requisitions.length, 'reqs,', (id.history || []).length, 'history entries,', (id.candidates || []).length, 'candidates');
           } else {
-            // Supabase empty — push local/seed data
-            const local = useStaffingStore.getState();
-            if (local.accounts.length > 0) {
-              await db.replaceAllIndiaStaffing(local.accounts, local.requisitions, local.statuses);
-              console.log('[supabase] Seeded india staffing to Supabase');
-            }
+            console.warn('[supabase] India staffing empty in Supabase — not auto-seeding');
           }
         } else {
           console.warn('[supabase] India staffing fetch timed out — using localStorage');
@@ -228,11 +210,7 @@ function useSupabaseInit() {
             });
             console.log('[supabase] Loaded US staffing:', ud.accounts.length, 'accounts,', ud.requisitions.length, 'reqs');
           } else {
-            const local = useUSStaffingStore.getState();
-            if (local.accounts.length > 0) {
-              await db.replaceAllUSStaffing(local.accounts, local.requisitions);
-              console.log('[supabase] Seeded US staffing to Supabase');
-            }
+            console.warn('[supabase] US staffing empty in Supabase — not auto-seeding');
           }
         } else {
           console.warn('[supabase] US staffing fetch timed out — using localStorage');
@@ -248,11 +226,7 @@ function useSupabaseInit() {
             });
             console.log('[supabase] Loaded open bench:', bd.resources.length, 'resources,', bd.updates.length, 'updates');
           } else {
-            const local = useOpenBenchStore.getState();
-            if (local.resources.length > 0) {
-              await db.replaceAllOpenBench(local.resources, local.updates);
-              console.log('[supabase] Seeded open bench to Supabase');
-            }
+            console.warn('[supabase] Open bench empty in Supabase — not auto-seeding');
           }
         } else {
           console.warn('[supabase] Open bench fetch timed out — using localStorage');
@@ -265,11 +239,7 @@ function useSupabaseInit() {
             useIndiaRosterStore.setState({ members: rd });
             console.log('[supabase] Loaded india roster:', rd.length, 'members');
           } else {
-            const local = useIndiaRosterStore.getState();
-            if (local.members.length > 0) {
-              await db.replaceAllIndiaRoster(local.members);
-              console.log('[supabase] Seeded india roster to Supabase');
-            }
+            console.warn('[supabase] India roster empty in Supabase — not auto-seeding');
           }
         } else {
           console.warn('[supabase] India roster fetch timed out — using localStorage');
@@ -282,11 +252,7 @@ function useSupabaseInit() {
             useUSRosterStore.setState({ members: ur });
             console.log('[supabase] Loaded us roster:', ur.length, 'members');
           } else {
-            const local = useUSRosterStore.getState();
-            if (local.members.length > 0) {
-              await db.replaceAllUSRoster(local.members);
-              console.log('[supabase] Seeded us roster to Supabase');
-            }
+            console.warn('[supabase] US roster empty in Supabase — not auto-seeding');
           }
         } else {
           console.warn('[supabase] US roster fetch timed out — using localStorage');

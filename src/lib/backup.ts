@@ -51,6 +51,15 @@ const TABLES = [
   'account_action_items',
   'vendors',
   'vendor_outreach',
+  // Added 2026-06-09 after the seed-push wipe — audit_log was the only
+  // reason we could recover. Plus client_contacts/calls were brand-new
+  // tables that had silently never been in the backup set.
+  'audit_log',
+  'account_client_contacts',
+  'call_templates',
+  'candidate_calls',
+  'user_page_views',
+  'user_sessions',
 ] as const;
 
 export interface BackupPayload {

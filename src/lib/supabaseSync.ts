@@ -1566,6 +1566,63 @@ export const db = {
     };
   },
 
+  /** Invoke zoho-recruit-sync-metadata for one page-batch. Returns the next
+   *  page to call (null when done). Caller drives the loop. */
+  async zohoRecruitSyncMetadataPage(params: {
+    page?: number;
+    pages?: number;
+    modifiedSince?: string;
+  } = {}): Promise<
+    | { ok: true; upserted: number; totalSeen: number; nextPage: number | null; done: boolean; errors: string[] }
+    | { ok: false; error: string }
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      upserted?: number;
+      totalSeen?: number;
+      nextPage?: number | null;
+      done?: boolean;
+      errors?: string[];
+      error?: string;
+      detail?: string;
+    }>('zoho-recruit-sync-metadata', { body: params });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    return {
+      ok: true,
+      upserted: data?.upserted || 0,
+      totalSeen: data?.totalSeen || 0,
+      nextPage: data?.nextPage ?? null,
+      done: !!data?.done,
+      errors: data?.errors || [],
+    };
+  },
+
+  /** Invoke zoho-recruit-fetch-resume for a single candidate. */
+  async zohoRecruitFetchResume(candidateId: string, force = false): Promise<
+    | { ok: true; resumeUrl: string; filename: string; size: number; skipped?: boolean }
+    | { ok: false; error: string }
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      resumeUrl?: string;
+      filename?: string;
+      size?: number;
+      skipped?: boolean;
+      error?: string;
+      detail?: string;
+    }>('zoho-recruit-fetch-resume', { body: { candidateId, force } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
+    return {
+      ok: true,
+      resumeUrl: data?.resumeUrl || '',
+      filename: data?.filename || '',
+      size: data?.size || 0,
+      skipped: data?.skipped,
+    };
+  },
+
   /** Invoke the candidate-search edge function. Semantic Claude match across
    *  name + skills + summary + stage + source. */
   async searchCandidates(query: string): Promise<

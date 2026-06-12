@@ -19,6 +19,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useCallsStore } from '../store/useCallsStore';
 import { db } from '../lib/supabaseSync';
+import { supabase } from '../lib/supabase';
 import { ACTIVE_CALL_STATUSES } from '../types/candidateCalls';
 import type { CallTemplate, CandidateCall } from '../types/candidateCalls';
 import { TaIdentity } from '../components/TaIdentity';
@@ -73,6 +74,7 @@ export default function CandidatesPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);
+  const [zohoSyncOpen, setZohoSyncOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table' | 'map'>('cards');
 
   // ── AI search state ──
@@ -207,6 +209,14 @@ export default function CandidatesPage() {
             </button>
             <button
               type="button"
+              onClick={() => setZohoSyncOpen(true)}
+              className="text-xs font-semibold bg-white border border-amber-300 text-amber-800 px-3 py-2 rounded-md hover:bg-amber-50 flex items-center gap-1"
+              title="Pull candidates + resumes from Zoho Recruit"
+            >
+              <UploadCloud size={14} /> Sync from Zoho Recruit
+            </button>
+            <button
+              type="button"
               onClick={() => setBulkOpen(true)}
               className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-md hover:bg-slate-50 flex items-center gap-1"
               title="Drop multiple resumes; each one is auto-parsed and creates a candidate"
@@ -247,6 +257,10 @@ export default function CandidatesPage() {
           defaultOwner={(currentUser?.email || '').toLowerCase()}
           onClose={() => setBulkOpen(false)}
         />
+      )}
+
+      {zohoSyncOpen && (
+        <ZohoRecruitSyncDialog onClose={() => setZohoSyncOpen(false)} />
       )}
 
       {/* KPI strip — colorful at-a-glance counters */}
@@ -1783,6 +1797,201 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
         <div className="text-[10px] text-slate-400 mt-2">{calls.length} total calls to this candidate</div>
       )}
     </section>
+  );
+}
+
+/* ── Zoho Recruit sync dialog ──
+ *  Two stages, each with its own progress bar:
+ *    1. Metadata pull — loops zoho-recruit-sync-metadata until done.
+ *    2. Resume fetch — for each newly-imported candidate (those with
+ *       zoho_candidate_id but no resume_url), fires zoho-recruit-fetch-resume
+ *       in parallel (6 workers).
+ *  Resumes are NOT auto-parsed; per-candidate "Reparse" button does that
+ *  lazily so we don't burn Claude tokens on candidates nobody opens.
+ */
+function ZohoRecruitSyncDialog({ onClose }: { onClose: () => void }) {
+  const [stage, setStage] = useState<'idle' | 'metadata' | 'resumes' | 'done' | 'error'>('idle');
+  const [metaUpserted, setMetaUpserted] = useState(0);
+  const [metaTotal, setMetaTotal] = useState(0);
+  const [metaPage, setMetaPage] = useState(0);
+  const [resumesQueued, setResumesQueued] = useState(0);
+  const [resumesDone, setResumesDone] = useState(0);
+  const [resumesFailed, setResumesFailed] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [includeResumes, setIncludeResumes] = useState(true);
+
+  const running = stage === 'metadata' || stage === 'resumes';
+
+  const runMetadata = async (): Promise<boolean> => {
+    setStage('metadata');
+    let page = 1;
+    while (true) {
+      setMetaPage(page);
+      // eslint-disable-next-line no-await-in-loop
+      const res = await db.zohoRecruitSyncMetadataPage({ page, pages: 5 });
+      if (!res.ok) {
+        setError(res.error);
+        setStage('error');
+        return false;
+      }
+      setMetaUpserted((n) => n + res.upserted);
+      setMetaTotal((n) => n + res.totalSeen);
+      if (res.errors.length) setWarnings((w) => [...w, ...res.errors]);
+      if (res.done || !res.nextPage) return true;
+      page = res.nextPage;
+    }
+  };
+
+  const runResumes = async () => {
+    setStage('resumes');
+    // Pull all candidates from Zoho that still lack a resume_url
+    const { data: rows, error: e } = await supabase
+      .from('india_staffing_candidates')
+      .select('id')
+      .not('zoho_candidate_id', 'is', null)
+      .is('resume_url', null);
+    if (e) {
+      setError(`Could not list candidates needing resumes: ${e.message}`);
+      setStage('error');
+      return;
+    }
+    const ids: string[] = (rows || []).map((r: { id: string }) => r.id);
+    setResumesQueued(ids.length);
+    if (ids.length === 0) {
+      setStage('done');
+      return;
+    }
+
+    // Worker pool — 6 concurrent fetches
+    let next = 0;
+    const claim = () => (next < ids.length ? next++ : -1);
+    const worker = async () => {
+      while (true) {
+        const idx = claim();
+        if (idx < 0) return;
+        // eslint-disable-next-line no-await-in-loop
+        const res = await db.zohoRecruitFetchResume(ids[idx]);
+        if (res.ok) setResumesDone((n) => n + 1);
+        else setResumesFailed((n) => n + 1);
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, () => worker()));
+    setStage('done');
+  };
+
+  const start = async () => {
+    setError(null);
+    setWarnings([]);
+    setMetaUpserted(0);
+    setMetaTotal(0);
+    setResumesQueued(0);
+    setResumesDone(0);
+    setResumesFailed(0);
+    const metaOk = await runMetadata();
+    if (!metaOk) return;
+    if (includeResumes) await runResumes();
+    else setStage('done');
+  };
+
+  const metaPct = metaTotal > 0 ? Math.min(100, Math.round((metaUpserted / Math.max(metaTotal, metaUpserted)) * 100)) : 0;
+  const resumePct = resumesQueued > 0 ? Math.round(((resumesDone + resumesFailed) / resumesQueued) * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={running ? undefined : onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Sync from Zoho Recruit</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Pulls candidates + resumes from your Zoho Recruit module. Skills/summary stay lazy — only parsed when a TA opens a candidate.</div>
+          </div>
+          <button onClick={onClose} disabled={running} className="text-slate-400 hover:text-slate-700 text-xl leading-none disabled:opacity-40">×</button>
+        </div>
+
+        <div className="p-5 space-y-4 overflow-y-auto">
+          {stage === 'idle' && (
+            <>
+              <label className="flex items-center gap-2 text-xs text-slate-700">
+                <input type="checkbox" checked={includeResumes} onChange={(e) => setIncludeResumes(e.target.checked)} />
+                Also download resumes (slower — ~25 min extra for 2600 candidates)
+              </label>
+              <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-md p-3">
+                <div className="font-semibold text-slate-700 mb-1">What this does:</div>
+                <ol className="list-decimal list-inside space-y-0.5">
+                  <li>Pulls candidate metadata from Zoho Recruit (name, email, phone, location, title, stage)</li>
+                  <li>Upserts into our database — re-running is safe (no duplicates)</li>
+                  {includeResumes && <li>Downloads each resume + uploads to Supabase Storage</li>}
+                  <li>Stops there. No Claude parsing — that runs only when you click <strong>Reparse</strong> on a candidate.</li>
+                </ol>
+              </div>
+            </>
+          )}
+
+          {(stage === 'metadata' || (stage !== 'idle' && metaTotal > 0)) && (
+            <div className="rounded-md border border-slate-200 p-3">
+              <div className="flex items-center justify-between text-xs text-slate-700 mb-1">
+                <span className="font-semibold">Stage 1 · Metadata</span>
+                <span className="text-slate-500">{metaUpserted.toLocaleString()} synced · page {metaPage}</span>
+              </div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className={`h-full transition-all duration-300 ${stage === 'metadata' ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${metaPct}%` }} />
+              </div>
+            </div>
+          )}
+
+          {(stage === 'resumes' || (stage === 'done' && resumesQueued > 0)) && (
+            <div className="rounded-md border border-slate-200 p-3">
+              <div className="flex items-center justify-between text-xs text-slate-700 mb-1">
+                <span className="font-semibold">Stage 2 · Resumes</span>
+                <span className="text-slate-500">
+                  {resumesDone}/{resumesQueued} · <span className="text-emerald-700">{resumesDone} done</span>
+                  {resumesFailed > 0 && <span className="text-red-700"> · {resumesFailed} failed</span>}
+                </span>
+              </div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className={`h-full transition-all duration-300 ${stage === 'resumes' ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${resumePct}%` }} />
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1">6 fetches in flight at once</div>
+            </div>
+          )}
+
+          {stage === 'done' && (
+            <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-900">
+              <strong>Done.</strong> {metaUpserted.toLocaleString()} candidates synced
+              {resumesQueued > 0 ? `, ${resumesDone} resumes downloaded.` : '.'} Close this dialog and refresh /candidates if needed.
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 whitespace-pre-wrap">
+              {error}
+            </div>
+          )}
+
+          {warnings.length > 0 && (
+            <details className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+              <summary className="cursor-pointer font-semibold">{warnings.length} warning{warnings.length === 1 ? '' : 's'}</summary>
+              <ul className="mt-1 list-disc list-inside max-h-32 overflow-y-auto">
+                {warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </details>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
+          <button onClick={onClose} disabled={running}
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40">
+            {stage === 'done' ? 'Close' : 'Cancel'}
+          </button>
+          {stage === 'idle' && (
+            <button onClick={start}
+                    className="text-xs font-semibold bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 inline-flex items-center gap-1">
+              <UploadCloud size={12} /> Start sync
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

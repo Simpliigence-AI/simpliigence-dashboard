@@ -43,6 +43,8 @@ const env = (name: string) => Deno.env.get(name);
 
 // @ts-expect-error esm.sh resolves at runtime in Deno
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// @ts-expect-error esm.sh — JSZip for in-memory DOCX text extraction
+import JSZip from 'https://esm.sh/jszip@3.10.1';
 
 const ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY');
 const SUPABASE_URL = env('SUPABASE_URL')!;
@@ -71,6 +73,40 @@ interface ParsedResult {
   yearsExperience?: number;
   skills: string[];
   summary: string;
+}
+
+/** Extract plain text from a .docx file in memory. A docx is a zip whose
+ *  word/document.xml contains the body — every `<w:t>` element holds a run
+ *  of text. We pull those out, preserve paragraph breaks for new <w:p>, and
+ *  ignore the rest of the markup.
+ *  Returns "" if the file is malformed (caller falls back to "unsupported"). */
+async function docxToText(buf: ArrayBuffer): Promise<string> {
+  try {
+    const zip = await JSZip.loadAsync(buf);
+    const docXml = await zip.file('word/document.xml')?.async('string');
+    if (!docXml) return '';
+    // Split on </w:p> so each paragraph becomes its own line, then strip tags.
+    return docXml
+      .split(/<\/w:p>/i)
+      .map((para: string) => para
+        .replace(/<w:tab\b[^>]*\/?>/gi, '\t')
+        .replace(/<w:br\b[^>]*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+      )
+      .join('\n')
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
+  } catch (e) {
+    console.warn('[parse-resume] docxToText failed:', (e as Error).message);
+    return '';
+  }
 }
 
 function toBase64(buf: ArrayBuffer): string {
@@ -199,7 +235,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('ANTHROPIC_API_KEY secret is not set on this Supabase project');
     }
 
-    const { candidateId } = await req.json() as { candidateId?: string };
+    const { candidateId, forceIdentity } = await req.json() as { candidateId?: string; forceIdentity?: boolean };
     if (!candidateId) {
       return new Response(JSON.stringify({ error: 'candidateId is required' }), { status: 400, headers: corsHeaders });
     }
@@ -228,8 +264,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const fileName = (cand.resume_filename || cand.resume_url).toLowerCase();
-    const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+    const isPdf  = file.type === 'application/pdf' || fileName.endsWith('.pdf');
     const isText = file.type.startsWith('text/') || fileName.endsWith('.txt');
+    const isDocx =
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      || fileName.endsWith('.docx');
+    const isOldDoc = file.type === 'application/msword' || fileName.endsWith('.doc');
 
     // 3. Build Claude message
     let userContent: unknown;
@@ -239,14 +279,28 @@ Deno.serve(async (req: Request) => {
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
         { type: 'text', text: 'Parse this resume per the instructions and return the JSON.' },
       ];
+    } else if (isDocx) {
+      const text = await docxToText(await file.arrayBuffer());
+      if (!text || text.length < 30) {
+        return new Response(JSON.stringify({
+          error: 'Could not read text from this .docx — please re-export as PDF and re-upload.',
+        }), { status: 400, headers: corsHeaders });
+      }
+      userContent = [
+        { type: 'text', text: `Resume text follows (extracted from .docx). Parse per the instructions and return the JSON.\n\n---\n${text}` },
+      ];
     } else if (isText) {
       const text = await file.text();
       userContent = [
         { type: 'text', text: `Resume text follows. Parse per the instructions and return the JSON.\n\n---\n${text}` },
       ];
+    } else if (isOldDoc) {
+      return new Response(JSON.stringify({
+        error: 'Legacy .doc files are not supported — please re-export as PDF or .docx and re-upload.',
+      }), { status: 400, headers: corsHeaders });
     } else {
       return new Response(JSON.stringify({
-        error: `Unsupported file type "${file.type || 'unknown'}". Please upload PDF or .txt.`,
+        error: `Unsupported file type "${file.type || 'unknown'}". Please upload PDF, .docx, or .txt.`,
       }), { status: 400, headers: corsHeaders });
     }
 
@@ -306,17 +360,42 @@ Deno.serve(async (req: Request) => {
     const location = typeof parsed.location === 'string' ? parsed.location.trim() : '';
     const yearsExperience = typeof parsed.yearsExperience === 'number' ? parsed.yearsExperience : undefined;
 
-    // 6. Write back — skills + summary always; identity fields only when blank.
+    // 6. Write back — skills + summary always; identity fields only when blank,
+    //    placeholder-looking, or when caller passes forceIdentity=true.
     const blank = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
-    // Treat "placeholder" candidate names from bulk-import (e.g. the filename
-    // we inserted before parsing) as blank so the parser overwrites them.
-    const namePlaceholder = (() => {
-      const n = (cand.name || '').trim().toLowerCase();
+
+    /** Strip a filename of its extension and replace separators with spaces. */
+    const filenameRoot = (fn: string | null | undefined): string => {
+      if (!fn) return '';
+      return fn
+        .replace(/\.(pdf|txt|docx?|rtf)$/i, '')
+        .replace(/[._\-+]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+    };
+    const fileRoot = filenameRoot(cand.resume_filename);
+
+    /** Heuristics that mark a value as "placeholder" — safe to overwrite. */
+    const isNamePlaceholder = (() => {
+      const n = (cand.name || '').trim();
       if (!n) return true;
-      if (n.endsWith('.pdf') || n.endsWith('.txt') || n.endsWith('.docx')) return true;
-      if (n.startsWith('imported resume') || n.startsWith('candidate ')) return true;
+      const nl = n.toLowerCase();
+      if (nl.endsWith('.pdf') || nl.endsWith('.txt') || nl.endsWith('.docx') || nl.endsWith('.rtf')) return true;
+      if (nl.startsWith('imported resume') || nl.startsWith('candidate ') || nl === 'unnamed') return true;
+      // Bulk-import seeds name = filename-without-ext. Detect that by comparing
+      // against the resume_filename root (separators normalised). If they
+      // match, the name was never hand-typed.
+      if (fileRoot && filenameRoot(n) === fileRoot) return true;
+      // Names that contain common resume keywords are placeholders too.
+      if (/\b(resume|cv|profile|naukri|linkedin)\b/i.test(n)) return true;
+      // Names with NO spaces but many hyphens/underscores are likely filenames
+      if (!/\s/.test(n) && /[._\-]/.test(n)) return true;
       return false;
     })();
+
+    const shouldWrite = (existing: unknown) =>
+      forceIdentity || blank(existing);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updates: Record<string, any> = {
@@ -324,14 +403,14 @@ Deno.serve(async (req: Request) => {
       profile_summary: summary,
       parsed_at: new Date().toISOString(),
     };
-    if (fullName && namePlaceholder) updates.name = fullName;
-    if (email && blank(cand.email)) updates.email = email;
-    if (phone && blank(cand.phone)) updates.phone = phone;
-    if (linkedinUrl && blank(cand.linkedin_url)) updates.linkedin_url = linkedinUrl;
-    if (location && blank(cand.location)) updates.location = location;
-    // Use "experience" column to hold the current title if it's a placeholder
-    // (it's free-text, originally for years). Only fill when blank.
-    if (currentTitle && blank(cand.experience)) updates.experience = currentTitle;
+    // Name: write if forced, blank, or matches the filename root.
+    if (fullName && (forceIdentity || isNamePlaceholder)) updates.name = fullName;
+    if (email && shouldWrite(cand.email)) updates.email = email;
+    if (phone && shouldWrite(cand.phone)) updates.phone = phone;
+    if (linkedinUrl && shouldWrite(cand.linkedin_url)) updates.linkedin_url = linkedinUrl;
+    if (location && shouldWrite(cand.location)) updates.location = location;
+    // Use "experience" column to hold the current title if blank/forced.
+    if (currentTitle && shouldWrite(cand.experience)) updates.experience = currentTitle;
 
     const parsedAt = updates.parsed_at;
     const { error: updErr } = await supabase

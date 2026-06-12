@@ -865,7 +865,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 {uploading ? 'Uploading…' : 'Upload CV'}
                 <input
                   type="file"
-                  accept=".pdf,.txt,application/pdf,text/plain"
+                  accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   className="hidden"
                   onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
                   disabled={uploading || parsing}
@@ -987,7 +987,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                         {c.resume_url ? 'Replace' : 'Upload PDF / .txt'}
                         <input
                           type="file"
-                          accept=".pdf,.txt,application/pdf,text/plain"
+                          accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           className="hidden"
                           onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
                           disabled={uploading || parsing}
@@ -1330,7 +1330,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
               <input
                 type="file"
                 multiple
-                accept=".pdf,.txt,application/pdf,text/plain"
+                accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 className="hidden"
                 onChange={(e) => handleDrop(e.target.files)}
               />

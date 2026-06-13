@@ -115,8 +115,12 @@ export interface StaffingCandidate {
   id: string;
   requisition_id: string;
   name: string;
-  /** e.g. "12 yrs" or numeric years — free-text so users can type "8.5" or "Sr" */
+  /** Job title from Zoho (e.g. "Salesforce Developer", "Fresher") — kept for context. */
   experience: string;
+  /** Years of experience (numeric). Populated by the Zoho sync from
+   *  Experience_in_Years if present, else computed by summing Experience_Details
+   *  work durations. Null when no work history is available. */
+  years_of_experience?: number | null;
   /** Current lifecycle stage. Changes are NOT audited by default. */
   stage: CandidateStage;
   /** ISO date when the candidate was first submitted */

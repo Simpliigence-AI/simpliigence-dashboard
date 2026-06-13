@@ -14,8 +14,11 @@
  * Required secrets:
  *   ZOHO_CLIENT_ID                — OAuth app client id (shared w/ other Zoho fns)
  *   ZOHO_CLIENT_SECRET            — OAuth app client secret (shared)
- *   ZOHO_RECRUIT_REFRESH_TOKEN    — self-client refresh token with
- *                                   ZohoRecruit.modules.candidates.READ scope
+ *   ZOHO_RECRUIT_REFRESH_TOKEN    — self-client refresh token. Scopes (Zoho
+ *                                   Recruit uses SINGULAR module names):
+ *                                     ZohoRecruit.modules.candidate.READ
+ *                                     ZohoRecruit.modules.attachment.READ
+ *                                   Or simpler: ZohoRecruit.modules.ALL
  *
  * Optional:
  *   ZOHO_DC                       — data centre suffix ("in"/"com"/"eu"). Default "in".

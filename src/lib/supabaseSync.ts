@@ -799,27 +799,50 @@ export async function fetchIndiaStaffing(): Promise<{
   history: StaffingHistoryEntry[];
   candidates: StaffingCandidate[];
 } | null> {
+  // Candidate column list — DELIBERATELY excludes `zoho_raw` (~2KB/row of
+  // raw Zoho payload) to keep response size under PostgREST's limits.
+  const CAND_COLS = `
+    id, requisition_id, name, experience, stage, submit_date, feedback,
+    source, email, phone, owning_ta_email, linkedin_url, location,
+    resume_url, resume_filename, resume_uploaded_at, skills, profile_summary,
+    parsed_at, zoho_candidate_id, created_at, updated_at,
+    referrer_email, referrer_name, referred_at,
+    availability, expected_salary,
+    current_employer, current_ctc_inr, expected_ctc_inr,
+    notice_period_days, willing_to_relocate,
+    latest_call_summary, latest_call_at
+  `;
+
+  /** Supabase's PostgREST caps each response at 1000 rows regardless of
+   *  Range header. With ~5000 candidates synced from Zoho, we have to
+   *  paginate client-side. Loop in 1000-row chunks until we get a short page. */
+  async function fetchAllCandidates(): Promise<{ data: unknown[]; error: { message: string } | null }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const all: any[] = [];
+    const pageSize = 1000;
+    let offset = 0;
+    while (true) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await supabase
+        .from('india_staffing_candidates')
+        .select(CAND_COLS)
+        .range(offset, offset + pageSize - 1);
+      if (error) return { data: all, error };
+      const rows = data || [];
+      all.push(...rows);
+      if (rows.length < pageSize) break;  // last page
+      offset += pageSize;
+      if (offset >= 50_000) break;        // safety cap
+    }
+    return { data: all, error: null };
+  }
+
   const [acctRes, reqRes, statusRes, histRes, candRes] = await Promise.all([
     supabase.from('india_staffing_accounts').select('*'),
     supabase.from('india_staffing_requisitions').select('*'),
     supabase.from('india_staffing_statuses').select('*'),
     supabase.from('india_staffing_history').select('*'),
-    // Explicit column list — DELIBERATELY excludes `zoho_raw` (the full Zoho
-    // candidate payload, ~2KB/row JSONB). The client never uses it; pulling
-    // it for thousands of rows blows past the PostgREST response-size limit
-    // and the page lands on 0 candidates. If you ever need it: select it
-    // on-demand per candidate via .eq('id', x).
-    supabase.from('india_staffing_candidates').select(`
-      id, requisition_id, name, experience, stage, submit_date, feedback,
-      source, email, phone, owning_ta_email, linkedin_url, location,
-      resume_url, resume_filename, resume_uploaded_at, skills, profile_summary,
-      parsed_at, zoho_candidate_id, created_at, updated_at,
-      referrer_email, referrer_name, referred_at,
-      availability, expected_salary,
-      current_employer, current_ctc_inr, expected_ctc_inr,
-      notice_period_days, willing_to_relocate,
-      latest_call_summary, latest_call_at
-    `).range(0, 9999),  // up to 10k rows; we have ~5k currently
+    fetchAllCandidates(),
   ]);
   if (acctRes.error || reqRes.error || statusRes.error) {
     console.warn('[supabase] fetch india staffing failed:', acctRes.error?.message, reqRes.error?.message, statusRes.error?.message);

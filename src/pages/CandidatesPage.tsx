@@ -577,20 +577,24 @@ function CandidateCard({ c, requisitionLabel, onOpen }: {
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-slate-900 truncate group-hover:text-primary transition-colors">
-              {c.name || '(unnamed)'}
+            <div className="flex items-baseline gap-2 min-w-0">
+              <div className="text-sm font-bold text-slate-900 truncate group-hover:text-primary transition-colors">
+                {c.name || '(unnamed)'}
+              </div>
+              {typeof c.years_of_experience === 'number' && c.years_of_experience > 0 && (
+                <span
+                  className="flex-shrink-0 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-md whitespace-nowrap"
+                  title="Years of experience"
+                >
+                  {c.years_of_experience}y
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
               <Briefcase size={11} className="text-slate-400" />
               {titleLine}
             </div>
           </div>
-          <span
-            className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full text-white whitespace-nowrap"
-            style={{ backgroundColor: stageColor }}
-          >
-            {c.stage}
-          </span>
         </div>
 
         {/* Location + requisition */}

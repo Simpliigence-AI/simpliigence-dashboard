@@ -210,6 +210,7 @@ function candidateToRow(c: StaffingCandidate) {
     requisition_id: c.requisition_id ? c.requisition_id : null,
     name: c.name,
     experience: c.experience,
+    years_of_experience: c.years_of_experience ?? null,
     stage: c.stage,
     submit_date: c.submit_date,
     feedback: c.feedback,
@@ -242,6 +243,7 @@ function rowToCandidate(row: any): StaffingCandidate {
     requisition_id: row.requisition_id ?? '',
     name: row.name,
     experience: row.experience ?? '',
+    years_of_experience: row.years_of_experience ?? null,
     stage: row.stage ?? 'Submitted',
     submit_date: row.submit_date ?? '',
     feedback: row.feedback ?? '',
@@ -803,7 +805,7 @@ export async function fetchIndiaStaffing(): Promise<{
   // raw Zoho payload) to keep response size under PostgREST's limits.
   // One line so PostgREST sees a clean comma-separated list (template-literal
   // whitespace + newlines can confuse the query parser in some setups).
-  const CAND_COLS = 'id,requisition_id,name,experience,stage,submit_date,feedback,source,email,phone,owning_ta_email,linkedin_url,location,resume_url,resume_filename,resume_uploaded_at,skills,profile_summary,parsed_at,zoho_candidate_id,created_at,updated_at,referrer_email,referrer_name,referred_at,availability,expected_salary,current_employer,current_ctc_inr,expected_ctc_inr,notice_period_days,willing_to_relocate,latest_call_summary,latest_call_at';
+  const CAND_COLS = 'id,requisition_id,name,experience,years_of_experience,stage,submit_date,feedback,source,email,phone,owning_ta_email,linkedin_url,location,resume_url,resume_filename,resume_uploaded_at,skills,profile_summary,parsed_at,zoho_candidate_id,created_at,updated_at,referrer_email,referrer_name,referred_at,availability,expected_salary,current_employer,current_ctc_inr,expected_ctc_inr,notice_period_days,willing_to_relocate,latest_call_summary,latest_call_at';
 
   /** Supabase's PostgREST caps each response at 1000 rows regardless of
    *  Range header. With ~5000 candidates synced from Zoho, we paginate

@@ -20,12 +20,14 @@
  * Data flow: useAccountStore. Writes Supabase via db.upsert*; realtime
  * subscription keeps other tabs/browsers fresh.
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Plus, Trash2, Save, X, ChevronDown, ChevronRight, AlertTriangle, Users,
   Calendar, Briefcase, CheckCircle2, Circle, PauseCircle, XCircle, Clock,
+  Sparkles, RefreshCw, Loader2,
 } from 'lucide-react';
 import { Card } from '../components/ui';
+import { runAccountBriefing, type AccountBriefing } from '../lib/claudeQuery';
 import { UserPicker } from '../components/UserPicker';
 import { TaIdentity } from '../components/TaIdentity';
 import { useAuthStore } from '../store/useAuthStore';
@@ -69,6 +71,12 @@ export default function AccountsPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<Record<string, AccountTab>>({});
   const [adding, setAdding] = useState(false);
+
+  // AI briefing state — Claude reads accounts + connects + actions + client
+  // contacts and produces a daily operator briefing. Cached for the day.
+  const [briefing, setBriefing] = useState<AccountBriefing | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+  const [briefingExpanded, setBriefingExpanded] = useState(true);
 
   // ── Precompute per-account derived data (last connects, open actions, team) ──
   type Derived = {
@@ -139,6 +147,43 @@ export default function AccountsPage() {
     [actions],
   );
 
+  // Fast lookup map: account id → name (used by the briefing alert pills)
+  const accountNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const a of accounts) m[a.id] = a.name;
+    return m;
+  }, [accounts]);
+
+  // Briefing fetch on mount; cached for the calendar day, so subsequent
+  // page loads are free. Re-runs when the underlying data meaningfully
+  // changes (count changes => add/remove of accounts/connects/actions).
+  useEffect(() => {
+    let cancelled = false;
+    async function load(force = false) {
+      if (accounts.length === 0) return;
+      setBriefingLoading(true);
+      try {
+        const b = await runAccountBriefing({ accounts, connects, actions }, { forceRefresh: force });
+        if (!cancelled) setBriefing(b);
+      } finally {
+        if (!cancelled) setBriefingLoading(false);
+      }
+    }
+    load(false);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts.length, connects.length, actions.length]);
+
+  const regenerateBriefing = useCallback(async () => {
+    setBriefingLoading(true);
+    try {
+      const b = await runAccountBriefing({ accounts, connects, actions }, { forceRefresh: true });
+      setBriefing(b);
+    } finally {
+      setBriefingLoading(false);
+    }
+  }, [accounts, connects, actions]);
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Hero header — gradient banner with stat strip */}
@@ -165,6 +210,85 @@ export default function AccountsPage() {
           <HeroStat label="Open actions" value={totalOpenActions} tone={totalOpenActions > 0 ? 'amber' : 'mute'} />
           <HeroStat label="Stale" value={staleCount} tone={staleCount > 0 ? 'red' : 'mute'} subtitle={`>${STALE_CONNECT_DAYS}d`} />
         </div>
+      </div>
+
+      {/* AI Account Management Briefing — Claude looks at stale accounts,
+          overdue actions, and hot/warm contacts and gives the team a
+          prioritized "what to act on" summary. Cached for the day. */}
+      <div className="mb-5 rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-100">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles size={15} className="text-violet-600 flex-shrink-0" />
+            <span className="text-sm font-bold text-slate-800">Account Management Briefing</span>
+            <span className="bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">AI</span>
+            {briefing?.generatedAt && (
+              <span className="text-[10px] text-slate-400 truncate">
+                · updated {new Date(briefing.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={regenerateBriefing}
+              disabled={briefingLoading}
+              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors"
+              title="Regenerate briefing with the latest data"
+            >
+              {briefingLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+              {briefingLoading ? 'Generating' : 'Regenerate'}
+            </button>
+            <button
+              onClick={() => setBriefingExpanded((v) => !v)}
+              className="p-1 rounded text-slate-400 hover:bg-slate-100"
+              title={briefingExpanded ? 'Collapse' : 'Expand'}
+            >
+              {briefingExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          </div>
+        </div>
+        {briefingExpanded && (
+          <div className="px-4 py-3">
+            {briefingLoading && !briefing && (
+              <div className="text-xs text-slate-400 italic flex items-center gap-2">
+                <Loader2 size={12} className="animate-spin" /> Claude is reviewing your accounts...
+              </div>
+            )}
+            {briefing && (
+              <div className="text-[12px] leading-relaxed text-slate-700 [&_strong]:text-slate-900 [&_em]:text-slate-500">
+                {briefing.markdown.split('\n').map((line, i) => {
+                  const trimmed = line.trim();
+                  if (!trimmed) return null;
+                  const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ');
+                  const content = isBullet ? trimmed.slice(2) : trimmed;
+                  const parts = content.split(/(\*\*[^*]+\*\*|_[^_]+_)/).filter(Boolean);
+                  return (
+                    <p key={i} className={`${isBullet ? 'ml-4 before:content-["•"] before:mr-2 before:text-violet-400' : ''} my-1`}>
+                      {parts.map((part, j) => {
+                        if (part.startsWith('**') && part.endsWith('**')) return <strong key={j}>{part.slice(2, -2)}</strong>;
+                        if (part.startsWith('_') && part.endsWith('_')) return <em key={j}>{part.slice(1, -1)}</em>;
+                        return <span key={j}>{part}</span>;
+                      })}
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+            {briefing?.alerts && briefing.alerts.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-violet-100 flex flex-wrap gap-1.5">
+                {briefing.alerts.map((a, i) => {
+                  const name = accountNameById[a.accountId];
+                  if (!name) return null;
+                  const bg = a.severity === 'high' ? 'bg-red-100 text-red-800' : a.severity === 'medium' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800';
+                  return (
+                    <span key={i} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${bg}`} title={`${name} — ${a.message}`}>
+                      <AlertTriangle size={10} /> {name}: {a.message}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Filters */}

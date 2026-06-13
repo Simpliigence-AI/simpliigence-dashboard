@@ -410,14 +410,15 @@ export const useStaffingStore = create<StaffingState>()(
     }),
     {
       name: 'simpliigence-staffing',
-      version: 8,
-      /** v8 — DO NOT persist `candidates` (or `history`) to localStorage.
+      version: 9,
+      /** v9 — never let persisted state clobber candidates/history.
        *
-       *  We now have ~5000 candidates synced from Zoho Recruit. Persisting
-       *  them all serializes to ~5 MB which hits the localStorage quota and
-       *  silently truncates the saved state — the UI ends up capped at the
-       *  truncated count (~1000) on every subsequent load. Solution: skip
-       *  the bulk arrays in persist, refetch from Supabase each load. */
+       *  v8 added partialize so NEW saves skip candidates, but the
+       *  migrate-from-v7 path still restored 1000 stale candidates on
+       *  every load — racing the fresh Supabase fetch and overwriting
+       *  4800 with 1000. v9 fixes this two ways: migrate returns []
+       *  for candidates+history, and `merge` discards any persisted
+       *  candidates/history regardless of version. */
       partialize: (state: StaffingState) => ({
         accounts: state.accounts,
         requisitions: state.requisitions,
@@ -425,6 +426,13 @@ export const useStaffingStore = create<StaffingState>()(
         // candidates + history intentionally excluded
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      merge: (persisted: any, current: StaffingState) => ({
+        ...current,
+        ...(persisted || {}),
+        candidates: current.candidates,
+        history: current.history,
+      }),
       // NON-DESTRUCTIVE migrate: preserves every existing requisition/status/account;
       // only fills in new fields with safe defaults and bumps 2025 → 2026 on date fields.
       // v7 adds `candidates` field — defaults to [].
@@ -466,8 +474,8 @@ export const useStaffingStore = create<StaffingState>()(
           accounts: upgradedAccounts,
           requisitions: upgradedReqs,
           statuses: upgradedStatuses,
-          history: persisted.history || [],
-          candidates: persisted.candidates || [],
+          history: [],
+          candidates: [],
         };
       },
     },

@@ -141,7 +141,6 @@ function mapCandidate(r: any) {
     stage: mapStage(str(r.Candidate_Stage) || str(r.Candidate_Status)),
     submit_date: (str(r.Date_of_Submission) || str(r.Created_Time) || new Date().toISOString()).slice(0, 10),
     feedback: '',
-    zoho_raw: r,
   };
 }
 
@@ -190,42 +189,46 @@ Deno.serve(async (req: Request) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mapped = rows.map((r) => mapCandidate(r as any));
 
-      // Dedup against existing rows in our DB by zoho_candidate_id.
-      // We need an id (TEXT PK on our table) for upsert. For new rows we
-      // generate nanoid; for existing rows we keep the existing id.
+      // Existing-row lookup: keeps original id + created_at for updates so
+      // the audit trigger sees only the columns we actually changed.
       const zohoIds = mapped.map((m) => m.zoho_candidate_id);
       const { data: existing } = await supabase
         .from('india_staffing_candidates')
-        .select('id, zoho_candidate_id')
+        .select('id, zoho_candidate_id, created_at')
         .in('zoho_candidate_id', zohoIds);
-      const existingMap = new Map<string, string>(
-        (existing || []).map((e: { id: string; zoho_candidate_id: string }) => [e.zoho_candidate_id, e.id]),
+      const existingMap = new Map<string, { id: string; created_at: string }>(
+        (existing || []).map((e: { id: string; zoho_candidate_id: string; created_at: string }) =>
+          [e.zoho_candidate_id, { id: e.id, created_at: e.created_at }]
+        ),
       );
 
       const now = new Date().toISOString();
-      const rowsForUpsert = mapped.map((m) => ({
-        id: existingMap.get(m.zoho_candidate_id) || nanoid(),
-        requisition_id: '',                   // Zoho candidates aren't tied to OUR requisitions
-        experience: m.experience,
-        stage: m.stage,
-        submit_date: m.submit_date,
-        feedback: m.feedback,
-        source: m.source,
-        email: m.email,
-        phone: m.phone,
-        name: m.name,
-        location: m.location,
-        linkedin_url: m.linkedin_url,
-        zoho_candidate_id: m.zoho_candidate_id,
-        zoho_raw: m.zoho_raw,
-        created_at: now,
-        updated_at: now,
-        updated_by: 'zoho-recruit-sync',
-      }));
+      const rowsForUpsert = mapped.map((m) => {
+        const existingRow = existingMap.get(m.zoho_candidate_id);
+        return {
+          id: existingRow?.id || nanoid(),
+          requisition_id: '',
+          experience: m.experience,
+          stage: m.stage,
+          submit_date: m.submit_date,
+          feedback: m.feedback,
+          source: m.source,
+          email: m.email,
+          phone: m.phone,
+          name: m.name,
+          location: m.location,
+          linkedin_url: m.linkedin_url,
+          zoho_candidate_id: m.zoho_candidate_id,
+          created_at: existingRow?.created_at || now,
+          updated_at: now,
+          updated_by: 'zoho-recruit-sync',
+        };
+      });
 
-      // Upsert in chunks of 100 to stay under PostgREST payload limits
-      for (let j = 0; j < rowsForUpsert.length; j += 100) {
-        const chunk = rowsForUpsert.slice(j, j + 100);
+      // Chunk size 25 — keeps each upsert + its 25 audit-trigger writes
+      // comfortably under Postgres' statement_timeout.
+      for (let j = 0; j < rowsForUpsert.length; j += 25) {
+        const chunk = rowsForUpsert.slice(j, j + 25);
         const { error } = await supabase
           .from('india_staffing_candidates')
           .upsert(chunk, { onConflict: 'zoho_candidate_id' });

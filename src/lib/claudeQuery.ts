@@ -30,6 +30,9 @@ import type {
 } from '../types/staffing';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import { STALE_CONNECT_DAYS } from '../types/accountMgmt';
+import type { Vendor, VendorOutreach } from '../types/vendor';
+import type { StaffingCandidate } from '../types/staffing';
+import type { TADailyLogEntry } from '../types/taLog';
 import { supabase } from './supabase';
 import { deriveEmployeeSummaries, deriveProjectSummaries } from './parseSpreadsheet';
 import { computeStageTiming } from './staffingAlerts';
@@ -194,13 +197,30 @@ You answer questions about the team's forecasted hours, project allocation, and 
 Accuracy rules (non-negotiable):
 - Compute every number by actually summing values in the data. Do not estimate.
 - If the answer cannot be derived from the data, say exactly that — never invent employee names, project names, roles, or numbers.
-- If the question is about India Staffing, Zoho project status, or general financials beyond the fields described below, reply that the Smart Query currently doesn't see that tab's data.
+- Only the data sections listed below are visible. Topics covered: forecasted hours, project allocation, hiring needs, account management (accounts/connects/actions), vendors and outreach, India candidates pipeline, and TA daily log activity. For India Staffing reqs/statuses or Zoho project status, route the user to the India Demand tab's Smart Query instead.
 
 The data object has these top-level sections:
 - meta: year, capacity per person per month (160 hours), totals.
 - employees: per-person forecast (role, rate, monthlyHours Jan..Dec, totalHours, projects).
 - projects: per-project forecast (teamSize, monthlyHours, totalHours, loadedCostUSD).
 - hiringForecast: the Hiring Forecast tab — demand vs capacity per month × role, with hires needed.
+- accountManagement (when present): client accounts. \`totals\` summarizes counts of active/stale accounts, connects in last 7d, open + overdue action items. \`accounts\` lists each active account with sales/delivery owners, lastSalesConnect/lastDeliveryConnect dates, openActionCount, overdueActionCount, isStale. \`openActions\` lists every open action item with title, owner, dueDate, overdue flag, and accountName.
+- vendors (when present): vendor companies + recent outreach. \`totals\` is counts (active, outreach last 7d split by sent/replied/bounced). \`list\` has companyName, spocName, spocEmail, skills, active.
+- candidates (when present): India staffing candidate pipeline. \`totals\` = total/activeInFunnel/parsedLast7d/withResume/withLinkedIn. \`stageCounts\` is candidates per stage (Submitted/Screening/Interview Scheduled/etc.). \`sources\` is top 10 sources by count.
+- taDailyLog (when present): recruiter activity log. \`totals\` = entries + minutes in last 7d + unique TAs. \`topTas\` = top 10 TAs by entry count with their email/entries/minutes.
+
+How to answer ACCOUNT MANAGEMENT questions:
+- "Stale accounts" = isStale=true. Always name them. Mention how many days since last connect when reasoning about urgency.
+- "Overdue actions" = action items where overdue=true. List them with title, owner, dueDate, account.
+- "Who owns X" = use salesOwner / deliveryOwner from the account. If null, say "unassigned" — that's a leadership signal worth flagging.
+
+How to answer VENDOR / OUTREACH questions:
+- Reply rate = repliedLast7d / outreachLast7d × 100 if outreachLast7d > 0.
+- A vendor with active=true but no recent outreach is a re-engagement candidate.
+
+How to answer CANDIDATE PIPELINE questions:
+- Funnel health = activeInFunnel / total ratio. Stage drop-offs are visible via stageCounts.
+- "Recently parsed" = parsedLast7d. These have AI-extracted skills + summary on file.
 
 How to answer HIRING / CAPACITY-GAP questions (use hiringForecast.gapRows):
 - The field "hiresNeeded" on each gap row is the per-month, per-role number of FTEs to hire to close that month's gap. Demand fluctuates month-to-month.
@@ -305,10 +325,162 @@ function parseClaudeJson(text: string): ParsedResponse | null {
 
 /* ── Main entry point ───────────────────────────────────────────────── */
 
+/** Extra summary data passed to Smart Query so Claude can answer questions
+ *  about the modules built after the original forecast cockpit (Account
+ *  Management, Vendors, Candidates, TA Daily Log). Send SUMMARIES, not raw
+ *  rows — keeps the prompt under a few KB. */
+export interface SmartQueryExtras {
+  accounts?: Account[];
+  accountConnects?: AccountConnect[];
+  accountActions?: AccountActionItem[];
+  vendors?: Vendor[];
+  vendorOutreach?: VendorOutreach[];
+  candidates?: StaffingCandidate[];
+  taDailyLog?: TADailyLogEntry[];
+}
+
+function buildExtrasContext(extras: SmartQueryExtras) {
+  const out: Record<string, unknown> = {};
+  const today = new Date().toISOString().slice(0, 10);
+  const cutoff7d = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const cutoff7dDate = cutoff7d.slice(0, 10);
+
+  // ── Account Management ──
+  if (extras.accounts && extras.accounts.length > 0) {
+    const accts = extras.accounts;
+    const connects = extras.accountConnects || [];
+    const actions = extras.accountActions || [];
+    const active = accts.filter((a) => a.status === 'active');
+    const staleCutoff = Date.now() - STALE_CONNECT_DAYS * 86_400_000;
+
+    const accountSummaries = active.map((a) => {
+      const cs = connects.filter((c) => c.accountId === a.id);
+      const lastSales = cs.filter((c) => c.connectType === 'sales')
+        .reduce((latest: string | null, c) => (!latest || c.meetingDate > latest ? c.meetingDate : latest), null);
+      const lastDelivery = cs.filter((c) => c.connectType === 'delivery')
+        .reduce((latest: string | null, c) => (!latest || c.meetingDate > latest ? c.meetingDate : latest), null);
+      const staleS = !lastSales || Date.parse(lastSales) < staleCutoff;
+      const staleD = !lastDelivery || Date.parse(lastDelivery) < staleCutoff;
+      const openA = actions.filter((x) => x.accountId === a.id && (x.status === 'open' || x.status === 'in_progress'));
+      const overdueA = openA.filter((x) => x.dueDate && x.dueDate < today);
+      return {
+        name: a.name,
+        status: a.status,
+        salesOwner: a.salesOwnerEmail || null,
+        deliveryOwner: a.deliveryOwnerEmail || null,
+        industry: a.industry || null,
+        lastSalesConnect: lastSales,
+        lastDeliveryConnect: lastDelivery,
+        isStale: staleS || staleD,
+        openActionCount: openA.length,
+        overdueActionCount: overdueA.length,
+      };
+    });
+
+    out.accountManagement = {
+      totals: {
+        total: accts.length,
+        active: active.length,
+        stale: accountSummaries.filter((a) => a.isStale).length,
+        connectsLast7d: connects.filter((c) => c.meetingDate >= cutoff7dDate).length,
+        openActions: actions.filter((a) => a.status === 'open' || a.status === 'in_progress').length,
+        overdueActions: actions.filter((a) =>
+          (a.status === 'open' || a.status === 'in_progress') && a.dueDate && a.dueDate < today,
+        ).length,
+      },
+      accounts: accountSummaries,
+      openActions: actions
+        .filter((a) => a.status === 'open' || a.status === 'in_progress')
+        .map((a) => ({
+          title: a.title,
+          owner: a.ownerEmail || null,
+          dueDate: a.dueDate,
+          overdue: !!(a.dueDate && a.dueDate < today),
+          accountName: accts.find((acc) => acc.id === a.accountId)?.name || 'Unknown',
+        })),
+    };
+  }
+
+  // ── Vendors + outreach ──
+  if (extras.vendors && extras.vendors.length > 0) {
+    const vendors = extras.vendors;
+    const outreach = extras.vendorOutreach || [];
+    const recent = outreach.filter((o) => o.sentAt >= cutoff7d);
+    out.vendors = {
+      totals: {
+        total: vendors.length,
+        active: vendors.filter((v) => v.active).length,
+        outreachLast7d: recent.length,
+        sentLast7d: recent.filter((o) => o.sendStatus === 'sent').length,
+        repliedLast7d: recent.filter((o) => o.sendStatus === 'replied').length,
+        bouncedLast7d: recent.filter((o) => o.sendStatus === 'bounced').length,
+      },
+      list: vendors.map((v) => ({
+        name: v.companyName,
+        spocName: v.spocName,
+        spocEmail: v.spocEmail,
+        skills: v.skills,
+        active: v.active,
+      })),
+    };
+  }
+
+  // ── Candidates pipeline (India) ──
+  if (extras.candidates && extras.candidates.length > 0) {
+    const cs = extras.candidates;
+    const byStage: Record<string, number> = {};
+    for (const c of cs) byStage[c.stage] = (byStage[c.stage] || 0) + 1;
+    const ACTIVE = ['Submitted', 'Screening', 'Interview Scheduled', 'Interviewed', 'Shortlisted', 'Client Round', 'Selected', 'Offer Extended', 'Offer Accepted', 'Joined'];
+    out.candidates = {
+      totals: {
+        total: cs.length,
+        activeInFunnel: cs.filter((c) => ACTIVE.includes(c.stage)).length,
+        parsedLast7d: cs.filter((c) => c.parsed_at && c.parsed_at >= cutoff7d).length,
+        withResume: cs.filter((c) => !!c.resume_url).length,
+        withLinkedIn: cs.filter((c) => !!c.linkedin_url).length,
+      },
+      stageCounts: byStage,
+      sources: Object.entries(cs.reduce<Record<string, number>>((acc, c) => {
+        const src = c.source || '(none)';
+        acc[src] = (acc[src] || 0) + 1;
+        return acc;
+      }, {})).map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+    };
+  }
+
+  // ── TA Daily Log activity ──
+  if (extras.taDailyLog && extras.taDailyLog.length > 0) {
+    const entries = extras.taDailyLog;
+    const recent = entries.filter((e) => e.logDate >= cutoff7dDate);
+    const byTa: Record<string, { entries: number; minutes: number }> = {};
+    for (const e of recent) {
+      const ta = e.taEmail || '(unknown)';
+      const row = byTa[ta] || { entries: 0, minutes: 0 };
+      row.entries += 1;
+      row.minutes += e.minutesSpent || 0;
+      byTa[ta] = row;
+    }
+    out.taDailyLog = {
+      totals: {
+        entriesLast7d: recent.length,
+        minutesLast7d: recent.reduce((s, e) => s + (e.minutesSpent || 0), 0),
+        uniqueTas: Object.keys(byTa).length,
+      },
+      topTas: Object.entries(byTa)
+        .map(([email, r]) => ({ email, entries: r.entries, minutes: r.minutes }))
+        .sort((a, b) => b.entries - a.entries)
+        .slice(0, 10),
+    };
+  }
+
+  return out;
+}
+
 export async function runClaudeQuery(
   query: string,
   assignments: ForecastAssignment[],
   hiring: HiringForecastInput,
+  extras: SmartQueryExtras = {},
 ): Promise<QueryResult> {
   const client = getClient();
   if (!client) {
@@ -316,7 +488,8 @@ export async function runClaudeQuery(
   }
 
   const dataContext = buildDataContext(assignments, hiring);
-  const dataJson = JSON.stringify(dataContext);
+  const extrasContext = buildExtrasContext(extras);
+  const dataJson = JSON.stringify({ ...dataContext, ...extrasContext });
 
   try {
     const response = await client.messages.create({

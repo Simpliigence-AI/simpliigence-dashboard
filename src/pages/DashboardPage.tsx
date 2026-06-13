@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, FolderKanban, Clock, DollarSign, Search, Sparkles, X, Loader2,
-  Globe, ArrowUpRight, History, ClipboardList,
+  Globe, ArrowUpRight, History, ClipboardList, Handshake, UserCheck,
 } from 'lucide-react';
 import {
   useForecastStore, useHiringForecastStore, usePipelineStore,
@@ -12,6 +12,8 @@ import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { useUSRosterStore } from '../store/useUSRosterStore';
 import { useOpenBenchStore } from '../store/useOpenBenchStore';
 import { useVendorStore } from '../store/useVendorStore';
+import { useAccountStore } from '../store/useAccountStore';
+import { STALE_CONNECT_DAYS } from '../types/accountMgmt';
 import { StatCard, Card } from '../components/ui';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Sensitive } from '../components/Sensitive';
@@ -19,7 +21,8 @@ import { deriveEmployeeSummaries, deriveProjectSummaries } from '../lib/parseSpr
 import { runQuery, SUGGESTED_QUERIES } from '../lib/queryEngine';
 import type { QueryResult } from '../lib/queryEngine';
 import { runClaudeQuery, getClaudeApiKey } from '../lib/claudeQuery';
-import type { HiringForecastInput } from '../lib/claudeQuery';
+import type { HiringForecastInput, SmartQueryExtras } from '../lib/claudeQuery';
+import { useTaLogStore } from '../store/useTaLogStore';
 import { computeHiringForecast } from '../lib/hiringForecastCalc';
 import { MONTHS } from '../types/forecast';
 import type { ForecastAssignment, Month } from '../types/forecast';
@@ -36,9 +39,11 @@ const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b
 function SmartQueryPanel({
   assignments,
   hiringForecast,
+  extras,
 }: {
   assignments: ForecastAssignment[];
   hiringForecast: HiringForecastInput;
+  extras: SmartQueryExtras;
 }) {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -55,7 +60,7 @@ function SmartQueryPanel({
       setLoading(true);
       setResult(null);
       try {
-        const res = await runClaudeQuery(text, assignments, hiringForecast);
+        const res = await runClaudeQuery(text, assignments, hiringForecast, extras);
         setResult(res);
       } finally {
         setLoading(false);
@@ -63,7 +68,7 @@ function SmartQueryPanel({
     } else {
       setResult(runQuery(text, assignments as any));
     }
-  }, [query, assignments, hiringForecast]);
+  }, [query, assignments, hiringForecast, extras]);
 
   const handleClear = () => {
     setQuery('');
@@ -210,6 +215,16 @@ export default function DashboardPage() {
   const usRoster = useUSRosterStore((s) => s.members);
   const benchResources = useOpenBenchStore((s) => s.resources);
   const benchUpdates = useOpenBenchStore((s) => s.updates);
+  // Account Management module — accounts, sales/delivery connects, action items
+  const accounts = useAccountStore((s) => s.accounts);
+  const accountConnects = useAccountStore((s) => s.connects);
+  const accountActions = useAccountStore((s) => s.actions);
+  // India staffing candidates pipeline
+  const candidates = useStaffingStore((s) => s.candidates);
+  // Vendor outreach + TA daily log — wired into the Smart Query data context
+  const vendors = useVendorStore((s) => s.vendors);
+  const vendorOutreach = useVendorStore((s) => s.outreach);
+  const taLogEntries = useTaLogStore((s) => s.entries);
 
   const employees = useMemo(() => deriveEmployeeSummaries(assignments), [assignments]);
   const projects = useMemo(() => deriveProjectSummaries(assignments), [assignments]);
@@ -318,6 +333,54 @@ export default function DashboardPage() {
   const usRosterTotal = usRoster.length;
   const usBenchAvailable = benchResources.filter((b) => b.available).length;
 
+  // ACCOUNT MANAGEMENT
+  const activeAccounts = useMemo(
+    () => accounts.filter((a) => a.status === 'active'),
+    [accounts],
+  );
+  const staleAccountCount = useMemo(() => {
+    const cutoff = Date.now() - STALE_CONNECT_DAYS * 86_400_000;
+    return activeAccounts.filter((a) => {
+      const cs = accountConnects.filter((c) => c.accountId === a.id);
+      const lastSales = cs.filter((c) => c.connectType === 'sales')
+        .reduce((latest: string | null, c) => (!latest || c.meetingDate > latest ? c.meetingDate : latest), null);
+      const lastDelivery = cs.filter((c) => c.connectType === 'delivery')
+        .reduce((latest: string | null, c) => (!latest || c.meetingDate > latest ? c.meetingDate : latest), null);
+      const staleS = !lastSales || Date.parse(lastSales) < cutoff;
+      const staleD = !lastDelivery || Date.parse(lastDelivery) < cutoff;
+      return staleS || staleD;
+    }).length;
+  }, [activeAccounts, accountConnects]);
+  const openActionCount = useMemo(
+    () => accountActions.filter((a) => a.status === 'open' || a.status === 'in_progress').length,
+    [accountActions],
+  );
+  const overdueActionCount = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return accountActions.filter((a) =>
+      (a.status === 'open' || a.status === 'in_progress') && a.dueDate && a.dueDate < today,
+    ).length;
+  }, [accountActions]);
+  const recentConnectCount7d = useMemo(() => {
+    const cutoff = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+    return accountConnects.filter((c) => c.meetingDate >= cutoff).length;
+  }, [accountConnects]);
+
+  // INDIA CANDIDATES PIPELINE
+  const ACTIVE_CANDIDATE_STAGES = ['Submitted', 'Screening', 'Interview Scheduled', 'Interviewed', 'Shortlisted', 'Client Round', 'Selected', 'Offer Extended', 'Offer Accepted', 'Joined'];
+  const activeCandidates = useMemo(
+    () => candidates.filter((c) => ACTIVE_CANDIDATE_STAGES.includes(c.stage)),
+    [candidates],
+  );
+  const parsedThisWeek = useMemo(() => {
+    const cutoff = Date.now() - 7 * 86_400_000;
+    return candidates.filter((c) => c.parsed_at && Date.parse(c.parsed_at) >= cutoff).length;
+  }, [candidates]);
+  const candidatesWithResume = useMemo(
+    () => candidates.filter((c) => !!c.resume_url).length,
+    [candidates],
+  );
+
   /* ── Recent Activity feed (last 14 days, cross-source) ───── */
   const recentActivity = useMemo(() => {
     type Item = { at: string; source: string; href: string; label: string; detail: string };
@@ -416,12 +479,28 @@ export default function DashboardPage() {
         { to: '/open-bench',  label: 'Open Bench' },
       ],
     },
+    {
+      key: 'accountMgmt',
+      label: 'Account Mgmt',
+      accent: 'sky',
+      icon: Handshake,
+      stats: [
+        { label: 'Active',    value: activeAccounts.length, sub: `${accounts.length} total` },
+        { label: 'Stale',     value: staleAccountCount, sub: `>${STALE_CONNECT_DAYS}d no connect` },
+        { label: 'Open Actions', value: openActionCount, sub: overdueActionCount > 0 ? `${overdueActionCount} overdue` : 'none overdue' },
+      ],
+      links: [
+        { to: '/accounts', label: 'Accounts' },
+        { to: '/vendors',  label: 'Vendors' },
+      ],
+    },
   ] as const;
 
   const accentClasses: Record<string, { bar: string; text: string; bg: string }> = {
     violet:  { bar: 'bg-violet-500',  text: 'text-violet-700',  bg: 'bg-violet-50' },
     amber:   { bar: 'bg-amber-500',   text: 'text-amber-700',   bg: 'bg-amber-50' },
     emerald: { bar: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
+    sky:     { bar: 'bg-sky-500',     text: 'text-sky-700',     bg: 'bg-sky-50' },
   };
 
   return (
@@ -431,10 +510,22 @@ export default function DashboardPage() {
         subtitle={`Live cross-section view — ${MONTHS[0]} to ${MONTHS[MONTHS.length - 1]} ${new Date().getFullYear()}`}
       />
 
-      <SmartQueryPanel assignments={assignments} hiringForecast={hiringForecast} />
+      <SmartQueryPanel
+        assignments={assignments}
+        hiringForecast={hiringForecast}
+        extras={{
+          accounts,
+          accountConnects,
+          accountActions,
+          vendors,
+          vendorOutreach,
+          candidates,
+          taDailyLog: taLogEntries,
+        }}
+      />
 
-      {/* ── Section overview: Projects · India T&M · US T&M ──────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      {/* ── Section overview: Projects · India T&M · US T&M · Account Mgmt ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         {sections.map((sec) => {
           const a = accentClasses[sec.accent];
           const Icon = sec.icon;
@@ -592,7 +683,125 @@ export default function DashboardPage() {
       </div>
 
       <AutomationActivityWidget />
+
+      {/* Account Management health + India candidates pipeline — added so
+          the home dashboard reflects the modules built since the original
+          forecast-only cockpit. */}
+      <AccountHealthAndCandidatesWidget
+        activeAccountCount={activeAccounts.length}
+        totalAccountCount={accounts.length}
+        staleAccountCount={staleAccountCount}
+        openActionCount={openActionCount}
+        overdueActionCount={overdueActionCount}
+        recentConnectCount7d={recentConnectCount7d}
+        candidatesTotal={candidates.length}
+        activeCandidateCount={activeCandidates.length}
+        parsedThisWeek={parsedThisWeek}
+        candidatesWithResume={candidatesWithResume}
+      />
     </>
+  );
+}
+
+/* ── Account Health + Candidates Pipeline widget ──────────────────────
+ * Renders two stat clusters side-by-side: account-mgmt health (active /
+ * stale / open actions / connects-this-week) and India candidates
+ * pipeline (total / in-funnel / parsed-by-Claude this week / with-resume).
+ * Cheap derived stats — no fetches. */
+function AccountHealthAndCandidatesWidget(props: {
+  activeAccountCount: number;
+  totalAccountCount: number;
+  staleAccountCount: number;
+  openActionCount: number;
+  overdueActionCount: number;
+  recentConnectCount7d: number;
+  candidatesTotal: number;
+  activeCandidateCount: number;
+  parsedThisWeek: number;
+  candidatesWithResume: number;
+}) {
+  if (props.totalAccountCount === 0 && props.candidatesTotal === 0) return null;
+  return (
+    <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
+            <Handshake size={15} />
+          </div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-sky-700">Account Mgmt Health</h3>
+          <Link to="/accounts" className="ml-auto text-[10px] font-semibold text-sky-700 hover:underline inline-flex items-center gap-0.5">
+            Accounts <ArrowUpRight size={10} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <Stat label="Active" value={props.activeAccountCount} sub={`${props.totalAccountCount} total`} />
+          <Stat
+            label="Stale"
+            value={props.staleAccountCount}
+            sub={`>${STALE_CONNECT_DAYS}d no connect`}
+            tone={props.staleAccountCount > 0 ? 'red' : 'mute'}
+          />
+          <Stat
+            label="Open Actions"
+            value={props.openActionCount}
+            sub={props.overdueActionCount > 0 ? `${props.overdueActionCount} overdue` : 'all on track'}
+            tone={props.overdueActionCount > 0 ? 'amber' : 'mute'}
+          />
+          <Stat label="Connects (7d)" value={props.recentConnectCount7d} sub="sales + delivery" />
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
+            <UserCheck size={15} />
+          </div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-700">India Candidates</h3>
+          <Link to="/candidates" className="ml-auto text-[10px] font-semibold text-indigo-700 hover:underline inline-flex items-center gap-0.5">
+            Candidates <ArrowUpRight size={10} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <Stat label="Total" value={props.candidatesTotal} sub="all-time" />
+          <Stat
+            label="In Funnel"
+            value={props.activeCandidateCount}
+            sub="active stages"
+            tone={props.activeCandidateCount > 0 ? 'sky' : 'mute'}
+          />
+          <Stat
+            label="Parsed (7d)"
+            value={props.parsedThisWeek}
+            sub="by Claude"
+            tone={props.parsedThisWeek > 0 ? 'emerald' : 'mute'}
+          />
+          <Stat label="With Resume" value={props.candidatesWithResume} sub="of total" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Small inline stat used inside Cards on the dashboard. */
+function Stat({ label, value, sub, tone = 'mute' }: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  tone?: 'mute' | 'red' | 'amber' | 'emerald' | 'sky';
+}) {
+  const toneCls: Record<typeof tone, string> = {
+    mute:    'text-slate-800',
+    red:     'text-red-700',
+    amber:   'text-amber-700',
+    emerald: 'text-emerald-700',
+    sky:     'text-sky-700',
+  };
+  return (
+    <div>
+      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className={`text-xl font-extrabold tabular-nums ${toneCls[tone]}`}>{value}</div>
+      {sub && <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>}
+    </div>
   );
 }
 

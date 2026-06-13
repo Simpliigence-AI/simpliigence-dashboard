@@ -56,8 +56,11 @@ const ACCOUNTS_BASE = `https://accounts.zoho.${ZOHO_DC}`;
 const RECRUIT_BASE  = `https://recruit.zoho.${ZOHO_DC}/recruit/v2`;
 
 const PAGE_SIZE = 200;
-const DEFAULT_PAGES_PER_INVOCATION = 5;  // ~1000 candidates / call
-const MAX_PAGES_PER_INVOCATION = 13;     // ~2600 — fits within edge-fn time budget
+// Smaller invocations sidestep supabase-js client timeouts when most
+// pages are UPDATE-heavy (re-syncing rows that already exist locally).
+// Each invocation now does ~400 candidates and finishes in ~10-15s.
+const DEFAULT_PAGES_PER_INVOCATION = 2;
+const MAX_PAGES_PER_INVOCATION = 5;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

@@ -810,29 +810,37 @@ export async function fetchIndiaStaffing(): Promise<{
    *  client-side. Logs per-page progress so the console makes the source
    *  of any truncation obvious. */
   async function fetchAllCandidates(): Promise<{ data: unknown[]; error: { message: string } | null }> {
+    // Keyset pagination over `id` (TEXT PK, always unique). The earlier
+    // offset+order('created_at') approach overlapped/skipped rows because
+    // many sync'd rows share an identical created_at — postgres tie-broke
+    // non-deterministically, so each range request returned slightly
+    // different "first 1000" rows. Keyset on the primary key dodges that.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const all: any[] = [];
     const pageSize = 1000;
-    let offset = 0;
+    let lastId: string | null = null;
     let page = 0;
     while (true) {
       page++;
-      // eslint-disable-next-line no-await-in-loop
-      const { data, error } = await supabase
+      let q = supabase
         .from('india_staffing_candidates')
         .select(CAND_COLS)
-        .order('created_at', { ascending: false })   // stable ordering across pages
-        .range(offset, offset + pageSize - 1);
+        .order('id', { ascending: true })
+        .limit(pageSize);
+      if (lastId) q = q.gt('id', lastId);
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await q;
       if (error) {
         console.warn('[candidates] page', page, 'failed:', error.message, '— have', all.length, 'rows so far');
         return { data: all, error };
       }
-      const rows = data || [];
-      console.log(`[candidates] page ${page}: ${rows.length} rows @ offset ${offset}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (data || []) as any[];
+      console.log(`[candidates] page ${page}: ${rows.length} rows (after id=${lastId ?? 'START'}) — total so far ${all.length + rows.length}`);
       all.push(...rows);
       if (rows.length < pageSize) break;
-      offset += pageSize;
-      if (offset >= 50_000) { console.warn('[candidates] hit 50k safety cap'); break; }
+      lastId = rows[rows.length - 1].id as string;
+      if (all.length >= 50_000) { console.warn('[candidates] hit 50k safety cap'); break; }
     }
     console.log(`[candidates] fetched ${all.length} total across ${page} page(s)`);
     return { data: all, error: null };

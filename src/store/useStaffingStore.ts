@@ -393,7 +393,13 @@ export const useStaffingStore = create<StaffingState>()(
         return { imported, errors };
       },
 
-      _setFromSupabase: (accounts, requisitions, statuses, history, candidates) =>
+      _setFromSupabase: (
+        accounts: StaffingAccount[],
+        requisitions: StaffingRequisition[],
+        statuses: DailyStatus[],
+        history?: StaffingHistoryEntry[],
+        candidates?: StaffingCandidate[],
+      ) =>
         set({
           accounts,
           requisitions,
@@ -404,7 +410,21 @@ export const useStaffingStore = create<StaffingState>()(
     }),
     {
       name: 'simpliigence-staffing',
-      version: 7,
+      version: 8,
+      /** v8 — DO NOT persist `candidates` (or `history`) to localStorage.
+       *
+       *  We now have ~5000 candidates synced from Zoho Recruit. Persisting
+       *  them all serializes to ~5 MB which hits the localStorage quota and
+       *  silently truncates the saved state — the UI ends up capped at the
+       *  truncated count (~1000) on every subsequent load. Solution: skip
+       *  the bulk arrays in persist, refetch from Supabase each load. */
+      partialize: (state: StaffingState) => ({
+        accounts: state.accounts,
+        requisitions: state.requisitions,
+        statuses: state.statuses,
+        // candidates + history intentionally excluded
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any,
       // NON-DESTRUCTIVE migrate: preserves every existing requisition/status/account;
       // only fills in new fields with safe defaults and bumps 2025 → 2026 on date fields.
       // v7 adds `candidates` field — defaults to [].

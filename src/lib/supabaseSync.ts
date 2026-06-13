@@ -801,39 +801,40 @@ export async function fetchIndiaStaffing(): Promise<{
 } | null> {
   // Candidate column list — DELIBERATELY excludes `zoho_raw` (~2KB/row of
   // raw Zoho payload) to keep response size under PostgREST's limits.
-  const CAND_COLS = `
-    id, requisition_id, name, experience, stage, submit_date, feedback,
-    source, email, phone, owning_ta_email, linkedin_url, location,
-    resume_url, resume_filename, resume_uploaded_at, skills, profile_summary,
-    parsed_at, zoho_candidate_id, created_at, updated_at,
-    referrer_email, referrer_name, referred_at,
-    availability, expected_salary,
-    current_employer, current_ctc_inr, expected_ctc_inr,
-    notice_period_days, willing_to_relocate,
-    latest_call_summary, latest_call_at
-  `;
+  // One line so PostgREST sees a clean comma-separated list (template-literal
+  // whitespace + newlines can confuse the query parser in some setups).
+  const CAND_COLS = 'id,requisition_id,name,experience,stage,submit_date,feedback,source,email,phone,owning_ta_email,linkedin_url,location,resume_url,resume_filename,resume_uploaded_at,skills,profile_summary,parsed_at,zoho_candidate_id,created_at,updated_at,referrer_email,referrer_name,referred_at,availability,expected_salary,current_employer,current_ctc_inr,expected_ctc_inr,notice_period_days,willing_to_relocate,latest_call_summary,latest_call_at';
 
   /** Supabase's PostgREST caps each response at 1000 rows regardless of
-   *  Range header. With ~5000 candidates synced from Zoho, we have to
-   *  paginate client-side. Loop in 1000-row chunks until we get a short page. */
+   *  Range header. With ~5000 candidates synced from Zoho, we paginate
+   *  client-side. Logs per-page progress so the console makes the source
+   *  of any truncation obvious. */
   async function fetchAllCandidates(): Promise<{ data: unknown[]; error: { message: string } | null }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const all: any[] = [];
     const pageSize = 1000;
     let offset = 0;
+    let page = 0;
     while (true) {
+      page++;
       // eslint-disable-next-line no-await-in-loop
       const { data, error } = await supabase
         .from('india_staffing_candidates')
         .select(CAND_COLS)
+        .order('created_at', { ascending: false })   // stable ordering across pages
         .range(offset, offset + pageSize - 1);
-      if (error) return { data: all, error };
+      if (error) {
+        console.warn('[candidates] page', page, 'failed:', error.message, '— have', all.length, 'rows so far');
+        return { data: all, error };
+      }
       const rows = data || [];
+      console.log(`[candidates] page ${page}: ${rows.length} rows @ offset ${offset}`);
       all.push(...rows);
-      if (rows.length < pageSize) break;  // last page
+      if (rows.length < pageSize) break;
       offset += pageSize;
-      if (offset >= 50_000) break;        // safety cap
+      if (offset >= 50_000) { console.warn('[candidates] hit 50k safety cap'); break; }
     }
+    console.log(`[candidates] fetched ${all.length} total across ${page} page(s)`);
     return { data: all, error: null };
   }
 

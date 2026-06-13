@@ -28,6 +28,9 @@ import type {
   DailyStatus,
   StaffingHistoryEntry,
 } from '../types/staffing';
+import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
+import { STALE_CONNECT_DAYS } from '../types/accountMgmt';
+import { supabase } from './supabase';
 import { deriveEmployeeSummaries, deriveProjectSummaries } from './parseSpreadsheet';
 import { computeStageTiming } from './staffingAlerts';
 import type { QueryResult } from './queryEngine';
@@ -600,6 +603,308 @@ export async function runStaffingBriefing(
     };
 
     writeCachedBriefing(briefing);
+    return briefing;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      markdown: `_AI briefing unavailable: ${msg.slice(0, 200)}_`,
+      generatedAt: new Date().toISOString(),
+      alerts: [],
+    };
+  }
+}
+
+/* ── Account Management — AI Briefing ───────────────────────────────────
+ *
+ * Claude reads the active accounts, recent sales/delivery connects, open
+ * action items, and client-contact relationship temperatures (hot/warm/
+ * cold), and produces an operator briefing for the Account Management
+ * team:
+ *   - which accounts are stale (no follow-up in 30+ days) and need outreach
+ *   - which action items are overdue, grouped by owner
+ *   - which contacts are "hot" and worth a personal touch this week
+ *   - notable risk signals or momentum across the book of business
+ *
+ * Same caching pattern as the India Staffing briefing — one Claude call
+ * per calendar day per browser. Force-refresh via the regenerate button.
+ */
+
+export interface AccountBriefing {
+  /** Markdown-formatted summary text */
+  markdown: string;
+  /** Timestamp when this briefing was generated */
+  generatedAt: string;
+  /** Machine-readable alerts → render as colored pills under the briefing */
+  alerts: Array<{
+    accountId: string;
+    severity: 'high' | 'medium' | 'info';
+    message: string;
+  }>;
+}
+
+export interface AccountBriefingInput {
+  accounts: Account[];
+  connects: AccountConnect[];
+  actions: AccountActionItem[];
+}
+
+interface ClientContactRow {
+  id: string;
+  account_id: string;
+  name: string;
+  title: string | null;
+  relationship: 'hot' | 'warm' | 'cold' | null;
+  last_contact_at: string | null;
+  notes: string | null;
+}
+
+const ACCOUNT_BRIEFING_CACHE_KEY = 'simpliigence-account-briefing-v1';
+
+function readCachedAccountBriefing(): AccountBriefing | null {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_BRIEFING_CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as AccountBriefing;
+    const today = new Date().toISOString().slice(0, 10);
+    const genDate = (cached.generatedAt || '').slice(0, 10);
+    if (genDate === today) return cached;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedAccountBriefing(b: AccountBriefing): void {
+  try { localStorage.setItem(ACCOUNT_BRIEFING_CACHE_KEY, JSON.stringify(b)); } catch { /* ignore */ }
+}
+
+function daysAgo(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / 86_400_000);
+}
+
+async function fetchClientContacts(): Promise<ClientContactRow[]> {
+  const { data, error } = await supabase
+    .from('account_client_contacts')
+    .select('id, account_id, name, title, relationship, last_contact_at, notes');
+  if (error) {
+    console.warn('[briefing] fetch client contacts failed:', error.message);
+    return [];
+  }
+  return (data || []) as ClientContactRow[];
+}
+
+function buildAccountBriefingContext(
+  input: AccountBriefingInput,
+  contacts: ClientContactRow[],
+) {
+  const { accounts, connects, actions } = input;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const activeAccounts = accounts.filter((a) => a.status === 'active');
+
+  // Group connects + actions + contacts by account for fast lookup.
+  const connectsByAccount = new Map<string, AccountConnect[]>();
+  for (const c of connects) {
+    const arr = connectsByAccount.get(c.accountId) || [];
+    arr.push(c);
+    connectsByAccount.set(c.accountId, arr);
+  }
+  const actionsByAccount = new Map<string, AccountActionItem[]>();
+  for (const a of actions) {
+    const arr = actionsByAccount.get(a.accountId) || [];
+    arr.push(a);
+    actionsByAccount.set(a.accountId, arr);
+  }
+  const contactsByAccount = new Map<string, ClientContactRow[]>();
+  for (const c of contacts) {
+    const arr = contactsByAccount.get(c.account_id) || [];
+    arr.push(c);
+    contactsByAccount.set(c.account_id, arr);
+  }
+
+  const accountSummaries = activeAccounts.map((a) => {
+    const acctConnects = (connectsByAccount.get(a.id) || []).sort((x, y) =>
+      y.meetingDate.localeCompare(x.meetingDate),
+    );
+    const lastSales = acctConnects.find((c) => c.connectType === 'sales');
+    const lastDelivery = acctConnects.find((c) => c.connectType === 'delivery');
+    const daysSinceSales = daysAgo(lastSales?.meetingDate ?? null);
+    const daysSinceDelivery = daysAgo(lastDelivery?.meetingDate ?? null);
+    const isStale =
+      (daysSinceSales === null || daysSinceSales > STALE_CONNECT_DAYS) &&
+      (daysSinceDelivery === null || daysSinceDelivery > STALE_CONNECT_DAYS);
+
+    const acctActions = actionsByAccount.get(a.id) || [];
+    const openActions = acctActions.filter((x) => x.status === 'open' || x.status === 'in_progress');
+    const overdueActions = openActions.filter(
+      (x) => x.dueDate && x.dueDate < today,
+    );
+
+    const acctContacts = contactsByAccount.get(a.id) || [];
+
+    return {
+      id: a.id,
+      name: a.name,
+      salesOwner: a.salesOwnerEmail || null,
+      deliveryOwner: a.deliveryOwnerEmail || null,
+      industry: a.industry || null,
+      isStale,
+      daysSinceSales,
+      daysSinceDelivery,
+      recentSalesConnects: acctConnects
+        .filter((c) => c.connectType === 'sales')
+        .slice(0, 3)
+        .map((c) => ({ date: c.meetingDate, outcome: c.outcome || '', discussion: c.discussion || '' })),
+      recentDeliveryConnects: acctConnects
+        .filter((c) => c.connectType === 'delivery')
+        .slice(0, 3)
+        .map((c) => ({ date: c.meetingDate, outcome: c.outcome || '', discussion: c.discussion || '' })),
+      openActions: openActions.map((x) => ({
+        id: x.id,
+        title: x.title,
+        owner: x.ownerEmail || null,
+        dueDate: x.dueDate,
+        overdue: !!(x.dueDate && x.dueDate < today),
+        status: x.status,
+      })),
+      overdueActionCount: overdueActions.length,
+      contacts: acctContacts.map((c) => ({
+        name: c.name,
+        title: c.title || null,
+        relationship: c.relationship,
+        daysSinceTouch: daysAgo(c.last_contact_at),
+        notes: (c.notes || '').slice(0, 280),
+      })),
+    };
+  });
+
+  const totals = {
+    activeAccounts: activeAccounts.length,
+    stale: accountSummaries.filter((s) => s.isStale).length,
+    openActionItems: accountSummaries.reduce((s, x) => s + x.openActions.length, 0),
+    overdueActionItems: accountSummaries.reduce((s, x) => s + x.overdueActionCount, 0),
+    hotContacts: contacts.filter((c) => c.relationship === 'hot').length,
+    warmContacts: contacts.filter((c) => c.relationship === 'warm').length,
+  };
+
+  return { today, totals, accounts: accountSummaries };
+}
+
+const ACCOUNT_BRIEFING_SYSTEM = `You are an account-management operations assistant for Simpliigence. You're briefing the Account Management team based on the JSON data provided.
+
+Hard rules:
+- Use only the data provided. Never invent names, dates, or events.
+- Keep the markdown summary under 180 words.
+- Lead with the most urgent thing (stale + overdue + hot-contact-cold combos), not vanity wins.
+
+Output format — reply with a SINGLE JSON object, no prose outside it:
+
+{
+  "markdown": "<4–6 bullets. Use '- ' bullets. **Bold** account names. Group by theme: Stale accounts, Overdue actions, Hot contacts needing touch, Bright spots.>",
+  "alerts": [
+    { "accountId": "<id from data>", "severity": "high" | "medium" | "info", "message": "<≤14 words, actionable>" }
+  ]
+}
+
+Alert guidance:
+- "high": account is stale AND has overdue actions; OR an account with a "hot" contact whose last_contact_at is over 30 days; OR an overdue action over 14 days past due.
+- "medium": stale account (no follow-up >30d) with no overdue actions yet; OR open actions due in next 7 days that need a nudge.
+- "info": momentum signals — recent multi-stakeholder connects, action items completed, etc.
+
+Cap at 8 alerts. Only include accountId values that actually appear in the data.
+
+When recommending follow-up, say WHO should act (sales owner / delivery owner / the specific named action-item owner) and WHY (the trigger from the data). Be concrete; vague exhortations are useless.`;
+
+export async function runAccountBriefing(
+  input: AccountBriefingInput,
+  opts: { forceRefresh?: boolean } = {},
+): Promise<AccountBriefing> {
+  if (!opts.forceRefresh) {
+    const cached = readCachedAccountBriefing();
+    if (cached) return cached;
+  }
+
+  const client = getClient();
+  if (!client) {
+    return {
+      markdown: '_Add your Anthropic API key in Settings to get an AI account briefing._',
+      generatedAt: new Date().toISOString(),
+      alerts: [],
+    };
+  }
+
+  const contacts = await fetchClientContacts();
+  const context = buildAccountBriefingContext(input, contacts);
+
+  if (context.accounts.length === 0) {
+    const empty: AccountBriefing = {
+      markdown: '_No active accounts in the system yet — briefing skipped._',
+      generatedAt: new Date().toISOString(),
+      alerts: [],
+    };
+    writeCachedAccountBriefing(empty);
+    return empty;
+  }
+
+  try {
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 1024,
+      thinking: { type: 'adaptive' },
+      system: [
+        { type: 'text', text: ACCOUNT_BRIEFING_SYSTEM },
+        {
+          type: 'text',
+          text: `DATA (JSON):\n${JSON.stringify(context)}`,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        { role: 'user', content: 'Write the Account Management briefing per the format above.' },
+      ],
+    });
+
+    const textBlock = response.content.find(
+      (b): b is Anthropic.TextBlock => b.type === 'text',
+    );
+    const raw = textBlock?.text ?? '';
+    const match = raw.match(/\{[\s\S]*\}/);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let parsed: any = null;
+    if (match) {
+      try { parsed = JSON.parse(match[0]); } catch { /* ignore */ }
+    }
+    if (!parsed?.markdown) {
+      return {
+        markdown: raw || 'Claude returned an empty briefing. Try Regenerate.',
+        generatedAt: new Date().toISOString(),
+        alerts: [],
+      };
+    }
+
+    const briefing: AccountBriefing = {
+      markdown: String(parsed.markdown),
+      generatedAt: new Date().toISOString(),
+      alerts: Array.isArray(parsed.alerts)
+        ? (parsed.alerts as unknown[])
+          .filter((a): a is { accountId: string; severity: string; message: string } =>
+            !!a && typeof a === 'object' && 'accountId' in a && 'message' in a,
+          )
+          .map((a: { accountId: string; severity: string; message: string }) => ({
+            accountId: String(a.accountId),
+            severity: (['high', 'medium', 'info'] as const).includes(a.severity as 'high' | 'medium' | 'info')
+              ? (a.severity as 'high' | 'medium' | 'info')
+              : ('info' as const),
+            message: String(a.message).slice(0, 200),
+          }))
+          .slice(0, 8)
+        : [],
+    };
+
+    writeCachedAccountBriefing(briefing);
     return briefing;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

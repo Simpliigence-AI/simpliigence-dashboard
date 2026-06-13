@@ -1828,10 +1828,20 @@ function ZohoRecruitSyncDialog({ onClose }: { onClose: () => void }) {
     let page = 1;
     while (true) {
       setMetaPage(page);
-      // eslint-disable-next-line no-await-in-loop
-      const res = await db.zohoRecruitSyncMetadataPage({ page, pages: 5 });
-      if (!res.ok) {
-        setError(res.error);
+      // Retry transient "Failed to send a request" errors. Three attempts
+      // with 2s/4s/8s backoff — usually a brief edge-fn cold-start or
+      // network blip between page batches.
+      let res: Awaited<ReturnType<typeof db.zohoRecruitSyncMetadataPage>> | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        // eslint-disable-next-line no-await-in-loop
+        res = await db.zohoRecruitSyncMetadataPage({ page, pages: 2 });
+        if (res.ok) break;
+        if (attempt === 3) break;
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+      if (!res || !res.ok) {
+        setError(res?.error || 'Sync failed after 3 retries');
         setStage('error');
         return false;
       }

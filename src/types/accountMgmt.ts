@@ -10,6 +10,12 @@ export interface Account {
   status: AccountStatus;
   industry: string | null;
   notes: string;
+  /** Additional substrings to match against india_roster.project /
+   *  us_roster.project on the Team tab. Use when the roster uses a
+   *  different name than the account (e.g. roster says "Prometteur
+   *  Solutions" but the account is "Ciklum"). Case-insensitive
+   *  substring match — short, specific tokens work best. */
+  teamAliases: string[];
   createdAt: string;
   updatedAt: string;
 }

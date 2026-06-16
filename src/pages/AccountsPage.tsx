@@ -57,6 +57,20 @@ function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
+/** True if a roster member's `project` field matches an account's name OR any
+ *  of its team_aliases (case-insensitive substring). Empty alias strings are
+ *  ignored so a stray '' doesn't make every member match every account. */
+function rosterMatchesAccount(projectField: string | null | undefined, account: { name: string; teamAliases?: string[] }): boolean {
+  if (!projectField) return false;
+  const p = projectField.toLowerCase();
+  if (account.name && p.includes(account.name.toLowerCase())) return true;
+  for (const alias of account.teamAliases ?? []) {
+    const a = (alias || '').trim().toLowerCase();
+    if (a && p.includes(a)) return true;
+  }
+  return false;
+}
+
 export default function AccountsPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const myEmail = (currentUser?.email || '').toLowerCase();
@@ -95,10 +109,7 @@ export default function AccountsPage() {
       const delivery = accConnects.filter((c) => c.connectType === 'delivery')
         .sort((a, b) => b.meetingDate.localeCompare(a.meetingDate));
       const openActions = actions.filter((a) => a.accountId === acc.id && a.status !== 'done' && a.status !== 'cancelled').length;
-      const nameLow = acc.name.toLowerCase();
-      const team = [...indiaRoster, ...usRoster].filter(
-        (m) => m.project && nameLow && m.project.toLowerCase().includes(nameLow),
-      );
+      const team = [...indiaRoster, ...usRoster].filter((m) => rosterMatchesAccount(m.project, acc));
       const lastSales = sales[0] ?? null;
       const lastDelivery = delivery[0] ?? null;
       const staleS = !lastSales || daysSince(lastSales.meetingDate) > STALE_CONNECT_DAYS;
@@ -350,9 +361,9 @@ export default function AccountsPage() {
                       account={acc}
                       connects={connects.filter((c) => c.accountId === acc.id)}
                       actions={actions.filter((a) => a.accountId === acc.id)}
-                      team={[...indiaRoster, ...usRoster].filter(
-                        (m) => m.project && acc.name && m.project.toLowerCase().includes(acc.name.toLowerCase()),
-                      ).map((m) => ({
+                      team={[...indiaRoster, ...usRoster]
+                        .filter((m) => rosterMatchesAccount(m.project, acc))
+                        .map((m) => ({
                         name: m.name,
                         role: m.role,
                         project: m.project,
@@ -591,13 +602,20 @@ function OverviewTab({ account, onPatch, onRemove }: {
   onRemove: () => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(account);
+  const [aliasInput, setAliasInput] = useState((account.teamAliases ?? []).join(', '));
+  // Parse the comma-separated input back into a clean array
+  const parsedAliases = aliasInput.split(',').map((s) => s.trim()).filter(Boolean);
+  const aliasesChanged =
+    parsedAliases.length !== (account.teamAliases ?? []).length ||
+    parsedAliases.some((a, i) => a !== (account.teamAliases ?? [])[i]);
   const dirty =
     draft.name !== account.name ||
     draft.salesOwnerEmail !== account.salesOwnerEmail ||
     draft.deliveryOwnerEmail !== account.deliveryOwnerEmail ||
     draft.industry !== account.industry ||
     draft.status !== account.status ||
-    draft.notes !== account.notes;
+    draft.notes !== account.notes ||
+    aliasesChanged;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-3">
@@ -640,13 +658,26 @@ function OverviewTab({ account, onPatch, onRemove }: {
                     className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm resize-y" />
         </Field>
       </div>
+      <div className="md:col-span-2">
+        <Field label="Team aliases (comma-separated)">
+          <input
+            value={aliasInput}
+            onChange={(e) => setAliasInput(e.target.value)}
+            placeholder="e.g. Prometteur, SA Technologies"
+            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+          />
+          <div className="text-[10px] text-slate-500 mt-1">
+            Match roster members whose <strong>project</strong> contains any of these tokens (case-insensitive). The account name is always matched too — only add aliases for cases where the roster uses a different name.
+          </div>
+        </Field>
+      </div>
       <div className="md:col-span-2 flex items-center justify-end gap-2">
         <button type="button"
                 onClick={() => { if (confirm(`Delete account "${account.name}"? This also removes all connects and actions.`)) onRemove(); }}
                 className="text-xs text-red-600 hover:text-red-800 inline-flex items-center gap-1">
           <Trash2 size={12} /> Delete account
         </button>
-        <button type="button" onClick={() => onPatch(draft)} disabled={!dirty}
+        <button type="button" onClick={() => onPatch({ ...draft, teamAliases: parsedAliases })} disabled={!dirty}
                 className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1">
           <Save size={12} /> Save changes
         </button>

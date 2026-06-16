@@ -571,6 +571,7 @@ function accountToRow(a: Account) {
     status: a.status,
     industry: a.industry,
     notes: a.notes ?? '',
+    team_aliases: a.teamAliases ?? [],
     updated_by: CLIENT_ID,
     updated_at: new Date().toISOString(),
   };
@@ -584,6 +585,7 @@ function rowToAccount(row: any): Account {
     status: row.status ?? 'active',
     industry: row.industry ?? null,
     notes: row.notes ?? '',
+    teamAliases: Array.isArray(row.team_aliases) ? row.team_aliases : [],
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }

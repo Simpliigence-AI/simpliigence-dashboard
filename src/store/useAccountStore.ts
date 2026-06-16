@@ -79,6 +79,7 @@ export const useAccountStore = create<AccountState>()(
           status: 'active',
           industry: industry || null,
           notes: notes || '',
+          teamAliases: [],
           createdAt: now,
           updatedAt: now,
         };

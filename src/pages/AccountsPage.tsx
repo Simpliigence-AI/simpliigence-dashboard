@@ -36,6 +36,11 @@ import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { useUSRosterStore } from '../store/useUSRosterStore';
 import { STALE_CONNECT_DAYS } from '../types/accountMgmt';
 import { ClientContactsTab } from './accounts/ClientContactsTab';
+import { AccountInfoTab } from './accounts/AccountInfoTab';
+import { OpportunitiesTab } from './accounts/OpportunitiesTab';
+import { ProjectsTab } from './accounts/ProjectsTab';
+import { InnovationTab } from './accounts/InnovationTab';
+import { CSATTab } from './accounts/CSATTab';
 import type {
   Account, AccountConnect, AccountActionItem, ActionStatus, ConnectType, AccountStatus,
 } from '../types/accountMgmt';
@@ -502,7 +507,13 @@ function ConnectChip({ label, connect }: { label: string; connect: AccountConnec
 
 /* ── Expanded detail: tabs (Overview / Sales / Delivery / Actions / Team) ── */
 
-type AccountTab = 'overview' | 'sales' | 'delivery' | 'contacts' | 'actions' | 'team';
+type AccountTab =
+  | 'overview' | 'sales' | 'delivery' | 'contacts' | 'actions' | 'team'
+  | 'info'         // Account Info — ZoomInfo data
+  | 'opportunities'// Cross-sell / Upsell opportunities
+  | 'projects'     // Current projects + risks + blockers
+  | 'innovation'   // Innovation highlights
+  | 'csat';        // CSAT — surveys, QBRs, testimonials
 
 interface TeamMemberLite { name: string; role: string; project: string; status: string; email: string; location: string | null; }
 
@@ -528,16 +539,21 @@ function AccountDetail(props: {
   const delivery = connects.filter((c) => c.connectType === 'delivery').sort((a, b) => b.meetingDate.localeCompare(a.meetingDate));
   const tabs: { key: AccountTab; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'info', label: 'Account info' },
     { key: 'sales', label: 'Sales connects', count: sales.length },
     { key: 'delivery', label: 'Delivery connects', count: delivery.length },
     { key: 'contacts', label: 'Client contacts' },
+    { key: 'opportunities', label: 'Opportunities' },
+    { key: 'projects', label: 'Projects' },
+    { key: 'innovation', label: 'Innovation' },
+    { key: 'csat', label: 'CSAT' },
     { key: 'actions', label: 'Actions', count: actions.filter((a) => a.status === 'open' || a.status === 'in_progress').length },
     { key: 'team', label: 'Team', count: team.length },
   ];
 
   return (
     <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100">
-      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+      <div className="flex items-center gap-1 mb-4 border-b border-slate-200 overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -590,6 +606,11 @@ function AccountDetail(props: {
       {activeTab === 'team' && (
         <TeamTab account={account} team={team} />
       )}
+      {activeTab === 'info' && <AccountInfoTab account={account} />}
+      {activeTab === 'opportunities' && <OpportunitiesTab accountId={account.id} />}
+      {activeTab === 'projects' && <ProjectsTab accountId={account.id} accountName={account.name} suggestedTeam={team} />}
+      {activeTab === 'innovation' && <InnovationTab accountId={account.id} />}
+      {activeTab === 'csat' && <CSATTab accountId={account.id} />}
     </div>
   );
 }

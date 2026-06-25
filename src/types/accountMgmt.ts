@@ -30,6 +30,11 @@ export interface AccountConnect {
   attendees: string;
   discussion: string;
   outcome: string;
+  /** External recording link — e.g. a Read.ai meeting URL. */
+  recordingUrl: string | null;
+  /** Supabase Storage object path under the `account-recordings` bucket
+   *  when a recording was uploaded directly. */
+  recordingPath: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;

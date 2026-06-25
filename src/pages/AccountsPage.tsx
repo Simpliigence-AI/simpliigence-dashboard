@@ -20,13 +20,14 @@
  * Data flow: useAccountStore. Writes Supabase via db.upsert*; realtime
  * subscription keeps other tabs/browsers fresh.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus, Trash2, Save, X, ChevronDown, ChevronRight, AlertTriangle, Users,
   Calendar, Briefcase, CheckCircle2, Circle, PauseCircle, XCircle, Clock,
-  Sparkles, RefreshCw, Loader2,
+  Sparkles, RefreshCw, Loader2, Mic, Square, Upload, Link as LinkIcon,
 } from 'lucide-react';
 import { Card } from '../components/ui';
+import { db } from '../lib/supabaseSync';
 import { runAccountBriefing, type AccountBriefing } from '../lib/claudeQuery';
 import { UserPicker } from '../components/UserPicker';
 import { TaIdentity } from '../components/TaIdentity';
@@ -527,7 +528,7 @@ function AccountDetail(props: {
   myEmail: string;
   onPatchAccount: (patch: Partial<Account>) => void | Promise<void>;
   onRemoveAccount: () => void | Promise<void>;
-  onAddConnect: (p: { connectType: ConnectType; meetingDate: string; attendees?: string; discussion?: string; outcome?: string; createdBy?: string }) => Promise<unknown>;
+  onAddConnect: (p: { connectType: ConnectType; meetingDate: string; attendees?: string; discussion?: string; outcome?: string; recordingUrl?: string | null; recordingPath?: string | null; createdBy?: string }) => Promise<unknown>;
   onRemoveConnect: (id: string) => Promise<unknown>;
   onAddAction: (p: { connectId?: string; title: string; description?: string; ownerEmail?: string; dueDate?: string }) => Promise<unknown>;
   onUpdateAction: (id: string, patch: Partial<AccountActionItem>) => Promise<unknown>;
@@ -576,18 +577,24 @@ function AccountDetail(props: {
       )}
       {activeTab === 'sales' && (
         <ConnectsTab
+          accountId={account.id}
+          accountName={account.name}
           connects={sales}
           connectType="sales"
           onAdd={(p) => props.onAddConnect({ ...p, connectType: 'sales', createdBy: myEmail })}
           onRemove={props.onRemoveConnect}
+          onAddAction={props.onAddAction}
         />
       )}
       {activeTab === 'delivery' && (
         <ConnectsTab
+          accountId={account.id}
+          accountName={account.name}
           connects={delivery}
           connectType="delivery"
           onAdd={(p) => props.onAddConnect({ ...p, connectType: 'delivery', createdBy: myEmail })}
           onRemove={props.onRemoveConnect}
+          onAddAction={props.onAddAction}
         />
       )}
       {activeTab === 'actions' && (
@@ -709,20 +716,111 @@ function OverviewTab({ account, onPatch, onRemove }: {
 
 /* ── Tab: Connects (sales | delivery) ── */
 
-function ConnectsTab({ connects, connectType, onAdd, onRemove }: {
+function ConnectsTab({ accountId, accountName, connects, connectType, onAdd, onRemove, onAddAction }: {
+  accountId: string;
+  accountName: string;
   connects: AccountConnect[];
   connectType: ConnectType;
-  onAdd: (p: { meetingDate: string; attendees?: string; discussion?: string; outcome?: string }) => Promise<unknown>;
+  onAdd: (p: { meetingDate: string; attendees?: string; discussion?: string; outcome?: string; recordingUrl?: string | null; recordingPath?: string | null }) => Promise<unknown>;
   onRemove: (id: string) => Promise<unknown>;
+  onAddAction: (p: { connectId?: string; title: string; description?: string; ownerEmail?: string; dueDate?: string }) => Promise<unknown>;
 }) {
   const [adding, setAdding] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
-  const [d, setD] = useState({ meetingDate: today, attendees: '', discussion: '', outcome: '' });
+  type SuggestedAction = { title: string; description: string; owner_email: string | null; due_date: string | null; selected: boolean };
+  const initial = {
+    meetingDate: today, attendees: '', discussion: '', outcome: '',
+    recordingUrl: '', recordingPath: null as string | null, rawNotes: '',
+  };
+  const [d, setD] = useState(initial);
+  const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([]);
+  const [organizing, setOrganizing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [structureError, setStructureError] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const reset = () => { setD(initial); setSuggestedActions([]); setStructureError(null); };
+
+  const uploadAudio = async (file: File) => {
+    setUploading(true);
+    setStructureError(null);
+    const path = await db.uploadAccountRecording(accountId, file);
+    setUploading(false);
+    if (!path) { setStructureError('Upload failed. See console for detail.'); return; }
+    setD((cur) => ({ ...cur, recordingPath: path }));
+  };
+
+  const startRecording = async () => {
+    setStructureError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: chunksRef.current[0]?.type || 'audio/webm' });
+        const file = new File([blob], `voice-${Date.now()}.webm`, { type: blob.type });
+        await uploadAudio(file);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+    } catch (e) {
+      setStructureError(`Mic access denied: ${(e as Error).message}`);
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    setRecording(false);
+  };
+
+  const organize = async () => {
+    if (!d.rawNotes.trim() && !d.recordingPath) {
+      setStructureError('Type some notes, or record/upload a recording first.');
+      return;
+    }
+    setOrganizing(true);
+    setStructureError(null);
+    const result = await db.structureConnectNotes({
+      accountName, connectType,
+      text: d.rawNotes || undefined,
+      audioPath: d.recordingPath || undefined,
+    });
+    setOrganizing(false);
+    if (!result) {
+      setStructureError('AI organize failed (check OPENAI_API_KEY secret + Anthropic-style edge fn logs).');
+      return;
+    }
+    setD((cur) => ({ ...cur, discussion: result.discussion, outcome: result.outcome }));
+    setSuggestedActions(result.actionItems.map((a) => ({ ...a, selected: true })));
+  };
 
   const submit = async () => {
     if (!d.meetingDate || (!d.discussion && !d.outcome && !d.attendees)) return;
-    await onAdd(d);
-    setD({ meetingDate: today, attendees: '', discussion: '', outcome: '' });
+    const created = await onAdd({
+      meetingDate: d.meetingDate, attendees: d.attendees,
+      discussion: d.discussion, outcome: d.outcome,
+      recordingUrl: d.recordingUrl || null,
+      recordingPath: d.recordingPath,
+    }) as { id?: string } | undefined;
+    const newConnectId = created?.id;
+    // Auto-add the suggested action items the user kept selected
+    for (const a of suggestedActions) {
+      if (!a.selected || !a.title.trim()) continue;
+      await onAddAction({
+        connectId: newConnectId,
+        title: a.title,
+        description: a.description || '',
+        ownerEmail: a.owner_email || undefined,
+        dueDate: a.due_date || undefined,
+      });
+    }
+    reset();
     setAdding(false);
   };
 
@@ -735,8 +833,9 @@ function ConnectsTab({ connects, connectType, onAdd, onRemove }: {
         </button>
       )}
       {adding && (
-        <div className="border border-slate-200 rounded-lg p-3 bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+        <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-3">
+          {/* Row 1: date + attendees */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <Field label="Date">
               <input type="date" value={d.meetingDate} onChange={(e) => setD({ ...d, meetingDate: e.target.value })}
                      className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
@@ -749,21 +848,111 @@ function ConnectsTab({ connects, connectType, onAdd, onRemove }: {
               </Field>
             </div>
           </div>
+
+          {/* Recording inputs */}
+          <div className="border border-dashed border-slate-300 rounded-md p-2 bg-slate-50/60">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Recording (optional)</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                  <LinkIcon size={11} /> Read.ai or other link
+                </label>
+                <input value={d.recordingUrl} onChange={(e) => setD({ ...d, recordingUrl: e.target.value })}
+                       placeholder="https://app.read.ai/…"
+                       className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                  <Upload size={11} /> Upload audio file
+                </label>
+                <input type="file" accept="audio/*"
+                       onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAudio(f); }}
+                       className="w-full text-xs" />
+                {uploading && <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> Uploading…</div>}
+                {d.recordingPath && !uploading && <div className="text-[11px] text-emerald-700 mt-1">✓ Stored: {d.recordingPath.split('/').pop()}</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Voice / raw notes + AI Organize */}
+          <div className="border border-dashed border-indigo-200 rounded-md p-2 bg-indigo-50/40">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700">
+                Voice / raw notes → AI organize
+              </div>
+              <div className="flex items-center gap-1.5">
+                {!recording ? (
+                  <button type="button" onClick={startRecording}
+                          className="text-[11px] font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded inline-flex items-center gap-1">
+                    <Mic size={11} /> Start recording
+                  </button>
+                ) : (
+                  <button type="button" onClick={stopRecording}
+                          className="text-[11px] font-semibold text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded inline-flex items-center gap-1 animate-pulse">
+                    <Square size={11} /> Stop
+                  </button>
+                )}
+                <button type="button" onClick={organize} disabled={organizing}
+                        className="text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-2 py-1 rounded inline-flex items-center gap-1">
+                  {organizing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                  {organizing ? 'Organizing…' : 'AI organize'}
+                </button>
+              </div>
+            </div>
+            <textarea value={d.rawNotes} onChange={(e) => setD({ ...d, rawNotes: e.target.value })}
+                      rows={3}
+                      placeholder="Dictate or type messy notes here. Click 'AI organize' to turn them into a clean discussion + outcome + action items."
+                      className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+            {structureError && <div className="text-[11px] text-red-700 mt-1.5">{structureError}</div>}
+          </div>
+
+          {/* Structured fields (editable after AI organize, or fill manually) */}
           <Field label="What was discussed">
             <textarea value={d.discussion} onChange={(e) => setD({ ...d, discussion: e.target.value })}
                       rows={2}
                       className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
           </Field>
-          <div className="mt-2">
-            <Field label="Outcome / what happened">
-              <textarea value={d.outcome} onChange={(e) => setD({ ...d, outcome: e.target.value })}
-                        rows={2}
-                        placeholder="Decisions made, deliverables agreed, next steps."
-                        className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
-            </Field>
-          </div>
-          <div className="mt-2 flex items-center justify-end gap-2">
-            <button type="button" onClick={() => { setAdding(false); }}
+          <Field label="Outcome / what happened">
+            <textarea value={d.outcome} onChange={(e) => setD({ ...d, outcome: e.target.value })}
+                      rows={2}
+                      placeholder="Decisions made, deliverables agreed, next steps."
+                      className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+          </Field>
+
+          {/* Suggested action items */}
+          {suggestedActions.length > 0 && (
+            <div className="border border-emerald-200 bg-emerald-50/40 rounded-md p-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 mb-1.5">
+                Suggested action items ({suggestedActions.filter((a) => a.selected).length} selected · will be auto-added on Save)
+              </div>
+              <ul className="space-y-1.5">
+                {suggestedActions.map((a, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs">
+                    <input type="checkbox" checked={a.selected}
+                           onChange={(e) => setSuggestedActions((cur) => cur.map((x, j) => j === i ? { ...x, selected: e.target.checked } : x))}
+                           className="mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <input value={a.title}
+                             onChange={(e) => setSuggestedActions((cur) => cur.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
+                             className="w-full border border-slate-200 rounded px-1.5 py-0.5 text-xs font-medium" />
+                      <div className="flex items-center gap-2 mt-1">
+                        <input value={a.owner_email || ''}
+                               onChange={(e) => setSuggestedActions((cur) => cur.map((x, j) => j === i ? { ...x, owner_email: e.target.value || null } : x))}
+                               placeholder="owner@…"
+                               className="flex-1 border border-slate-200 rounded px-1.5 py-0.5 text-[11px]" />
+                        <input type="date" value={a.due_date || ''}
+                               onChange={(e) => setSuggestedActions((cur) => cur.map((x, j) => j === i ? { ...x, due_date: e.target.value || null } : x))}
+                               className="border border-slate-200 rounded px-1.5 py-0.5 text-[11px]" />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={() => { reset(); setAdding(false); }}
                     className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
               <X size={12} /> Cancel
             </button>
@@ -801,6 +990,21 @@ function ConnectsTab({ connects, connectType, onAdd, onRemove }: {
               {c.outcome && (
                 <div className="text-xs text-slate-700 mt-1">
                   <span className="font-semibold text-slate-500">Outcome:</span> {c.outcome}
+                </div>
+              )}
+              {(c.recordingUrl || c.recordingPath) && (
+                <div className="text-[11px] mt-1.5 flex items-center gap-2 flex-wrap">
+                  {c.recordingUrl && (
+                    <a href={c.recordingUrl} target="_blank" rel="noreferrer"
+                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100">
+                      <LinkIcon size={10} /> Recording link
+                    </a>
+                  )}
+                  {c.recordingPath && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600">
+                      <Upload size={10} /> {c.recordingPath.split('/').pop()}
+                    </span>
+                  )}
                 </div>
               )}
             </li>

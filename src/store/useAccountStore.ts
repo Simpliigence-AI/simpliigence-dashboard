@@ -41,6 +41,8 @@ interface AccountState {
     attendees?: string;
     discussion?: string;
     outcome?: string;
+    recordingUrl?: string | null;
+    recordingPath?: string | null;
     createdBy?: string;
   }) => Promise<AccountConnect>;
   updateConnect: (id: string, patch: Partial<AccountConnect>) => Promise<void>;
@@ -105,7 +107,7 @@ export const useAccountStore = create<AccountState>()(
         await db.deleteAccount(id);
       },
 
-      addConnect: async ({ accountId, connectType, meetingDate, attendees, discussion, outcome, createdBy }) => {
+      addConnect: async ({ accountId, connectType, meetingDate, attendees, discussion, outcome, recordingUrl, recordingPath, createdBy }) => {
         const now = new Date().toISOString();
         const c: AccountConnect = {
           id: nanoid(),
@@ -115,6 +117,8 @@ export const useAccountStore = create<AccountState>()(
           attendees: attendees ?? '',
           discussion: discussion ?? '',
           outcome: outcome ?? '',
+          recordingUrl: recordingUrl ?? null,
+          recordingPath: recordingPath ?? null,
           createdAt: now,
           updatedAt: now,
           createdBy: createdBy?.toLowerCase() || null,

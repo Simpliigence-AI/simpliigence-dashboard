@@ -594,6 +594,8 @@ function accountConnectToRow(c: AccountConnect) {
     id: c.id, account_id: c.accountId, connect_type: c.connectType,
     meeting_date: c.meetingDate, attendees: c.attendees ?? '',
     discussion: c.discussion ?? '', outcome: c.outcome ?? '',
+    recording_url: c.recordingUrl ?? null,
+    recording_path: c.recordingPath ?? null,
     created_by: c.createdBy ?? CLIENT_ID,
     updated_by: CLIENT_ID, updated_at: new Date().toISOString(),
   };
@@ -604,6 +606,8 @@ function rowToAccountConnect(row: any): AccountConnect {
     id: row.id, accountId: row.account_id, connectType: row.connect_type,
     meetingDate: row.meeting_date,
     attendees: row.attendees ?? '', discussion: row.discussion ?? '', outcome: row.outcome ?? '',
+    recordingUrl: row.recording_url ?? null,
+    recordingPath: row.recording_path ?? null,
     createdAt: row.created_at, updatedAt: row.updated_at,
     createdBy: row.created_by ?? null, updatedBy: row.updated_by ?? null,
   };
@@ -1404,6 +1408,53 @@ export const db = {
   async deleteAccountConnect(id: string) {
     const { error } = await supabase.from('account_connects').delete().eq('id', id);
     if (error) console.warn('[supabase] delete account_connect failed:', error);
+  },
+
+  /** Upload a recording file to the `account-recordings` bucket. Returns the
+   *  storage object path on success, or null + warning on failure. */
+  async uploadAccountRecording(accountId: string, file: File): Promise<string | null> {
+    const safe = (file.name || 'recording').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'recording';
+    const path = `${accountId}/${Date.now()}-${safe}`;
+    const { error } = await supabase.storage
+      .from('account-recordings')
+      .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+    if (error) {
+      console.warn('[supabase] upload account-recording failed:', error);
+      return null;
+    }
+    return path;
+  },
+
+  /** Calls the structure-connect-notes edge function. Either pass raw text,
+   *  or an audioPath previously returned from uploadAccountRecording (or both).
+   *  Returns null on failure. */
+  async structureConnectNotes(params: {
+    accountName?: string;
+    connectType?: 'sales' | 'delivery';
+    text?: string;
+    audioPath?: string;
+  }): Promise<
+    | { transcript: string; discussion: string; outcome: string; actionItems: Array<{ title: string; description: string; owner_email: string | null; due_date: string | null }> }
+    | null
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      transcript?: string;
+      discussion?: string;
+      outcome?: string;
+      actionItems?: Array<{ title: string; description: string; owner_email: string | null; due_date: string | null }>;
+      error?: string;
+    }>('structure-connect-notes', { body: params });
+    if (error || !data || data.error) {
+      console.warn('[supabase] structure-connect-notes failed:', error?.message || data?.error);
+      return null;
+    }
+    return {
+      transcript: data.transcript || '',
+      discussion: data.discussion || '',
+      outcome: data.outcome || '',
+      actionItems: data.actionItems || [],
+    };
   },
   async upsertAccountAction(a: AccountActionItem) {
     const { error } = await supabase.from('account_action_items').upsert(accountActionToRow(a), { onConflict: 'id' });

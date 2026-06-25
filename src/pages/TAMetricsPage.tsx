@@ -12,9 +12,9 @@
  * Pure read-only. Anyone signed in can see this page; non-admins are still
  * useful viewers (a TA can see how they stack against peers).
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Users as UsersIcon, TrendingUp, TrendingDown, Minus, Filter,
+  Users as UsersIcon, TrendingUp, TrendingDown, Minus, Filter, Download,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -57,7 +57,12 @@ function addDays(d: Date, n: number): Date {
 
 export default function TAMetricsPage() {
   const { entries: logEntries } = useTaLogStore();
-  const { candidates } = useStaffingStore();
+  const { candidates, requisitions } = useStaffingStore();
+  // Filters for the daily-log explorer + by-requisition rollup at the bottom.
+  // Default to current month + all recruiters.
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const [filterMonth, setFilterMonth] = useState<string>(currentMonth);
+  const [filterTa, setFilterTa] = useState<string>('all');
 
   const todayIso = toIsoDate(new Date());
   const thisWeekStart = startOfWeek(todayIso);
@@ -168,6 +173,122 @@ export default function TAMetricsPage() {
 
   const trendIcon = (diff: number) => diff > 0 ? <TrendingUp size={11} /> : diff < 0 ? <TrendingDown size={11} /> : <Minus size={11} />;
   const trendCls = (diff: number) => diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-slate-400';
+
+  // ── Daily Log Explorer + By-Requisition rollup ──
+  // List of months that have any data (always include the current month)
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>([currentMonth]);
+    for (const e of logEntries) set.add(e.logDate.slice(0, 7));
+    return Array.from(set).sort().reverse();
+  }, [logEntries, currentMonth]);
+
+  // List of TA emails who have logged anything
+  const availableTas = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of logEntries) set.add(e.taEmail);
+    return Array.from(set).sort();
+  }, [logEntries]);
+
+  // Requisition title lookup
+  const reqTitleById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of requisitions) m.set(r.id, r.title);
+    return m;
+  }, [requisitions]);
+
+  // Filtered log rows for the selected month + recruiter
+  const filteredLog = useMemo(() => {
+    return logEntries
+      .filter((e) => e.logDate.slice(0, 7) === filterMonth)
+      .filter((e) => filterTa === 'all' || e.taEmail === filterTa)
+      .sort((a, b) => b.logDate.localeCompare(a.logDate) || a.taEmail.localeCompare(b.taEmail));
+  }, [logEntries, filterMonth, filterTa]);
+
+  // Per-requisition rollup over the filtered set
+  const byRequisition = useMemo(() => {
+    const m = new Map<string, {
+      reqId: string; title: string; minutes: number; days: Set<string>;
+      recruiters: Set<string>; sourced: number; screens: number; submits: number; entries: number;
+    }>();
+    for (const e of filteredLog) {
+      // Skip pure activity entries (no requisition) for this view
+      if (!e.requisitionId) continue;
+      const cur = m.get(e.requisitionId) || {
+        reqId: e.requisitionId,
+        title: reqTitleById.get(e.requisitionId) || e.requisitionId,
+        minutes: 0, days: new Set<string>(), recruiters: new Set<string>(),
+        sourced: 0, screens: 0, submits: 0, entries: 0,
+      };
+      cur.minutes += e.minutesSpent || 0;
+      cur.days.add(e.logDate);
+      cur.recruiters.add(e.taEmail);
+      cur.sourced += e.sourcedOutreach || 0;
+      cur.screens += e.screensCompleted || 0;
+      cur.submits += e.submissionsInterviews || 0;
+      cur.entries += 1;
+      m.set(e.requisitionId, cur);
+    }
+    return Array.from(m.values()).sort((a, b) => (b.minutes - a.minutes) || (b.days.size - a.days.size));
+  }, [filteredLog, reqTitleById]);
+
+  // Format minutes as "Xh Ym"
+  const fmtHours = (m: number) => {
+    if (!m) return '—';
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    if (h && mm) return `${h}h ${mm}m`;
+    if (h) return `${h}h`;
+    return `${mm}m`;
+  };
+
+  // Build + download a CSV from the currently-filtered daily log
+  const downloadDailyLogCsv = () => {
+    const header = ['Date', 'Recruiter', 'Requisition / Activity', 'Customer / Activity Detail',
+      'Minutes', 'Hours', 'Sourced', 'Screened', 'Submitted', 'Notes'];
+    const esc = (v: string | number | null | undefined): string => {
+      const s = (v ?? '').toString().replace(/\r?\n/g, ' ').replace(/"/g, '""');
+      return /[",]/.test(s) ? `"${s}"` : s;
+    };
+    const lines: string[] = [header.map(esc).join(',')];
+    for (const e of filteredLog) {
+      const reqOrActivity = e.requisitionId ? (reqTitleById.get(e.requisitionId) || e.requisitionId) : (e.activityType || '');
+      lines.push([
+        e.logDate, e.taEmail, reqOrActivity, e.customerName || '',
+        e.minutesSpent || 0, ((e.minutesSpent || 0) / 60).toFixed(2),
+        e.sourcedOutreach || 0, e.screensCompleted || 0, e.submissionsInterviews || 0, e.notes || '',
+      ].map(esc).join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TA-Daily-Log-${filterMonth}${filterTa !== 'all' ? '-' + filterTa.replace(/[^a-zA-Z0-9]+/g, '_') : ''}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadByReqCsv = () => {
+    const header = ['Requisition', 'Days', 'Hours', 'Entries', 'Recruiters', 'Sourced', 'Screened', 'Submitted'];
+    const esc = (v: string | number): string => {
+      const s = v.toString().replace(/"/g, '""');
+      return /[",]/.test(s) ? `"${s}"` : s;
+    };
+    const lines: string[] = [header.map(esc).join(',')];
+    for (const r of byRequisition) {
+      lines.push([
+        r.title, r.days.size, (r.minutes / 60).toFixed(2), r.entries,
+        Array.from(r.recruiters).join(' / '),
+        r.sourced, r.screens, r.submits,
+      ].map(esc).join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TA-Time-by-Requisition-${filterMonth}${filterTa !== 'all' ? '-' + filterTa.replace(/[^a-zA-Z0-9]+/g, '_') : ''}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const totalActiveCandidates = candidates.filter((c) => ACTIVE_CANDIDATE_STAGES.includes(c.stage)).length;
   const joinedThisMonth = candidates.filter((c) => {
@@ -313,6 +434,128 @@ export default function TAMetricsPage() {
             </LineChart>
           </ResponsiveContainer>
         </div>
+      </Card>
+
+      {/* ── Daily Log Explorer ── filterable view + CSV export ── */}
+      <Card
+        title="Daily log explorer"
+        className="mb-6"
+        action={
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+              {availableMonths.map((m) => {
+                const d = new Date(m + '-01T00:00:00');
+                const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                return <option key={m} value={m}>{label}</option>;
+              })}
+            </select>
+            <select value={filterTa} onChange={(e) => setFilterTa(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+              <option value="all">All recruiters</option>
+              {availableTas.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <button type="button" onClick={downloadDailyLogCsv}
+                    disabled={filteredLog.length === 0}
+                    className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1">
+              <Download size={12} /> Export CSV
+            </button>
+          </div>
+        }
+      >
+        {filteredLog.length === 0 ? (
+          <div className="text-sm text-slate-500 text-center py-8">No log entries for this month / recruiter.</div>
+        ) : (
+          <div className="overflow-x-auto -mx-6 px-6">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                  <th className="py-2 pr-3 font-semibold">Date</th>
+                  <th className="py-2 pr-3 font-semibold">Recruiter</th>
+                  <th className="py-2 pr-3 font-semibold">Requisition / activity</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Time</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Src</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Scr</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Sub</th>
+                  <th className="py-2 pr-3 font-semibold">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredLog.map((e) => {
+                  const work = e.requisitionId
+                    ? (reqTitleById.get(e.requisitionId) || e.requisitionId)
+                    : (e.activityType ? `${e.activityType}${e.customerName ? ': ' + e.customerName : ''}` : '—');
+                  return (
+                    <tr key={e.id} className="hover:bg-slate-50/60 align-top">
+                      <td className="py-2 pr-3 text-slate-600 whitespace-nowrap">{e.logDate}</td>
+                      <td className="py-2 pr-3 text-slate-900 font-medium whitespace-nowrap">{e.taEmail}</td>
+                      <td className="py-2 pr-3 text-slate-700">{work}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{fmtHours(e.minutesSpent)}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{e.sourcedOutreach || '—'}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{e.screensCompleted || '—'}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{e.submissionsInterviews || '—'}</td>
+                      <td className="py-2 pr-3 text-slate-600 max-w-md">{e.notes || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="text-[10px] text-slate-400 mt-2">
+              {filteredLog.length} entries · {fmtHours(filteredLog.reduce((s, e) => s + (e.minutesSpent || 0), 0))} total time logged
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Time by Requisition ── per-req rollup over the same filtered window ── */}
+      <Card
+        title="Time by requisition"
+        className="mb-6"
+        action={
+          <button type="button" onClick={downloadByReqCsv}
+                  disabled={byRequisition.length === 0}
+                  className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1">
+            <Download size={12} /> Export CSV
+          </button>
+        }
+      >
+        {byRequisition.length === 0 ? (
+          <div className="text-sm text-slate-500 text-center py-8">No requisition-tagged log entries for this filter. (Pure activity entries are excluded from this view.)</div>
+        ) : (
+          <div className="overflow-x-auto -mx-6 px-6">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                  <th className="py-2 pr-3 font-semibold">Requisition</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Days</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Hours</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Entries</th>
+                  <th className="py-2 pr-3 font-semibold">Recruiters</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Sourced</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Screens</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Submits</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {byRequisition.map((r) => (
+                  <tr key={r.reqId} className="hover:bg-slate-50/60">
+                    <td className="py-2 pr-3 text-slate-900 font-medium">{r.title}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{r.days.size}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums font-semibold text-emerald-700">{(r.minutes / 60).toFixed(1)}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-600">{r.entries}</td>
+                    <td className="py-2 pr-3 text-slate-600">{Array.from(r.recruiters).join(' · ')}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{r.sourced}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{r.screens}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums font-semibold text-indigo-700">{r.submits}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="text-[10px] text-slate-400 mt-2">
+              {byRequisition.length} requisitions worked · {fmtHours(byRequisition.reduce((s, r) => s + r.minutes, 0))} total time on requisitions
+            </div>
+          </div>
+        )}
       </Card>
 
       <div className="text-[10px] text-slate-400 flex items-center gap-1">

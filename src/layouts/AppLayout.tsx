@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { DemoBanner } from '../components/DemoBanner';
 import { RouteTracker } from '../components/RouteTracker';
+import { useAuthStore } from '../store/useAuthStore';
+
+/** Paths that role='employee' is allowed to visit. Anything else redirects
+ *  them to /my-time. Keeps the URL-typing escape hatch closed without having
+ *  to wrap every route individually with RoleOnly. */
+const EMPLOYEE_ALLOWED_PATHS = new Set<string>(['/my-time']);
 
 const SIDEBAR_KEY = 'sidebar-collapsed';
 
@@ -21,6 +27,12 @@ export default function AppLayout() {
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const role = useAuthStore((s) => s.currentUser?.role);
+  const authLoading = useAuthStore((s) => s.loading);
+
+  // Hard lockdown: role='employee' may only visit EMPLOYEE_ALLOWED_PATHS.
+  // Any other URL (typed, bookmarked, deep-linked) bounces back to /my-time.
+  const isEmployeeBlocked = role === 'employee' && !EMPLOYEE_ALLOWED_PATHS.has(location.pathname);
 
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_KEY, String(collapsed)); } catch {}
@@ -63,7 +75,13 @@ export default function AppLayout() {
         </button>
 
         <div className="p-4 pt-16 md:p-6 md:pt-6 lg:p-8 bg-surface min-h-screen">
-          <Outlet />
+          {authLoading ? (
+            <div className="text-sm text-slate-400 text-center py-20">Checking permissions…</div>
+          ) : isEmployeeBlocked ? (
+            <Navigate to="/my-time" replace />
+          ) : (
+            <Outlet />
+          )}
         </div>
       </main>
     </div>

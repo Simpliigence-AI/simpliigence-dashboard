@@ -1,14 +1,14 @@
 /**
  * Sign-in screen. Shown by AuthGate when no Supabase session is active.
  *
- * Layout (primary → fallback):
- *   1. Microsoft 365 OAuth  ← Simpliigence's identity provider; one click
- *   2. Google OAuth          ← for users on Google Workspace (external collaborators)
- *   3. Magic link via email  ← collapsed; rate-limited (Supabase built-in SMTP)
+ * Two options, in order of preference:
+ *   1. Microsoft 365 OAuth  ← Simpliigence's identity provider. Use this.
+ *   2. Magic link via email ← fallback for the rare case Microsoft SSO is
+ *      unavailable (e.g. external partners). Rate-limited (Supabase SMTP).
  */
 import { useState } from 'react';
 import { Zap, Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { signInWithMagicLink, signInWithGoogle, signInWithMicrosoft } from '../lib/auth';
+import { signInWithMagicLink, signInWithMicrosoft } from '../lib/auth';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -25,17 +25,6 @@ export default function SignInPage() {
       const res = await signInWithMagicLink(email);
       if (!res.ok) setError(res.error ?? 'Sign-in failed.');
       else setSent(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogle = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await signInWithGoogle();
-      if (!res.ok) setError(res.error ?? 'Google sign-in failed.');
     } finally {
       setLoading(false);
     }
@@ -103,20 +92,10 @@ export default function SignInPage() {
                 Continue with Microsoft
               </button>
               <p className="text-[11px] text-slate-500 text-center mt-2 mb-4">
-                Recommended — uses your Simpliigence Microsoft 365 account.
+                Uses your Simpliigence Microsoft 365 account. This is the standard sign-in.
               </p>
 
-              {/* Secondary: Google OAuth (for users with Google accounts). */}
-              <button
-                onClick={handleGoogle}
-                disabled={loading}
-                className="w-full py-2 px-4 bg-white border border-slate-300 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-              >
-                <GoogleIcon />
-                Continue with Google
-              </button>
-
-              {/* Tertiary: magic-link via email. Collapsed by default. */}
+              {/* Fallback: magic-link via email. Collapsed by default. */}
               <div className="mt-3">
                 {!showEmail ? (
                   <button
@@ -190,14 +169,3 @@ function MicrosoftIcon() {
   );
 }
 
-/** Simple Google G logo (no extra dep). */
-function GoogleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.6 6.5 29.6 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5c10.8 0 19.5-8.7 19.5-19.5 0-1.2-.1-2.3-.4-3.5z" />
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.7 19 13 24 13c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.6 6.5 29.6 4.5 24 4.5c-7.7 0-14.3 4.4-17.7 10.2z" />
-      <path fill="#4CAF50" d="M24 43.5c5.5 0 10.4-1.9 14-5l-6.5-5.5c-1.9 1.4-4.4 2.5-7.5 2.5-5.2 0-9.6-3.3-11.2-8L6.4 31.6C9.7 38 16.4 43.5 24 43.5z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.4-4.1 5.9.0 0 0 0 0 0l6.5 5.5c-.5.5 7.3-5.3 7.3-15.4 0-1.2-.1-2.3-.4-3.5z" />
-    </svg>
-  );
-}

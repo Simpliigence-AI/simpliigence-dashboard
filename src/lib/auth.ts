@@ -2,10 +2,11 @@
  * Authentication helpers backed by Supabase Auth.
  *
  * Design choices:
- * - **Magic link primary** — no passwords to leak or remember. The user types
- *   their email, gets a one-click sign-in link.
- * - **Google OAuth optional** — works only if the Supabase project has the
- *   Google provider enabled. UI gracefully falls back if the call errors.
+ * - **Microsoft 365 / Entra ID SSO primary** — Simpliigence is an Office shop.
+ *   This is the canonical sign-in path; everyone logs in via Microsoft.
+ * - **Magic link fallback** — email-based one-click sign-in for the rare case
+ *   Microsoft SSO is unavailable (e.g. an external partner). Rate-limited
+ *   by Supabase's built-in SMTP.
  * - **Session persists in localStorage** (Supabase default), so the user
  *   stays signed in across tabs and reloads.
  * - **Email allowlist** is enforced server-side via the `is_authorized_user`
@@ -46,18 +47,6 @@ export async function signInWithMagicLink(email: string): Promise<{ ok: boolean;
       // shouldCreateUser: true (default) lets first-time users sign in. Combined
       // with the is_authorized_user RLS check, unauthorized emails can sign in
       // but won't be able to read any data — they'll see the access-denied UI.
-    },
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
-
-/** Sign in with a Google account. Requires Google provider enabled in Supabase. */
-export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: getRedirectTo(),
     },
   });
   if (error) return { ok: false, error: error.message };

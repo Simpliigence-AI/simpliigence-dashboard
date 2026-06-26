@@ -1226,14 +1226,44 @@ export const db = {
     if (error) console.warn('[supabase] delete pipeline project failed:', error);
   },
 
+  /**
+   * Sync Zoho-sourced pipeline projects, preserving manual ones.
+   *
+   * NEVER touches `source != 'zoho'` rows. The previous version was a
+   * delete-everything-then-insert that silently wiped the manual Pipeline
+   * tab every time someone hit "Sync from Zoho" on /projects. (Incident:
+   * 2026-06-17 — 10 manual rows lost, recovered from audit_log.)
+   *
+   * New behavior:
+   *   1. UPSERT every Zoho row by id (preserves edits, idempotent).
+   *   2. Prune Zoho rows that are no longer in the returned set (i.e. the
+   *      project was archived/deleted in Zoho) — but ONLY rows whose
+   *      source='zoho'. Manual rows are untouchable from this code path.
+   *   3. If the incoming list is empty (Zoho returned nothing — most likely
+   *      an API error), we skip the prune. Better to keep stale Zoho rows
+   *      than to silently wipe everyone's pipeline again.
+   */
   async replacePipelineProjects(projects: ZohoPipelineProject[]) {
-    const { error: delErr } = await supabase.from('pipeline_projects').delete().neq('id', '');
-    if (delErr) console.warn('[supabase] delete all pipeline projects failed:', delErr);
-    if (projects.length > 0) {
-      const rows = projects.map(projectToRow);
-      const { error } = await supabase.from('pipeline_projects').insert(rows);
-      if (error) console.warn('[supabase] batch insert pipeline projects failed:', error);
+    if (projects.length === 0) {
+      console.warn('[supabase] replacePipelineProjects called with 0 rows — refusing to delete anything (safety net for the 2026-06-17 wipe bug).');
+      return;
     }
+    const rows = projects.map(projectToRow);
+    const { error: upErr } = await supabase
+      .from('pipeline_projects')
+      .upsert(rows, { onConflict: 'id' });
+    if (upErr) {
+      console.warn('[supabase] upsert pipeline projects failed:', upErr);
+      return;
+    }
+    // Prune Zoho rows no longer in the incoming set — but ONLY zoho rows.
+    const zohoIds = projects.map((p) => p.id);
+    const { error: prErr } = await supabase
+      .from('pipeline_projects')
+      .delete()
+      .eq('source', 'zoho')
+      .not('id', 'in', `(${zohoIds.map((i) => `"${i}"`).join(',')})`);
+    if (prErr) console.warn('[supabase] prune stale zoho pipeline rows failed:', prErr);
   },
 
   // --- Actual Hours (Zoho People timesheets) ---

@@ -189,7 +189,12 @@ export interface StaffingRow {
   account: string;
   account_id: string;
   requisition: string;
+  /** Total positions requested on the requisition (e.g. 6). */
   newPositions: number;
+  /** Candidates linked to this req in 'filled' stages (Offer Accepted, Joined). */
+  filledPositions: number;
+  /** Remaining positions to fill = max(0, newPositions - filledPositions). */
+  openPositions: number;
   expectedClosure: string;
   startDate: string;
   closeByDate: string;

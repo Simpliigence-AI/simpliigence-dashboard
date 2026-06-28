@@ -11,7 +11,7 @@
  * which already write to Supabase via db.upsertIndiaCandidate / deleteIndiaCandidate.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Briefcase, Mail, Phone, Zap } from 'lucide-react';
+import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Zap } from 'lucide-react';
 import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee, PhoneOutgoing, PhoneCall } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
@@ -652,145 +652,126 @@ function KpiTile({ color, icon, label, value, subtitle }: {
   );
 }
 
-/* ── Candidate card — colorful browse-friendly tile ── */
-function CandidateCard({ c, requisitionLabel, onOpen }: {
+/** Initials helper — first letters of up to 2 name parts, uppercased. */
+function candidateInitials(name: string | null | undefined): string {
+  if (!name) return '?';
+  const parts = name.split(/\s+/).filter(Boolean).slice(0, 2);
+  return parts.map((w) => w[0]).join('').toUpperCase() || '?';
+}
+
+/* ── Candidate card — compact, info-dense ──
+ *  Design goals (after user feedback the old card was "too heavy"):
+ *    - Drop the colored accent bar + stage-colored avatar — visual noise on a
+ *      wall of cards; the stage isn't actionable here anyway.
+ *    - Tighter padding (p-3, not p-4) + smaller avatar (36px) — fits 3x more
+ *      cards in the viewport.
+ *    - Single header row with name + years + assets (resume/LinkedIn) inline.
+ *    - One info-strip line for the things a TA actually scans for:
+ *      title, location, expected salary, availability.
+ *    - 3 small monochromatic skill chips (was 6 multi-colored).
+ *    - Footer drops to a single subtle "owner" line.
+ */
+function CandidateCard({ c, onOpen }: {
   c: StaffingCandidate;
+  /** Kept for API compatibility; intentionally unused — req label was noise. */
   requisitionLabel: string;
   onOpen: () => void;
 }) {
-  const stageColor = CANDIDATE_STAGE_COLORS[c.stage] || '#94a3b8';
-  // Avatar bubble — initials + tint derived from stage so the grid looks varied
-  const initials = (c.name || '?')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase() || '?';
-  const titleLine = c.experience || '—';
+  const initials = candidateInitials(c.name);
+  const hasYears = typeof c.years_of_experience === 'number' && c.years_of_experience > 0;
+  const availability = (c.availability || []).map((a) => AVAILABILITY_LABELS[a]).join(' · ');
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="text-left bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group h-full flex flex-col"
+      className="text-left bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-primary/40 hover:shadow-md transition-all duration-150 group h-full flex flex-col p-3 gap-2.5"
     >
-      {/* Top accent bar coloured by stage */}
-      <div className="h-1 flex-shrink-0" style={{ backgroundColor: stageColor }} />
-
-      <div className="p-4 flex flex-col flex-1 gap-3">
-        {/* Header row: avatar, name, stage chip */}
-        <div className="flex items-start gap-3">
-          <div
-            className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
-            style={{ backgroundColor: stageColor }}
-            aria-hidden
-          >
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 min-w-0">
-              <div className="text-sm font-bold text-slate-900 truncate group-hover:text-primary transition-colors">
-                {c.name || '(unnamed)'}
-              </div>
-              {typeof c.years_of_experience === 'number' && c.years_of_experience > 0 && (
-                <span
-                  className="flex-shrink-0 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-md whitespace-nowrap"
-                  title="Years of experience"
-                >
-                  {c.years_of_experience}y
-                </span>
-              )}
-            </div>
-            <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
-              <Briefcase size={11} className="text-slate-400" />
-              {titleLine}
-            </div>
-          </div>
+      {/* Header: avatar + name + years + assets */}
+      <div className="flex items-start gap-2.5">
+        <div
+          className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-xs"
+          aria-hidden
+        >
+          {initials}
         </div>
-
-        {/* Location + requisition */}
-        <div className="space-y-1 text-[11px]">
-          {c.location && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <MapPin size={11} className="text-slate-400 flex-shrink-0" />
-              <span className="truncate">{c.location}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <div className="text-sm font-semibold text-slate-900 truncate group-hover:text-primary transition-colors">
+              {c.name || '(unnamed)'}
             </div>
-          )}
-          {requisitionLabel !== '—' && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Briefcase size={11} className="text-slate-400 flex-shrink-0" />
-              <span className="truncate">{requisitionLabel}</span>
-            </div>
+            {hasYears && (
+              <span
+                className="flex-shrink-0 text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1 py-0 rounded whitespace-nowrap"
+                title="Years of experience"
+              >
+                {c.years_of_experience}y
+              </span>
+            )}
+          </div>
+          {c.experience && (
+            <div className="text-[11px] text-slate-500 truncate mt-0.5">{c.experience}</div>
           )}
         </div>
-
-        {/* Skills chips — top 6, colored by index for variety */}
-        {(c.skills && c.skills.length > 0) && (
-          <div className="flex flex-wrap gap-1">
-            {c.skills.slice(0, 6).map((s, i) => {
-              const skillPalette = [
-                'bg-indigo-50 text-indigo-700 border-indigo-100',
-                'bg-emerald-50 text-emerald-700 border-emerald-100',
-                'bg-amber-50 text-amber-700 border-amber-100',
-                'bg-sky-50 text-sky-700 border-sky-100',
-                'bg-rose-50 text-rose-700 border-rose-100',
-                'bg-violet-50 text-violet-700 border-violet-100',
-              ];
-              return (
-                <span key={s} className={`text-[10px] px-1.5 py-0.5 rounded-md border ${skillPalette[i % skillPalette.length]}`}>
-                  {s}
-                </span>
-              );
-            })}
-            {c.skills.length > 6 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md text-slate-500 bg-slate-50 border border-slate-100">
-                +{c.skills.length - 6}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Footer row: contact icons + actions — pinned to bottom so all cards align */}
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-          <div className="flex items-center gap-2 text-slate-400 text-[11px] min-w-0 flex-1">
-            {c.email && (
-              <a
-                href={`mailto:${c.email}`}
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 hover:text-slate-700 truncate"
-                title={c.email}
-              >
-                <Mail size={11} /> <span className="truncate">{c.email}</span>
-              </a>
-            )}
-            {!c.email && c.phone && (
-              <span className="inline-flex items-center gap-1" title={c.phone}>
-                <Phone size={11} /> {c.phone}
-              </span>
-            )}
-            {!c.email && !c.phone && <span className="text-slate-300">No contact</span>}
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {c.resume_url && (
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 text-primary" title="Has resume">
-                <FileText size={12} />
-              </span>
-            )}
-            {c.linkedin_url && (
-              <a
-                href={c.linkedin_url}
-                target="_blank" rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-sky-50 text-sky-600 hover:bg-sky-100"
-                title="LinkedIn"
-              >
-                <Linkedin size={12} />
-              </a>
-            )}
-          </div>
+        <div className="flex items-center gap-1 flex-shrink-0 text-slate-300">
+          {c.resume_url && <FileText size={13} className="text-primary/70" />}
+          {c.linkedin_url && (
+            <a
+              href={c.linkedin_url}
+              target="_blank" rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-sky-500 hover:text-sky-700"
+              title="LinkedIn"
+            >
+              <Linkedin size={13} />
+            </a>
+          )}
         </div>
       </div>
+
+      {/* Info strip: location · expected salary · availability — dense */}
+      {(c.location || c.expected_salary || availability) && (
+        <div className="flex items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-600 flex-wrap">
+          {c.location && (
+            <span className="inline-flex items-center gap-1 min-w-0 max-w-[60%]">
+              <MapPin size={10} className="text-slate-400 flex-shrink-0" />
+              <span className="truncate">{c.location}</span>
+            </span>
+          )}
+          {c.expected_salary && (
+            <span className="inline-flex items-center gap-1 text-slate-700">
+              <IndianRupee size={10} className="text-slate-400" />
+              {c.expected_salary}
+            </span>
+          )}
+          {availability && (
+            <span className="text-slate-500" title="Availability">{availability}</span>
+          )}
+        </div>
+      )}
+
+      {/* Skills — top 3, single neutral chip style */}
+      {(c.skills && c.skills.length > 0) && (
+        <div className="flex flex-wrap gap-1">
+          {c.skills.slice(0, 3).map((s) => (
+            <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-600 border border-slate-200">
+              {s}
+            </span>
+          ))}
+          {c.skills.length > 3 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded text-slate-400">
+              +{c.skills.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Footer: assigned TA — light grey, single line */}
+      {c.owning_ta_email && (
+        <div className="mt-auto pt-1.5 text-[10px] text-slate-400 truncate">
+          Owner · {c.owning_ta_email}
+        </div>
+      )}
     </button>
   );
 }

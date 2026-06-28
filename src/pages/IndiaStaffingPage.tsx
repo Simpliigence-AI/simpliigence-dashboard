@@ -226,6 +226,10 @@ export default function IndiaStaffingPage() {
 
   /* -- Build enriched rows -- */
   const rows: StaffingRow[] = useMemo(() => {
+    // Candidate stages that mean "this position is locked in".
+    // Keep this list narrow — only count people who've actually committed to
+    // joining. "Offer Extended" doesn't count (yet to be accepted).
+    const FILLED_STAGES = new Set<string>(['Offer Accepted', 'Joined']);
     return requisitions.map((req) => {
       const acct = accounts.find((a) => a.id === req.account_id);
       const reqStatuses = statuses
@@ -237,9 +241,20 @@ export default function IndiaStaffingPage() {
       const aiProbability = analysis.score; // always-fresh AI score
       const manualProb = typeof req.probability === 'number' ? req.probability : 0;
       const closureProb = manualProb > 0 ? manualProb : aiProbability;
+      // How many of this req's positions are already filled? Each locked-in
+      // candidate counts for one position. If somehow filled exceeds total
+      // requested, clamp to total (data hygiene).
+      const filledPositions = Math.min(
+        req.new_positions || 0,
+        candidates.filter((c) => c.requisition_id === req.id && FILLED_STAGES.has(c.stage)).length,
+      );
+      const openPositions = Math.max(0, (req.new_positions || 0) - filledPositions);
       return {
         id: req.id, month: req.month, account: acct?.name || 'Unknown', account_id: req.account_id,
-        requisition: req.title, newPositions: req.new_positions,
+        requisition: req.title,
+        newPositions: req.new_positions,
+        filledPositions,
+        openPositions,
         expectedClosure: req.expected_closure,
         startDate: req.start_date || '',
         closeByDate: req.close_by_date || '',
@@ -256,7 +271,7 @@ export default function IndiaStaffingPage() {
         department: req.department || '',
       };
     });
-  }, [requisitions, statuses, accounts]);
+  }, [requisitions, statuses, accounts, candidates]);
 
   const months = useMemo(() => [...new Set(rows.map((r) => r.month))].sort(), [rows]);
 
@@ -281,17 +296,25 @@ export default function IndiaStaffingPage() {
     });
   }, [rows, monthFilter, accountFilter]);
 
-  /* -- KPI aggregates (active only) -- */
-  const totalPos = filtered.reduce((s, r) => s + r.newPositions, 0);
+  /* -- KPI aggregates (active only) --
+   *  totalPos = total positions still OPEN across active reqs (filled ones
+   *  are subtracted). This is the "demand to fill" number. Use newPositions
+   *  for "originally requested" rollups only when explicitly needed. */
+  const totalPos = filtered.reduce((s, r) => s + r.openPositions, 0);
+  const totalRequested = filtered.reduce((s, r) => s + r.newPositions, 0);
+  const totalFilled = filtered.reduce((s, r) => s + r.filledPositions, 0);
   const closedRows = filtered.filter((r) => r.stage === 'Closed/Selected' || r.stage === 'Onboarding');
   const closedCount = closedRows.reduce((s, r) => s + r.newPositions, 0);
   const highRiskCount = filtered.filter((r) => r.risk === 'high').length;
   const avgProb = filtered.length ? Math.round(filtered.reduce((s, r) => s + r.closureProb, 0) / filtered.length) : 0;
 
-  /* -- Forecast aggregates -- */
-  const optimistic = filtered.filter((r) => r.closureProb >= 40).reduce((s, r) => s + r.newPositions, 0);
-  const realistic = filtered.filter((r) => r.closureProb >= 60).reduce((s, r) => s + r.newPositions, 0);
-  const conservative = filtered.filter((r) => r.closureProb >= 75).reduce((s, r) => s + r.newPositions, 0);
+  /* -- Forecast aggregates — count OPEN positions only.
+   *  A fully-filled req shouldn't keep contributing to "still to deliver".
+   *  Open=0 reqs get filtered out of every forecast bucket. */
+  const stillToFill = filtered.filter((r) => r.openPositions > 0);
+  const optimistic   = stillToFill.filter((r) => r.closureProb >= 40).reduce((s, r) => s + r.openPositions, 0);
+  const realistic    = stillToFill.filter((r) => r.closureProb >= 60).reduce((s, r) => s + r.openPositions, 0);
+  const conservative = stillToFill.filter((r) => r.closureProb >= 75).reduce((s, r) => s + r.openPositions, 0);
 
   /* -- Cell save handler -- */
   const handleCellSave = useCallback((reqId: string, field: string, value: string | number) => {
@@ -485,9 +508,40 @@ export default function IndiaStaffingPage() {
           <td className="p-2">
             <EditableCell value={r.month} type="select" options={ALL_MONTHS} onSave={(val) => handleCellSave(r.id, 'month', val)} />
           </td>
-          {/* Positions */}
+          {/* Positions — show "open / total" with filled count badge */}
           <td className="p-2 text-center">
-            <EditableCell value={r.newPositions} type="number" onSave={(val) => handleCellSave(r.id, 'new_positions', val)} className="justify-center" />
+            <div className="inline-flex items-center gap-1.5">
+              <EditableCell
+                value={r.newPositions}
+                type="number"
+                onSave={(val) => handleCellSave(r.id, 'new_positions', val)}
+                className="justify-center"
+                displayContent={
+                  <span
+                    className="font-bold tabular-nums"
+                    title={`${r.openPositions} open · ${r.filledPositions} filled · ${r.newPositions} total`}
+                  >
+                    {r.filledPositions > 0 ? (
+                      <>
+                        <span className={r.openPositions === 0 ? 'text-emerald-600' : 'text-slate-900'}>{r.openPositions}</span>
+                        <span className="text-slate-400 mx-0.5">/</span>
+                        <span className="text-slate-500">{r.newPositions}</span>
+                      </>
+                    ) : (
+                      <span>{r.newPositions}</span>
+                    )}
+                  </span>
+                }
+              />
+              {r.filledPositions > 0 && (
+                <span
+                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 whitespace-nowrap"
+                  title={`${r.filledPositions} candidate${r.filledPositions === 1 ? '' : 's'} filled (Offer Accepted / Joined)`}
+                >
+                  −{r.filledPositions}
+                </span>
+              )}
+            </div>
           </td>
           {/* Client SPOC */}
           <td className="p-2">
@@ -1174,7 +1228,9 @@ export default function IndiaStaffingPage() {
                       if (showHeader) {
                         const same = ordered.filter((x) => x.account === r.account);
                         sectionReqs = same.length;
-                        sectionPositions = same.reduce((s, x) => s + x.newPositions, 0);
+                        // Section header shows OPEN positions (what's still to fill), not the
+                        // original count. Filled candidates have already moved on.
+                        sectionPositions = same.reduce((s, x) => s + x.openPositions, 0);
                         sectionAvgAi = same.length
                           ? Math.round(same.reduce((s, x) => s + x.aiProbability, 0) / same.length)
                           : 0;
@@ -1250,7 +1306,7 @@ export default function IndiaStaffingPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {[...accountGroups.entries()].map(([name, rws]) => {
-              const tot = rws.reduce((s, r) => s + r.newPositions, 0);
+              const tot = rws.reduce((s, r) => s + r.openPositions, 0);
               const avg = Math.round(rws.reduce((s, r) => s + r.closureProb, 0) / rws.length);
               const hr = rws.filter((r) => r.risk === 'high').length;
               return (
@@ -1280,7 +1336,9 @@ export default function IndiaStaffingPage() {
                       <tr key={r.id} className="border-b border-slate-50">
                         <td className="p-2 font-semibold">{r.requisition}</td>
                         <td className="p-2">{r.month}</td>
-                        <td className="p-2 text-center font-bold">{r.newPositions}</td>
+                        <td className="p-2 text-center font-bold" title={`${r.openPositions} open · ${r.filledPositions} filled · ${r.newPositions} total`}>
+                          {r.filledPositions > 0 ? <><span className={r.openPositions === 0 ? 'text-emerald-600' : ''}>{r.openPositions}</span><span className="text-slate-400">/{r.newPositions}</span></> : r.newPositions}
+                        </td>
                         <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
                         <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
                         <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
@@ -1311,7 +1369,7 @@ export default function IndiaStaffingPage() {
                 { label: 'Optimistic', val: optimistic, color: '#10b981', conf: 40 },
                 { label: 'Realistic', val: realistic, color: '#3b82f6', conf: 70 },
                 { label: 'Conservative', val: conservative, color: '#f59e0b', conf: 90 },
-                { label: 'At Risk', val: filtered.filter((r) => r.risk === 'high').reduce((s, r) => s + r.newPositions, 0), color: '#ef4444', conf: 85 },
+                { label: 'At Risk', val: filtered.filter((r) => r.risk === 'high').reduce((s, r) => s + r.openPositions, 0), color: '#ef4444', conf: 85 },
               ].map((s) => (
                 <div key={s.label} className="bg-white/5 border border-white/10 rounded-lg p-4">
                   <h4 className="text-blue-300 text-xs font-semibold mb-2">{s.label}</h4>

@@ -30,6 +30,7 @@ import {
   AVAILABILITY_LABELS,
   type CandidateStage,
   type StaffingCandidate,
+  type StaffingRequisition,
   type AvailabilityKind,
 } from '../types/staffing';
 
@@ -125,13 +126,27 @@ export default function CandidatesPage() {
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [candidates]);
 
+  // O(1) lookups for the filter haystack — used to be requisitions.find() +
+  // accounts.find() per-candidate, which at 4,800 candidates × 100 reqs × 20
+  // accounts froze the page on every keystroke and on initial mount.
+  const reqById = useMemo(() => {
+    const m = new Map<string, StaffingRequisition>();
+    for (const r of requisitions) m.set(r.id, r);
+    return m;
+  }, [requisitions]);
+  const accountById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of accounts) m.set(a.id, a.name);
+    return m;
+  }, [accounts]);
+
   const accountName = (rid: string) => {
-    const req = requisitions.find((r) => r.id === rid);
+    const req = reqById.get(rid);
     if (!req) return '—';
-    return accounts.find((a) => a.id === req.account_id)?.name ?? '—';
+    return accountById.get(req.account_id) ?? '—';
   };
   const reqLabel = (rid: string) => {
-    const req = requisitions.find((r) => r.id === rid);
+    const req = reqById.get(rid);
     return req ? `${req.title} (${accountName(rid)})` : '—';
   };
 
@@ -143,6 +158,7 @@ export default function CandidatesPage() {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    const hasSearch = needle.length > 0;
     return candidates.filter((c) => {
       // When an AI search is active, restrict to its match set first.
       if (aiMatchSet && !aiMatchSet.has(c.id)) return false;
@@ -160,13 +176,17 @@ export default function CandidatesPage() {
         const have = (c.location || '').toLowerCase();
         if (!have.includes(want)) return false;
       }
-      if (needle) {
-        const hay = `${c.name} ${c.email} ${c.phone} ${c.source} ${reqLabel(c.requisition_id)} ${(c.skills || []).join(' ')} ${c.profile_summary || ''} ${c.location || ''}`.toLowerCase();
+      // Skip the (relatively expensive) haystack build when there is no
+      // search query — saves ~5k string concatenations on initial mount.
+      if (hasSearch) {
+        const req = c.requisition_id ? reqById.get(c.requisition_id) : undefined;
+        const reqStr = req ? `${req.title} ${accountById.get(req.account_id) ?? ''}` : '';
+        const hay = `${c.name} ${c.email} ${c.phone} ${c.source} ${reqStr} ${(c.skills || []).join(' ')} ${c.profile_summary || ''} ${c.location || ''}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [candidates, q, filterReq, filterOwner, filterStage, filterLocation, requisitions, accounts, aiMatchSet]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [candidates, q, filterReq, filterOwner, filterStage, filterLocation, reqById, accountById, aiMatchSet]);
 
   // KPI strip stats (across ALL candidates, not filtered — gives a true at-a-glance view)
   const kpis = useMemo(() => {

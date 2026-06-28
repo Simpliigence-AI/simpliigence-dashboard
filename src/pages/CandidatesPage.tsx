@@ -679,6 +679,22 @@ function CandidateCard({ c, onOpen }: {
 }) {
   const initials = candidateInitials(c.name);
   const hasYears = typeof c.years_of_experience === 'number' && c.years_of_experience > 0;
+  // Pull a years-of-experience hint out of the filename if Zoho didn't give us
+  // one explicitly. Naukri resume filenames often include "[12y_3m]" or
+  // "[18y_0m]" — we use that as a fallback so the card shows SOMETHING for
+  // candidates without Experience_in_Years populated.
+  const yearsFromFilename = ((): number | null => {
+    if (!c.resume_filename) return null;
+    const m = c.resume_filename.match(/\[(\d+)y[_ -]?(\d+)?m?\]/i);
+    if (!m) return null;
+    const y = parseInt(m[1], 10);
+    const mo = m[2] ? parseInt(m[2], 10) : 0;
+    if (!Number.isFinite(y) || y < 0 || y > 60) return null;
+    return Math.round((y + mo / 12) * 10) / 10;
+  })();
+  const yearsToShow: number | null = hasYears
+    ? (c.years_of_experience as number)
+    : yearsFromFilename;
   const availability = (c.availability || []).map((a) => AVAILABILITY_LABELS[a]).join(' · ');
 
   return (
@@ -700,14 +716,20 @@ function CandidateCard({ c, onOpen }: {
             <div className="text-sm font-semibold text-slate-900 truncate group-hover:text-primary transition-colors">
               {c.name || '(unnamed)'}
             </div>
-            {hasYears && (
-              <span
-                className="flex-shrink-0 text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1 py-0 rounded whitespace-nowrap"
-                title="Years of experience"
-              >
-                {c.years_of_experience}y
-              </span>
-            )}
+            <span
+              className={`flex-shrink-0 text-[10px] font-semibold px-1.5 py-0 rounded whitespace-nowrap ${
+                yearsToShow != null
+                  ? 'text-indigo-700 bg-indigo-50'
+                  : 'text-slate-400 bg-slate-50'
+              }`}
+              title={
+                hasYears ? 'Years of experience (from Zoho)'
+                  : yearsFromFilename != null ? 'Years of experience (from filename)'
+                  : 'Years of experience unknown — not populated in Zoho'
+              }
+            >
+              {yearsToShow != null ? `${yearsToShow}y` : '—y'}
+            </span>
           </div>
           {c.experience && (
             <div className="text-[11px] text-slate-500 truncate mt-0.5">{c.experience}</div>

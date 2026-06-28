@@ -97,25 +97,69 @@ export interface IndiaHiringMetrics {
 
 /* ──────────────────────────────────────────────────────────────────── */
 
-const SKILL_PATTERNS: Array<{ skill: string; regex: RegExp }> = [
-  { skill: 'Salesforce',         regex: /\b(salesforce|sf|sfdc|apex|lwc|vlocity|cpq)\b/i },
+/**
+ * Skill patterns used to classify a requisition title into one or more skill
+ * buckets. Salesforce is broken down into specific sub-clouds so the hiring
+ * forecast can drive bench planning (e.g. "we need 4 Health Cloud devs on the
+ * active bench, 2 Revenue Cloud, 1 SFCC architect"). A title can hit multiple
+ * patterns — "Revenue Cloud Admin (OmniStudio)" tags both clouds.
+ *
+ * The `parent` field marks Salesforce sub-cloud entries so the UI can group
+ * them under a Salesforce parent total. Non-Salesforce skills have no parent.
+ */
+const SKILL_PATTERNS: Array<{ skill: string; regex: RegExp; parent?: 'Salesforce' }> = [
+  // Salesforce sub-clouds — specific patterns first so they win over the
+  // generic Salesforce — Core catch-all below.
+  { skill: 'Salesforce — Health Cloud',      regex: /\bhealth\s*cloud\b/i,                                         parent: 'Salesforce' },
+  { skill: 'Salesforce — Revenue Cloud',     regex: /\b(revenue\s*cloud|cpq|billing)\b/i,                          parent: 'Salesforce' },
+  { skill: 'Salesforce — Service Cloud',     regex: /\bservice\s*cloud\b/i,                                        parent: 'Salesforce' },
+  { skill: 'Salesforce — Sales Cloud',       regex: /\bsales\s*cloud\b/i,                                          parent: 'Salesforce' },
+  { skill: 'Salesforce — Marketing Cloud',   regex: /\b(marketing\s*cloud|pardot|mcae|sfmc)\b/i,                   parent: 'Salesforce' },
+  { skill: 'Salesforce — Commerce Cloud',    regex: /\b(commerce\s*cloud|sfcc|b2c\s*commerce|demandware)\b/i,      parent: 'Salesforce' },
+  { skill: 'Salesforce — Field Service',     regex: /\b(field\s*service|fsl|service\s*max|servicemax)\b/i,         parent: 'Salesforce' },
+  { skill: 'Salesforce — Experience Cloud',  regex: /\b(experience\s*cloud|community\s*cloud)\b/i,                 parent: 'Salesforce' },
+  { skill: 'Salesforce — MuleSoft',          regex: /\bmule\s*soft|\bmulesoft\b/i,                                 parent: 'Salesforce' },
+  { skill: 'Salesforce — OmniStudio',        regex: /\b(omni\s*studio|omnistudio|vlocity)\b/i,                     parent: 'Salesforce' },
+  { skill: 'Salesforce — CRM Analytics',     regex: /\b(crm\s*analytics|tableau\s*crm|einstein\s*analytics)\b/i,   parent: 'Salesforce' },
+  { skill: 'Salesforce — Data Cloud',        regex: /\b(data\s*cloud|cdp)\b/i,                                     parent: 'Salesforce' },
+  // Salesforce — Core: catch generic Salesforce/SFDC/Apex/LWC titles. Emitted
+  // ONLY when no specific sub-cloud already matched (handled in extractSkills).
+  { skill: 'Salesforce — Core',              regex: /\b(salesforce|sfdc|sf\s+(?:developer|admin|architect|lead|consultant)|apex|lightning\s*web\s*components|lwc)\b/i, parent: 'Salesforce' },
+
+  // Non-Salesforce skills
   { skill: 'Java',               regex: /\b(java|spring|jvm)\b/i },
-  { skill: 'Python / AI',        regex: /\b(python|ai|ml|llm|gen[ai\s]*|machine\s*learning)\b/i },
+  { skill: 'Python / AI',        regex: /\b(python|\bai\b|\bml\b|llm|gen\s*ai|machine\s*learning)\b/i },
   { skill: '.NET',               regex: /\b(\.net|dotnet|c#|aspnet)\b/i },
-  { skill: 'Full Stack',         regex: /\b(full\s*stack|fullstack|fsl)\b/i },
-  { skill: 'DevOps',             regex: /\b(devops|sre|kubernetes|k8s|aws|azure|gcp)\b/i },
-  { skill: 'QA / Test',          regex: /\b(qa|sdet|automation|test|cypress|selenium|accelq)\b/i },
-  { skill: 'Architect',          regex: /\barchitect\b/i },
-  { skill: 'Data',               regex: /\b(data\s*engineer|etl|snowflake|databricks)\b/i },
-  { skill: 'Product Owner',      regex: /\b(product\s*owner|po|ba|business\s*analyst)\b/i },
+  { skill: 'Full Stack',         regex: /\b(full\s*stack|fullstack)\b/i },
+  { skill: 'DevOps / Cloud',     regex: /\b(devops|sre|kubernetes|k8s|aws|azure|gcp)\b/i },
+  { skill: 'QA / Test',          regex: /\b(qa|sdet|automation|test|playwright|cypress|selenium|accelq)\b/i },
+  { skill: 'Architect (generic)', regex: /\barchitect\b/i },
+  { skill: 'Data Engineering',   regex: /\b(data\s*engineer|etl|data\s*migration|snowflake|databricks|bi\s+data)\b/i },
+  { skill: 'Product Owner / BA', regex: /\b(product\s*owner|business\s*analyst|\bba\b)\b/i },
 ];
 
 function extractSkills(text: string): string[] {
   const hits: string[] = [];
-  for (const { skill, regex } of SKILL_PATTERNS) {
-    if (regex.test(text)) hits.push(skill);
+  let matchedAnySalesforceSpecific = false;
+  for (const { skill, regex, parent } of SKILL_PATTERNS) {
+    if (skill === 'Salesforce — Core') continue; // handled below
+    if (regex.test(text)) {
+      hits.push(skill);
+      if (parent === 'Salesforce') matchedAnySalesforceSpecific = true;
+    }
+  }
+  // Salesforce — Core fallback: emit only if the title mentions Salesforce
+  // generically AND no specific sub-cloud already matched.
+  if (!matchedAnySalesforceSpecific) {
+    const core = SKILL_PATTERNS.find((p) => p.skill === 'Salesforce — Core');
+    if (core && core.regex.test(text)) hits.push('Salesforce — Core');
   }
   return hits;
+}
+
+/** Returns the parent group for a skill, or undefined when it stands alone. */
+export function skillParent(skill: string): 'Salesforce' | undefined {
+  return SKILL_PATTERNS.find((p) => p.skill === skill)?.parent;
 }
 
 function median(values: number[]): number | null {

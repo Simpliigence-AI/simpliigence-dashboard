@@ -793,7 +793,7 @@ function ConnectsTab({ accountId, accountName, connects, connectType, onAdd, onR
     });
     setOrganizing(false);
     if (!result) {
-      setStructureError('AI organize failed (check OPENAI_API_KEY secret + Anthropic-style edge fn logs).');
+      setStructureError('AI organize failed. The structure-connect-notes edge function returned an error — check its logs in the Supabase dashboard.');
       return;
     }
     setD((cur) => ({ ...cur, discussion: result.discussion, outcome: result.outcome }));

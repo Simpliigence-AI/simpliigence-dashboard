@@ -74,6 +74,11 @@ export default function CandidatesPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table' | 'map'>('cards');
+  // Cap the number of rendered cards/rows so we don't blow up the main thread
+  // when there are ~5k candidates. "Load more" doubles the window. Resets to
+  // the default whenever a filter changes (handled with a useEffect below).
+  const PAGE_SIZE = 100;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // ── AI search state ──
   const [aiQuery, setAiQuery] = useState('');
@@ -129,6 +134,12 @@ export default function CandidatesPage() {
     const req = requisitions.find((r) => r.id === rid);
     return req ? `${req.title} (${accountName(rid)})` : '—';
   };
+
+  // Reset the visible-window when filters change so the user always starts
+  // at the top of the (newly-narrowed) list instead of a phantom offset.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [q, filterReq, filterStage, filterLocation, filterOwner, aiMatchSet]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -450,21 +461,29 @@ export default function CandidatesPage() {
       ) : viewMode === 'map' ? (
         <CandidateMapView candidates={filtered} />
       ) : viewMode === 'cards' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
-          {filtered.map((c) => (
-            <CandidateCard
-              key={c.id}
-              c={c}
-              requisitionLabel={reqLabel(c.requisition_id)}
-              onOpen={() => {
-                setViewMode('table');
-                const next = new Set(expanded);
-                next.add(c.id);
-                setExpanded(next);
-              }}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+            {filtered.slice(0, visibleCount).map((c) => (
+              <CandidateCard
+                key={c.id}
+                c={c}
+                requisitionLabel={reqLabel(c.requisition_id)}
+                onOpen={() => {
+                  setViewMode('table');
+                  // Ensure the table window is large enough to contain this card.
+                  const idx = filtered.findIndex((x) => x.id === c.id);
+                  if (idx >= 0 && idx >= visibleCount) {
+                    setVisibleCount(Math.max(visibleCount, idx + 50));
+                  }
+                  const next = new Set(expanded);
+                  next.add(c.id);
+                  setExpanded(next);
+                }}
+              />
+            ))}
+          </div>
+          <LoadMoreFooter shown={Math.min(visibleCount, filtered.length)} total={filtered.length} onMore={() => setVisibleCount((v) => v + PAGE_SIZE)} />
+        </>
       ) : (
         <Card>
           <div className="overflow-x-auto -mx-6 px-6">
@@ -484,7 +503,7 @@ export default function CandidatesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map((c) => (
+                {filtered.slice(0, visibleCount).map((c) => (
                   <CandidateRow
                     key={c.id}
                     c={c}
@@ -503,8 +522,26 @@ export default function CandidatesPage() {
               </tbody>
             </table>
           </div>
+          <LoadMoreFooter shown={Math.min(visibleCount, filtered.length)} total={filtered.length} onMore={() => setVisibleCount((v) => v + PAGE_SIZE)} />
         </Card>
       )}
+    </div>
+  );
+}
+
+/** Pagination footer used at the bottom of both cards & table views. Renders
+ *  nothing when the full filtered set is already visible — the freeze we hit
+ *  was caused by trying to render all 4,800 rows in one pass, so this caps
+ *  the rendered window and asks the user to opt-in to more. */
+function LoadMoreFooter({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  if (shown >= total) return null;
+  return (
+    <div className="mt-4 flex flex-col items-center gap-1.5 py-3 text-xs">
+      <div className="text-slate-500">Showing <span className="font-semibold text-slate-800">{shown.toLocaleString()}</span> of <span className="font-semibold text-slate-800">{total.toLocaleString()}</span></div>
+      <button type="button" onClick={onMore}
+              className="px-4 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold">
+        Load more
+      </button>
     </div>
   );
 }

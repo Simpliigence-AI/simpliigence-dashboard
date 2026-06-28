@@ -72,6 +72,10 @@ export default function CandidatesPage() {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<DraftCandidate>(emptyDraft);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // When set, render a modal overlay with the full detail for this candidate.
+  // Used by the cards view so clicking a card doesn't kick you out into the
+  // table view + scroll-find-your-row dance.
+  const [detailCandidateId, setDetailCandidateId] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table' | 'map'>('cards');
@@ -279,6 +283,21 @@ export default function CandidatesPage() {
           onClose={() => setBulkOpen(false)}
         />
       )}
+
+      {detailCandidateId && (() => {
+        const c = candidates.find((x) => x.id === detailCandidateId);
+        if (!c) return null;
+        return (
+          <CandidateDetailModal
+            candidate={c}
+            requisitions={requisitions}
+            accountName={accountName}
+            onChange={(patch) => updateCandidate(c.id, patch)}
+            onRemove={() => { removeCandidate(c.id); setDetailCandidateId(null); }}
+            onClose={() => setDetailCandidateId(null)}
+          />
+        );
+      })()}
 
       {/* KPI strip — colorful at-a-glance counters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -488,17 +507,7 @@ export default function CandidatesPage() {
                 key={c.id}
                 c={c}
                 requisitionLabel={reqLabel(c.requisition_id)}
-                onOpen={() => {
-                  setViewMode('table');
-                  // Ensure the table window is large enough to contain this card.
-                  const idx = filtered.findIndex((x) => x.id === c.id);
-                  if (idx >= 0 && idx >= visibleCount) {
-                    setVisibleCount(Math.max(visibleCount, idx + 50));
-                  }
-                  const next = new Set(expanded);
-                  next.add(c.id);
-                  setExpanded(next);
-                }}
+                onOpen={() => setDetailCandidateId(c.id)}
               />
             ))}
           </div>
@@ -545,6 +554,52 @@ export default function CandidatesPage() {
           <LoadMoreFooter shown={Math.min(visibleCount, filtered.length)} total={filtered.length} onMore={() => setVisibleCount((v) => v + PAGE_SIZE)} />
         </Card>
       )}
+    </div>
+  );
+}
+
+/** Modal overlay used when a candidate card is clicked. Reuses CandidateRow
+ *  with expanded=true inside a wrapper table so we get the same form fields,
+ *  skills, summary, and call history as the inline table-view expansion —
+ *  without yanking the user out of the cards view. */
+function CandidateDetailModal({ candidate, requisitions, accountName, onChange, onRemove, onClose }: {
+  candidate: StaffingCandidate;
+  requisitions: StaffingRequisition[];
+  accountName: (rid: string) => string;
+  onChange: (patch: Partial<StaffingCandidate>) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl my-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 sticky top-0 bg-white rounded-t-xl">
+          <div className="text-sm font-bold text-slate-900">{candidate.name || '(unnamed)'}</div>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xs font-semibold">
+            ✕ Close
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <tbody>
+              <CandidateRow
+                c={candidate}
+                requisitions={requisitions}
+                accountName={accountName}
+                expanded={true}
+                onToggleExpand={onClose}
+                onChange={onChange}
+                onRemove={onRemove}
+              />
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

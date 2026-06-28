@@ -16,6 +16,9 @@ import { StageFunnel } from '../components/staffing/StageFunnel';
 import { StaffingSmartQuery } from '../components/staffing/StaffingSmartQuery';
 import { CandidatePipeline } from '../components/staffing/CandidatePipeline';
 import { SendToVendorDialog } from '../components/staffing/SendToVendorDialog';
+import { DailyStatusMode } from '../components/staffing/DailyStatusMode';
+import { QuickAddSpeedDial } from '../components/staffing/QuickAddSpeedDial';
+import { ClipboardList } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { StaffingRow, RiskLevel, PipelineStage, StaffingStatus } from '../types/staffing';
@@ -129,7 +132,14 @@ export default function IndiaStaffingPage() {
   // AI Daily Briefing (cached per day in localStorage — see runStaffingBriefing)
   const [briefing, setBriefing] = useState<StaffingBriefing | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
-  const [briefingExpanded, setBriefingExpanded] = useState(true);
+  // Default collapsed — eats 120px of above-the-fold; click the pill to expand.
+  const [briefingExpanded, setBriefingExpanded] = useState(false);
+
+  // Funnel chart collapsible — heavy chart, default collapsed to free 250px.
+  const [funnelExpanded, setFunnelExpanded] = useState(false);
+
+  // Daily Status mode — focused overlay for bulk-logging today's statuses.
+  const [dailyStatusOpen, setDailyStatusOpen] = useState(false);
 
   // ── Send-to-vendor state ──
   const [sendVendorReqId, setSendVendorReqId] = useState<string | null>(null);
@@ -912,6 +922,28 @@ export default function IndiaStaffingPage() {
           <option value="low">Low Risk</option>
         </select>
         <div className="flex-1" />
+        {(() => {
+          // Count active reqs that haven't been status-updated today.
+          const today = new Date().toISOString().slice(0, 10);
+          const haveTodayStatus = new Set(statuses.filter((s) => s.status_date === today).map((s) => s.requisition_id));
+          const pendingCount = requisitions.filter(
+            (r) => !ARCHIVED_STATUSES.includes(r.status_field) && !haveTodayStatus.has(r.id),
+          ).length;
+          return (
+            <button onClick={() => setDailyStatusOpen(true)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors ${
+                      pendingCount > 0
+                        ? 'bg-violet-600 text-white hover:bg-violet-700'
+                        : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                    title="Update today's statuses across all active requisitions in one focused flow">
+              <ClipboardList size={14} /> Daily Status
+              {pendingCount > 0 && (
+                <span className="bg-white/30 text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+              )}
+            </button>
+          );
+        })()}
         <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
         <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium hover:bg-slate-50">
           <Upload size={14} /> Import CSV
@@ -1089,9 +1121,26 @@ export default function IndiaStaffingPage() {
             <StatCard label="Avg Closure Prob" value={`${avgProb}%`} icon={<TrendingUp size={20} />} subtitle="AI + manual blend" />
           </div>
 
-          {/* Funnel + drop-off analysis — reveals bottlenecks at a glance */}
+          {/* Funnel + drop-off analysis — collapsible. Default collapsed so
+              the requisitions list is above the fold; expand on demand. */}
           <Card className="mb-6">
-            <StageFunnel summary={computeFunnel(requisitions, history)} />
+            <button
+              type="button"
+              onClick={() => setFunnelExpanded((v) => !v)}
+              className="w-full flex items-center justify-between -mx-2 px-2 -my-1 py-1 rounded hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <BarChart3 size={14} className="text-violet-600" />
+                <span className="text-sm font-bold text-slate-800">Pipeline funnel + drop-off</span>
+                <span className="text-[10px] text-slate-400">{funnelExpanded ? 'click to collapse' : 'click to expand'}</span>
+              </div>
+              {funnelExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+            </button>
+            {funnelExpanded && (
+              <div className="mt-3">
+                <StageFunnel summary={computeFunnel(requisitions, history)} />
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -1501,6 +1550,45 @@ export default function IndiaStaffingPage() {
           </div>
         );
       })()}
+
+      {/* ── Quick-add speed-dial — bottom-right floating button + menu ── */}
+      <QuickAddSpeedDial
+        accounts={accounts}
+        onAddAccount={async (name) => {
+          // Reuse the same addAccount path used by the legacy Add Req form.
+          return addAccount(name);
+        }}
+        onAddRequisition={async ({ accountId, title, month }) => {
+          await addRequisition({
+            account_id: accountId,
+            title,
+            month,
+            new_positions: 1,
+            stage: 'Sourcing',
+            status_field: 'In Progress',
+            anticipation: '',
+            client_spoc: '',
+            department: '',
+            location: '',
+            expected_closure: '',
+            close_by_date: '',
+            start_date: new Date().toISOString().slice(0, 10),
+            probability: 0,
+            ai_probability: 0,
+          });
+        }}
+      />
+
+      {/* ── Daily Status mode — focused overlay for bulk-logging statuses ── */}
+      {dailyStatusOpen && (
+        <DailyStatusMode
+          requisitions={requisitions}
+          statuses={statuses}
+          accounts={accounts}
+          onAddStatus={async (p) => { await addStatus(p); }}
+          onClose={() => setDailyStatusOpen(false)}
+        />
+      )}
     </>
   );
 }

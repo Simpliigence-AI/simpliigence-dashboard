@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
-import { computeIndiaHiringMetrics } from '../lib/indiaHiringMetrics';
+import { computeIndiaHiringMetrics, skillParent } from '../lib/indiaHiringMetrics';
 import { runIndiaHiringForecast, type IndiaHiringPrediction } from '../lib/claudeQuery';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
@@ -270,26 +270,93 @@ export default function IndiaHiringForecastPage() {
           <h3 className="text-sm font-bold text-slate-700 mb-3">Top Skills in Demand</h3>
           {metrics.demand.topSkills.length === 0 ? (
             <p className="text-xs text-slate-400 italic">No skill signals from active reqs.</p>
-          ) : (
-            <div className="space-y-2">
-              {metrics.demand.topSkills.map((s) => {
-                const max = Math.max(...metrics.demand.topSkills.map((x) => x.positions), 1);
-                return (
-                  <div key={s.skill} className="flex items-center gap-2 text-xs">
-                    <span className="w-32 text-slate-700 font-medium truncate" title={s.skill}>{s.skill}</span>
-                    <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden relative">
-                      <div className="bg-blue-500/70 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${(s.positions / max) * 100}%` }}>
-                        <span className="text-[10px] font-bold text-white">{s.positions} pos</span>
+          ) : (() => {
+              // Group Salesforce sub-clouds under a single parent header so a TA
+              // Manager planning the bench can see "Salesforce: 52 open" with
+              // the specialty breakdown indented underneath.
+              type Row = (typeof metrics.demand.topSkills)[number];
+              const salesforce: Row[] = [];
+              const others: Row[] = [];
+              for (const s of metrics.demand.topSkills) {
+                (skillParent(s.skill) === 'Salesforce' ? salesforce : others).push(s);
+              }
+              salesforce.sort((a, b) => b.positions - a.positions);
+              others.sort((a, b) => b.positions - a.positions);
+              const sfTotal = salesforce.reduce((sum, s) => sum + s.positions, 0);
+              const sfReqs = salesforce.reduce((sum, s) => sum + s.reqCount, 0);
+              const max = Math.max(...metrics.demand.topSkills.map((x) => x.positions), 1, sfTotal);
+
+              return (
+                <div className="space-y-2">
+                  {salesforce.length > 0 && (
+                    <>
+                      {/* Salesforce parent header */}
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-32 text-sky-700 font-bold flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-sky-500" /> Salesforce
+                        </span>
+                        <div className="flex-1 bg-sky-50 rounded-full h-5 overflow-hidden relative border border-sky-100">
+                          <div className="bg-gradient-to-r from-sky-400 to-blue-500 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${(sfTotal / max) * 100}%` }}>
+                            <span className="text-[10px] font-bold text-white">{sfTotal} pos · {sfReqs} reqs</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-[10px] text-slate-500 w-20 text-right">
-                      {s.reqCount} {s.reqCount === 1 ? 'req' : 'reqs'} · {s.accountCount} acct
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                      {/* Salesforce sub-cloud breakdown */}
+                      {salesforce.map((s) => (
+                        <div key={s.skill} className="flex items-center gap-2 text-xs">
+                          <span className="w-32 text-slate-700 text-[11px] font-medium truncate pl-3" title={s.skill}>
+                            <span className="text-slate-300 mr-1">└</span>
+                            {s.skill.replace(/^Salesforce — /, '')}
+                          </span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden relative">
+                            <div className="bg-sky-500/70 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${Math.max(6, (s.positions / max) * 100)}%` }}>
+                              <span className="text-[10px] font-bold text-white">{s.positions} pos</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-500 w-20 text-right">
+                            {s.reqCount} {s.reqCount === 1 ? 'req' : 'reqs'} · {s.accountCount} acct
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {others.length > 0 && (
+                    <>
+                      {salesforce.length > 0 && <div className="h-1" />}
+                      {others.map((s) => (
+                        <div key={s.skill} className="flex items-center gap-2 text-xs">
+                          <span className="w-32 text-slate-700 font-medium truncate" title={s.skill}>{s.skill}</span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden relative">
+                            <div className="bg-blue-500/70 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${(s.positions / max) * 100}%` }}>
+                              <span className="text-[10px] font-bold text-white">{s.positions} pos</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-500 w-20 text-right">
+                            {s.reqCount} {s.reqCount === 1 ? 'req' : 'reqs'} · {s.accountCount} acct
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {/* Bench planning hint */}
+                  {sfTotal > 0 && (
+                    <p className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed">
+                      <strong className="text-slate-700">Bench mix recommendation:</strong> based on current open demand,
+                      a 10-person Salesforce bench should over-index on{' '}
+                      {salesforce.slice(0, 3).map((s, i) => (
+                        <span key={s.skill}>
+                          {i > 0 && (i === salesforce.slice(0, 3).length - 1 ? ' and ' : ', ')}
+                          <strong className="text-sky-700">{s.skill.replace(/^Salesforce — /, '')}</strong>
+                          {' ('}{Math.max(1, Math.round((s.positions / sfTotal) * 10))}{')'}
+                        </span>
+                      ))}
+                      .
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
         </Card>
 
         <Card>

@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, FolderKanban, Clock, DollarSign, Search, Sparkles, X, Loader2,
@@ -23,6 +23,7 @@ import type { QueryResult } from '../lib/queryEngine';
 import { runClaudeQuery, getClaudeApiKey } from '../lib/claudeQuery';
 import type { HiringForecastInput, SmartQueryExtras } from '../lib/claudeQuery';
 import { useTaLogStore } from '../store/useTaLogStore';
+import { useSalesPlanStore, normalizeAccountName } from '../store/useSalesPlanStore';
 import { computeHiringForecast } from '../lib/hiringForecastCalc';
 import { MONTHS } from '../types/forecast';
 import type { ForecastAssignment, Month } from '../types/forecast';
@@ -228,6 +229,31 @@ export default function DashboardPage() {
 
   const employees = useMemo(() => deriveEmployeeSummaries(assignments), [assignments]);
   const projects = useMemo(() => deriveProjectSummaries(assignments), [assignments]);
+
+  // Sales-plan urgency — accounts whose unsecured revenue is high AND coverage is low.
+  const salesPlanLoad = useSalesPlanStore((s) => s.load);
+  const salesPlanByName = useSalesPlanStore((s) => s.byName);
+  useEffect(() => { void salesPlanLoad(); }, [salesPlanLoad]);
+  const urgentAccounts = useMemo(() => {
+    const URGENT_UNSECURED = 250_000;
+    const URGENT_PCT_LOCKED = 0.4;
+    const out: Array<{ name: string; region: 'India' | 'US'; unsecured: number; pctLocked: number }> = [];
+    const considered = new Set<string>();
+    const consider = (name: string, region: 'India' | 'US') => {
+      const key = `${region}:${name.toLowerCase()}`;
+      if (considered.has(key)) return;
+      considered.add(key);
+      const ins = salesPlanByName[normalizeAccountName(name)];
+      if (!ins || ins.forecast === 0) return;
+      if (ins.unsecured >= URGENT_UNSECURED && ins.pctLocked < URGENT_PCT_LOCKED) {
+        out.push({ name, region, unsecured: ins.unsecured, pctLocked: ins.pctLocked });
+      }
+    };
+    for (const a of indiaAccounts) consider(a.name, 'India');
+    for (const a of usAccounts) consider(a.name, 'US');
+    out.sort((a, b) => b.unsecured - a.unsecured);
+    return out;
+  }, [indiaAccounts, usAccounts, salesPlanByName]);
 
   // Same conversion as the Hiring Forecast tab — keep Smart Query in sync with what that tab computes.
   const pipelineProjects: PipelineProject[] = useMemo(() => {
@@ -509,6 +535,40 @@ export default function DashboardPage() {
         title="Operations Cockpit"
         subtitle={`Live cross-section view — ${MONTHS[0]} to ${MONTHS[MONTHS.length - 1]} ${new Date().getFullYear()}`}
       />
+
+      {urgentAccounts.length > 0 && (
+        <div className="mb-4 rounded-xl border border-rose-300 bg-gradient-to-r from-rose-50 via-rose-50 to-amber-50 p-3.5 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-rose-600 text-white flex items-center justify-center flex-shrink-0">
+            <ArrowUpRight size={18} className="rotate-45" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <div className="font-bold text-sm text-rose-800">
+                {urgentAccounts.length} account{urgentAccounts.length === 1 ? '' : 's'} need sales + delivery sync
+              </div>
+              <div className="text-[10px] text-rose-700/80 uppercase tracking-wider font-bold">
+                <Sensitive>${Math.round(urgentAccounts.reduce((s, a) => s + a.unsecured, 0) / 1000).toLocaleString()}K</Sensitive> unsecured · &lt;40% locked
+              </div>
+            </div>
+            <div className="text-[11px] text-rose-700/90 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+              {urgentAccounts.slice(0, 6).map((a) => (
+                <Link
+                  key={`${a.region}-${a.name}`}
+                  to={a.region === 'India' ? '/india-staffing' : '/us-staffing'}
+                  className="inline-flex items-center gap-1 hover:underline"
+                  title={`${a.region} Demand → ${a.name}`}
+                >
+                  <span className="font-semibold">{a.name}</span>
+                  <span className="text-rose-500/80">({a.region}, <Sensitive>${Math.round(a.unsecured / 1000)}K</Sensitive>)</span>
+                </Link>
+              ))}
+              {urgentAccounts.length > 6 && (
+                <span className="text-rose-500/70 italic">+{urgentAccounts.length - 6} more</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <SmartQueryPanel
         assignments={assignments}

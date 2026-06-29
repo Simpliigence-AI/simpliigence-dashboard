@@ -4,13 +4,26 @@ import {
   Users, Plus, Trash2, Pencil, Building2, ChevronDown, ChevronRight,
   Globe, TrendingUp, CheckCircle, AlertTriangle, Clock, Brain,
   Sparkles, Loader2, Save, RefreshCw,
+  DollarSign, Lock, Unlock, Flame, Activity,
 } from 'lucide-react';
 import { useUSStaffingStore } from '../store/useUSStaffingStore';
+import { useSalesPlanStore, normalizeAccountName, type AccountInsight } from '../store/useSalesPlanStore';
+import { Sensitive } from '../components/Sensitive';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { USStaffingStage, AccountCategory } from '../types/usStaffing';
 import { US_STAGE_COLORS } from '../types/usStaffing';
 import { db } from '../lib/supabaseSync';
+
+// Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
+const URGENT_UNSECURED = 250_000;
+const URGENT_PCT_LOCKED = 0.4;
+
+function fmtMoney(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n.toFixed(0)}`;
+}
 
 /* —— Editable Cell Component —— */
 function EditableCell({ value, onSave, type = 'text', options, className = '', displayContent }: {
@@ -152,6 +165,19 @@ export default function USStaffingPage() {
       return next;
     });
   };
+
+  // Sales-plan integration — load once on mount.
+  const salesPlanLoad = useSalesPlanStore((s) => s.load);
+  const salesPlanLoaded = useSalesPlanStore((s) => s.loaded);
+  const salesPlanLoading = useSalesPlanStore((s) => s.loading);
+  const salesPlanByName = useSalesPlanStore((s) => s.byName);
+  const salesPlanUpdated = useSalesPlanStore((s) => s.updatedAt);
+  useEffect(() => { void salesPlanLoad(); }, [salesPlanLoad]);
+
+  /** Look up the plan insight for a US account by normalized name. */
+  const planInsightFor = useCallback((name: string): AccountInsight | undefined => {
+    return salesPlanByName[normalizeAccountName(name)];
+  }, [salesPlanByName]);
 
   /* —— Derived data —— */
   const mspAccounts = useMemo(() => accounts.filter(a => a.category === 'MSP'), [accounts]);
@@ -321,14 +347,21 @@ export default function USStaffingPage() {
 
                     const probColor = req._score >= 65 ? '#10b981' : req._score >= 40 ? '#f59e0b' : '#ef4444';
 
+                    const acctInsight = showBanner ? planInsightFor(req._account_name) : undefined;
+                    const acctForecast = acctInsight?.forecast ?? 0;
+                    const acctSecured = acctInsight?.secured ?? 0;
+                    const acctUnsecured = acctInsight?.unsecured ?? 0;
+                    const acctLockedPct = acctInsight?.pctLocked ?? 0;
+                    const acctUrgent = acctForecast > 0 && acctUnsecured >= URGENT_UNSECURED && acctLockedPct < URGENT_PCT_LOCKED;
+
                     return (
                       <React.Fragment key={req.id}>
                         {showBanner && (
-                          <tr className="border-y-2 border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 group/banner">
+                          <tr className={`border-y-2 ${acctUrgent ? 'border-rose-200' : 'border-blue-200'} ${acctUrgent ? 'bg-gradient-to-r from-rose-50 via-rose-50 to-amber-50' : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50'} group/banner`}>
                             <td colSpan={7} className="py-2.5 px-3">
-                              <div className="flex items-baseline gap-3">
-                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/15 text-primary flex-shrink-0">
-                                  <Building2 size={14} />
+                              <div className="flex items-baseline gap-3 flex-wrap">
+                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${acctUrgent ? 'bg-rose-600 text-white' : 'bg-primary/15 text-primary'}`}>
+                                  {acctUrgent ? <Flame size={14} /> : <Building2 size={14} />}
                                 </span>
                                 <span className="text-base font-extrabold text-slate-900 tracking-tight">
                                   {req._account_name}
@@ -340,6 +373,11 @@ export default function USStaffingPage() {
                                 }`}>
                                   {req._account_category}
                                 </span>
+                                {acctUrgent && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-600 text-white inline-flex items-center gap-1">
+                                    <Flame size={9} /> Urgent: sales + delivery sync
+                                  </span>
+                                )}
                                 <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
                                   {acctReqCount} {acctReqCount === 1 ? 'role' : 'roles'}
                                   <span className="text-slate-300 mx-1">·</span>
@@ -347,6 +385,23 @@ export default function USStaffingPage() {
                                   <span className="text-slate-300 mx-1">·</span>
                                   avg AI prob <span className="text-slate-700">{avgAi}%</span>
                                 </span>
+                                {acctForecast > 0 && (
+                                  <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide inline-flex items-center gap-2">
+                                    <span className="text-slate-300">·</span>
+                                    Forecast <span className="text-slate-800"><Sensitive>{fmtMoney(acctForecast)}</Sensitive></span>
+                                    <span className="text-slate-300">·</span>
+                                    <Lock size={9} className="text-emerald-600" /> <span className="text-emerald-700"><Sensitive>{fmtMoney(acctSecured)}</Sensitive></span>
+                                    <span className="text-slate-300">·</span>
+                                    <Unlock size={9} className={acctUrgent ? 'text-rose-600' : 'text-amber-600'} /> <span className={acctUrgent ? 'text-rose-700' : 'text-amber-700'}><Sensitive>{fmtMoney(acctUnsecured)}</Sensitive></span>
+                                    <span className="text-slate-300">·</span>
+                                    {Math.round(acctLockedPct * 100)}% locked
+                                  </span>
+                                )}
+                                {acctInsight && acctInsight.signalCount > 0 && (
+                                  <span className="text-[10px] text-violet-600 font-semibold inline-flex items-center gap-1">
+                                    <Activity size={10} /> {acctInsight.signalCount} connect{acctInsight.signalCount === 1 ? '' : 's'}
+                                  </span>
+                                )}
                                 {/* Delete-account hover affordance */}
                                 <span className="flex-1" />
                                 <button
@@ -363,6 +418,12 @@ export default function USStaffingPage() {
                                   <Trash2 size={12} />
                                 </button>
                               </div>
+                              {acctForecast > 0 && (
+                                <div className="mt-1.5 h-1 bg-slate-100 rounded-full overflow-hidden flex" title={`${Math.round(acctLockedPct * 100)}% locked`}>
+                                  <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, Math.round(acctLockedPct * 100))}%` }} />
+                                  <div className={`${acctUrgent ? 'bg-rose-400' : 'bg-amber-400'} h-full`} style={{ width: `${100 - Math.min(100, Math.round(acctLockedPct * 100))}%` }} />
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}
@@ -633,6 +694,62 @@ export default function USStaffingPage() {
           </div>
         </Card>
       )}
+
+      {/* Sales-plan portfolio strip */}
+      {(() => {
+        const all = [...mspAccounts, ...siAccounts];
+        const insights = all.map((a) => ({ a, ins: planInsightFor(a.name) }));
+        const matched = insights.filter((x) => x.ins && x.ins.forecast > 0);
+        const totalForecast = matched.reduce((s, x) => s + (x.ins?.forecast ?? 0), 0);
+        const totalSecured = matched.reduce((s, x) => s + (x.ins?.secured ?? 0), 0);
+        const totalUnsecured = Math.max(0, totalForecast - totalSecured);
+        const urgent = insights.filter(({ ins }) => ins && ins.forecast > 0 && ins.unsecured >= URGENT_UNSECURED && ins.pctLocked < URGENT_PCT_LOCKED);
+        return (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
+                <div className="text-xl font-extrabold text-slate-800">{all.length}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{matched.length} in sales plan</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
+                <div className="text-xl font-extrabold text-slate-800"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
+                <div className="text-[10px] text-slate-500 mt-0.5">across {matched.length} accounts</div>
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold mb-1 flex items-center gap-1"><Lock size={11} /> Secured</div>
+                <div className="text-xl font-extrabold text-emerald-700"><Sensitive>{fmtMoney(totalSecured)}</Sensitive></div>
+                <div className="text-[10px] text-emerald-600/80 mt-0.5">{totalForecast > 0 ? `${Math.round((totalSecured / totalForecast) * 100)}% of plan locked` : '—'}</div>
+              </div>
+              <div className={`rounded-xl border p-3 ${urgent.length > 0 ? 'border-rose-300 bg-rose-50/60' : 'border-amber-200 bg-amber-50/40'}`}>
+                <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 flex items-center gap-1 ${urgent.length > 0 ? 'text-rose-700' : 'text-amber-700'}`}>
+                  <Unlock size={11} /> Unsecured
+                </div>
+                <div className={`text-xl font-extrabold ${urgent.length > 0 ? 'text-rose-700' : 'text-amber-700'}`}><Sensitive>{fmtMoney(totalUnsecured)}</Sensitive></div>
+                <div className={`text-[10px] mt-0.5 ${urgent.length > 0 ? 'text-rose-600' : 'text-amber-600/80'}`}>
+                  {urgent.length > 0 ? `${urgent.length} account${urgent.length === 1 ? '' : 's'} need sales+delivery sync` : 'No urgent accounts'}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+              <div className="flex items-center gap-2">
+                <Sparkles size={12} className="text-violet-500" />
+                <span>Forecast data from the 2026 Sales Plan{salesPlanUpdated ? ` · updated ${new Date(salesPlanUpdated).toLocaleDateString()}` : ''}</span>
+                {salesPlanLoading && <span className="text-slate-400">(refreshing…)</span>}
+                {!salesPlanLoaded && !salesPlanLoading && <span className="text-rose-500">(not loaded)</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => void useSalesPlanStore.getState().load({ force: true })}
+                className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-primary transition-colors"
+              >
+                <RefreshCw size={10} /> Refresh
+              </button>
+            </div>
+          </>
+        );
+      })()}
 
       {/* Requisitions grouped by MSP / SI */}
       {renderAccountGroup(mspAccounts, 'MSP Accounts')}

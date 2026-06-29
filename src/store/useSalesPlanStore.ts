@@ -117,6 +117,20 @@ function normName(name: string | undefined | null): string {
   return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+/**
+ * Known account-name aliases. Keys are the variant that appears in the
+ * dashboard's own data (India / US staffing); values are the normalized name
+ * to look up in the sales plan. Both sides are normalized via `normName`
+ * before matching.
+ *
+ * Add new entries when an account is recorded under different spellings in
+ * the dashboard vs the sales plan tool.
+ */
+const NAME_ALIASES: Record<string, string> = {
+  acuity: 'acquity',
+  amex: 'american express',
+};
+
 interface SalesPlanState {
   loaded: boolean;
   loading: boolean;
@@ -225,6 +239,16 @@ export const useSalesPlanStore = create<SalesPlanState>((set, get) => ({
         }
       }
 
+      // Explicit alias map: for each (variant → planName), if the plan side
+      // is matched, expose the same insight under the variant key too.
+      for (const [variant, planName] of Object.entries(NAME_ALIASES)) {
+        const variantKey = normName(variant);
+        const planKey = normName(planName);
+        if (variantKey && planKey && byName[planKey] && !byName[variantKey]) {
+          byName[variantKey] = byName[planKey];
+        }
+      }
+
       set({
         loaded: true,
         loading: false,
@@ -238,7 +262,13 @@ export const useSalesPlanStore = create<SalesPlanState>((set, get) => ({
     }
   },
 
-  insightForName: (name) => get().byName[normName(name)],
+  insightForName: (name) => {
+    const key = normName(name);
+    const direct = get().byName[key];
+    if (direct) return direct;
+    const aliased = NAME_ALIASES[key];
+    return aliased ? get().byName[normName(aliased)] : undefined;
+  },
 }));
 
 export { normName as normalizeAccountName };

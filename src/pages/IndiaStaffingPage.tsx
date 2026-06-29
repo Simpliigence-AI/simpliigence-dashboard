@@ -1472,11 +1472,13 @@ export default function IndiaStaffingPage() {
                 const staleTouch = !lastTouch || (s.insight?.lastTouch && (Date.now() - new Date(s.insight.lastTouch).getTime()) > 45 * 86400000);
                 const isSelected = selectedAccount === s.name;
                 return (
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     key={s.name}
                     onClick={() => { setSelectedAccount(isSelected ? null : s.name); setAccountDetailTab('reqs'); }}
-                    className={`text-left rounded-xl bg-white border transition-all relative overflow-hidden group ${
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAccount(isSelected ? null : s.name); setAccountDetailTab('reqs'); } }}
+                    className={`text-left rounded-xl bg-white border transition-all relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                       s.urgent
                         ? 'border-rose-300 ring-1 ring-rose-200 hover:ring-rose-300 hover:shadow-lg'
                         : 'border-slate-200 hover:border-primary/40 hover:shadow-md'
@@ -1524,9 +1526,17 @@ export default function IndiaStaffingPage() {
                           </div>
                         </>
                       ) : (
-                        <div className="mb-3 px-2 py-1.5 rounded-md bg-slate-50 border border-dashed border-slate-200 text-[10px] text-slate-400 italic">
-                          Not in sales plan — request a forecast
-                        </div>
+                        <a
+                          href="https://simpliigence-sales-planning-2026.vercel.app/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="mb-3 px-2 py-1.5 rounded-md bg-slate-50 border border-dashed border-slate-200 text-[10px] text-slate-500 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors flex items-center justify-between gap-2"
+                          title={`Open 2026 Sales Plan to add a forecast for ${s.name}`}
+                        >
+                          <span className="italic truncate">Not in sales plan — add a forecast</span>
+                          <span className="font-semibold whitespace-nowrap">↗ Open</span>
+                        </a>
                       )}
 
                       {/* Delivery snapshot */}
@@ -1570,7 +1580,7 @@ export default function IndiaStaffingPage() {
                         </div>
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

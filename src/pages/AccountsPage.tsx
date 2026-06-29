@@ -25,8 +25,10 @@ import {
   Plus, Trash2, Save, X, ChevronDown, ChevronRight, AlertTriangle, Users,
   Calendar, Briefcase, CheckCircle2, Circle, PauseCircle, XCircle, Clock,
   Sparkles, RefreshCw, Loader2, Mic, Square, Upload, Link as LinkIcon,
+  DollarSign, Lock, Unlock, Flame, MessageSquare, Handshake,
 } from 'lucide-react';
 import { Card } from '../components/ui';
+import { Sensitive } from '../components/Sensitive';
 import { db } from '../lib/supabaseSync';
 import { runAccountBriefing, type AccountBriefing } from '../lib/claudeQuery';
 import { UserPicker } from '../components/UserPicker';
@@ -35,7 +37,18 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useAccountStore } from '../store/useAccountStore';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { useUSRosterStore } from '../store/useUSRosterStore';
+import { useSalesPlanStore, normalizeAccountName, type AccountInsight } from '../store/useSalesPlanStore';
 import { STALE_CONNECT_DAYS } from '../types/accountMgmt';
+
+// Sales-plan urgency thresholds — mirror India/US Demand pages.
+const URGENT_UNSECURED = 250_000;
+const URGENT_PCT_LOCKED = 0.4;
+
+function fmtMoney(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n.toFixed(0)}`;
+}
 import { ClientContactsTab } from './accounts/ClientContactsTab';
 import { AccountInfoTab } from './accounts/AccountInfoTab';
 import { OpportunitiesTab } from './accounts/OpportunitiesTab';
@@ -88,9 +101,18 @@ export default function AccountsPage() {
 
   const [q, setQ] = useState('');
   const [filterStale, setFilterStale] = useState(false);
+  const [filterUrgent, setFilterUrgent] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<Record<string, AccountTab>>({});
+  // Per-account: if set, ConnectsTab opens its "Add" form immediately. Cleared
+  // after the row uses it so a subsequent re-expand doesn't auto-open.
+  const [autoLog, setAutoLog] = useState<Record<string, ConnectType | null>>({});
   const [adding, setAdding] = useState(false);
+
+  // Sales-plan integration — load once on mount.
+  const salesPlanLoad = useSalesPlanStore((s) => s.load);
+  const salesPlanByName = useSalesPlanStore((s) => s.byName);
+  useEffect(() => { void salesPlanLoad(); }, [salesPlanLoad]);
 
   // AI briefing state — Claude reads accounts + connects + actions + client
   // contacts and produces a daily operator briefing. Cached for the day.
@@ -105,6 +127,12 @@ export default function AccountsPage() {
     openActions: number;
     teamCount: number;
     isStale: boolean;
+    insight: AccountInsight | undefined;
+    forecast: number;
+    secured: number;
+    unsecured: number;
+    pctLocked: number;
+    isUrgent: boolean;
   };
   const derivedByAccount = useMemo(() => {
     const result = new Map<string, Derived>();
@@ -121,10 +149,23 @@ export default function AccountsPage() {
       const staleS = !lastSales || daysSince(lastSales.meetingDate) > STALE_CONNECT_DAYS;
       const staleD = !lastDelivery || daysSince(lastDelivery.meetingDate) > STALE_CONNECT_DAYS;
       const isStale = acc.status === 'active' && (staleS || staleD);
-      result.set(acc.id, { lastSales, lastDelivery, openActions, teamCount: team.length, isStale });
+      // Match this account into the 2026 sales plan by name (with alias fallback)
+      let insight: AccountInsight | undefined = salesPlanByName[normalizeAccountName(acc.name)];
+      if (!insight) {
+        for (const alias of acc.teamAliases ?? []) {
+          const ai = salesPlanByName[normalizeAccountName(alias)];
+          if (ai) { insight = ai; break; }
+        }
+      }
+      const forecast = insight?.forecast ?? 0;
+      const secured = insight?.secured ?? 0;
+      const unsecured = insight?.unsecured ?? 0;
+      const pctLocked = insight?.pctLocked ?? 0;
+      const isUrgent = forecast > 0 && unsecured >= URGENT_UNSECURED && pctLocked < URGENT_PCT_LOCKED;
+      result.set(acc.id, { lastSales, lastDelivery, openActions, teamCount: team.length, isStale, insight, forecast, secured, unsecured, pctLocked, isUrgent });
     }
     return result;
-  }, [accounts, connects, actions, indiaRoster, usRoster]);
+  }, [accounts, connects, actions, indiaRoster, usRoster, salesPlanByName]);
 
   // ── Filter ──
   const filtered = useMemo(() => {
@@ -132,22 +173,43 @@ export default function AccountsPage() {
     return accounts.filter((a) => {
       const d = derivedByAccount.get(a.id);
       if (filterStale && !d?.isStale) return false;
+      if (filterUrgent && !d?.isUrgent) return false;
       if (needle) {
         const hay = `${a.name} ${a.salesOwnerEmail ?? ''} ${a.deliveryOwnerEmail ?? ''} ${a.industry ?? ''}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     }).sort((a, b) => {
-      // Stale accounts to the top, then alphabetical
-      const sa = derivedByAccount.get(a.id)?.isStale ? 0 : 1;
-      const sb = derivedByAccount.get(b.id)?.isStale ? 0 : 1;
+      // Order: urgent first, then stale, then by forecast desc, then alphabetical.
+      const da = derivedByAccount.get(a.id);
+      const db = derivedByAccount.get(b.id);
+      const ua = da?.isUrgent ? 0 : 1;
+      const ub = db?.isUrgent ? 0 : 1;
+      if (ua !== ub) return ua - ub;
+      const sa = da?.isStale ? 0 : 1;
+      const sb = db?.isStale ? 0 : 1;
       if (sa !== sb) return sa - sb;
+      const fa = da?.forecast ?? 0;
+      const fb = db?.forecast ?? 0;
+      if (fb !== fa) return fb - fa;
       return a.name.localeCompare(b.name);
     });
-  }, [accounts, q, filterStale, derivedByAccount]);
+  }, [accounts, q, filterStale, filterUrgent, derivedByAccount]);
 
   const staleCount = useMemo(
     () => accounts.filter((a) => derivedByAccount.get(a.id)?.isStale).length,
+    [accounts, derivedByAccount],
+  );
+  const urgentCount = useMemo(
+    () => accounts.filter((a) => derivedByAccount.get(a.id)?.isUrgent).length,
+    [accounts, derivedByAccount],
+  );
+  const totalForecast = useMemo(
+    () => accounts.reduce((s, a) => s + (derivedByAccount.get(a.id)?.forecast ?? 0), 0),
+    [accounts, derivedByAccount],
+  );
+  const totalUnsecured = useMemo(
+    () => accounts.reduce((s, a) => s + (derivedByAccount.get(a.id)?.unsecured ?? 0), 0),
     [accounts, derivedByAccount],
   );
 
@@ -155,6 +217,14 @@ export default function AccountsPage() {
     const next = new Set(expanded);
     if (next.has(id)) next.delete(id); else next.add(id);
     setExpanded(next);
+  };
+
+  /** Open the row, switch to the requested connect tab, and tell the
+   *  ConnectsTab to open its "Add" form immediately. */
+  const quickLogConnect = (accId: string, type: ConnectType) => {
+    setExpanded((prev) => new Set(prev).add(accId));
+    setActiveTab((prev) => ({ ...prev, [accId]: type === 'sales' ? 'sales' : 'delivery' }));
+    setAutoLog((prev) => ({ ...prev, [accId]: type }));
   };
 
   // Quick KPIs for the hero strip
@@ -221,11 +291,13 @@ export default function AccountsPage() {
             <Plus size={14} /> Add account
           </button>
         </div>
-        <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+        <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-5">
           <HeroStat label="Total" value={accounts.length} />
           <HeroStat label="Active" value={activeCount} />
           <HeroStat label="Open actions" value={totalOpenActions} tone={totalOpenActions > 0 ? 'amber' : 'mute'} />
           <HeroStat label="Stale" value={staleCount} tone={staleCount > 0 ? 'red' : 'mute'} subtitle={`>${STALE_CONNECT_DAYS}d`} />
+          <HeroStat label="Forecast '26" valueStr={fmtMoney(totalForecast)} sensitive subtitle="2026 sales plan" />
+          <HeroStat label="Unsecured" valueStr={fmtMoney(totalUnsecured)} sensitive tone={urgentCount > 0 ? 'red' : 'mute'} subtitle={urgentCount > 0 ? `${urgentCount} urgent` : 'no urgent'} />
         </div>
       </div>
 
@@ -319,6 +391,17 @@ export default function AccountsPage() {
           />
           <button
             type="button"
+            onClick={() => setFilterUrgent((v) => !v)}
+            className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 transition-colors ${
+              filterUrgent
+                ? 'bg-rose-600 border-rose-600 text-white'
+                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Flame size={12} /> {filterUrgent ? 'Showing urgent only' : `Urgent only (${urgentCount})`}
+          </button>
+          <button
+            type="button"
             onClick={() => setFilterStale((v) => !v)}
             className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 transition-colors ${
               filterStale
@@ -326,7 +409,7 @@ export default function AccountsPage() {
                 : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <AlertTriangle size={12} /> {filterStale ? 'Showing stale only' : `Show stale only (${staleCount})`}
+            <AlertTriangle size={12} /> {filterStale ? 'Showing stale only' : `Stale only (${staleCount})`}
           </button>
         </div>
       </Card>
@@ -361,10 +444,12 @@ export default function AccountsPage() {
                     derived={d}
                     isOpen={isOpen}
                     onToggle={() => toggleExpand(acc.id)}
+                    onQuickLog={(type) => quickLogConnect(acc.id, type)}
                   />
                   {isOpen && (
                     <AccountDetail
                       account={acc}
+                      derived={d}
                       connects={connects.filter((c) => c.accountId === acc.id)}
                       actions={actions.filter((a) => a.accountId === acc.id)}
                       team={[...indiaRoster, ...usRoster]
@@ -380,6 +465,8 @@ export default function AccountsPage() {
                       }))}
                       activeTab={activeTab[acc.id] ?? 'overview'}
                       onTab={(t) => setActiveTab((s) => ({ ...s, [acc.id]: t }))}
+                      autoLog={autoLog[acc.id] ?? null}
+                      onAutoLogConsumed={() => setAutoLog((p) => ({ ...p, [acc.id]: null }))}
                       myEmail={myEmail}
                       onPatchAccount={(patch) => updateAccount(acc.id, patch)}
                       onRemoveAccount={() => removeAccount(acc.id)}
@@ -403,83 +490,156 @@ export default function AccountsPage() {
 
 /* ── Top-of-row summary (name, owners, last-connect dates, KPIs) ── */
 
-function AccountRow({ serialNo, account, derived, isOpen, onToggle }: {
+function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }: {
   serialNo: number;
   account: Account;
-  derived: { lastSales: AccountConnect | null; lastDelivery: AccountConnect | null; openActions: number; teamCount: number; isStale: boolean };
+  derived: { lastSales: AccountConnect | null; lastDelivery: AccountConnect | null; openActions: number; teamCount: number; isStale: boolean; insight: AccountInsight | undefined; forecast: number; secured: number; unsecured: number; pctLocked: number; isUrgent: boolean };
   isOpen: boolean;
   onToggle: () => void;
+  onQuickLog: (type: ConnectType) => void;
 }) {
-  const { lastSales, lastDelivery, openActions, teamCount, isStale } = derived;
+  const { lastSales, lastDelivery, openActions, teamCount, isStale, insight, forecast, secured, unsecured, pctLocked, isUrgent } = derived;
+  const lockedPct = Math.round(pctLocked * 100);
 
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`w-full text-left px-6 py-4 flex items-start gap-3 border-l-4 transition-all duration-150 ${
-        isStale
-          ? 'border-red-500 bg-gradient-to-r from-red-50/60 to-transparent hover:from-red-50'
-          : 'border-transparent hover:bg-slate-50/80 hover:border-primary/30'
+    <div
+      className={`w-full text-left transition-all duration-150 border-l-4 relative ${
+        isUrgent
+          ? 'border-rose-500 bg-gradient-to-r from-rose-50/70 via-rose-50/30 to-transparent'
+          : isStale
+            ? 'border-red-500 bg-gradient-to-r from-red-50/60 to-transparent'
+            : 'border-transparent hover:bg-slate-50/80 hover:border-primary/30'
       }`}
     >
-      {/* S. No. — zero-padded 2-digit serial number, monospace + slate so it doesn't fight the name */}
-      <span
-        className="mt-0.5 flex-shrink-0 inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[11px] font-semibold tabular-nums"
-        aria-label={`Serial number ${serialNo}`}
+      {isUrgent && (
+        <div className="absolute top-0 left-0 right-0 bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-0.5 flex items-center gap-1">
+          <Flame size={10} /> Urgent: <Sensitive>{fmtMoney(unsecured)}</Sensitive> unsecured · {lockedPct}% locked · sales + delivery sync needed
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-full text-left px-6 py-4 flex items-start gap-3 ${isUrgent ? 'pt-6' : ''}`}
       >
-        {String(serialNo).padStart(2, '0')}
-      </span>
-      {isOpen ? <ChevronDown size={16} className="text-slate-500 mt-1 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 mt-1 flex-shrink-0" />}
-      <div className="flex-1 min-w-0">
-        {/* Top line: name + status + stale + industry */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base font-bold text-slate-900 tracking-tight">{account.name}</span>
-          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_COLORS[account.status]}`}>
-            {account.status}
+        {/* S. No. — zero-padded 2-digit serial number, monospace + slate so it doesn't fight the name */}
+        <span
+          className="mt-0.5 flex-shrink-0 inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[11px] font-semibold tabular-nums"
+          aria-label={`Serial number ${serialNo}`}
+        >
+          {String(serialNo).padStart(2, '0')}
+        </span>
+        {isOpen ? <ChevronDown size={16} className="text-slate-500 mt-1 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 mt-1 flex-shrink-0" />}
+        <div className="flex-1 min-w-0">
+          {/* Top line: name + status + stale + industry + forecast */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-base font-bold text-slate-900 tracking-tight">{account.name}</span>
+            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_COLORS[account.status]}`}>
+              {account.status}
+            </span>
+            {isStale && !isUrgent && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-800 inline-flex items-center gap-1 ring-1 ring-red-200">
+                <AlertTriangle size={10} /> Stale
+              </span>
+            )}
+            {account.industry && (
+              <span className="text-[10px] text-slate-500 inline-flex items-center gap-1">
+                <Briefcase size={10} /> {account.industry}
+              </span>
+            )}
+            {forecast > 0 && (
+              <span
+                className="text-[10px] font-semibold inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800 ring-1 ring-indigo-100"
+                title={`Forecast ${fmtMoney(forecast)} · Secured ${fmtMoney(secured)} · Unsecured ${fmtMoney(unsecured)}`}
+              >
+                <DollarSign size={10} />
+                <Sensitive>{fmtMoney(forecast)}</Sensitive>
+                <span className="text-indigo-400">·</span>
+                <span className="text-indigo-700">{lockedPct}% locked</span>
+              </span>
+            )}
+          </div>
+
+          {/* Owners + last-connect — clean 4-column grid with consistent label widths */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-2 mt-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Sales</span>
+              {account.salesOwnerEmail
+                ? <TaIdentity email={account.salesOwnerEmail} avatarSize={22} nameSize="text-xs" />
+                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Delivery</span>
+              {account.deliveryOwnerEmail
+                ? <TaIdentity email={account.deliveryOwnerEmail} avatarSize={22} nameSize="text-xs" />
+                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+            </div>
+            <ConnectChip label="Last sales" connect={lastSales} />
+            <ConnectChip label="Last delivery" connect={lastDelivery} />
+          </div>
+
+          {/* Secured / unsecured split bar — only when there's a plan */}
+          {forecast > 0 && (
+            <div className="mt-2.5 flex items-center gap-2 max-w-md">
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-100 flex" title={`${lockedPct}% locked`}>
+                <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, lockedPct)}%` }} />
+                <div className={`${isUrgent ? 'bg-rose-400' : 'bg-amber-400'} h-full`} style={{ width: `${100 - Math.min(100, lockedPct)}%` }} />
+              </div>
+              <span className="text-[10px] text-emerald-700 font-semibold inline-flex items-center gap-0.5"><Lock size={9} /><Sensitive>{fmtMoney(secured)}</Sensitive></span>
+              <span className={`text-[10px] font-semibold inline-flex items-center gap-0.5 ${isUrgent ? 'text-rose-700' : 'text-amber-700'}`}><Unlock size={9} /><Sensitive>{fmtMoney(unsecured)}</Sensitive></span>
+              {insight && insight.signalCount > 0 && (
+                <span className="text-[10px] text-violet-600 inline-flex items-center gap-0.5 ml-1">
+                  <MessageSquare size={9} /> {insight.signalCount}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right-side KPI chips */}
+        <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-1 rounded-md" title="Team members from roster">
+            <Users size={11} /> {teamCount}
           </span>
-          {isStale && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-800 inline-flex items-center gap-1 ring-1 ring-red-200">
-              <AlertTriangle size={10} /> Stale
-            </span>
-          )}
-          {account.industry && (
-            <span className="text-[10px] text-slate-500 inline-flex items-center gap-1">
-              <Briefcase size={10} /> {account.industry}
-            </span>
-          )}
+          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md ${
+            openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
+          }`} title="Open action items">
+            <Clock size={11} /> {openActions}
+          </span>
         </div>
+      </button>
 
-        {/* Owners + last-connect — clean 4-column grid with consistent label widths */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-2 mt-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Sales</span>
-            {account.salesOwnerEmail
-              ? <TaIdentity email={account.salesOwnerEmail} avatarSize={22} nameSize="text-xs" />
-              : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Delivery</span>
-            {account.deliveryOwnerEmail
-              ? <TaIdentity email={account.deliveryOwnerEmail} avatarSize={22} nameSize="text-xs" />
-              : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
-          </div>
-          <ConnectChip label="Last sales" connect={lastSales} />
-          <ConnectChip label="Last delivery" connect={lastDelivery} />
-        </div>
+      {/* Quick-log row — buttons sit OUTSIDE the toggle button so they don't expand the row by accident. */}
+      <div className="px-6 pb-3 -mt-2 flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onQuickLog('sales'); }}
+          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors"
+          title="Log a sales connect for this account"
+        >
+          <Handshake size={11} /> Log sales connect
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onQuickLog('delivery'); }}
+          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 transition-colors"
+          title="Log a delivery connect for this account"
+        >
+          <MessageSquare size={11} /> Log delivery connect
+        </button>
+        {forecast === 0 && (
+          <a
+            href="https://simpliigence-sales-planning-2026.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-slate-300 text-slate-500 hover:text-primary hover:border-primary/40 transition-colors"
+            title="Open 2026 Sales Plan to add a forecast for this account"
+          >
+            <DollarSign size={11} /> Add to sales plan ↗
+          </a>
+        )}
       </div>
-
-      {/* Right-side KPI chips */}
-      <div className="flex items-center gap-2 flex-shrink-0 mt-1">
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-1 rounded-md" title="Team members from roster">
-          <Users size={11} /> {teamCount}
-        </span>
-        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md ${
-          openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
-        }`} title="Open action items">
-          <Clock size={11} /> {openActions}
-        </span>
-      </div>
-    </button>
+    </div>
   );
 }
 
@@ -520,11 +680,14 @@ interface TeamMemberLite { name: string; role: string; project: string; status: 
 
 function AccountDetail(props: {
   account: Account;
+  derived: { lastSales: AccountConnect | null; lastDelivery: AccountConnect | null; openActions: number; teamCount: number; isStale: boolean; insight: AccountInsight | undefined; forecast: number; secured: number; unsecured: number; pctLocked: number; isUrgent: boolean };
   connects: AccountConnect[];
   actions: AccountActionItem[];
   team: TeamMemberLite[];
   activeTab: AccountTab;
   onTab: (t: AccountTab) => void;
+  autoLog: ConnectType | null;
+  onAutoLogConsumed: () => void;
   myEmail: string;
   onPatchAccount: (patch: Partial<Account>) => void | Promise<void>;
   onRemoveAccount: () => void | Promise<void>;
@@ -535,38 +698,86 @@ function AccountDetail(props: {
   onRemoveAction: (id: string) => Promise<unknown>;
   onSetActionStatus: (id: string, status: ActionStatus) => Promise<unknown>;
 }) {
-  const { account, connects, actions, team, activeTab, onTab, myEmail } = props;
+  const { account, derived, connects, actions, team, activeTab, onTab, autoLog, onAutoLogConsumed, myEmail } = props;
   const sales = connects.filter((c) => c.connectType === 'sales').sort((a, b) => b.meetingDate.localeCompare(a.meetingDate));
   const delivery = connects.filter((c) => c.connectType === 'delivery').sort((a, b) => b.meetingDate.localeCompare(a.meetingDate));
-  const tabs: { key: AccountTab; label: string; count?: number }[] = [
+  // Primary tabs — the daily-use ones. Always visible on one row.
+  const primaryTabs: { key: AccountTab; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview' },
-    { key: 'info', label: 'Account info' },
     { key: 'sales', label: 'Sales connects', count: sales.length },
     { key: 'delivery', label: 'Delivery connects', count: delivery.length },
+    { key: 'actions', label: 'Actions', count: actions.filter((a) => a.status === 'open' || a.status === 'in_progress').length },
+    { key: 'team', label: 'Team', count: team.length },
+  ];
+  // Secondary tabs — supporting / contextual info. Below the primary row.
+  const secondaryTabs: { key: AccountTab; label: string; count?: number }[] = [
+    { key: 'info', label: 'Account info' },
     { key: 'contacts', label: 'Client contacts' },
     { key: 'opportunities', label: 'Opportunities' },
     { key: 'projects', label: 'Projects' },
     { key: 'innovation', label: 'Innovation' },
     { key: 'csat', label: 'CSAT' },
-    { key: 'actions', label: 'Actions', count: actions.filter((a) => a.status === 'open' || a.status === 'in_progress').length },
-    { key: 'team', label: 'Team', count: team.length },
   ];
 
   return (
     <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100">
-      <div className="flex items-center gap-1 mb-4 border-b border-slate-200 overflow-x-auto">
-        {tabs.map((t) => (
+      {/* Forecast / connects summary header — quick context above the tabs */}
+      {derived.forecast > 0 && (
+        <div className={`mb-3 rounded-lg p-2.5 border ${derived.isUrgent ? 'bg-rose-50/60 border-rose-200' : 'bg-white border-slate-200'} grid grid-cols-2 md:grid-cols-4 gap-3 text-xs`}>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-0.5 flex items-center gap-1"><DollarSign size={10} /> Forecast '26</div>
+            <div className="font-bold text-slate-800"><Sensitive>{fmtMoney(derived.forecast)}</Sensitive></div>
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider text-emerald-700 font-bold mb-0.5 flex items-center gap-1"><Lock size={10} /> Secured</div>
+            <div className="font-bold text-emerald-700"><Sensitive>{fmtMoney(derived.secured)}</Sensitive> <span className="font-normal text-emerald-600/80">({Math.round(derived.pctLocked * 100)}%)</span></div>
+          </div>
+          <div>
+            <div className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1 ${derived.isUrgent ? 'text-rose-700' : 'text-amber-700'}`}><Unlock size={10} /> Unsecured</div>
+            <div className={`font-bold ${derived.isUrgent ? 'text-rose-700' : 'text-amber-700'}`}><Sensitive>{fmtMoney(derived.unsecured)}</Sensitive></div>
+          </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wider text-violet-700 font-bold mb-0.5 flex items-center gap-1"><Sparkles size={10} /> Sales-plan signals</div>
+            <div className="font-bold text-violet-700">{derived.insight?.signalCount ?? 0}{derived.insight && derived.insight.openPipeline > 0 ? <span className="font-normal text-violet-600/80"> · <Sensitive>{fmtMoney(derived.insight.openPipeline)}</Sensitive> pipeline</span> : null}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab nav — primary row */}
+      <div className="flex items-center gap-1 border-b border-slate-200 flex-wrap">
+        {primaryTabs.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => onTab(t.key)}
             className={`text-xs font-semibold px-3 py-2 border-b-2 -mb-px transition-colors ${
-              activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-900'
+              activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
             {t.label}
             {t.count !== undefined && t.count > 0 && (
               <span className="ml-1.5 text-[10px] bg-slate-200 text-slate-700 rounded-full px-1.5 py-0.5">{t.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+      {/* Tab nav — secondary row (account context / cross-sell / projects) */}
+      <div className="flex items-center gap-1 mb-4 mt-1 flex-wrap">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mr-1">More:</span>
+        {secondaryTabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onTab(t.key)}
+            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+              activeTab === t.key
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300'
+            }`}
+          >
+            {t.label}
+            {t.count !== undefined && t.count > 0 && (
+              <span className="ml-1 text-[9px] bg-slate-200 text-slate-700 rounded-full px-1 py-0.5">{t.count}</span>
             )}
           </button>
         ))}
@@ -581,6 +792,8 @@ function AccountDetail(props: {
           accountName={account.name}
           connects={sales}
           connectType="sales"
+          autoOpen={autoLog === 'sales'}
+          onAutoOpenConsumed={onAutoLogConsumed}
           onAdd={(p) => props.onAddConnect({ ...p, connectType: 'sales', createdBy: myEmail })}
           onRemove={props.onRemoveConnect}
           onAddAction={props.onAddAction}
@@ -592,6 +805,8 @@ function AccountDetail(props: {
           accountName={account.name}
           connects={delivery}
           connectType="delivery"
+          autoOpen={autoLog === 'delivery'}
+          onAutoOpenConsumed={onAutoLogConsumed}
           onAdd={(p) => props.onAddConnect({ ...p, connectType: 'delivery', createdBy: myEmail })}
           onRemove={props.onRemoveConnect}
           onAddAction={props.onAddAction}
@@ -716,16 +931,25 @@ function OverviewTab({ account, onPatch, onRemove }: {
 
 /* ── Tab: Connects (sales | delivery) ── */
 
-function ConnectsTab({ accountId, accountName, connects, connectType, onAdd, onRemove, onAddAction }: {
+function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, onAutoOpenConsumed, onAdd, onRemove, onAddAction }: {
   accountId: string;
   accountName: string;
   connects: AccountConnect[];
   connectType: ConnectType;
+  autoOpen?: boolean;
+  onAutoOpenConsumed?: () => void;
   onAdd: (p: { meetingDate: string; attendees?: string; discussion?: string; outcome?: string; recordingUrl?: string | null; recordingPath?: string | null }) => Promise<unknown>;
   onRemove: (id: string) => Promise<unknown>;
   onAddAction: (p: { connectId?: string; title: string; description?: string; ownerEmail?: string; dueDate?: string }) => Promise<unknown>;
 }) {
   const [adding, setAdding] = useState(false);
+  useEffect(() => {
+    if (autoOpen && !adding) {
+      setAdding(true);
+      onAutoOpenConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
   const today = new Date().toISOString().slice(0, 10);
   type SuggestedAction = { title: string; description: string; owner_email: string | null; due_date: string | null; selected: boolean };
   const initial = {
@@ -1275,9 +1499,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /* ── Hero stat tile (used in the gradient header strip) ── */
-function HeroStat({ label, value, subtitle, tone = 'mute' }: {
+function HeroStat({ label, value, valueStr, sensitive, subtitle, tone = 'mute' }: {
   label: string;
-  value: number;
+  value?: number;
+  valueStr?: string;
+  sensitive?: boolean;
   subtitle?: string;
   tone?: 'mute' | 'amber' | 'red';
 }) {
@@ -1285,13 +1511,16 @@ function HeroStat({ label, value, subtitle, tone = 'mute' }: {
     tone === 'amber' ? 'text-amber-200' :
     tone === 'red' ? 'text-red-200' :
     'text-white';
+  const display = valueStr ?? (value != null ? String(value) : '');
   return (
     <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2.5 ring-1 ring-white/20">
       <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-100/90">
         {label}
       </div>
       <div className="flex items-baseline gap-2 mt-1">
-        <span className={`text-2xl font-extrabold tabular-nums ${valueTone}`}>{value}</span>
+        <span className={`text-2xl font-extrabold tabular-nums ${valueTone}`}>
+          {sensitive ? <Sensitive>{display}</Sensitive> : display}
+        </span>
         {subtitle && <span className="text-[10px] text-indigo-100/80">{subtitle}</span>}
       </div>
     </div>

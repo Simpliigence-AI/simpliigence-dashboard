@@ -4,8 +4,11 @@ import {
   Users, AlertTriangle, TrendingUp, CheckCircle, Upload,
   Download, Brain, BarChart3, Building2, Pencil, Trash2, Save, X, ChevronDown, ChevronRight, Plus, Archive, History,
   Columns, RefreshCw, Sparkles, Loader2, Clock, Send,
+  DollarSign, Lock, Unlock, Flame, Activity, MessageCircle, Briefcase,
 } from 'lucide-react';
 import { useStaffingStore } from '../store/useStaffingStore';
+import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
+import { Sensitive } from '../components/Sensitive';
 import { analyzeStaffingStatus } from '../lib/staffingAnalysis';
 import { computeStageTiming } from '../lib/staffingAlerts';
 import { computeFunnel } from '../lib/staffingFunnel';
@@ -204,6 +207,17 @@ export default function IndiaStaffingPage() {
     for (const a of accounts) m[a.id] = a.name;
     return m;
   }, [accounts]);
+
+  // Sales-plan integration — load once on mount, retry from button if needed.
+  const salesPlanLoad = useSalesPlanStore((s) => s.load);
+  const salesPlanLoaded = useSalesPlanStore((s) => s.loaded);
+  const salesPlanLoading = useSalesPlanStore((s) => s.loading);
+  const salesPlanByName = useSalesPlanStore((s) => s.byName);
+  const salesPlanUpdated = useSalesPlanStore((s) => s.updatedAt);
+  useEffect(() => { void salesPlanLoad(); }, [salesPlanLoad]);
+
+  // Drill-down panel sub-tab (Requisitions / Forecast / Connects)
+  const [accountDetailTab, setAccountDetailTab] = useState<'reqs' | 'forecast' | 'connects'>('reqs');
 
   // Fetch the briefing once on mount (it self-caches for the calendar day so
   // subsequent page loads are free). Depends only on data identity so it
@@ -1351,58 +1365,401 @@ export default function IndiaStaffingPage() {
       )}
 
       {/* ====== ACCOUNTS TAB ====== */}
-      {activeTab === 'accounts' && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {[...accountGroups.entries()].map(([name, rws]) => {
-              const tot = rws.reduce((s, r) => s + r.openPositions, 0);
-              const avg = Math.round(rws.reduce((s, r) => s + r.closureProb, 0) / rws.length);
-              const hr = rws.filter((r) => r.risk === 'high').length;
-              return (
-                <Card key={name} className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-shadow" onClick={() => setSelectedAccount(selectedAccount === name ? null : name)}>
-                  <h4 className="font-bold text-sm mb-3">{name}</h4>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex justify-between"><span className="text-slate-500">Open Positions</span><span className="font-bold">{tot}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Requisitions</span><span className="font-bold">{rws.length}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Avg Closure Prob</span><span className="font-bold">{avg}%</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">High Risk</span><span className="font-bold text-red-600">{hr}</span></div>
-                  </div>
-                  <div className="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${avg}%`, background: probColor(avg) }} />
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-          {selectedAccount && (
-            <Card>
-              <h3 className="font-bold text-sm mb-3">{selectedAccount} -- Requisition Breakdown</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead><tr className="border-b-2 border-slate-100"><th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Requisition</th><th className="p-2">Month</th><th className="p-2">Pos</th><th className="p-2">Ageing</th><th className="p-2">Stage</th><th className="p-2">Risk</th><th className="p-2">Prob</th><th className="p-2">AI Prob</th><th className="p-2">Status</th></tr></thead>
-                  <tbody>
-                    {(accountGroups.get(selectedAccount) || []).map((r) => (
-                      <tr key={r.id} className="border-b border-slate-50">
-                        <td className="p-2 font-semibold">{r.requisition}</td>
-                        <td className="p-2">{r.month}</td>
-                        <td className="p-2 text-center font-bold" title={`${r.openPositions} open · ${r.filledPositions} filled · ${r.newPositions} total`}>
-                          {r.filledPositions > 0 ? <><span className={r.openPositions === 0 ? 'text-emerald-600' : ''}>{r.openPositions}</span><span className="text-slate-400">/{r.newPositions}</span></> : r.newPositions}
-                        </td>
-                        <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
-                        <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
-                        <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
-                        <td className="p-2 font-bold">{r.probability > 0 ? `${r.probability}%` : '—'}</td>
-                        <td className="p-2 font-bold">{r.aiProbability}%</td>
-                        <td className="p-2 text-slate-500 text-[11px] max-w-sm truncate">{r.status.split('\n')[0]}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      {activeTab === 'accounts' && (() => {
+        // Build enriched account summaries, sorted by forecast revenue desc.
+        const summaries = [...accountGroups.entries()].map(([name, rws]) => {
+          const openPos = rws.reduce((s, r) => s + (r.openPositions ?? r.newPositions), 0);
+          const avg = rws.length ? Math.round(rws.reduce((s, r) => s + r.closureProb, 0) / rws.length) : 0;
+          const hr = rws.filter((r) => r.risk === 'high').length;
+          const insight: AccountInsight | undefined = salesPlanByName[(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()];
+          const forecast = insight?.forecast ?? 0;
+          const secured = insight?.secured ?? 0;
+          const unsecured = insight?.unsecured ?? 0;
+          const pctLocked = insight?.pctLocked ?? 0;
+          // Urgency: meaningful unsecured ($) AND poor coverage. Tunable thresholds.
+          const urgent = forecast > 0 && unsecured >= 250_000 && pctLocked < 0.4;
+          // Health: combines forecast coverage + delivery prob + risk count.
+          let health: 'healthy' | 'watch' | 'critical' = 'watch';
+          if (avg >= 60 && hr === 0 && (pctLocked >= 0.4 || forecast === 0)) health = 'healthy';
+          else if (avg <= 30 || hr >= 2 || urgent) health = 'critical';
+          return { name, rws, openPos, avg, hr, insight, forecast, secured, unsecured, pctLocked, urgent, health };
+        });
+        summaries.sort((a, b) => {
+          if (b.forecast !== a.forecast) return b.forecast - a.forecast;
+          return a.name.localeCompare(b.name);
+        });
+        const urgentCount = summaries.filter((s) => s.urgent).length;
+        const totalForecast = summaries.reduce((s, x) => s + x.forecast, 0);
+        const totalSecured = summaries.reduce((s, x) => s + x.secured, 0);
+        const totalUnsecured = Math.max(0, totalForecast - totalSecured);
+
+        const fmtMoney = (n: number) => {
+          if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M`;
+          if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+          return `$${n.toFixed(0)}`;
+        };
+        const fmtAgo = (iso?: string) => {
+          if (!iso) return null;
+          const ms = Date.now() - new Date(iso).getTime();
+          if (!Number.isFinite(ms) || ms < 0) return null;
+          const d = Math.round(ms / 86400000);
+          if (d <= 0) return 'today';
+          if (d === 1) return '1d ago';
+          if (d < 30) return `${d}d ago`;
+          const mo = Math.round(d / 30);
+          return mo === 1 ? '1mo ago' : `${mo}mo ago`;
+        };
+
+        const selectedSummary = selectedAccount ? summaries.find((s) => s.name === selectedAccount) : null;
+
+        return (
+          <>
+            {/* Portfolio summary strip — total forecast, secured, unsecured, urgent count */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
+                <div className="text-xl font-extrabold text-slate-800">{summaries.length}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{summaries.filter((s) => s.forecast > 0).length} in sales plan</div>
               </div>
-            </Card>
-          )}
-        </>
-      )}
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
+                <div className="text-xl font-extrabold text-slate-800"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
+                <div className="text-[10px] text-slate-500 mt-0.5">across {summaries.length} accounts</div>
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold mb-1 flex items-center gap-1"><Lock size={11} /> Secured</div>
+                <div className="text-xl font-extrabold text-emerald-700"><Sensitive>{fmtMoney(totalSecured)}</Sensitive></div>
+                <div className="text-[10px] text-emerald-600/80 mt-0.5">{totalForecast > 0 ? `${Math.round((totalSecured / totalForecast) * 100)}% of plan locked` : '—'}</div>
+              </div>
+              <div className={`rounded-xl border p-3 ${urgentCount > 0 ? 'border-rose-300 bg-rose-50/60' : 'border-amber-200 bg-amber-50/40'}`}>
+                <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 flex items-center gap-1 ${urgentCount > 0 ? 'text-rose-700' : 'text-amber-700'}`}>
+                  <Unlock size={11} /> Unsecured
+                </div>
+                <div className={`text-xl font-extrabold ${urgentCount > 0 ? 'text-rose-700' : 'text-amber-700'}`}><Sensitive>{fmtMoney(totalUnsecured)}</Sensitive></div>
+                <div className={`text-[10px] mt-0.5 ${urgentCount > 0 ? 'text-rose-600' : 'text-amber-600/80'}`}>
+                  {urgentCount > 0 ? `${urgentCount} account${urgentCount === 1 ? '' : 's'} need sales+delivery sync` : 'No urgent accounts'}
+                </div>
+              </div>
+            </div>
+
+            {/* Status banner — sales plan source & freshness */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px] text-slate-500">
+              <div className="flex items-center gap-2">
+                <Sparkles size={12} className="text-violet-500" />
+                <span>Forecast data from the 2026 Sales Plan{salesPlanUpdated ? ` · updated ${new Date(salesPlanUpdated).toLocaleDateString()}` : ''}</span>
+                {salesPlanLoading && <span className="text-slate-400">(refreshing…)</span>}
+                {!salesPlanLoaded && !salesPlanLoading && <span className="text-rose-500">(not loaded)</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => void useSalesPlanStore.getState().load({ force: true })}
+                className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-primary transition-colors"
+              >
+                <RefreshCw size={10} /> Refresh
+              </button>
+            </div>
+
+            {/* Account cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+              {summaries.map((s) => {
+                const lockedPct = Math.round(s.pctLocked * 100);
+                const healthMeta = {
+                  healthy: { dot: 'bg-emerald-500', label: 'Healthy', cls: 'text-emerald-700 bg-emerald-50' },
+                  watch: { dot: 'bg-amber-500', label: 'Watch', cls: 'text-amber-700 bg-amber-50' },
+                  critical: { dot: 'bg-rose-500', label: 'Critical', cls: 'text-rose-700 bg-rose-50' },
+                }[s.health];
+                const lastTouch = fmtAgo(s.insight?.lastTouch);
+                const staleTouch = !lastTouch || (s.insight?.lastTouch && (Date.now() - new Date(s.insight.lastTouch).getTime()) > 45 * 86400000);
+                const isSelected = selectedAccount === s.name;
+                return (
+                  <button
+                    type="button"
+                    key={s.name}
+                    onClick={() => { setSelectedAccount(isSelected ? null : s.name); setAccountDetailTab('reqs'); }}
+                    className={`text-left rounded-xl bg-white border transition-all relative overflow-hidden group ${
+                      s.urgent
+                        ? 'border-rose-300 ring-1 ring-rose-200 hover:ring-rose-300 hover:shadow-lg'
+                        : 'border-slate-200 hover:border-primary/40 hover:shadow-md'
+                    } ${isSelected ? 'ring-2 ring-primary/60' : ''}`}
+                  >
+                    {s.urgent && (
+                      <div className="absolute top-0 left-0 right-0 bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-0.5 flex items-center gap-1">
+                        <Flame size={10} /> Urgent: Sales + Delivery sync needed
+                      </div>
+                    )}
+                    <div className={`p-3.5 ${s.urgent ? 'pt-6' : ''}`}>
+                      {/* Header: name + health */}
+                      <div className="flex items-start justify-between gap-2 mb-2.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-sm text-slate-800 truncate">{s.name}</div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            {s.insight?.salesRep ? `${s.insight.salesRep}` : 'No sales owner'}
+                            {s.insight?.segment ? ` · ${s.insight.segment}` : ''}
+                          </div>
+                        </div>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded inline-flex items-center gap-1 shrink-0 ${healthMeta.cls}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${healthMeta.dot}`} />
+                          {healthMeta.label}
+                        </span>
+                      </div>
+
+                      {/* Forecast — big number */}
+                      {s.forecast > 0 ? (
+                        <>
+                          <div className="flex items-baseline justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Forecast '26</span>
+                            <span className="text-[10px] text-slate-400">{lockedPct}% locked</span>
+                          </div>
+                          <div className="text-2xl font-extrabold text-slate-800 mb-2 leading-none">
+                            <Sensitive>{fmtMoney(s.forecast)}</Sensitive>
+                          </div>
+                          {/* Secured / unsecured split bar */}
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden flex mb-1.5">
+                            <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, lockedPct)}%` }} title={`Secured ${fmtMoney(s.secured)}`} />
+                            <div className={`${s.urgent ? 'bg-rose-400' : 'bg-amber-400'} h-full`} style={{ width: `${100 - Math.min(100, lockedPct)}%` }} title={`Unsecured ${fmtMoney(s.unsecured)}`} />
+                          </div>
+                          <div className="flex justify-between text-[10px] mb-3">
+                            <span className="text-emerald-700 font-semibold inline-flex items-center gap-0.5"><Lock size={9} /><Sensitive>{fmtMoney(s.secured)}</Sensitive></span>
+                            <span className={`font-semibold inline-flex items-center gap-0.5 ${s.urgent ? 'text-rose-700' : 'text-amber-700'}`}><Unlock size={9} /><Sensitive>{fmtMoney(s.unsecured)}</Sensitive></span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mb-3 px-2 py-1.5 rounded-md bg-slate-50 border border-dashed border-slate-200 text-[10px] text-slate-400 italic">
+                          Not in sales plan — request a forecast
+                        </div>
+                      )}
+
+                      {/* Delivery snapshot */}
+                      <div className="grid grid-cols-3 gap-2 mb-2 text-center">
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Reqs</div>
+                          <div className="text-sm font-bold text-slate-700">{s.rws.length}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Open pos</div>
+                          <div className="text-sm font-bold text-slate-700">{s.openPos}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">High risk</div>
+                          <div className={`text-sm font-bold ${s.hr > 0 ? 'text-rose-600' : 'text-slate-700'}`}>{s.hr}</div>
+                        </div>
+                      </div>
+
+                      {/* Connects strip */}
+                      <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-[10px]">
+                        <span className="inline-flex items-center gap-1 text-slate-500">
+                          <Activity size={10} className={s.insight && s.insight.signalCount > 0 ? 'text-violet-500' : 'text-slate-300'} />
+                          {s.insight && s.insight.signalCount > 0
+                            ? <><strong className="text-slate-700">{s.insight.signalCount}</strong> active connect{s.insight.signalCount === 1 ? '' : 's'}</>
+                            : <span className="text-slate-400">No active connects</span>}
+                        </span>
+                        {lastTouch ? (
+                          <span className={`inline-flex items-center gap-1 ${staleTouch ? 'text-amber-600' : 'text-slate-500'}`}>
+                            <Clock size={10} /> {lastTouch}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </div>
+
+                      {s.insight && s.insight.openPipeline > 0 && (
+                        <div className="mt-1.5 text-[10px] text-slate-500">
+                          Open pipeline: <strong className="text-slate-700"><Sensitive>{fmtMoney(s.insight.openPipeline)}</Sensitive></strong>
+                          {' · '}
+                          weighted: <strong className="text-slate-700"><Sensitive>{fmtMoney(s.insight.weightedPipeline)}</Sensitive></strong>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected-account drill-down with sub-tabs */}
+            {selectedSummary && (
+              <Card>
+                <div className="flex items-start justify-between mb-3 gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-base text-slate-800">{selectedSummary.name}</h3>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      {selectedSummary.insight?.salesRep ? `Sales: ${selectedSummary.insight.salesRep}` : 'No sales owner'}
+                      {selectedSummary.insight?.segment ? ` · ${selectedSummary.insight.segment}` : ''}
+                      {selectedSummary.forecast > 0 && (
+                        <> · Forecast <Sensitive>{fmtMoney(selectedSummary.forecast)}</Sensitive> · <Sensitive>{fmtMoney(selectedSummary.secured)}</Sensitive> locked / <Sensitive>{fmtMoney(selectedSummary.unsecured)}</Sensitive> to-get</>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAccount(null)}
+                    className="text-slate-400 hover:text-slate-700 text-xs inline-flex items-center gap-1"
+                  >
+                    <X size={12} /> Close
+                  </button>
+                </div>
+
+                {/* Sub-tab nav */}
+                <div className="flex gap-1 mb-4 border-b border-slate-200">
+                  {([
+                    { key: 'reqs' as const, label: 'Requisitions', icon: Briefcase, count: selectedSummary.rws.length },
+                    { key: 'forecast' as const, label: 'Forecast breakdown', icon: TrendingUp, count: selectedSummary.forecast > 0 ? selectedSummary.insight?.monthly.filter((m) => m.value > 0).length : null },
+                    { key: 'connects' as const, label: 'Connects & signals', icon: MessageCircle, count: selectedSummary.insight?.signalCount ?? null },
+                  ]).map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setAccountDetailTab(t.key)}
+                      className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1.5 border-b-2 transition-colors ${
+                        accountDetailTab === t.key
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <t.icon size={12} />
+                      {t.label}
+                      {t.count != null && t.count > 0 && (
+                        <span className={`ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold ${
+                          accountDetailTab === t.key ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>{t.count}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab body */}
+                {accountDetailTab === 'reqs' && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b-2 border-slate-100">
+                          <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Requisition</th>
+                          <th className="p-2">Month</th>
+                          <th className="p-2">Pos</th>
+                          <th className="p-2">Ageing</th>
+                          <th className="p-2">Stage</th>
+                          <th className="p-2">Risk</th>
+                          <th className="p-2">Prob</th>
+                          <th className="p-2">AI Prob</th>
+                          <th className="p-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedSummary.rws.map((r) => (
+                          <tr key={r.id} className="border-b border-slate-50">
+                            <td className="p-2 font-semibold">{r.requisition}</td>
+                            <td className="p-2">{r.month}</td>
+                            <td className="p-2 text-center font-bold" title={`${r.openPositions} open · ${r.filledPositions} filled · ${r.newPositions} total`}>
+                              {r.filledPositions > 0 ? <><span className={r.openPositions === 0 ? 'text-emerald-600' : ''}>{r.openPositions}</span><span className="text-slate-400">/{r.newPositions}</span></> : r.newPositions}
+                            </td>
+                            <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
+                            <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
+                            <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
+                            <td className="p-2 font-bold">{r.probability > 0 ? `${r.probability}%` : '—'}</td>
+                            <td className="p-2 font-bold">{r.aiProbability}%</td>
+                            <td className="p-2 text-slate-500 text-[11px] max-w-sm truncate">{r.status.split('\n')[0]}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {accountDetailTab === 'forecast' && (
+                  selectedSummary.insight && selectedSummary.forecast > 0 ? (
+                    <div>
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
+                        {selectedSummary.insight.monthly.map((m) => {
+                          const max = Math.max(...selectedSummary.insight!.monthly.map((x) => x.value), 1);
+                          const pct = Math.round((m.value / max) * 100);
+                          return (
+                            <div key={m.month} className="rounded-lg border border-slate-200 bg-white p-2">
+                              <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-1">{m.month.toUpperCase()}</div>
+                              <div className="text-sm font-bold text-slate-800"><Sensitive>{fmtMoney(m.value)}</Sensitive></div>
+                              <div className="mt-1.5 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold mb-1 flex items-center gap-1"><Lock size={10} /> Secured</div>
+                          <div className="text-lg font-extrabold text-emerald-700"><Sensitive>{fmtMoney(selectedSummary.secured)}</Sensitive></div>
+                          <div className="text-[10px] text-emerald-600/80 mt-0.5">{Math.round(selectedSummary.pctLocked * 100)}% of forecast</div>
+                        </div>
+                        <div className={`rounded-lg border p-3 ${selectedSummary.urgent ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'}`}>
+                          <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 flex items-center gap-1 ${selectedSummary.urgent ? 'text-rose-700' : 'text-amber-700'}`}><Unlock size={10} /> To-get / Unsecured</div>
+                          <div className={`text-lg font-extrabold ${selectedSummary.urgent ? 'text-rose-700' : 'text-amber-700'}`}><Sensitive>{fmtMoney(selectedSummary.unsecured)}</Sensitive></div>
+                          <div className={`text-[10px] mt-0.5 ${selectedSummary.urgent ? 'text-rose-600' : 'text-amber-600/80'}`}>{selectedSummary.urgent ? 'Urgent — sync sales & delivery' : 'Coverage acceptable'}</div>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1 flex items-center gap-1"><Activity size={10} /> Pipeline coverage</div>
+                          <div className="text-lg font-extrabold text-slate-800"><Sensitive>{fmtMoney(selectedSummary.insight.openPipeline)}</Sensitive></div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">weighted <Sensitive>{fmtMoney(selectedSummary.insight.weightedPipeline)}</Sensitive></div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400 italic py-6 text-center">
+                      This account isn't in the 2026 Sales Plan yet. Open the sales plan to add a forecast.
+                    </div>
+                  )
+                )}
+
+                {accountDetailTab === 'connects' && (
+                  selectedSummary.insight && selectedSummary.insight.signals.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedSummary.insight.signals
+                        .slice()
+                        .sort((a, b) => ((b.updates?.[b.updates.length - 1]?.ts || b.createdAt || '') > (a.updates?.[a.updates.length - 1]?.ts || a.createdAt || '') ? 1 : -1))
+                        .map((sig) => {
+                          const ts = sig.updates && sig.updates.length ? sig.updates[sig.updates.length - 1].ts : sig.createdAt;
+                          const kindCls: Record<string, string> = {
+                            opportunity: 'bg-violet-100 text-violet-700',
+                            conversation: 'bg-sky-100 text-sky-700',
+                            risk: 'bg-rose-100 text-rose-700',
+                            note: 'bg-slate-100 text-slate-600',
+                          };
+                          const sentimentDot: Record<string, string> = {
+                            positive: 'bg-emerald-500',
+                            neutral: 'bg-slate-400',
+                            negative: 'bg-rose-500',
+                          };
+                          return (
+                            <div key={sig.id} className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${sentimentDot[sig.sentiment || 'neutral'] || sentimentDot.neutral}`} />
+                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${kindCls[sig.kind] || kindCls.note}`}>{sig.kind}</span>
+                                  {sig.owner && <span className="text-[10px] text-slate-500">· {sig.owner}</span>}
+                                </span>
+                                <span className="text-[10px] text-slate-400">{ts ? new Date(ts).toLocaleDateString() : ''}</span>
+                              </div>
+                              {sig.text && <div className="text-slate-700">{sig.text}</div>}
+                              {sig.kind === 'opportunity' && (sig.amount || sig.stage || sig.probability != null) && (
+                                <div className="mt-1.5 text-[10px] text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                                  {sig.amount != null && <span>Amount: <strong className="text-slate-700"><Sensitive>{fmtMoney(sig.amount)}</Sensitive></strong></span>}
+                                  {sig.stage && <span>Stage: <strong className="text-slate-700">{sig.stage}</strong></span>}
+                                  {sig.probability != null && <span>Prob: <strong className="text-slate-700">{sig.probability}%</strong></span>}
+                                  {sig.closeDate && <span>Close: <strong className="text-slate-700">{sig.closeDate}</strong></span>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400 italic py-6 text-center">
+                      No active connects yet. Sales activity logged in the 2026 Sales Plan will appear here.
+                    </div>
+                  )
+                )}
+              </Card>
+            )}
+          </>
+        );
+      })()}
 
       {/* ====== FORECAST TAB ====== */}
       {activeTab === 'forecast' && (

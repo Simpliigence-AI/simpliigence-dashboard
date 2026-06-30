@@ -281,6 +281,8 @@ function PipelineProjectCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmMove, setConfirmMove] = useState(false);
   const [sowOpen, setSowOpen] = useState(false);
+  const [editSowId, setEditSowId] = useState<string | null>(null);
+  const [sowReloadKey, setSowReloadKey] = useState(0);
   const revenue = project.revenue ?? 0;
   const curr = project.revenueCurrency ?? 'USD';
   const currSymbol = curr === 'CAD' ? 'CA$' : '$';
@@ -499,25 +501,47 @@ function PipelineProjectCard({
             </div>
           </div>
 
-          <SowHistory projectId={project.id} refreshKey={sowOpen ? 'open' : 'closed'} />
+          <SowHistory
+            projectId={project.id}
+            refreshKey={`${sowOpen ? 'open' : 'closed'}-${sowReloadKey}`}
+            onEdit={(id) => { setEditSowId(id); setSowOpen(true); }}
+          />
         </div>
       )}
       {sowOpen && (
         <SowWizard
           project={project}
-          onClose={() => setSowOpen(false)}
+          initialSowId={editSowId ?? undefined}
+          onClose={() => {
+            setSowOpen(false);
+            setEditSowId(null);
+            // Bump the reload key so SowHistory re-fetches and reflects any
+            // saves that happened inside the wizard.
+            setSowReloadKey((k) => k + 1);
+          }}
         />
       )}
     </Card>
   );
 }
 
-/* ── SOW Wizard ──────────────────────────────────────────
-/** Lists every saved SOW for a project, newest first. Each row exposes a
- *  Download button that mints a fresh signed URL from the sow-documents
- *  Storage bucket. refreshKey lets the parent (e.g. the wizard modal
- *  opening/closing) force a re-fetch when a new version is likely. */
-function SowHistory({ projectId, refreshKey }: { projectId: string; refreshKey: string }) {
+// ── SOW Wizard ──────────────────────────────────────────
+const SOW_STATUSES = ['draft', 'sent', 'signed', 'archived'] as const;
+const SOW_STATUS_STYLES: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-700 border-slate-300',
+  sent: 'bg-blue-50 text-blue-700 border-blue-200',
+  signed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  archived: 'bg-amber-50 text-amber-700 border-amber-200',
+};
+
+/** Lists every saved SOW for a project, newest first. Each row exposes
+ *  download, status (click to flip), edit-as-new-version, and delete.
+ *  refreshKey forces a re-fetch when a save likely happened. */
+function SowHistory({ projectId, refreshKey, onEdit }: {
+  projectId: string;
+  refreshKey: string;
+  onEdit: (sowId: string) => void;
+}) {
   type Row = {
     id: string; version: number; sowType: string; clientName: string;
     effectiveDate: string | null; createdAt: string; createdBy: string | null;
@@ -525,6 +549,14 @@ function SowHistory({ projectId, refreshKey }: { projectId: string; refreshKey: 
   };
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const reload = () => {
+    setLoading(true);
+    db.listSowsForProject(projectId).then((r) => { setRows(r); setLoading(false); });
+  };
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -543,6 +575,25 @@ function SowHistory({ projectId, refreshKey }: { projectId: string; refreshKey: 
     window.open(url, '_blank');
   };
 
+  const cycleStatus = async (row: Row) => {
+    const idx = SOW_STATUSES.indexOf(row.status as (typeof SOW_STATUSES)[number]);
+    const next = SOW_STATUSES[(idx + 1) % SOW_STATUSES.length];
+    setBusyId(row.id);
+    const res = await db.setSowStatus(row.id, next);
+    setBusyId(null);
+    if (res.ok) setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, status: next } : r)));
+  };
+
+  const remove = async (row: Row) => {
+    setBusyId(row.id);
+    const res = await db.deleteSow(row.id, row.docxPath);
+    setBusyId(null);
+    if (res.ok) {
+      setConfirmDelete(null);
+      reload();
+    }
+  };
+
   if (loading && rows.length === 0) {
     return (
       <div className="mt-4 pt-3 border-t border-slate-100">
@@ -558,26 +609,81 @@ function SowHistory({ projectId, refreshKey }: { projectId: string; refreshKey: 
         <FileText size={12} /> SOW versions ({rows.length})
       </div>
       <div className="space-y-1">
-        {rows.map((r) => (
-          <div key={r.id} className="flex items-center justify-between gap-3 py-1.5 px-2 hover:bg-slate-50 rounded text-xs">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="font-semibold text-slate-700 shrink-0">v{r.version}</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 shrink-0">{r.sowType}</span>
-              <span className="text-slate-600 truncate">{r.clientName}</span>
-              <span className="text-slate-400 shrink-0">· {new Date(r.createdAt).toLocaleDateString()}</span>
-              {r.createdBy && <span className="text-slate-400 truncate hidden md:inline">by {r.createdBy}</span>}
+        {rows.map((r) => {
+          const isConfirming = confirmDelete === r.id;
+          const isBusy = busyId === r.id;
+          const statusClass = SOW_STATUS_STYLES[r.status] ?? SOW_STATUS_STYLES.draft;
+          return (
+            <div key={r.id} className="flex items-center justify-between gap-3 py-1.5 px-2 hover:bg-slate-50 rounded text-xs">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="font-semibold text-slate-700 shrink-0">v{r.version}</span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 shrink-0">{r.sowType}</span>
+                <button
+                  type="button"
+                  onClick={() => cycleStatus(r)}
+                  disabled={isBusy}
+                  title="Click to advance status (draft → sent → signed → archived)"
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 uppercase tracking-wide hover:opacity-80 disabled:opacity-50 ${statusClass}`}
+                >
+                  {r.status}
+                </button>
+                <span className="text-slate-600 truncate">{r.clientName}</span>
+                <span className="text-slate-400 shrink-0">· {new Date(r.createdAt).toLocaleDateString()}</span>
+                {r.createdBy && <span className="text-slate-400 truncate hidden md:inline">by {r.createdBy}</span>}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => downloadSaved(r.docxPath)}
+                  disabled={!r.docxPath || isBusy}
+                  className="px-2 py-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                  title={r.docxPath ? 'Download .docx' : 'No .docx attached (legacy save)'}
+                >
+                  <Download size={11} /> .docx
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEdit(r.id)}
+                  disabled={isBusy}
+                  className="px-2 py-1 text-[11px] font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1"
+                  title="Open in wizard to tweak and save as next version"
+                >
+                  Edit
+                </button>
+                {!isConfirming ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(r.id)}
+                    disabled={isBusy}
+                    title="Delete this SOW version"
+                    className="p-1 text-slate-400 hover:text-red-500 disabled:opacity-40 rounded hover:bg-red-50"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-red-600">Delete?</span>
+                    <button
+                      type="button"
+                      onClick={() => remove(r)}
+                      disabled={isBusy}
+                      className="px-1.5 py-0.5 text-[10px] text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(null)}
+                      className="px-1.5 py-0.5 text-[10px] text-slate-600 bg-slate-100 rounded hover:bg-slate-200"
+                    >
+                      No
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => downloadSaved(r.docxPath)}
-              disabled={!r.docxPath}
-              className="px-2 py-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
-              title={r.docxPath ? 'Download .docx' : 'No .docx attached (legacy save)'}
-            >
-              <Download size={11} /> .docx
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -590,7 +696,7 @@ function SowHistory({ projectId, refreshKey }: { projectId: string; refreshKey: 
  *  User fills rough inputs; gpt-4.1-nano (via the generate-sow edge fn)
  *  polishes them into Simpliigence-style legal language and returns a
  *  ready-to-print HTML doc + structured sections. */
-function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose: () => void }) {
+function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelineProject; onClose: () => void; initialSowId?: string }) {
   const currentUser = useAuthStore((s) => s.currentUser);
   const today = new Date().toISOString().slice(0, 10);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -642,6 +748,55 @@ function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // When the wizard is opened with an initialSowId (clone-and-edit from
+  // SowHistory), load that row and prefill every field so the user can
+  // tweak and re-generate as the next version.
+  useEffect(() => {
+    if (!initialSowId) return;
+    let cancelled = false;
+    (async () => {
+      const sow = await db.loadSow(initialSowId);
+      if (cancelled || !sow) return;
+      setSowType(sow.sowType);
+      setClientName(sow.clientName);
+      setClientAddress(sow.clientAddress);
+      setSignerName(sow.signerName);
+      setSignerTitle(sow.signerTitle);
+      setSignerEmail(sow.signerEmail);
+      setEffectiveDate(sow.effectiveDate || today);
+      const i = sow.inputs as Record<string, string | undefined>;
+      if (sow.sowType === 'concierge') {
+        setConActivities(i.activities ?? '');
+        setConHourlyRate(i.hourlyRate ?? conHourlyRate);
+        setConPaymentTerms(i.paymentTerms ?? conPaymentTerms);
+        setConInvoiceDate(i.invoiceDate ?? conInvoiceDate);
+        setConTerminationNotice(i.terminationNotice ?? conTerminationNotice);
+        setConMinHours(i.minimumHours ?? conMinHours);
+        setConTravelPolicy(i.travelPolicy ?? conTravelPolicy);
+        setConSpecial(i.specialConditions ?? '');
+      } else {
+        setImpGoals(i.businessGoals ?? '');
+        setImpInScope(i.inScope ?? '');
+        setImpOutOfScope(i.outOfScope ?? '');
+        setImpAssumptions(i.assumptions ?? '');
+        setImpMilestones(i.paymentMilestones ?? '');
+        setImpTotalFees(i.totalFees ?? '');
+        setImpDuration(i.durationWeeks ?? '');
+        setImpSpecial(i.specialConditions ?? '');
+        setImpCurrentState(i.currentState ?? '');
+        setImpPriorities(i.strategicPriorities ?? '');
+        setImpFutureVision(i.futureVision ?? '');
+        setImpPricingModel((i.pricingModel as 'fixed' | 'tm') ?? 'fixed');
+        setImpSolution(i.solution ?? 'Salesforce');
+      }
+      // Jump the user straight to the scope step — they're editing a known
+      // template, not starting from scratch.
+      setStep(3);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSowId]);
 
   const inputsForGenerate = sowType === 'concierge' ? {
     activities: conActivities, hourlyRate: conHourlyRate, paymentTerms: conPaymentTerms,

@@ -2046,12 +2046,82 @@ export const db = {
   },
 
   async nextSowVersion(projectId: string): Promise<number> {
-    const { count, error } = await supabase
+    const { data, error } = await supabase
       .from('pipeline_sows')
-      .select('id', { count: 'exact', head: true })
-      .eq('pipeline_project_id', projectId);
-    if (error) return 1;
-    return (count ?? 0) + 1;
+      .select('version')
+      .eq('pipeline_project_id', projectId)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return 1;
+    return ((data as { version: number | null }).version ?? 0) + 1;
+  },
+
+  /** Load a saved SOW (full inputs + sections + html). Used by the wizard
+   *  when the user wants to clone a past version into a new draft. */
+  async loadSow(id: string): Promise<{
+    id: string; pipelineProjectId: string | null; projectName: string;
+    sowType: 'concierge' | 'implementation';
+    clientName: string; clientAddress: string;
+    signerName: string; signerTitle: string; signerEmail: string;
+    effectiveDate: string;
+    inputs: Record<string, unknown>;
+    sections: SowSection[];
+    html: string;
+    docxPath: string | null;
+    version: number;
+    status: string;
+  } | null> {
+    const { data, error } = await supabase
+      .from('pipeline_sows')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error || !data) {
+      console.warn('[supabase] loadSow failed:', error?.message);
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = data as any;
+    return {
+      id: r.id,
+      pipelineProjectId: r.pipeline_project_id,
+      projectName: r.project_name,
+      sowType: r.sow_type,
+      clientName: r.client_name,
+      clientAddress: r.client_address ?? '',
+      signerName: r.signer_name ?? '',
+      signerTitle: r.signer_title ?? '',
+      signerEmail: r.signer_email ?? '',
+      effectiveDate: r.effective_date ?? '',
+      inputs: r.inputs ?? {},
+      sections: r.sections ?? [],
+      html: r.html ?? '',
+      docxPath: r.docx_path,
+      version: r.version ?? 1,
+      status: r.status ?? 'draft',
+    };
+  },
+
+  /** Delete a saved SOW. Also removes the .docx from Storage if present. */
+  async deleteSow(id: string, docxPath: string | null): Promise<{ ok: boolean; error?: string }> {
+    if (docxPath) {
+      const { error: storageErr } = await supabase.storage.from('sow-documents').remove([docxPath]);
+      if (storageErr) console.warn('[supabase] storage remove failed:', storageErr.message);
+    }
+    const { error } = await supabase.from('pipeline_sows').delete().eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
+  /** Update an SOW's status (draft / sent / signed / archived). */
+  async setSowStatus(id: string, status: string): Promise<{ ok: boolean; error?: string }> {
+    const { error } = await supabase
+      .from('pipeline_sows')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
   },
 
   // --- TA Daily Log ---

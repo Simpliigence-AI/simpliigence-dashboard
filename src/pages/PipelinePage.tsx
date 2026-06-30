@@ -1456,16 +1456,11 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8"
-         onClick={(e) => {
-           // Only close on a *true* backdrop click — not on every event that
-           // bubbles up. This prevents the modal from closing when an inner
-           // textarea/input dispatches an outside click, and prevents
-           // accidental dismissal after a generation error (the user used
-           // to lose all their inputs that way).
-           if (e.target === e.currentTarget) onClose();
-         }}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8">
+      {/* Backdrop click DOES NOT close the modal. The wizard is a long form
+       *  with many edit fields; an accidental click on whitespace used to
+       *  trash the user's inputs. Close via the ✕ button or Escape only. */}
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-4">
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 sticky top-0 bg-white rounded-t-xl">
           <div>
             <div className="text-sm font-bold text-slate-900">Generate Statement of Work</div>

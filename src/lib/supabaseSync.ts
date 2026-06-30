@@ -1911,6 +1911,86 @@ export const db = {
     return { ok: true, id: data.id };
   },
 
+  // --- Pipeline SOWs ---
+  /** Generate a Statement of Work via the generate-sow edge function.
+   *  Returns rendered HTML + structured sections. Does NOT persist on its
+   *  own — caller calls saveSow() if the user keeps the draft. */
+  async generateSow(params: {
+    sowType: 'concierge' | 'implementation';
+    projectName: string;
+    clientName: string;
+    clientAddress: string;
+    signerName: string;
+    signerTitle: string;
+    effectiveDate: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    inputs: Record<string, any>;
+  }): Promise<
+    | { ok: true; sections: Array<{ heading: string; body: string; bullets?: string[] }>; html: string; warnings: string[] }
+    | { ok: false; error: string }
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      sections?: Array<{ heading: string; body: string; bullets?: string[] }>;
+      html?: string;
+      warnings?: string[];
+      error?: string;
+      detail?: string;
+    }>('generate-sow', { body: params });
+    if (error) {
+      let detail = error.message;
+      const ctx = (error as unknown as { context?: Response }).context;
+      if (ctx && typeof ctx.text === 'function') {
+        try { detail = (await ctx.text()) || detail; } catch { /* ignore */ }
+      }
+      return { ok: false, error: detail };
+    }
+    if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ' — ' + data.detail : ''}` };
+    if (!data?.sections || !data?.html) return { ok: false, error: 'Edge function returned invalid shape' };
+    return { ok: true, sections: data.sections, html: data.html, warnings: data.warnings || [] };
+  },
+
+  /** Save a generated SOW into pipeline_sows. */
+  async saveSow(sow: {
+    id: string;
+    pipelineProjectId: string | null;
+    projectName: string;
+    sowType: 'concierge' | 'implementation';
+    clientName: string;
+    clientAddress: string;
+    signerName: string;
+    signerTitle: string;
+    signerEmail: string;
+    effectiveDate: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    inputs: Record<string, any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sections: any;
+    html: string;
+    createdBy: string;
+  }): Promise<{ ok: boolean; error?: string }> {
+    const { error } = await supabase.from('pipeline_sows').upsert({
+      id: sow.id,
+      pipeline_project_id: sow.pipelineProjectId,
+      project_name: sow.projectName,
+      sow_type: sow.sowType,
+      client_name: sow.clientName,
+      client_address: sow.clientAddress || null,
+      signer_name: sow.signerName || null,
+      signer_title: sow.signerTitle || null,
+      signer_email: sow.signerEmail || null,
+      effective_date: sow.effectiveDate || null,
+      inputs: sow.inputs,
+      sections: sow.sections,
+      html: sow.html,
+      status: 'draft',
+      created_by: sow.createdBy,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
   // --- TA Daily Log ---
   async upsertTaLog(e: TADailyLogEntry) {
     const { error } = await supabase.from('ta_daily_log').upsert(taLogToRow(e), { onConflict: 'id' });

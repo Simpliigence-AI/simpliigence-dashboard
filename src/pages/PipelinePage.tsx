@@ -6,6 +6,7 @@ import { Sensitive } from '../components/Sensitive';
 import type { ZohoPipelineProject, PipelineResource } from '../types/forecast';
 import { db } from '../lib/supabaseSync';
 import { useAuthStore } from '../store/useAuthStore';
+import { buildSowDocxBlob, type SowSectionInput } from '../lib/sowDocx';
 import {
   Plus,
   ArrowRightCircle,
@@ -553,10 +554,15 @@ function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose
   const [impTotalFees, setImpTotalFees] = useState('');
   const [impDuration, setImpDuration] = useState('');
   const [impSpecial, setImpSpecial] = useState('');
+  const [impCurrentState, setImpCurrentState] = useState('');
+  const [impPriorities, setImpPriorities] = useState('');
+  const [impFutureVision, setImpFutureVision] = useState('');
+  const [impPricingModel, setImpPricingModel] = useState<'fixed' | 'tm'>('fixed');
+  const [impSolution, setImpSolution] = useState('Salesforce');
 
   // Result (step 4)
   const [html, setHtml] = useState<string>('');
-  const [sections, setSections] = useState<Array<{ heading: string; body: string; bullets?: string[] }>>([]);
+  const [sections, setSections] = useState<SowSectionInput[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -573,6 +579,8 @@ function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose
     businessGoals: impGoals, inScope: impInScope, outOfScope: impOutOfScope,
     assumptions: impAssumptions, paymentMilestones: impMilestones, totalFees: impTotalFees,
     durationWeeks: impDuration, specialConditions: impSpecial,
+    currentState: impCurrentState, strategicPriorities: impPriorities,
+    futureVision: impFutureVision, pricingModel: impPricingModel, solution: impSolution,
   };
 
   const generate = async () => {
@@ -592,21 +600,38 @@ function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose
     setStep(4);
   };
 
+  const buildDocxBlob = async () => {
+    return buildSowDocxBlob(
+      { clientName, effectiveDate, signerName, signerTitle },
+      sections,
+    );
+  };
+
+  /** Save the SOW: upload the generated .docx to sow-documents, then write
+   *  the row into pipeline_sows. Each save is a NEW version (version history). */
   const save = async () => {
     if (!sowType) return;
     setBusy(true); setError(null);
-    const id = `sow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const res = await db.saveSow({
-      id,
-      pipelineProjectId: project.id, projectName: project.name,
-      sowType, clientName, clientAddress, signerName, signerTitle, signerEmail, effectiveDate,
-      inputs: inputsForGenerate as unknown as Record<string, unknown>,
-      sections, html,
-      createdBy: (currentUser?.email || '').toLowerCase(),
-    });
-    setBusy(false);
-    if (!res.ok) { setError(res.error || 'Save failed'); return; }
-    setSavedId(id);
+    try {
+      const version = await db.nextSowVersion(project.id);
+      const blob = await buildDocxBlob();
+      const docxPath = await db.uploadSowDocx(project.id, clientName, blob);
+      const id = `sow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const res = await db.saveSow({
+        id,
+        pipelineProjectId: project.id, projectName: project.name,
+        sowType, clientName, clientAddress, signerName, signerTitle, signerEmail, effectiveDate,
+        inputs: inputsForGenerate as unknown as Record<string, unknown>,
+        sections, html, docxPath, version,
+        createdBy: (currentUser?.email || '').toLowerCase(),
+      });
+      if (!res.ok) { setError(res.error || 'Save failed'); return; }
+      setSavedId(id);
+    } catch (e) {
+      setError((e as Error).message || 'Save failed');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const downloadHtml = () => {
@@ -617,6 +642,23 @@ function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose
     a.download = `SOW-${clientName.replace(/[^a-zA-Z0-9]+/g, '_')}-${effectiveDate}.html`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadDocx = async () => {
+    setBusy(true);
+    try {
+      const blob = await buildDocxBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SOW-${clientName.replace(/[^a-zA-Z0-9]+/g, '_')}-${effectiveDate}.docx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError((e as Error).message || 'DOCX build failed');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -715,6 +757,34 @@ function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose
           {step === 3 && sowType === 'implementation' && (
             <div className="space-y-3">
               <div className="text-sm font-semibold text-slate-800">Implementation scope</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Solution / platform">
+                  <input value={impSolution} onChange={(e) => setImpSolution(e.target.value)} placeholder="Salesforce Sales Cloud" className={fInput} />
+                </Field>
+                <Field label="Pricing model">
+                  <select value={impPricingModel} onChange={(e) => setImpPricingModel(e.target.value as 'fixed' | 'tm')} className={fInput}>
+                    <option value="fixed">Fixed price with milestones</option>
+                    <option value="tm">Time & Materials</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Executive Summary context</div>
+              <Field label="Current state / business context">
+                <textarea value={impCurrentState} onChange={(e) => setImpCurrentState(e.target.value)} rows={2}
+                          placeholder="One or two sentences on the client's current situation and the challenge driving this initiative."
+                          className={fInput} />
+              </Field>
+              <Field label="Strategic priorities">
+                <textarea value={impPriorities} onChange={(e) => setImpPriorities(e.target.value)} rows={2}
+                          placeholder="Bullets or phrases — what outcomes matter most to leadership."
+                          className={fInput} />
+              </Field>
+              <Field label="Future vision">
+                <textarea value={impFutureVision} onChange={(e) => setImpFutureVision(e.target.value)} rows={2}
+                          placeholder="One sentence on the future state the platform unlocks."
+                          className={fInput} />
+              </Field>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Scope</div>
               <Field label="Business goals *">
                 <textarea value={impGoals} onChange={(e) => setImpGoals(e.target.value)} rows={3}
                           placeholder="What is the client trying to achieve? Outcomes, not features."
@@ -757,9 +827,12 @@ function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-slate-800">Preview</div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={downloadDocx} disabled={busy} className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded inline-flex items-center gap-1 disabled:opacity-50">
+                    <Download size={12} /> Download .docx
+                  </button>
                   <button onClick={downloadHtml} className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded inline-flex items-center gap-1 hover:bg-slate-50">
-                    <Download size={12} /> Download .html
+                    <Download size={12} /> .html
                   </button>
                   <button onClick={save} disabled={busy || !!savedId} className="px-3 py-1.5 text-xs font-semibold bg-primary text-white rounded inline-flex items-center gap-1 disabled:opacity-50">
                     {savedId ? '✓ Saved' : (busy ? 'Saving…' : 'Save to project')}

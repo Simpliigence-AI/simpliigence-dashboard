@@ -23,6 +23,7 @@ import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 import type { TimeEntry } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import type { Vendor, VendorOutreach } from '../types/vendor';
+import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
 
@@ -1926,12 +1927,12 @@ export const db = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inputs: Record<string, any>;
   }): Promise<
-    | { ok: true; sections: Array<{ heading: string; body: string; bullets?: string[] }>; html: string; warnings: string[] }
+    | { ok: true; sections: SowSection[]; html: string; warnings: string[] }
     | { ok: false; error: string }
   > {
     const { data, error } = await supabase.functions.invoke<{
       ok?: boolean;
-      sections?: Array<{ heading: string; body: string; bullets?: string[] }>;
+      sections?: SowSection[];
       html?: string;
       warnings?: string[];
       error?: string;
@@ -1967,6 +1968,8 @@ export const db = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sections: any;
     html: string;
+    docxPath?: string | null;
+    version?: number;
     createdBy: string;
   }): Promise<{ ok: boolean; error?: string }> {
     const { error } = await supabase.from('pipeline_sows').upsert({
@@ -1983,12 +1986,72 @@ export const db = {
       inputs: sow.inputs,
       sections: sow.sections,
       html: sow.html,
+      docx_path: sow.docxPath ?? null,
+      version: sow.version ?? 1,
       status: 'draft',
       created_by: sow.createdBy,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
+  },
+
+  /** Upload a generated .docx to the sow-documents Storage bucket. */
+  async uploadSowDocx(projectId: string, clientName: string, blob: Blob): Promise<string | null> {
+    const safe = clientName.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 60) || 'client';
+    const path = `${projectId}/${Date.now()}-${safe}.docx`;
+    const { error } = await supabase.storage
+      .from('sow-documents')
+      .upload(path, blob, {
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        upsert: false,
+      });
+    if (error) {
+      console.warn('[supabase] upload sow-document failed:', error);
+      return null;
+    }
+    return path;
+  },
+
+  async signedSowDocxUrl(path: string, expiresSec = 300): Promise<string | null> {
+    const { data, error } = await supabase.storage.from('sow-documents').createSignedUrl(path, expiresSec);
+    if (error || !data?.signedUrl) {
+      console.warn('[supabase] signedSowDocxUrl failed:', error?.message);
+      return null;
+    }
+    return data.signedUrl;
+  },
+
+  /** List all SOWs for one pipeline project, newest first (version history). */
+  async listSowsForProject(projectId: string): Promise<Array<{
+    id: string; version: number; sowType: string; clientName: string;
+    effectiveDate: string | null; createdAt: string; createdBy: string | null;
+    docxPath: string | null; status: string;
+  }>> {
+    const { data, error } = await supabase
+      .from('pipeline_sows')
+      .select('id, version, sow_type, client_name, effective_date, created_at, created_by, docx_path, status')
+      .eq('pipeline_project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.warn('[supabase] listSowsForProject failed:', error.message);
+      return [];
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []).map((r: any) => ({
+      id: r.id, version: r.version ?? 1, sowType: r.sow_type, clientName: r.client_name,
+      effectiveDate: r.effective_date, createdAt: r.created_at, createdBy: r.created_by,
+      docxPath: r.docx_path, status: r.status,
+    }));
+  },
+
+  async nextSowVersion(projectId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('pipeline_sows')
+      .select('id', { count: 'exact', head: true })
+      .eq('pipeline_project_id', projectId);
+    if (error) return 1;
+    return (count ?? 0) + 1;
   },
 
   // --- TA Daily Log ---

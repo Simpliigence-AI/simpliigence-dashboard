@@ -498,6 +498,8 @@ function PipelineProjectCard({
               )}
             </div>
           </div>
+
+          <SowHistory projectId={project.id} refreshKey={sowOpen ? 'open' : 'closed'} />
         </div>
       )}
       {sowOpen && (
@@ -511,7 +513,77 @@ function PipelineProjectCard({
 }
 
 /* ── SOW Wizard ──────────────────────────────────────────
- *  Multi-step modal for generating a Statement of Work for a pipeline
+/** Lists every saved SOW for a project, newest first. Each row exposes a
+ *  Download button that mints a fresh signed URL from the sow-documents
+ *  Storage bucket. refreshKey lets the parent (e.g. the wizard modal
+ *  opening/closing) force a re-fetch when a new version is likely. */
+function SowHistory({ projectId, refreshKey }: { projectId: string; refreshKey: string }) {
+  type Row = {
+    id: string; version: number; sowType: string; clientName: string;
+    effectiveDate: string | null; createdAt: string; createdBy: string | null;
+    docxPath: string | null; status: string;
+  };
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    db.listSowsForProject(projectId).then((r) => {
+      if (cancelled) return;
+      setRows(r);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [projectId, refreshKey]);
+
+  const downloadSaved = async (path: string | null) => {
+    if (!path) return;
+    const url = await db.signedSowDocxUrl(path);
+    if (!url) return;
+    window.open(url, '_blank');
+  };
+
+  if (loading && rows.length === 0) {
+    return (
+      <div className="mt-4 pt-3 border-t border-slate-100">
+        <div className="text-xs text-slate-400">Loading SOW history…</div>
+      </div>
+    );
+  }
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="mt-4 pt-3 border-t border-slate-100">
+      <div className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
+        <FileText size={12} /> SOW versions ({rows.length})
+      </div>
+      <div className="space-y-1">
+        {rows.map((r) => (
+          <div key={r.id} className="flex items-center justify-between gap-3 py-1.5 px-2 hover:bg-slate-50 rounded text-xs">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="font-semibold text-slate-700 shrink-0">v{r.version}</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 shrink-0">{r.sowType}</span>
+              <span className="text-slate-600 truncate">{r.clientName}</span>
+              <span className="text-slate-400 shrink-0">· {new Date(r.createdAt).toLocaleDateString()}</span>
+              {r.createdBy && <span className="text-slate-400 truncate hidden md:inline">by {r.createdBy}</span>}
+            </div>
+            <button
+              type="button"
+              onClick={() => downloadSaved(r.docxPath)}
+              disabled={!r.docxPath}
+              className="px-2 py-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
+              title={r.docxPath ? 'Download .docx' : 'No .docx attached (legacy save)'}
+            >
+              <Download size={11} /> .docx
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Multi-step modal for generating a Statement of Work for a pipeline
  *  project. Two flavours:
  *    1. Concierge — Time & Materials support engagement.
  *    2. Implementation — fixed-fee build/delivery with payment milestones.

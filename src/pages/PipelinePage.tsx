@@ -8,6 +8,8 @@ import type { ZohoPipelineProject, PipelineResource } from '../types/forecast';
 import { db } from '../lib/supabaseSync';
 import { useAuthStore } from '../store/useAuthStore';
 import { buildSowDocxBlob, type SowSectionInput } from '../lib/sowDocx';
+import sowWordmarkUrl from '../assets/simpliigence-wordmark.png';
+import sowIconUrl from '../assets/simpliigence-icon.png';
 import {
   Plus,
   ArrowRightCircle,
@@ -422,7 +424,10 @@ function buildSowHtml(clientName: string, effectiveDate: string, sections: SowSe
   }).join('\n');
   return `<!doctype html><html><head><meta charset="utf-8"/><title>SOW — ${esc(clientName)}</title>
 <style>
-  body{font:13px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;max-width:840px;margin:24px auto;padding:0 32px}
+  body{font:13px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;max-width:840px;margin:0 auto;padding:0}
+  .brand-header{display:flex;justify-content:flex-end;align-items:center;padding:16px 32px 8px;border-bottom:2px solid #f97316;background:#fff;position:sticky;top:0;z-index:1}
+  .brand-header img{height:32px;width:auto}
+  .page{padding:24px 32px}
   .cover{text-align:center;padding:80px 0 40px}
   .cover h1{font-size:32px;margin:0 0 16px 0;border-bottom:3px solid #f97316;padding-bottom:8px;display:inline-block}
   .cover .preparedFor{color:#64748b;margin-top:24px}
@@ -440,9 +445,19 @@ function buildSowHtml(clientName: string, effectiveDate: string, sections: SowSe
   table.sow-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
   table.sow-table th{background:#f1f5f9;text-align:left;padding:8px 10px;border:1px solid #e2e8f0;font-weight:600}
   table.sow-table td{padding:8px 10px;border:1px solid #e2e8f0;vertical-align:top}
-  .footer{margin-top:32px;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;padding-top:8px}
-  @media print { body{margin:8mm} h2{break-after:avoid} section{break-inside:avoid} .cover{page-break-after:always} .toc{page-break-after:always} }
+  .brand-footer{display:flex;align-items:center;gap:8px;margin-top:32px;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;padding:8px 32px 16px}
+  .brand-footer img{height:16px;width:auto}
+  @media print {
+    body{margin:8mm}
+    h2{break-after:avoid}
+    section{break-inside:avoid}
+    .cover{page-break-after:always}
+    .toc{page-break-after:always}
+    .brand-header{position:static;border-bottom:2px solid #f97316}
+  }
 </style></head><body>
+<div class="brand-header"><img src="${sowWordmarkUrl}" alt="Simpliigence" /></div>
+<div class="page">
 <div class="cover">
   <h1>STATEMENT OF WORK</h1>
   <div class="preparedFor">Prepared for:</div>
@@ -467,7 +482,8 @@ ${sectionBlocks}
   By e-mail to: raghu.seetharam@simpliigence.com<br/>
   By mail to: Simpliigence Inc., 8 The Green, Ste A, Dover, DE-19901</p>
 </section>
-<div class="footer">Simpliigence Inc. · 8 The Green, Ste A, Dover, DE-19901</div>
+</div>
+<div class="brand-footer"><img src="${sowIconUrl}" alt="" /> Simpliigence Inc. · 8 The Green, Ste A, Dover, DE-19901</div>
 </body></html>`;
 }
 

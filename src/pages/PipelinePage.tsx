@@ -4,6 +4,8 @@ import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
 import type { ZohoPipelineProject, PipelineResource } from '../types/forecast';
+import { db } from '../lib/supabaseSync';
+import { useAuthStore } from '../store/useAuthStore';
 import {
   Plus,
   ArrowRightCircle,
@@ -15,6 +17,10 @@ import {
   UserPlus,
   X,
   Check,
+  FileText,
+  Sparkles,
+  Loader2,
+  Download,
 } from 'lucide-react';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -273,6 +279,7 @@ function PipelineProjectCard({
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmMove, setConfirmMove] = useState(false);
+  const [sowOpen, setSowOpen] = useState(false);
   const revenue = project.revenue ?? 0;
   const curr = project.revenueCurrency ?? 'USD';
   const currSymbol = curr === 'CAD' ? 'CA$' : '$';
@@ -309,6 +316,14 @@ function PipelineProjectCard({
 
         {/* Action buttons */}
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); setSowOpen(true); }}
+            title="Generate Statement of Work"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+          >
+            <FileText size={14} />
+            Generate SOW
+          </button>
           {!confirmMove ? (
             <button
               onClick={() => setConfirmMove(true)}
@@ -484,7 +499,306 @@ function PipelineProjectCard({
           </div>
         </div>
       )}
+      {sowOpen && (
+        <SowWizard
+          project={project}
+          onClose={() => setSowOpen(false)}
+        />
+      )}
     </Card>
+  );
+}
+
+/* ── SOW Wizard ──────────────────────────────────────────
+ *  Multi-step modal for generating a Statement of Work for a pipeline
+ *  project. Two flavours:
+ *    1. Concierge — Time & Materials support engagement.
+ *    2. Implementation — fixed-fee build/delivery with payment milestones.
+ *  User fills rough inputs; gpt-4.1-nano (via the generate-sow edge fn)
+ *  polishes them into Simpliigence-style legal language and returns a
+ *  ready-to-print HTML doc + structured sections. */
+function SowWizard({ project, onClose }: { project: ZohoPipelineProject; onClose: () => void }) {
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const today = new Date().toISOString().slice(0, 10);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [sowType, setSowType] = useState<'concierge' | 'implementation' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+
+  // Client info (step 2)
+  const [clientName, setClientName] = useState(project.name || '');
+  const [clientAddress, setClientAddress] = useState('');
+  const [signerName, setSignerName] = useState('');
+  const [signerTitle, setSignerTitle] = useState('');
+  const [signerEmail, setSignerEmail] = useState('');
+  const [effectiveDate, setEffectiveDate] = useState(today);
+
+  // Concierge inputs (step 3)
+  const [conActivities, setConActivities] = useState('');
+  const [conHourlyRate, setConHourlyRate] = useState('$95 / hour or 115 CAD / per hour');
+  const [conPaymentTerms, setConPaymentTerms] = useState('3 days from invoice date');
+  const [conInvoiceDate, setConInvoiceDate] = useState('1st of every month');
+  const [conTerminationNotice, setConTerminationNotice] = useState('4 weeks');
+  const [conMinHours, setConMinHours] = useState('N/A');
+  const [conTravelPolicy, setConTravelPolicy] = useState('Based on actuals, pre-approved by the client.');
+  const [conSpecial, setConSpecial] = useState('');
+
+  // Implementation inputs (step 3)
+  const [impGoals, setImpGoals] = useState('');
+  const [impInScope, setImpInScope] = useState('');
+  const [impOutOfScope, setImpOutOfScope] = useState('');
+  const [impAssumptions, setImpAssumptions] = useState('');
+  const [impMilestones, setImpMilestones] = useState('');
+  const [impTotalFees, setImpTotalFees] = useState('');
+  const [impDuration, setImpDuration] = useState('');
+  const [impSpecial, setImpSpecial] = useState('');
+
+  // Result (step 4)
+  const [html, setHtml] = useState<string>('');
+  const [sections, setSections] = useState<Array<{ heading: string; body: string; bullets?: string[] }>>([]);
+  const [savedId, setSavedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const inputsForGenerate = sowType === 'concierge' ? {
+    activities: conActivities, hourlyRate: conHourlyRate, paymentTerms: conPaymentTerms,
+    invoiceDate: conInvoiceDate, terminationNotice: conTerminationNotice,
+    minimumHours: conMinHours, travelPolicy: conTravelPolicy, specialConditions: conSpecial,
+  } : {
+    businessGoals: impGoals, inScope: impInScope, outOfScope: impOutOfScope,
+    assumptions: impAssumptions, paymentMilestones: impMilestones, totalFees: impTotalFees,
+    durationWeeks: impDuration, specialConditions: impSpecial,
+  };
+
+  const generate = async () => {
+    if (!sowType) return;
+    setBusy(true); setError(null); setWarnings([]);
+    const res = await db.generateSow({
+      sowType,
+      projectName: project.name,
+      clientName, clientAddress, signerName, signerTitle, effectiveDate,
+      inputs: inputsForGenerate,
+    });
+    setBusy(false);
+    if (!res.ok) { setError(res.error); return; }
+    setHtml(res.html);
+    setSections(res.sections);
+    setWarnings(res.warnings);
+    setStep(4);
+  };
+
+  const save = async () => {
+    if (!sowType) return;
+    setBusy(true); setError(null);
+    const id = `sow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const res = await db.saveSow({
+      id,
+      pipelineProjectId: project.id, projectName: project.name,
+      sowType, clientName, clientAddress, signerName, signerTitle, signerEmail, effectiveDate,
+      inputs: inputsForGenerate as unknown as Record<string, unknown>,
+      sections, html,
+      createdBy: (currentUser?.email || '').toLowerCase(),
+    });
+    setBusy(false);
+    if (!res.ok) { setError(res.error || 'Save failed'); return; }
+    setSavedId(id);
+  };
+
+  const downloadHtml = () => {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SOW-${clientName.replace(/[^a-zA-Z0-9]+/g, '_')}-${effectiveDate}.html`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 sticky top-0 bg-white rounded-t-xl">
+          <div>
+            <div className="text-sm font-bold text-slate-900">Generate Statement of Work</div>
+            <div className="text-[11px] text-slate-500">{project.name} · Step {step} of 4</div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xs font-semibold">✕ Close</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+
+          {step === 1 && (
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-slate-800">What kind of project is this?</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button type="button" onClick={() => { setSowType('concierge'); setStep(2); }}
+                        className="text-left p-4 border-2 border-slate-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
+                  <div className="font-bold text-sm text-slate-900 mb-1">🛠 Concierge / Support</div>
+                  <div className="text-xs text-slate-600">Time & Materials engagement for ongoing enhancements, business-ops support, ad-hoc work. Billed hourly.</div>
+                </button>
+                <button type="button" onClick={() => { setSowType('implementation'); setStep(2); }}
+                        className="text-left p-4 border-2 border-slate-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
+                  <div className="font-bold text-sm text-slate-900 mb-1">🚀 Implementation</div>
+                  <div className="text-xs text-slate-600">Fixed-scope build / delivery with business goals, in/out-of-scope, assumptions, payment milestones.</div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-slate-800">Client details</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Client legal name *">
+                  <input value={clientName} onChange={(e) => setClientName(e.target.value)} className={fInput} />
+                </Field>
+                <Field label="Effective date *">
+                  <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className={fInput} />
+                </Field>
+              </div>
+              <Field label="Client address">
+                <input value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} placeholder="20 Erb St. West Suite 1001 Waterloo, ON N2L 1T2" className={fInput} />
+              </Field>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Field label="Signer name">
+                  <input value={signerName} onChange={(e) => setSignerName(e.target.value)} className={fInput} />
+                </Field>
+                <Field label="Signer title">
+                  <input value={signerTitle} onChange={(e) => setSignerTitle(e.target.value)} className={fInput} />
+                </Field>
+                <Field label="Signer email">
+                  <input type="email" value={signerEmail} onChange={(e) => setSignerEmail(e.target.value)} className={fInput} />
+                </Field>
+              </div>
+              <div className="flex justify-between pt-2">
+                <button onClick={() => setStep(1)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
+                <button onClick={() => setStep(3)} disabled={!clientName || !effectiveDate} className="px-4 py-1.5 bg-primary text-white rounded-md text-xs font-semibold disabled:opacity-50">Next →</button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && sowType === 'concierge' && (
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-slate-800">Concierge scope & pricing</div>
+              <Field label="Activities to support *">
+                <textarea value={conActivities} onChange={(e) => setConActivities(e.target.value)} rows={4}
+                          placeholder="Enhancements on Salesforce platform, business operations support, user training, technical evaluations, onsite meetings…"
+                          className={fInput} />
+              </Field>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Hourly rate"><input value={conHourlyRate} onChange={(e) => setConHourlyRate(e.target.value)} className={fInput} /></Field>
+                <Field label="Minimum hours/month"><input value={conMinHours} onChange={(e) => setConMinHours(e.target.value)} className={fInput} /></Field>
+                <Field label="Payment terms"><input value={conPaymentTerms} onChange={(e) => setConPaymentTerms(e.target.value)} className={fInput} /></Field>
+                <Field label="Invoice date"><input value={conInvoiceDate} onChange={(e) => setConInvoiceDate(e.target.value)} className={fInput} /></Field>
+                <Field label="Termination notice"><input value={conTerminationNotice} onChange={(e) => setConTerminationNotice(e.target.value)} className={fInput} /></Field>
+                <Field label="Travel & Expenses"><input value={conTravelPolicy} onChange={(e) => setConTravelPolicy(e.target.value)} className={fInput} /></Field>
+              </div>
+              <Field label="Special conditions (optional)">
+                <textarea value={conSpecial} onChange={(e) => setConSpecial(e.target.value)} rows={2} className={fInput} />
+              </Field>
+              {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
+              <div className="flex justify-between pt-2">
+                <button onClick={() => setStep(2)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
+                <button onClick={generate} disabled={!conActivities || busy} className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1.5">
+                  {busy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {busy ? 'Generating…' : 'Generate SOW'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && sowType === 'implementation' && (
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-slate-800">Implementation scope</div>
+              <Field label="Business goals *">
+                <textarea value={impGoals} onChange={(e) => setImpGoals(e.target.value)} rows={3}
+                          placeholder="What is the client trying to achieve? Outcomes, not features."
+                          className={fInput} />
+              </Field>
+              <Field label="In-scope (what Simpliigence will deliver) *">
+                <textarea value={impInScope} onChange={(e) => setImpInScope(e.target.value)} rows={4}
+                          placeholder="Bullets / rough phrases. Claude will tighten the language."
+                          className={fInput} />
+              </Field>
+              <Field label="Out-of-scope (explicit exclusions)">
+                <textarea value={impOutOfScope} onChange={(e) => setImpOutOfScope(e.target.value)} rows={3} className={fInput} />
+              </Field>
+              <Field label="Assumptions">
+                <textarea value={impAssumptions} onChange={(e) => setImpAssumptions(e.target.value)} rows={3}
+                          placeholder="Client SPOC available, environment access, decisions within 48h, etc."
+                          className={fInput} />
+              </Field>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Field label="Total fees *"><input value={impTotalFees} onChange={(e) => setImpTotalFees(e.target.value)} placeholder="$120,000 USD" className={fInput} /></Field>
+                <Field label="Duration"><input value={impDuration} onChange={(e) => setImpDuration(e.target.value)} placeholder="12 weeks" className={fInput} /></Field>
+                <Field label="Payment milestones *"><input value={impMilestones} onChange={(e) => setImpMilestones(e.target.value)} placeholder="30% signing, 40% UAT, 30% go-live" className={fInput} /></Field>
+              </div>
+              <Field label="Special conditions (optional)">
+                <textarea value={impSpecial} onChange={(e) => setImpSpecial(e.target.value)} rows={2} className={fInput} />
+              </Field>
+              {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
+              <div className="flex justify-between pt-2">
+                <button onClick={() => setStep(2)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
+                <button onClick={generate} disabled={!impGoals || !impInScope || !impTotalFees || !impMilestones || busy}
+                        className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1.5">
+                  {busy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {busy ? 'Generating…' : 'Generate SOW'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-800">Preview</div>
+                <div className="flex items-center gap-2">
+                  <button onClick={downloadHtml} className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded inline-flex items-center gap-1 hover:bg-slate-50">
+                    <Download size={12} /> Download .html
+                  </button>
+                  <button onClick={save} disabled={busy || !!savedId} className="px-3 py-1.5 text-xs font-semibold bg-primary text-white rounded inline-flex items-center gap-1 disabled:opacity-50">
+                    {savedId ? '✓ Saved' : (busy ? 'Saving…' : 'Save to project')}
+                  </button>
+                </div>
+              </div>
+              {warnings.length > 0 && (
+                <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+                  <b>AI suggested review:</b>
+                  <ul className="list-disc pl-4 mt-1">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+                </div>
+              )}
+              <div className="border border-slate-300 rounded-md max-h-[60vh] overflow-y-auto">
+                <iframe srcDoc={html} className="w-full h-[60vh] border-0" title="SOW preview" />
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Tip: open the downloaded HTML in Chrome → Cmd-P → "Save as PDF" for a print-ready document.
+              </div>
+              <div className="flex justify-between pt-2">
+                <button onClick={() => setStep(3)} className="text-xs text-slate-500 hover:text-slate-800">← Back to edit</button>
+                <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-300 rounded">Close</button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const fInput = 'w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40';
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{label}</label>
+      {children}
+    </div>
   );
 }
 

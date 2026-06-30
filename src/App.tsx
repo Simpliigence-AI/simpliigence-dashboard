@@ -10,6 +10,7 @@ import { useTaLogStore } from './store/useTaLogStore';
 import { useTimeEntryStore } from './store/useTimeEntryStore';
 import { useCallsStore } from './store/useCallsStore';
 import { useAccountStore } from './store/useAccountStore';
+import { usePresalesStore } from './store/usePresalesStore';
 import { useVendorStore } from './store/useVendorStore';
 import {
   fetchAssignments,
@@ -26,6 +27,7 @@ import {
   fetchActualHours,
   fetchTaDailyLog,
   fetchTeamMembers,
+  fetchPresales,
   fetchTimeEntries,
   fetchCandidateCalls,
   fetchCallTemplates,
@@ -83,6 +85,7 @@ function useSupabaseInit() {
           vendorsRes,
           candidateCallsRes,
           callTemplatesRes,
+          presalesRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -103,6 +106,7 @@ function useSupabaseInit() {
           withTimeout(fetchVendors()),
           withTimeout(fetchCandidateCalls()),
           withTimeout(fetchCallTemplates()),
+          withTimeout(fetchPresales()),
         ]);
 
         // --- Forecast assignments ---
@@ -309,6 +313,17 @@ function useSupabaseInit() {
           }
         } else {
           console.warn('[supabase] Account mgmt fetch timed out — using localStorage');
+        }
+
+        // --- Presales tracker ---
+        if (!presalesRes.timedOut) {
+          const data = presalesRes.value;
+          if (data) {
+            usePresalesStore.getState().hydrate(data.meetings, data.activities);
+            console.log('[supabase] Loaded presales:', data.meetings.length, 'meetings /', data.activities.length, 'activities');
+          }
+        } else {
+          console.warn('[supabase] Presales fetch timed out — using localStorage');
         }
 
         // --- Vendors ---

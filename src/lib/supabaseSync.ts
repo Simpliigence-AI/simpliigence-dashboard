@@ -23,6 +23,9 @@ import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 import type { TimeEntry } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import type { Vendor, VendorOutreach } from '../types/vendor';
+import type {
+  PresalesActivity, PresalesMeeting, ActivityType, Priority, ActivityStatus,
+} from '../types/presales';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
@@ -630,6 +633,21 @@ function rowToAccountAction(row: any): AccountActionItem {
     ownerEmail: row.owner_email ?? null, dueDate: row.due_date ?? null,
     status: row.status ?? 'open', completedAt: row.completed_at ?? null,
     createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchPresales(): Promise<{
+  meetings: PresalesMeeting[]; activities: PresalesActivity[];
+} | null> {
+  const [{ data: m, error: me }, { data: a, error: ae }] = await Promise.all([
+    supabase.from('presales_meetings').select('*').order('meeting_date', { ascending: false }),
+    supabase.from('presales_activities').select('*').order('created_at', { ascending: false }),
+  ]);
+  if (me) { console.warn('[supabase] fetch presales_meetings failed:', me); return null; }
+  if (ae) { console.warn('[supabase] fetch presales_activities failed:', ae); return null; }
+  return {
+    meetings: (m ?? []).map(presalesMeetingFromRow),
+    activities: (a ?? []).map(presalesActivityFromRow),
   };
 }
 
@@ -2185,7 +2203,155 @@ export const db = {
       supabase.from('vendors').delete().neq('id', ''),
     ]);
   },
+
+  // ─── Presales tracker (also see top-level fetchPresales) ──────────
+  async upsertPresalesMeeting(m: PresalesMeeting) {
+    const { error } = await supabase
+      .from('presales_meetings')
+      .upsert(presalesMeetingToRow(m), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert presales_meeting failed:', error);
+  },
+
+  async deletePresalesMeeting(id: string) {
+    const { error } = await supabase.from('presales_meetings').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete presales_meeting failed:', error);
+  },
+
+  async upsertPresalesActivity(a: PresalesActivity) {
+    const { error } = await supabase
+      .from('presales_activities')
+      .upsert(presalesActivityToRow(a), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert presales_activity failed:', error);
+  },
+
+  async deletePresalesActivity(id: string) {
+    const { error } = await supabase.from('presales_activities').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete presales_activity failed:', error);
+  },
+
+  /** Upload a presales meeting recording to the `presales-recordings` bucket. */
+  async uploadPresalesRecording(file: File): Promise<string | null> {
+    const safe = (file.name || 'recording').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'recording';
+    const path = `${new Date().toISOString().slice(0, 10)}/${Date.now()}-${safe}`;
+    const { error } = await supabase.storage
+      .from('presales-recordings')
+      .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+    if (error) {
+      console.warn('[supabase] upload presales-recording failed:', error);
+      return null;
+    }
+    return path;
+  },
+
+  /** Calls extract-presales-activities. Returns null on failure. */
+  async extractPresalesActivities(params: {
+    meetingDate?: string;
+    attendees?: string;
+    text?: string;
+    audioPath?: string;
+    knownProjects?: Array<{ id: string; name: string }>;
+  }): Promise<
+    | { transcript: string; summary: string; activities: Array<{
+        title: string; description: string;
+        activity_type: ActivityType; priority: Priority;
+        owner_email: string | null; due_date: string | null;
+        revenue_impact: number | null; account_name: string | null;
+        pipeline_project_id: string | null;
+      }> }
+    | null
+  > {
+    const { data, error } = await supabase.functions.invoke<{
+      ok?: boolean;
+      transcript?: string;
+      summary?: string;
+      activities?: Array<{
+        title: string; description: string;
+        activity_type: ActivityType; priority: Priority;
+        owner_email: string | null; due_date: string | null;
+        revenue_impact: number | null; account_name: string | null;
+        pipeline_project_id: string | null;
+      }>;
+      error?: string;
+    }>('extract-presales-activities', { body: params });
+    if (error || !data || data.error) {
+      console.warn('[supabase] extract-presales-activities failed:', error?.message || data?.error);
+      return null;
+    }
+    return {
+      transcript: data.transcript || '',
+      summary: data.summary || '',
+      activities: data.activities || [],
+    };
+  },
 };
+
+// ─── Presales row converters ──────────────────────────────────────
+function presalesMeetingToRow(m: PresalesMeeting) {
+  return {
+    id: m.id,
+    meeting_date: m.meetingDate,
+    title: m.title ?? null,
+    attendees: m.attendees ?? null,
+    source_url: m.sourceUrl ?? null,
+    recording_path: m.recordingPath ?? null,
+    raw_notes: m.rawNotes ?? null,
+    summary: m.summary ?? null,
+    created_by: m.createdBy ?? null,
+  };
+}
+function presalesMeetingFromRow(r: Record<string, unknown>): PresalesMeeting {
+  return {
+    id: r.id as string,
+    meetingDate: r.meeting_date as string,
+    title: (r.title as string | null) ?? null,
+    attendees: (r.attendees as string | null) ?? null,
+    sourceUrl: (r.source_url as string | null) ?? null,
+    recordingPath: (r.recording_path as string | null) ?? null,
+    rawNotes: (r.raw_notes as string | null) ?? null,
+    summary: (r.summary as string | null) ?? null,
+    createdBy: (r.created_by as string | null) ?? null,
+    createdAt: r.created_at as string | undefined,
+    updatedAt: r.updated_at as string | undefined,
+  };
+}
+function presalesActivityToRow(a: PresalesActivity) {
+  return {
+    id: a.id,
+    meeting_id: a.meetingId ?? null,
+    pipeline_project_id: a.pipelineProjectId ?? null,
+    account_name: a.accountName ?? null,
+    title: a.title,
+    description: a.description ?? null,
+    activity_type: a.activityType,
+    priority: a.priority,
+    status: a.status,
+    owner_email: a.ownerEmail ?? null,
+    due_date: a.dueDate ?? null,
+    revenue_impact: a.revenueImpact ?? null,
+    notes: a.notes ?? null,
+    created_by: a.createdBy ?? null,
+  };
+}
+function presalesActivityFromRow(r: Record<string, unknown>): PresalesActivity {
+  return {
+    id: r.id as string,
+    meetingId: (r.meeting_id as string | null) ?? null,
+    pipelineProjectId: (r.pipeline_project_id as string | null) ?? null,
+    accountName: (r.account_name as string | null) ?? null,
+    title: r.title as string,
+    description: (r.description as string | null) ?? null,
+    activityType: r.activity_type as ActivityType,
+    priority: r.priority as Priority,
+    status: r.status as ActivityStatus,
+    ownerEmail: (r.owner_email as string | null) ?? null,
+    dueDate: (r.due_date as string | null) ?? null,
+    revenueImpact: typeof r.revenue_impact === 'number' ? r.revenue_impact as number : r.revenue_impact ? Number(r.revenue_impact) : null,
+    notes: (r.notes as string | null) ?? null,
+    createdBy: (r.created_by as string | null) ?? null,
+    createdAt: r.created_at as string | undefined,
+    updatedAt: r.updated_at as string | undefined,
+  };
+}
 
 // ─── Realtime subscriptions ────────────────────────────────────────
 

@@ -3,6 +3,7 @@ import { usePipelineStore, useFinancialStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
+import { PresalesSection } from './pipeline/PresalesSection';
 import type { ZohoPipelineProject, PipelineResource } from '../types/forecast';
 import { db } from '../lib/supabaseSync';
 import { useAuthStore } from '../store/useAuthStore';
@@ -19,8 +20,6 @@ import {
   X,
   Check,
   FileText,
-  Sparkles,
-  Loader2,
   Download,
 } from 'lucide-react';
 
@@ -29,6 +28,448 @@ const ROLE_LABELS: Record<string, string> = {
   JuniorDev: 'Jr Devs',
   SeniorDev: 'Sr Devs',
 };
+
+/** Canonical Simpliigence concierge SOW template. Extracted verbatim from
+ *  the executed "Concierge Support for Knit.docx". When the wizard opens
+ *  for a concierge SOW, every field below pre-fills with these values —
+ *  the user edits in place rather than starting from a blank page. */
+const CONCIERGE_TEMPLATE = {
+  intro: 'Simpliigence has partnered with the client here to setup, enhance and support the Salesforce platform to help the client achieve its business goals. As part of this exercise, Simpliigence will be covering the following activities. The activities covered under this SOW will be:',
+  activities: [
+    'Advisory, consulting and recommendations for usage of platform features',
+    'Enhancements of functionality on Salesforce platform (examples include User Interface changes, Scheduled reports, data jobs, workflow changes, code changes)',
+    'Business Operations support on Salesforce CRM (examples include User maintenance, Data updates, Template creation)',
+    'Other Services (examples include User Training, technical feasibility/evaluation, Onsite meetings, Process reviews)',
+  ],
+  assumptions: [
+    'Weekly status report of hours consumed will be shared with the client which will include the number of hours consumed. If the client has any question or objection of hours consumed by task, they are required to raise the clarification within 3 business days, else it will be presumed that there are no queries.',
+    'Client shall provide a single point of contact to coordinate management, communication and other project actions throughout the life-cycle of the engagement.',
+    'Knowledge transition of existing Salesforce.com will be completed prior to the start of the contract.',
+    'Any technology services outside of Salesforce.com will be considered out of scope. Simpliigence will validate if technical changes (outside Salesforce) can be done and will advise the client accordingly.',
+    'Onsite meetings will require at least 1 week notice and will be based on mutual availability and schedule of consultant and the client. Expenses associated to onsite meeting (travel, lodging etc) will be based on actual and prior approved by the client.',
+  ],
+  pricing: {
+    contractType: 'Time & Materials',
+    rate: '$95 / hour',
+    paymentTerms: '30 days from invoice date',
+    invoiceDate: '1st of every month',
+    termination: '4 weeks of notice will be required for termination of services',
+    minimumHours: 'N/A',
+    travel: 'For consultant travel, it will be based on actuals and pre-approved by the client.',
+    purchaseOrder: 'The client agrees hereby that NO purchase order is required for monthly invoice.',
+  },
+};
+
+/** Builds the canonical concierge SOW sections deterministically from the
+ *  user's (possibly edited) template inputs. No AI is involved — the
+ *  concierge SOW is a standardised template, and AI generation only
+ *  introduces drift away from Legal's accepted language. */
+function buildConciergeSections(input: {
+  clientName: string;
+  clientAddress: string;
+  effectiveDate: string;
+  intro: string;
+  activities: string;
+  assumptions: string;
+  contractType: string;
+  rate: string;
+  paymentTerms: string;
+  invoiceDate: string;
+  termination: string;
+  minimumHours: string;
+  travel: string;
+  purchaseOrder: string;
+  special: string;
+}): SowSectionInput[] {
+  const SIMPLIIGENCE = 'Simpliigence Inc, a Delaware incorporated company with offices at 8 The Green, Ste A, Dover, DE-19901 ("Simpliigence")';
+  const splitNonEmpty = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
+
+  const statementOfWork: SowSectionInput = {
+    heading: 'STATEMENT OF WORK',
+    body: `This STATEMENT OF WORK ("SOW") is entered into between ${SIMPLIIGENCE} and ${input.clientName} ("Client") with offices at ${input.clientAddress || '<Client Address>'} as of ${input.effectiveDate} (the "SOW Effective Date").`,
+  };
+
+  const scopeOfServices: SowSectionInput = {
+    heading: 'SCOPE OF SERVICES',
+    body: input.intro,
+    bullets: splitNonEmpty(input.activities),
+  };
+
+  const assumptions: SowSectionInput = {
+    heading: 'ASSUMPTIONS',
+    body: '',
+    bullets: splitNonEmpty(input.assumptions),
+  };
+
+  const pricingLines = [
+    'Pricing',
+    `Contract Type: ${input.contractType}`,
+    `Rate: ${input.rate}`,
+    `Payment terms: ${input.paymentTerms}.`,
+    `Invoice date: ${input.invoiceDate}.`,
+    'Contract Termination',
+    `${input.termination}.`,
+    `Minimum Hours per month: ${input.minimumHours}`,
+    'Travel & Expenses',
+    input.travel,
+    `Purchase Order required: ${input.purchaseOrder}`,
+  ];
+  const pricing: SowSectionInput = {
+    heading: 'PRICING TERMS AND FEE SCHEDULE',
+    body: '',
+    bullets: pricingLines,
+  };
+
+  const sections: SowSectionInput[] = [statementOfWork, scopeOfServices, assumptions, pricing];
+
+  if (input.special && input.special.trim()) {
+    sections.push({
+      heading: 'SPECIAL CONDITIONS',
+      body: input.special.trim(),
+    });
+  }
+
+  return sections;
+}
+
+/** Canonical Simpliigence implementation SOW template. Extracted verbatim
+ *  from the executed "Simpliigence Implementation for Qu Data 2026 SOW".
+ *  Pre-fills the implementation wizard so the user edits in place rather
+ *  than starting from a blank page. */
+const IMPLEMENTATION_TEMPLATE = {
+  scopeIntro: 'Simpliigence will configure and deploy the Salesforce platform to support the following core commercial and operational capabilities:',
+  scopeCapabilities: [
+    'Account and Contact Management',
+    'Opportunity Management and Pipeline Governance',
+    'Standardized Quoting and Approval Controls',
+    'Product Catalog and Pricing Governance',
+    'Contract Object Configuration for Term, Rate, and Renewal Management',
+    'Order Handoff and Downstream System Integration Readiness',
+    'Reporting, Forecasting, and Executive Dashboarding',
+    'User Experience Design and Permission Model',
+    'Document Generation (e-Signature, Quote Outputs, Supporting Attachments)',
+    'Activity Management, Notifications, and Workflow Automation',
+    'Data Migration (Agreed Historical Commercial Records and Active Accounts)',
+    'Environment Strategy, Testing, and Deployment Governance',
+  ],
+  discoveryIntro: 'Simpliigence will lead a structured Discovery & Design program intended to formalize requirements, validate data architecture, and produce a build-ready blueprint aligned to the Client\'s current operating model and future growth objectives.',
+  discoveryExit: 'Exit Criteria: Approved Working BRD, documented solution design, integration mapping, data migration scope definition, and written sign-off.',
+  discoveryAreas: [
+    'Account & Customer Data Architecture — Confirmation of account structure, segmentation, hierarchy, ownership, and data governance standards.',
+    'Opportunity Lifecycle & Pipeline Governance — Formalization of opportunity stages, progression criteria, forecasting alignment, and approval thresholds.',
+    'Product Catalogue & Pricing Governance — Validation of product structure, Pricebook strategy, discount governance, and administrative controls.',
+    'Quote Creation & Commercial Workflow — Definition of quote lifecycle, calculation handling, approval routing, amendment management, and quote-to-order transition.',
+    'Contract Structure & Renewal Governance — Establishment of contract object design, term management, amendment handling, and renewal visibility.',
+    'Order Handoff & Integration Readiness — Definition of order structure, object relationships, metadata requirements, and downstream system readiness.',
+    'Reporting & Executive Visibility — Cataloging of required dashboards, operational reports, KPI definitions, and data source governance.',
+    'Security Model & Role-Based Access — Confirmation of user roles, field-level access, approval authority structure, and governance controls.',
+    'Data Migration & Archival Strategy — Definition of historical data scope, archival access model, extraction responsibilities, transformation rules, and reconciliation standards.',
+  ],
+  buildIntro: 'Following completion of the Discovery and Design phase, Salesforce will be configured in accordance with the signed design. Build Completion is defined as all in-scope configuration completed in a sandbox environment, internal QA passed, and readiness confirmed for formal User Acceptance Testing. The activities covered within configuration and build will include:',
+  buildCategories: [
+    { heading: 'Account & Contact Model', bullets: [
+      'Configuration of Account and Contact data structures to support the Client\'s commercial model.',
+      'Standardization of record types and lifecycle stages.',
+      'Field configuration for commercial tracking, segmentation, and ownership.',
+      'Relationship management between Accounts, Contacts, Opportunities, and Contracts.',
+      'Data governance controls including validation rules and required field enforcement.',
+    ] },
+    { heading: 'Opportunity Management & Pipeline Governance', bullets: [
+      'Configuration of opportunity processes aligned to the Client\'s sales motion.',
+      'Standardized stage model with defined entry and exit criteria.',
+      'Forecast category alignment and reporting consistency.',
+      'Approval workflows where required by policy.',
+      'Activity tracking and pipeline visibility controls.',
+    ] },
+    { heading: 'Quoting', bullets: [
+      'Configuration of standard Salesforce Quotes related to Opportunities.',
+      'Opportunity Product selection using standard Price Books.',
+      'Governed price override controls and approval workflows where required.',
+      'Quote-to-Opportunity synchronization settings.',
+      'Document generation for quote output using Salesforce-native templates.',
+      'E-signature readiness, with vendor selection confirmed separately if required.',
+    ] },
+    { heading: 'Product Catalog & Pricing Governance', bullets: [
+      'Configuration of Products and Price Books aligned to defined pricing tiers.',
+      'Field-based pricing attributes to support reporting and governance.',
+      'Approval-based pricing control mechanisms.',
+      'Reporting alignment between product usage and revenue tracking.',
+      'Configuration-first pricing architecture without engine-based rule orchestration.',
+    ] },
+    { heading: 'Contract Management', bullets: [
+      'Configuration of the standard Salesforce Contract object.',
+      'Contract term tracking and start/end date management.',
+      'Structured linkage between Quotes, Opportunities, and Contracts.',
+      'Amendment tracking using defined fields and governance controls.',
+      'Renewal tracking and contract status reporting.',
+    ] },
+    { heading: 'Reporting & Dashboards', bullets: [
+      'Configuration of core Sales and Executive dashboards.',
+      'Standard pipeline, forecast, and revenue reporting.',
+      'Product and pricing analytics reporting.',
+      'Contract status and lifecycle visibility reporting.',
+      'Delivery of an agreed baseline set of custom reports and dashboards to be finalized during Design.',
+    ] },
+    { heading: 'Data Migration', bullets: [
+      'Migration of active Accounts and Contacts.',
+      'Migration of active and month-to-month Contracts.',
+      'Migration of active Opportunities.',
+      'Historical data to be archived outside Salesforce per agreed strategy.',
+    ] },
+    { heading: 'Automation Framework', bullets: [
+      'Implementation of record-triggered flows for lifecycle transitions.',
+      'Approval processes aligned to defined governance policies.',
+      'Task and notification automation.',
+      'Performance-optimized automation architecture.',
+      'Limited Apex development for structural services or metadata-driven mappings where configuration alone is insufficient.',
+    ] },
+  ],
+  deliverablesTable: {
+    headers: ['Phase', 'Project Deliverables'],
+    rows: [
+      ['Discovery & Design', 'Process Flows\nUser stories by role, business process mapping\nArchitecture diagram and data model\nBusiness Requirements Document (BRD)'],
+      ['Configuration & Build', 'Weekly demos of features and functionality\nConfiguration documentation'],
+      ['UAT', 'UAT Test Plan and Test Cases\n7 Step UAT process execution'],
+      ['Data Migration', 'Full-Service Migration of Data\nData extraction, transformation, and loading\nSandbox testing before Production'],
+      ['Integration', 'Integration configuration and testing\nMicrosoft Office 365\nDownstream systems per agreed plan'],
+      ['Training', 'Guided digital walkthroughs with recordings\nSalesforce In-App Guidance\nUser and admin guides'],
+      ['Project Management', 'Project plan\nIssue tracker / Risk register\nWeekly status report\nMonthly Exec review (Steering Group)'],
+    ],
+  },
+  testingTable: {
+    headers: ['Test Type', 'Role', 'Activity'],
+    rows: [
+      ['Unit Testing', 'Configurators, Developers (Simpliigence)', 'Unit testing of all configurations and code — done by developers'],
+      ['Functional Testing', 'Functional Lead (Simpliigence)', 'Testing of each unit-tested feature and user story'],
+      ['System Integration Testing', 'QA, Functional Lead, PM', 'End-to-end testing of features along with testing of interfaces'],
+      ['Mobile Testing', 'QA, Functional Lead', 'Testing of mobile UI including loading and rendering; feature testing'],
+      ['User Acceptance Testing', 'Simpliigence + Client UAT team', 'Testing of features end-to-end including data'],
+      ['Sanity Testing', 'Simpliigence + Client UAT team', 'Post-deployment testing of all developed features'],
+      ['Regression Testing', 'QA, Functional Lead', 'Retest of fixed issues and regression test existing features'],
+    ],
+  },
+  trainingTable: {
+    headers: ['Training Type', 'Activity', 'Deliverables'],
+    rows: [
+      ['Demo and Beta Training', 'After weekly demos, nominated beta users (SMEs) can be trained to test beta features on the Salesforce sandbox', 'Recordings\nBeta training scenarios\nTest data'],
+      ['Business User Training', 'Remote Train-the-Trainer model for end users\nCore platform functionality and workflows', 'Digital walkthroughs with recordings\nUser guides'],
+      ['Advanced and Admin Training', 'Training for designated administrators and super-users\nSetup tasks, users and roles maintenance, admin reporting', 'Digital walkthroughs with recordings\nAdmin documentation'],
+    ],
+  },
+  assumptions: [
+    'Configuration limits described in the scope above are based on the agreed Business Requirements Document.',
+    'Additional requirements not documented in the approved BRD will be evaluated and may be addressed through a formal scope deferment or change request process.',
+    'Client is responsible for providing administrative access to all systems in scope for development and integration.',
+    'Timeline assumptions are contingent upon timely extraction access and data quality for data migration activities.',
+    'Client shall provide a single point of contact to coordinate management, communication, and project actions throughout the life cycle of the engagement.',
+    'Unless otherwise stated, any technology services outside of Salesforce.com will be considered out of scope. Simpliigence will validate if technical changes (outside Salesforce) can be done and will advise the Client accordingly.',
+    'Onsite meetings will require at least 1 week notice and will be based on mutual availability and schedule of Simpliigence and the Client. Expenses associated with onsite meetings will not be invoiced without prior approvals and/or change orders agreed upon in advance.',
+  ],
+  goLiveDef: 'Go-Live is defined as successful deployment to Production, completion of agreed sanity validation, and written confirmation from Client that core in-scope deliverables are operational.',
+  hypercareDef: 'Hypercare is a structured, time-bound post-deployment support phase designed to stabilize the solution, address early-stage issues, and ensure Client\'s team is fully supported during transition to steady-state operations.',
+  timelineBullets: [
+    'Kickoff: 3-5 business days from SOW Signing',
+    'Discovery & Design',
+    'Configuration & Build (Sprints, Build, Unit Test)',
+    'Testing and Training',
+    'Go-Live',
+    'Hypercare (post go-live support): 4 weeks',
+  ],
+  pricing: {
+    contractType: 'Fixed Price, milestone-based',
+    paymentTerms: '15 days from invoice date',
+    termination: '4 weeks of notice will be required for termination of services.',
+    minimumHours: 'N/A',
+    travel: 'For Simpliigence travel, travel and expenses will be based on actuals and pre-approved by the Client.',
+    purchaseOrder: 'The Client agrees hereby that NO purchase order is required for monthly invoice.',
+    defaultMilestones: [
+      { milestone: 'SOW Signing', percentage: '25%', amount: '' },
+      { milestone: 'Build Completion', percentage: '25%', amount: '' },
+      { milestone: 'UAT Completion', percentage: '25%', amount: '' },
+      { milestone: 'Go-Live', percentage: '25%', amount: '' },
+    ],
+  },
+};
+
+/** Builds the canonical implementation SOW sections deterministically from
+ *  the user's (possibly edited) template inputs. No AI involvement —
+ *  mirrors the executed Qu Data Centres SOW format 1:1. */
+function buildImplementationSections(input: {
+  clientName: string;
+  clientAddress: string;
+  effectiveDate: string;
+  introNarrative: string;
+  scopeIntro: string;
+  scopeCapabilities: string;
+  governingArtifacts: string;
+  discoveryIntro: string;
+  discoveryExit: string;
+  discoveryAreas: string;
+  buildIntro: string;
+  buildCategories: Array<{ heading: string; bullets: string }>;
+  assumptions: string;
+  totalDuration: string;
+  timelineBullets: string;
+  contractType: string;
+  totalFee: string;
+  pricingMilestones: Array<{ milestone: string; percentage: string; amount: string }>;
+  paymentTerms: string;
+  termination: string;
+  minimumHours: string;
+  travel: string;
+  purchaseOrder: string;
+}): SowSectionInput[] {
+  const SIMPLIIGENCE = 'Simpliigence Inc, a Delaware incorporated company with offices at 8 The Green, Ste A, Dover, DE-19901 ("Simpliigence")';
+  const splitNonEmpty = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
+
+  const opening = `This STATEMENT OF WORK ("SOW") is entered into between ${SIMPLIIGENCE} and ${input.clientName} ("Client") with offices at ${input.clientAddress || '<Client Address>'} as of ${input.effectiveDate} (the "SOW Effective Date").`;
+  const narrative = input.introNarrative.trim();
+  const statementOfWork: SowSectionInput = {
+    heading: 'STATEMENT OF WORK',
+    body: narrative ? `${opening}\n\n${narrative}` : opening,
+  };
+
+  const scope: SowSectionInput = {
+    heading: 'SCOPE OF SERVICES (IMPLEMENTATION)',
+    body: input.scopeIntro,
+    bullets: splitNonEmpty(input.scopeCapabilities),
+  };
+  const artifacts = splitNonEmpty(input.governingArtifacts);
+  if (artifacts.length > 0) {
+    scope.subSections = [{
+      heading: 'Governing Artifacts',
+      body: 'This Scope of Services is informed by and aligned to the following artifacts provided by Client leadership and project stakeholders:',
+      bullets: artifacts,
+    }];
+  }
+
+  const discovery: SowSectionInput = {
+    heading: 'DISCOVERY AND DESIGN',
+    body: `${input.discoveryIntro}\n\n${input.discoveryExit}\n\nThe Discovery & Design phase will focus on the following capability areas:`,
+    bullets: [
+      ...splitNonEmpty(input.discoveryAreas),
+      'Deliverable: comprehensive Business Requirements Document (BRD) governing all subsequent build activities.',
+    ],
+  };
+
+  const build: SowSectionInput = {
+    heading: 'CONFIGURATION AND BUILD',
+    body: input.buildIntro,
+    subSections: input.buildCategories
+      .filter((c) => c.heading && c.heading.trim())
+      .map((c) => ({ heading: c.heading.trim(), bullets: splitNonEmpty(c.bullets) })),
+  };
+
+  const deliverables: SowSectionInput = { heading: 'SUMMARY OF DELIVERABLES', body: '', table: IMPLEMENTATION_TEMPLATE.deliverablesTable };
+  const testing: SowSectionInput = { heading: 'TESTING DELIVERABLES', body: '', table: IMPLEMENTATION_TEMPLATE.testingTable };
+  const training: SowSectionInput = { heading: 'TRAINING DELIVERABLES', body: '', table: IMPLEMENTATION_TEMPLATE.trainingTable };
+
+  const assumptions: SowSectionInput = {
+    heading: 'ASSUMPTIONS (IMPLEMENTATION)',
+    body: '',
+    bullets: splitNonEmpty(input.assumptions),
+  };
+
+  const timeline: SowSectionInput = {
+    heading: 'TIMELINES AND PRICING',
+    body: `Overall Duration: ${input.totalDuration}\n\n${IMPLEMENTATION_TEMPLATE.goLiveDef}\n\n${IMPLEMENTATION_TEMPLATE.hypercareDef}\n\nActual project plan will be discussed and formalized post-kickoff meeting, and mutually agreed upon with the Client.`,
+    subSections: [{ heading: 'Project Timeline', bullets: splitNonEmpty(input.timelineBullets) }],
+  };
+
+  const validMilestones = input.pricingMilestones.filter((m) => m.milestone && m.milestone.trim());
+  const pricing: SowSectionInput = {
+    heading: 'PRICING TERMS AND FEE SCHEDULE',
+    body: '',
+    bullets: [
+      'Pricing (Implementation)',
+      `Contract Type: ${input.contractType}`,
+      `Total Fee: ${input.totalFee}`,
+      `Payment terms: ${input.paymentTerms}.`,
+      `Contract Termination: ${input.termination}`,
+      `Minimum Hours per month: ${input.minimumHours}`,
+      `Travel & Expenses: ${input.travel}`,
+      `Purchase Order: ${input.purchaseOrder}`,
+    ],
+  };
+  if (validMilestones.length > 0) {
+    pricing.table = {
+      headers: ['Milestone', 'Percentage', 'Amount'],
+      rows: validMilestones.map((m) => [m.milestone.trim(), m.percentage.trim(), m.amount.trim()]),
+    };
+  }
+
+  return [statementOfWork, scope, discovery, build, deliverables, testing, training, assumptions, timeline, pricing];
+}
+
+/** Same content as the .docx — renders as a clean HTML preview the user can
+ *  print to PDF if they prefer. */
+function buildSowHtml(clientName: string, effectiveDate: string, sections: SowSectionInput[]): string {
+  const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const renderTable = (t: { headers: string[]; rows: string[][] }) => {
+    const thead = `<thead><tr>${t.headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>`;
+    const tbody = `<tbody>${t.rows.map((r) => `<tr>${r.map((c) => {
+      const lines = (c || '').split(/\n/).map((l) => l.trim()).filter(Boolean);
+      return `<td>${lines.length > 1 ? `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : esc(lines[0] || '')}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>`;
+    return `<table class="sow-table">${thead}${tbody}</table>`;
+  };
+  const sectionBlocks = sections.map((s) => {
+    const body = s.body ? `<p>${esc(s.body).replace(/\n\n/g, '</p><p>')}</p>` : '';
+    const bullets = s.bullets && s.bullets.length > 0 ? `<ol>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ol>` : '';
+    const subs = (s.subSections || []).map((sub) => `<div class="sub"><h3>${esc(sub.heading)}</h3>${sub.body ? `<p>${esc(sub.body)}</p>` : ''}${sub.bullets && sub.bullets.length > 0 ? `<ul>${sub.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('');
+    const table = s.table ? renderTable(s.table) : '';
+    return `<section><h2>${esc(s.heading)}</h2>${body}${bullets}${subs}${table}</section>`;
+  }).join('\n');
+  return `<!doctype html><html><head><meta charset="utf-8"/><title>SOW — ${esc(clientName)}</title>
+<style>
+  body{font:13px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;max-width:840px;margin:24px auto;padding:0 32px}
+  .cover{text-align:center;padding:80px 0 40px}
+  .cover h1{font-size:32px;margin:0 0 16px 0;border-bottom:3px solid #f97316;padding-bottom:8px;display:inline-block}
+  .cover .preparedFor{color:#64748b;margin-top:24px}
+  .cover .client{font-size:24px;font-weight:bold;margin-top:8px}
+  .toc{margin:24px 0}
+  .toc h2{font-size:15px;color:#f97316;text-transform:uppercase;letter-spacing:.05em}
+  .toc ol{padding-left:24px}
+  h2{font-size:15px;color:#f97316;text-transform:uppercase;letter-spacing:.05em;margin-top:28px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}
+  p{margin:6px 0}
+  ol{padding-left:22px;margin:8px 0}
+  ol li{margin-bottom:6px}
+  ul{padding-left:18px;margin:4px 0}
+  h3{font-size:13px;color:#1e293b;margin:14px 0 6px 0}
+  .sub{margin:10px 0 10px 8px}
+  table.sow-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
+  table.sow-table th{background:#f1f5f9;text-align:left;padding:8px 10px;border:1px solid #e2e8f0;font-weight:600}
+  table.sow-table td{padding:8px 10px;border:1px solid #e2e8f0;vertical-align:top}
+  .footer{margin-top:32px;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;padding-top:8px}
+  @media print { body{margin:8mm} h2{break-after:avoid} section{break-inside:avoid} .cover{page-break-after:always} .toc{page-break-after:always} }
+</style></head><body>
+<div class="cover">
+  <h1>STATEMENT OF WORK</h1>
+  <div class="preparedFor">Prepared for:</div>
+  <div class="client">${esc(clientName)}</div>
+  <div style="margin-top:24px;color:#64748b">Prepared by: Simpliigence Inc.</div>
+  <div style="color:#64748b">Effective Date: ${esc(effectiveDate)} · Confidential</div>
+</div>
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>${sections.map((s) => `<li>${esc(s.heading)}</li>`).join('')}<li>ACCEPTED BY</li></ol>
+</div>
+${sectionBlocks}
+<section><h2>ACCEPTED BY:</h2>
+  <table style="width:100%;border-collapse:collapse;margin:10px 0">
+    <tr><th style="background:#f1f5f9;padding:8px;border:1px solid #e2e8f0;text-align:left">Client</th><th style="background:#f1f5f9;padding:8px;border:1px solid #e2e8f0;text-align:left">Simpliigence Inc.</th></tr>
+    <tr><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Signature</td><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Signature</td></tr>
+    <tr><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Printed Name</td><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Printed Name</td></tr>
+    <tr><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Title</td><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Title</td></tr>
+    <tr><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Date Signed</td><td style="padding:18px 8px 8px;border:1px solid #e2e8f0;height:46px">Date Signed</td></tr>
+  </table>
+  <p style="margin-top:18px;font-size:12px"><b>Please return ALL PAGES of this Statement of Work via one of the following:</b><br/>
+  By e-mail to: raghu.seetharam@simpliigence.com<br/>
+  By mail to: Simpliigence Inc., 8 The Green, Ste A, Dover, DE-19901</p>
+</section>
+<div class="footer">Simpliigence Inc. · 8 The Green, Ste A, Dover, DE-19901</div>
+</body></html>`;
+}
 
 /** Helper to get headcount from resources array */
 function getHeadcount(resources: PipelineResource[], role: string): number {
@@ -713,30 +1154,53 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
   const [signerEmail, setSignerEmail] = useState('');
   const [effectiveDate, setEffectiveDate] = useState(today);
 
-  // Concierge inputs (step 3)
-  const [conActivities, setConActivities] = useState('');
-  const [conHourlyRate, setConHourlyRate] = useState('$95 / hour or 115 CAD / per hour');
-  const [conPaymentTerms, setConPaymentTerms] = useState('3 days from invoice date');
-  const [conInvoiceDate, setConInvoiceDate] = useState('1st of every month');
-  const [conTerminationNotice, setConTerminationNotice] = useState('4 weeks');
-  const [conMinHours, setConMinHours] = useState('N/A');
-  const [conTravelPolicy, setConTravelPolicy] = useState('Based on actuals, pre-approved by the client.');
+  // Concierge inputs (step 3) — prefilled from the canonical Simpliigence
+  // concierge template ("Concierge Support for Knit.docx"). User edits in
+  // place; Generate builds the SOW deterministically from these values, no
+  // AI involved. The template is so standardized that AI generation just
+  // introduces drift — see the Knit / Marnoa / Doodyman SOWs for the
+  // verbatim language.
+  const [conIntro, setConIntro] = useState(CONCIERGE_TEMPLATE.intro);
+  const [conActivities, setConActivities] = useState(CONCIERGE_TEMPLATE.activities.join('\n'));
+  const [conAssumptions, setConAssumptions] = useState(CONCIERGE_TEMPLATE.assumptions.join('\n'));
+  const [conContractType, setConContractType] = useState(CONCIERGE_TEMPLATE.pricing.contractType);
+  const [conHourlyRate, setConHourlyRate] = useState(CONCIERGE_TEMPLATE.pricing.rate);
+  const [conPaymentTerms, setConPaymentTerms] = useState(CONCIERGE_TEMPLATE.pricing.paymentTerms);
+  const [conInvoiceDate, setConInvoiceDate] = useState(CONCIERGE_TEMPLATE.pricing.invoiceDate);
+  const [conTerminationNotice, setConTerminationNotice] = useState(CONCIERGE_TEMPLATE.pricing.termination);
+  const [conMinHours, setConMinHours] = useState(CONCIERGE_TEMPLATE.pricing.minimumHours);
+  const [conTravelPolicy, setConTravelPolicy] = useState(CONCIERGE_TEMPLATE.pricing.travel);
+  const [conPurchaseOrder, setConPurchaseOrder] = useState(CONCIERGE_TEMPLATE.pricing.purchaseOrder);
   const [conSpecial, setConSpecial] = useState('');
 
   // Implementation inputs (step 3)
-  const [impGoals, setImpGoals] = useState('');
-  const [impInScope, setImpInScope] = useState('');
-  const [impOutOfScope, setImpOutOfScope] = useState('');
-  const [impAssumptions, setImpAssumptions] = useState('');
-  const [impMilestones, setImpMilestones] = useState('');
+  // Implementation inputs (step 3) — prefilled from the canonical
+  // Simpliigence implementation template (Qu Data Centres 2026). User
+  // edits in place. Generate is deterministic — no AI.
+  const [impIntroNarrative, setImpIntroNarrative] = useState('');
+  const [impScopeIntro, setImpScopeIntro] = useState(IMPLEMENTATION_TEMPLATE.scopeIntro);
+  const [impScopeCapabilities, setImpScopeCapabilities] = useState(IMPLEMENTATION_TEMPLATE.scopeCapabilities.join('\n'));
+  const [impGoverningArtifacts, setImpGoverningArtifacts] = useState('');
+  const [impDiscoveryIntro, setImpDiscoveryIntro] = useState(IMPLEMENTATION_TEMPLATE.discoveryIntro);
+  const [impDiscoveryExit, setImpDiscoveryExit] = useState(IMPLEMENTATION_TEMPLATE.discoveryExit);
+  const [impDiscoveryAreas, setImpDiscoveryAreas] = useState(IMPLEMENTATION_TEMPLATE.discoveryAreas.join('\n'));
+  const [impBuildIntro, setImpBuildIntro] = useState(IMPLEMENTATION_TEMPLATE.buildIntro);
+  const [impBuildCategories, setImpBuildCategories] = useState<Array<{ heading: string; bullets: string }>>(
+    IMPLEMENTATION_TEMPLATE.buildCategories.map((c) => ({ heading: c.heading, bullets: c.bullets.join('\n') })),
+  );
+  const [impAssumptions, setImpAssumptions] = useState(IMPLEMENTATION_TEMPLATE.assumptions.join('\n'));
+  const [impTotalDuration, setImpTotalDuration] = useState('17 weeks');
+  const [impTimelineBullets, setImpTimelineBullets] = useState(IMPLEMENTATION_TEMPLATE.timelineBullets.join('\n'));
+  const [impContractType, setImpContractType] = useState(IMPLEMENTATION_TEMPLATE.pricing.contractType);
   const [impTotalFees, setImpTotalFees] = useState('');
-  const [impDuration, setImpDuration] = useState('');
-  const [impSpecial, setImpSpecial] = useState('');
-  const [impCurrentState, setImpCurrentState] = useState('');
-  const [impPriorities, setImpPriorities] = useState('');
-  const [impFutureVision, setImpFutureVision] = useState('');
-  const [impPricingModel, setImpPricingModel] = useState<'fixed' | 'tm'>('fixed');
-  const [impSolution, setImpSolution] = useState('Salesforce');
+  const [impMilestones, setImpMilestones] = useState<Array<{ milestone: string; percentage: string; amount: string }>>(
+    IMPLEMENTATION_TEMPLATE.pricing.defaultMilestones.map((m) => ({ ...m })),
+  );
+  const [impPaymentTerms, setImpPaymentTerms] = useState(IMPLEMENTATION_TEMPLATE.pricing.paymentTerms);
+  const [impTermination, setImpTermination] = useState(IMPLEMENTATION_TEMPLATE.pricing.termination);
+  const [impMinHours, setImpMinHours] = useState(IMPLEMENTATION_TEMPLATE.pricing.minimumHours);
+  const [impTravel, setImpTravel] = useState(IMPLEMENTATION_TEMPLATE.pricing.travel);
+  const [impPurchaseOrder, setImpPurchaseOrder] = useState(IMPLEMENTATION_TEMPLATE.pricing.purchaseOrder);
 
   // Result (step 4)
   const [html, setHtml] = useState<string>('');
@@ -767,28 +1231,41 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
       setEffectiveDate(sow.effectiveDate || today);
       const i = sow.inputs as Record<string, string | undefined>;
       if (sow.sowType === 'concierge') {
-        setConActivities(i.activities ?? '');
+        setConIntro(i.intro ?? conIntro);
+        setConActivities(i.activities ?? conActivities);
+        setConAssumptions(i.assumptions ?? conAssumptions);
+        setConContractType(i.contractType ?? conContractType);
         setConHourlyRate(i.hourlyRate ?? conHourlyRate);
         setConPaymentTerms(i.paymentTerms ?? conPaymentTerms);
         setConInvoiceDate(i.invoiceDate ?? conInvoiceDate);
         setConTerminationNotice(i.terminationNotice ?? conTerminationNotice);
         setConMinHours(i.minimumHours ?? conMinHours);
         setConTravelPolicy(i.travelPolicy ?? conTravelPolicy);
+        setConPurchaseOrder(i.purchaseOrder ?? conPurchaseOrder);
         setConSpecial(i.specialConditions ?? '');
       } else {
-        setImpGoals(i.businessGoals ?? '');
-        setImpInScope(i.inScope ?? '');
-        setImpOutOfScope(i.outOfScope ?? '');
-        setImpAssumptions(i.assumptions ?? '');
-        setImpMilestones(i.paymentMilestones ?? '');
-        setImpTotalFees(i.totalFees ?? '');
-        setImpDuration(i.durationWeeks ?? '');
-        setImpSpecial(i.specialConditions ?? '');
-        setImpCurrentState(i.currentState ?? '');
-        setImpPriorities(i.strategicPriorities ?? '');
-        setImpFutureVision(i.futureVision ?? '');
-        setImpPricingModel((i.pricingModel as 'fixed' | 'tm') ?? 'fixed');
-        setImpSolution(i.solution ?? 'Salesforce');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ii = sow.inputs as any;
+        setImpIntroNarrative(ii.introNarrative ?? '');
+        setImpScopeIntro(ii.scopeIntro ?? impScopeIntro);
+        setImpScopeCapabilities(ii.scopeCapabilities ?? impScopeCapabilities);
+        setImpGoverningArtifacts(ii.governingArtifacts ?? '');
+        setImpDiscoveryIntro(ii.discoveryIntro ?? impDiscoveryIntro);
+        setImpDiscoveryExit(ii.discoveryExit ?? impDiscoveryExit);
+        setImpDiscoveryAreas(ii.discoveryAreas ?? impDiscoveryAreas);
+        setImpBuildIntro(ii.buildIntro ?? impBuildIntro);
+        if (Array.isArray(ii.buildCategories)) setImpBuildCategories(ii.buildCategories);
+        setImpAssumptions(ii.assumptions ?? impAssumptions);
+        setImpTotalDuration(ii.totalDuration ?? impTotalDuration);
+        setImpTimelineBullets(ii.timelineBullets ?? impTimelineBullets);
+        setImpContractType(ii.contractType ?? impContractType);
+        setImpTotalFees(ii.totalFees ?? '');
+        if (Array.isArray(ii.pricingMilestones)) setImpMilestones(ii.pricingMilestones);
+        setImpPaymentTerms(ii.paymentTerms ?? impPaymentTerms);
+        setImpTermination(ii.termination ?? impTermination);
+        setImpMinHours(ii.minimumHours ?? impMinHours);
+        setImpTravel(ii.travel ?? impTravel);
+        setImpPurchaseOrder(ii.purchaseOrder ?? impPurchaseOrder);
       }
       // Jump the user straight to the scope step — they're editing a known
       // template, not starting from scratch.
@@ -799,32 +1276,106 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
   }, [initialSowId]);
 
   const inputsForGenerate = sowType === 'concierge' ? {
-    activities: conActivities, hourlyRate: conHourlyRate, paymentTerms: conPaymentTerms,
-    invoiceDate: conInvoiceDate, terminationNotice: conTerminationNotice,
-    minimumHours: conMinHours, travelPolicy: conTravelPolicy, specialConditions: conSpecial,
+    intro: conIntro, activities: conActivities, assumptions: conAssumptions,
+    contractType: conContractType, hourlyRate: conHourlyRate,
+    paymentTerms: conPaymentTerms, invoiceDate: conInvoiceDate,
+    terminationNotice: conTerminationNotice, minimumHours: conMinHours,
+    travelPolicy: conTravelPolicy, purchaseOrder: conPurchaseOrder,
+    specialConditions: conSpecial,
   } : {
-    businessGoals: impGoals, inScope: impInScope, outOfScope: impOutOfScope,
-    assumptions: impAssumptions, paymentMilestones: impMilestones, totalFees: impTotalFees,
-    durationWeeks: impDuration, specialConditions: impSpecial,
-    currentState: impCurrentState, strategicPriorities: impPriorities,
-    futureVision: impFutureVision, pricingModel: impPricingModel, solution: impSolution,
+    introNarrative: impIntroNarrative,
+    scopeIntro: impScopeIntro,
+    scopeCapabilities: impScopeCapabilities,
+    governingArtifacts: impGoverningArtifacts,
+    discoveryIntro: impDiscoveryIntro,
+    discoveryExit: impDiscoveryExit,
+    discoveryAreas: impDiscoveryAreas,
+    buildIntro: impBuildIntro,
+    buildCategories: impBuildCategories,
+    assumptions: impAssumptions,
+    totalDuration: impTotalDuration,
+    timelineBullets: impTimelineBullets,
+    contractType: impContractType,
+    totalFees: impTotalFees,
+    pricingMilestones: impMilestones,
+    paymentTerms: impPaymentTerms,
+    termination: impTermination,
+    minimumHours: impMinHours,
+    travel: impTravel,
+    purchaseOrder: impPurchaseOrder,
   };
 
   const generate = async () => {
     if (!sowType) return;
     setBusy(true); setError(null); setWarnings([]);
-    const res = await db.generateSow({
-      sowType,
-      projectName: project.name,
-      clientName, clientAddress, signerName, signerTitle, effectiveDate,
-      inputs: inputsForGenerate,
-    });
-    setBusy(false);
-    if (!res.ok) { setError(res.error); return; }
-    setHtml(res.html);
-    setSections(res.sections);
-    setWarnings(res.warnings);
-    setStep(4);
+
+    // CONCIERGE: standardised template, no AI involvement. Build the
+    // sections deterministically from the (possibly user-edited) template
+    // values. The AI was inventing its own format and drifting from
+    // Legal's accepted language; with a standardised template the only
+    // value AI adds is noise.
+    if (sowType === 'concierge') {
+      const builtSections = buildConciergeSections({
+        clientName, clientAddress, effectiveDate,
+        intro: conIntro,
+        activities: conActivities,
+        assumptions: conAssumptions,
+        contractType: conContractType,
+        rate: conHourlyRate,
+        paymentTerms: conPaymentTerms,
+        invoiceDate: conInvoiceDate,
+        termination: conTerminationNotice,
+        minimumHours: conMinHours,
+        travel: conTravelPolicy,
+        purchaseOrder: conPurchaseOrder,
+        special: conSpecial,
+      });
+      setSections(builtSections);
+      setHtml(buildSowHtml(clientName, effectiveDate, builtSections));
+      setWarnings([]);
+      setBusy(false);
+      setStep(4);
+      return;
+    }
+
+    // IMPLEMENTATION: also deterministic. The Qu Data template is so
+    // structured (10 sections, fixed tables, verbatim assumptions/Go-Live
+    // definitions, milestone-based pricing) that AI just introduces drift.
+    // User edits the inputs in place; we render the doc 1:1 against the
+    // executed template.
+    try {
+      const builtSections = buildImplementationSections({
+        clientName, clientAddress, effectiveDate,
+        introNarrative: impIntroNarrative,
+        scopeIntro: impScopeIntro,
+        scopeCapabilities: impScopeCapabilities,
+        governingArtifacts: impGoverningArtifacts,
+        discoveryIntro: impDiscoveryIntro,
+        discoveryExit: impDiscoveryExit,
+        discoveryAreas: impDiscoveryAreas,
+        buildIntro: impBuildIntro,
+        buildCategories: impBuildCategories,
+        assumptions: impAssumptions,
+        totalDuration: impTotalDuration,
+        timelineBullets: impTimelineBullets,
+        contractType: impContractType,
+        totalFee: impTotalFees,
+        pricingMilestones: impMilestones,
+        paymentTerms: impPaymentTerms,
+        termination: impTermination,
+        minimumHours: impMinHours,
+        travel: impTravel,
+        purchaseOrder: impPurchaseOrder,
+      });
+      setSections(builtSections);
+      setHtml(buildSowHtml(clientName, effectiveDate, builtSections));
+      setWarnings([]);
+      setBusy(false);
+      setStep(4);
+    } catch (e) {
+      setBusy(false);
+      setError((e as Error).message || 'Build failed');
+    }
   };
 
   const buildDocxBlob = async () => {
@@ -889,7 +1440,15 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8"
+         onClick={(e) => {
+           // Only close on a *true* backdrop click — not on every event that
+           // bubbles up. This prevents the modal from closing when an inner
+           // textarea/input dispatches an outside click, and prevents
+           // accidental dismissal after a generation error (the user used
+           // to lose all their inputs that way).
+           if (e.target === e.currentTarget) onClose();
+         }}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 sticky top-0 bg-white rounded-t-xl">
           <div>
@@ -953,29 +1512,48 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
 
           {step === 3 && sowType === 'concierge' && (
             <div className="space-y-3">
-              <div className="text-sm font-semibold text-slate-800">Concierge scope & pricing</div>
-              <Field label="Activities to support *">
-                <textarea value={conActivities} onChange={(e) => setConActivities(e.target.value)} rows={4}
-                          placeholder="Enhancements on Salesforce platform, business operations support, user training, technical evaluations, onsite meetings…"
-                          className={fInput} />
+              <div className="text-sm font-semibold text-slate-800">Concierge SOW — standard template</div>
+              <div className="text-[11px] text-slate-500 -mt-1">
+                Every section below is pre-filled from Simpliigence's standard concierge SOW (the Knit / Marnoa template). Edit any field that differs for this engagement; everything else stays verbatim. The generated document is a 1:1 mirror of the source template — no AI rewriting.
+              </div>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Scope of Services</div>
+              <Field label="Scope intro paragraph">
+                <textarea value={conIntro} onChange={(e) => setConIntro(e.target.value)} rows={3} className={fInput} />
               </Field>
+              <Field label="Activities (one per line — become numbered bullets)">
+                <textarea value={conActivities} onChange={(e) => setConActivities(e.target.value)} rows={5} className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Assumptions</div>
+              <Field label="Assumptions (one per line — become numbered bullets; pre-filled with Legal's standard 5 clauses)">
+                <textarea value={conAssumptions} onChange={(e) => setConAssumptions(e.target.value)} rows={8} className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Pricing Terms & Fee Schedule</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Field label="Hourly rate"><input value={conHourlyRate} onChange={(e) => setConHourlyRate(e.target.value)} className={fInput} /></Field>
-                <Field label="Minimum hours/month"><input value={conMinHours} onChange={(e) => setConMinHours(e.target.value)} className={fInput} /></Field>
+                <Field label="Contract type"><input value={conContractType} onChange={(e) => setConContractType(e.target.value)} className={fInput} /></Field>
+                <Field label="Rate"><input value={conHourlyRate} onChange={(e) => setConHourlyRate(e.target.value)} className={fInput} /></Field>
                 <Field label="Payment terms"><input value={conPaymentTerms} onChange={(e) => setConPaymentTerms(e.target.value)} className={fInput} /></Field>
                 <Field label="Invoice date"><input value={conInvoiceDate} onChange={(e) => setConInvoiceDate(e.target.value)} className={fInput} /></Field>
-                <Field label="Termination notice"><input value={conTerminationNotice} onChange={(e) => setConTerminationNotice(e.target.value)} className={fInput} /></Field>
-                <Field label="Travel & Expenses"><input value={conTravelPolicy} onChange={(e) => setConTravelPolicy(e.target.value)} className={fInput} /></Field>
+                <Field label="Contract termination"><input value={conTerminationNotice} onChange={(e) => setConTerminationNotice(e.target.value)} className={fInput} /></Field>
+                <Field label="Minimum hours / month"><input value={conMinHours} onChange={(e) => setConMinHours(e.target.value)} className={fInput} /></Field>
               </div>
-              <Field label="Special conditions (optional)">
+              <Field label="Travel & Expenses">
+                <textarea value={conTravelPolicy} onChange={(e) => setConTravelPolicy(e.target.value)} rows={2} className={fInput} />
+              </Field>
+              <Field label="Purchase Order">
+                <textarea value={conPurchaseOrder} onChange={(e) => setConPurchaseOrder(e.target.value)} rows={2} className={fInput} />
+              </Field>
+              <Field label="Special conditions (optional — adds an extra section if non-empty)">
                 <textarea value={conSpecial} onChange={(e) => setConSpecial(e.target.value)} rows={2} className={fInput} />
               </Field>
               {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
               <div className="flex justify-between pt-2">
                 <button onClick={() => setStep(2)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
                 <button onClick={generate} disabled={!conActivities || busy} className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1.5">
-                  {busy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                  {busy ? 'Generating…' : 'Generate SOW'}
+                  <FileText size={12} />
+                  {busy ? 'Building…' : 'Build SOW'}
                 </button>
               </div>
             </div>
@@ -983,68 +1561,156 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
 
           {step === 3 && sowType === 'implementation' && (
             <div className="space-y-3">
-              <div className="text-sm font-semibold text-slate-800">Implementation scope</div>
+              <div className="text-sm font-semibold text-slate-800">Implementation SOW — standard template</div>
+              <div className="text-[11px] text-slate-500 -mt-1">
+                Every section below is pre-filled from Simpliigence's standard implementation SOW (the Qu Data Centres template). Edit any field that differs for this engagement; everything else stays verbatim. The generated document mirrors the source template 1:1 — no AI rewriting.
+              </div>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Statement of Work — narrative</div>
+              <Field label="Project context narrative (3-5 paragraphs, separated by blank lines — appears after the opening clause)">
+                <textarea value={impIntroNarrative} onChange={(e) => setImpIntroNarrative(e.target.value)} rows={8}
+                          placeholder={'Client has engaged Simpliigence to…\n\nThe solution will deliver…\n\nThis implementation emphasizes…'}
+                          className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Scope of Services (Implementation)</div>
+              <Field label="Scope intro paragraph">
+                <textarea value={impScopeIntro} onChange={(e) => setImpScopeIntro(e.target.value)} rows={2} className={fInput} />
+              </Field>
+              <Field label="Core capabilities (one per line)">
+                <textarea value={impScopeCapabilities} onChange={(e) => setImpScopeCapabilities(e.target.value)} rows={8} className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+              <Field label="Governing artifacts (optional — one per line, e.g. RFI Response — 9 Jan 2026)">
+                <textarea value={impGoverningArtifacts} onChange={(e) => setImpGoverningArtifacts(e.target.value)} rows={3} className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Discovery and Design</div>
+              <Field label="Discovery intro">
+                <textarea value={impDiscoveryIntro} onChange={(e) => setImpDiscoveryIntro(e.target.value)} rows={3} className={fInput} />
+              </Field>
+              <Field label="Exit criteria">
+                <textarea value={impDiscoveryExit} onChange={(e) => setImpDiscoveryExit(e.target.value)} rows={2} className={fInput} />
+              </Field>
+              <Field label="Discovery capability areas (one per line)">
+                <textarea value={impDiscoveryAreas} onChange={(e) => setImpDiscoveryAreas(e.target.value)} rows={9} className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Configuration and Build</div>
+              <Field label="Build intro">
+                <textarea value={impBuildIntro} onChange={(e) => setImpBuildIntro(e.target.value)} rows={3} className={fInput} />
+              </Field>
+              <div className="space-y-2">
+                {impBuildCategories.map((cat, idx) => (
+                  <div key={idx} className="border border-slate-200 rounded p-2 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <input
+                        value={cat.heading}
+                        onChange={(e) => {
+                          const next = [...impBuildCategories];
+                          next[idx] = { ...next[idx], heading: e.target.value };
+                          setImpBuildCategories(next);
+                        }}
+                        placeholder="Category heading (e.g. Account & Contact Model)"
+                        className={`${fInput} font-semibold`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setImpBuildCategories(impBuildCategories.filter((_, i) => i !== idx))}
+                        className="p-1 text-slate-400 hover:text-red-500 rounded"
+                        title="Remove this category"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <textarea
+                      value={cat.bullets}
+                      onChange={(e) => {
+                        const next = [...impBuildCategories];
+                        next[idx] = { ...next[idx], bullets: e.target.value };
+                        setImpBuildCategories(next);
+                      }}
+                      rows={4}
+                      placeholder="One bullet per line"
+                      className={`${fInput} font-mono text-[11px]`}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setImpBuildCategories([...impBuildCategories, { heading: '', bullets: '' }])}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+                >
+                  <Plus size={12} /> Add build category
+                </button>
+              </div>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">
+                Summary of Deliverables / Testing / Training tables
+              </div>
+              <div className="text-[11px] text-slate-500">
+                These three tables (Deliverables by phase, Testing types, Training tiers) are emitted verbatim from the standard template. Edit them by opening the generated .docx if needed for a specific engagement.
+              </div>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Assumptions (Implementation)</div>
+              <Field label="Assumptions (one per line — pre-filled with Legal's standard 7 clauses)">
+                <textarea value={impAssumptions} onChange={(e) => setImpAssumptions(e.target.value)} rows={9} className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Timeline</div>
+              <Field label="Overall duration (e.g. 17 weeks)">
+                <input value={impTotalDuration} onChange={(e) => setImpTotalDuration(e.target.value)} className={fInput} />
+              </Field>
+              <Field label="Project timeline bullets (one per line)">
+                <textarea value={impTimelineBullets} onChange={(e) => setImpTimelineBullets(e.target.value)} rows={6} className={`${fInput} font-mono text-[11px]`} />
+              </Field>
+
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Pricing Terms & Fee Schedule</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Field label="Solution / platform">
-                  <input value={impSolution} onChange={(e) => setImpSolution(e.target.value)} placeholder="Salesforce Sales Cloud" className={fInput} />
-                </Field>
-                <Field label="Pricing model">
-                  <select value={impPricingModel} onChange={(e) => setImpPricingModel(e.target.value as 'fixed' | 'tm')} className={fInput}>
-                    <option value="fixed">Fixed price with milestones</option>
-                    <option value="tm">Time & Materials</option>
-                  </select>
-                </Field>
+                <Field label="Contract type"><input value={impContractType} onChange={(e) => setImpContractType(e.target.value)} className={fInput} /></Field>
+                <Field label="Total fee (e.g. CAD $44,000.00)"><input value={impTotalFees} onChange={(e) => setImpTotalFees(e.target.value)} placeholder="CAD $44,000.00" className={fInput} /></Field>
+                <Field label="Payment terms"><input value={impPaymentTerms} onChange={(e) => setImpPaymentTerms(e.target.value)} className={fInput} /></Field>
+                <Field label="Termination"><input value={impTermination} onChange={(e) => setImpTermination(e.target.value)} className={fInput} /></Field>
+                <Field label="Minimum hours / month"><input value={impMinHours} onChange={(e) => setImpMinHours(e.target.value)} className={fInput} /></Field>
               </div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Executive Summary context</div>
-              <Field label="Current state / business context">
-                <textarea value={impCurrentState} onChange={(e) => setImpCurrentState(e.target.value)} rows={2}
-                          placeholder="One or two sentences on the client's current situation and the challenge driving this initiative."
-                          className={fInput} />
-              </Field>
-              <Field label="Strategic priorities">
-                <textarea value={impPriorities} onChange={(e) => setImpPriorities(e.target.value)} rows={2}
-                          placeholder="Bullets or phrases — what outcomes matter most to leadership."
-                          className={fInput} />
-              </Field>
-              <Field label="Future vision">
-                <textarea value={impFutureVision} onChange={(e) => setImpFutureVision(e.target.value)} rows={2}
-                          placeholder="One sentence on the future state the platform unlocks."
-                          className={fInput} />
-              </Field>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Scope</div>
-              <Field label="Business goals *">
-                <textarea value={impGoals} onChange={(e) => setImpGoals(e.target.value)} rows={3}
-                          placeholder="What is the client trying to achieve? Outcomes, not features."
-                          className={fInput} />
-              </Field>
-              <Field label="In-scope (what Simpliigence will deliver) *">
-                <textarea value={impInScope} onChange={(e) => setImpInScope(e.target.value)} rows={4}
-                          placeholder="Bullets / rough phrases. Claude will tighten the language."
-                          className={fInput} />
-              </Field>
-              <Field label="Out-of-scope (explicit exclusions)">
-                <textarea value={impOutOfScope} onChange={(e) => setImpOutOfScope(e.target.value)} rows={3} className={fInput} />
-              </Field>
-              <Field label="Assumptions">
-                <textarea value={impAssumptions} onChange={(e) => setImpAssumptions(e.target.value)} rows={3}
-                          placeholder="Client SPOC available, environment access, decisions within 48h, etc."
-                          className={fInput} />
-              </Field>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Field label="Total fees *"><input value={impTotalFees} onChange={(e) => setImpTotalFees(e.target.value)} placeholder="$120,000 USD" className={fInput} /></Field>
-                <Field label="Duration"><input value={impDuration} onChange={(e) => setImpDuration(e.target.value)} placeholder="12 weeks" className={fInput} /></Field>
-                <Field label="Payment milestones *"><input value={impMilestones} onChange={(e) => setImpMilestones(e.target.value)} placeholder="30% signing, 40% UAT, 30% go-live" className={fInput} /></Field>
+              <Field label="Travel & Expenses"><textarea value={impTravel} onChange={(e) => setImpTravel(e.target.value)} rows={2} className={fInput} /></Field>
+              <Field label="Purchase Order"><textarea value={impPurchaseOrder} onChange={(e) => setImpPurchaseOrder(e.target.value)} rows={2} className={fInput} /></Field>
+
+              <div className="text-[11px] font-semibold text-slate-600 pt-2">Payment milestones</div>
+              <div className="space-y-2">
+                {impMilestones.map((m, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                    <input value={m.milestone}
+                           onChange={(e) => { const next = [...impMilestones]; next[idx] = { ...next[idx], milestone: e.target.value }; setImpMilestones(next); }}
+                           placeholder="Milestone (e.g. SOW Signing)"
+                           className={`${fInput} col-span-6`} />
+                    <input value={m.percentage}
+                           onChange={(e) => { const next = [...impMilestones]; next[idx] = { ...next[idx], percentage: e.target.value }; setImpMilestones(next); }}
+                           placeholder="25%"
+                           className={`${fInput} col-span-2`} />
+                    <input value={m.amount}
+                           onChange={(e) => { const next = [...impMilestones]; next[idx] = { ...next[idx], amount: e.target.value }; setImpMilestones(next); }}
+                           placeholder="CAD $11,000.00"
+                           className={`${fInput} col-span-3`} />
+                    <button type="button" onClick={() => setImpMilestones(impMilestones.filter((_, i) => i !== idx))}
+                            className="col-span-1 p-1 text-slate-400 hover:text-red-500 rounded" title="Remove milestone">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+                <button type="button"
+                        onClick={() => setImpMilestones([...impMilestones, { milestone: '', percentage: '', amount: '' }])}
+                        className="text-[11px] text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1">
+                  <Plus size={12} /> Add milestone
+                </button>
               </div>
-              <Field label="Special conditions (optional)">
-                <textarea value={impSpecial} onChange={(e) => setImpSpecial(e.target.value)} rows={2} className={fInput} />
-              </Field>
+
               {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
               <div className="flex justify-between pt-2">
                 <button onClick={() => setStep(2)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
-                <button onClick={generate} disabled={!impGoals || !impInScope || !impTotalFees || !impMilestones || busy}
+                <button onClick={generate} disabled={busy}
                         className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1.5">
-                  {busy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                  {busy ? 'Generating…' : 'Generate SOW'}
+                  <FileText size={12} />
+                  {busy ? 'Building…' : 'Build SOW'}
                 </button>
               </div>
             </div>
@@ -1213,6 +1879,10 @@ export default function PipelinePage() {
           ))}
         </div>
       )}
+
+      {/* Presales activity tracker — captures POCs/Demos/POVs/Capability work the
+          Solution Engineering team is committed to. Tied back to pipeline projects. */}
+      <PresalesSection />
 
       {/* Pipeline funnel summary */}
       {pipelineProjects.length > 0 && (

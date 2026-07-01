@@ -15,7 +15,7 @@
  *
  * Mini stat strip at the bottom: this-week logged vs forecast for awareness.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Save, Trash2, X, Copy, CalendarDays, List as ListIcon } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
@@ -622,7 +622,12 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
   );
 }
 
-/* ── New entry row — quick add ── */
+/* ── New entry row — quick add ──
+ *
+ * Rapid-entry mode: after saving with Enter, the row stays open and the
+ * project value is kept so the user can log a series of entries against
+ * the same project without re-picking each time. Escape closes the row.
+ */
 function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   workDate: string;
   projectOptions: { id: string | null; name: string; billable: boolean }[];
@@ -634,8 +639,10 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   const [notes, setNotes] = useState('');
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const hoursRef = useRef<HTMLInputElement>(null);
 
-  const reset = () => {
+  const closeRow = () => {
     setProjectName('');
     setHours(0);
     setBillable(true);
@@ -643,7 +650,10 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
     setAdding(false);
   };
 
-  const handleAdd = async () => {
+  /** Save the current entry. If `keepOpen`, leave the row open with the
+   *  same project selected so the user can queue up more entries — used
+   *  when they hit Enter. Otherwise close the row (button click). */
+  const handleAdd = async (opts: { keepOpen?: boolean } = {}) => {
     if (!projectName || hours <= 0) return;
     setSaving(true);
     try {
@@ -654,9 +664,34 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         billable,
         notes,
       });
-      reset();
+      if (opts.keepOpen) {
+        // Rapid-entry: clear per-entry fields but keep the project sticky.
+        setHours(0);
+        setNotes('');
+        setFlash(true);
+        setTimeout(() => setFlash(false), 400);
+        // Refocus hours so the next Enter cycle is just: type number → Enter.
+        setTimeout(() => hoursRef.current?.focus(), 0);
+      } else {
+        closeRow();
+      }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter always saves + advances. Tab also saves — but only when there's a
+    // valid entry AND the user isn't Shift+Tabbing back. This keeps the tab
+    // flow spreadsheet-y: fill project → hours (→ notes) → Tab starts the
+    // next line with the same project already selected.
+    const canSave = !!projectName && hours > 0;
+    if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey && canSave)) {
+      e.preventDefault();
+      void handleAdd({ keepOpen: true });
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeRow();
     }
   };
 
@@ -673,13 +708,21 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   }
 
   return (
-    <div className="border-2 border-primary/30 rounded-lg p-3 bg-primary/5">
+    <div className={`border-2 border-primary/30 rounded-lg p-3 bg-primary/5 transition-colors ${flash ? 'bg-emerald-100/60 border-emerald-400' : ''}`}>
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-center">
-        <ProjectPicker value={projectName} onChange={setProjectName} options={projectOptions} autoFocus />
+        <ProjectPicker
+          value={projectName}
+          onChange={setProjectName}
+          options={projectOptions}
+          autoFocus
+          onEnter={() => hoursRef.current?.focus()}
+        />
         <input
+          ref={hoursRef}
           type="number" step={0.25} min={0} max={24}
           value={hours || ''}
           onChange={(e) => setHours(Math.max(0, Math.min(24, Number(e.target.value) || 0)))}
+          onKeyDown={handleKey}
           placeholder="Hours"
           className="w-20 border border-slate-300 rounded-md px-2 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
@@ -695,36 +738,42 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         type="text"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Notes (optional)"
+        onKeyDown={handleKey}
+        placeholder="Notes (optional) — Enter or Tab to save & add another"
         className="mt-2 w-full text-xs text-slate-700 bg-white border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
-      <div className="mt-2 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={reset}
-          className="text-[11px] text-slate-500 hover:text-slate-700 flex items-center gap-1"
-        >
-          <X size={11} /> Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={!projectName || hours <= 0 || saving}
-          className="text-[11px] font-semibold bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 disabled:opacity-40 flex items-center gap-1"
-        >
-          <Save size={11} /> {saving ? 'Adding…' : 'Add'}
-        </button>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="text-[10px] text-slate-500 italic">Enter or Tab = save &amp; add another · Esc = close</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={closeRow}
+            className="text-[11px] text-slate-500 hover:text-slate-700 flex items-center gap-1"
+          >
+            <X size={11} /> Done
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAdd({ keepOpen: false })}
+            disabled={!projectName || hours <= 0 || saving}
+            className="text-[11px] font-semibold bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 disabled:opacity-40 flex items-center gap-1"
+          >
+            <Save size={11} /> {saving ? 'Adding…' : 'Add & close'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 /* ── Project picker (datalist for searchability) ── */
-function ProjectPicker({ value, onChange, options, autoFocus = false }: {
+function ProjectPicker({ value, onChange, options, autoFocus = false, onEnter }: {
   value: string;
   onChange: (v: string) => void;
   options: { id: string | null; name: string; billable: boolean }[];
   autoFocus?: boolean;
+  /** Called when the user presses Enter — used by NewEntryRow to jump focus to the hours field. */
+  onEnter?: () => void;
 }) {
   const internalSet = new Set<string>(INTERNAL_PROJECTS);
   const sorted = [
@@ -737,6 +786,9 @@ function ProjectPicker({ value, onChange, options, autoFocus = false }: {
         list="my-time-project-options"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); onEnter?.(); }
+        }}
         placeholder="Pick a project…"
         autoFocus={autoFocus}
         className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"

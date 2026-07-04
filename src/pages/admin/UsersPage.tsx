@@ -136,7 +136,7 @@ export default function UsersPage() {
   };
 
   /** Patch any subset of editable columns on a single user. */
-  const patchRow = async (email: string, patch: Partial<Pick<AuthorizedUserRow, 'role' | 'manager_email' | 'employee_code' | 'full_name'>>) => {
+  const patchRow = async (email: string, patch: Partial<Pick<AuthorizedUserRow, 'role' | 'manager_email' | 'employee_code' | 'full_name' | 'notes'>>) => {
     try {
       flashSaving(email);
       // If role changes to/from 'admin', keep is_admin in sync.
@@ -144,6 +144,8 @@ export default function UsersPage() {
       if (patch.role !== undefined) update.is_admin = patch.role === 'admin';
       if (patch.manager_email !== undefined) update.manager_email = patch.manager_email?.toLowerCase() || null;
       if (patch.employee_code !== undefined) update.employee_code = patch.employee_code || null;
+      if (patch.full_name !== undefined) update.full_name = patch.full_name?.trim() || null;
+      if (patch.notes !== undefined) update.notes = patch.notes?.trim() || null;
       // `.select()` returns the updated rows; if RLS silently filtered the write
       // out, `data` is an empty array. Treat that as an error so the UI doesn't
       // claim "Saved" when nothing changed.
@@ -344,7 +346,29 @@ export default function UsersPage() {
                       <span className="font-medium text-slate-800">{r.email}</span>
                     </div>
                   </td>
-                  <td className="py-2.5 pr-3 text-slate-600">{r.full_name || <span className="text-slate-300">—</span>}</td>
+                  <td className="py-2.5 pr-3">
+                    <input
+                      type="text"
+                      value={r.full_name ?? ''}
+                      placeholder="Add name…"
+                      onChange={(e) => {
+                        setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, full_name: e.target.value } : x));
+                      }}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        if (next !== (r.full_name ?? '').trim()) patchRow(r.email, { full_name: next });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        else if (e.key === 'Escape') {
+                          setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, full_name: r.full_name } : x));
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                      title="Press Enter or click away to save · Esc to cancel"
+                      className="text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
+                    />
+                  </td>
                   <td className="py-2.5 pr-3">
                     <select
                       value={r.role}
@@ -410,7 +434,29 @@ export default function UsersPage() {
                       className="text-xs bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-24"
                     />
                   </td>
-                  <td className="py-2.5 pr-3 text-xs text-slate-500">{r.notes || '—'}</td>
+                  <td className="py-2.5 pr-3">
+                    <input
+                      type="text"
+                      value={r.notes ?? ''}
+                      placeholder="—"
+                      onChange={(e) => {
+                        setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, notes: e.target.value } : x));
+                      }}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        if (next !== (r.notes ?? '').trim()) patchRow(r.email, { notes: next });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        else if (e.key === 'Escape') {
+                          setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, notes: r.notes } : x));
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                      title="Press Enter or click away to save · Esc to cancel"
+                      className="text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
+                    />
+                  </td>
                   <td className="py-2.5 pr-3 text-xs text-slate-500">
                     {new Date(r.added_at).toLocaleDateString()}
                     {r.added_by && <div className="text-[10px] text-slate-400">by {r.added_by}</div>}

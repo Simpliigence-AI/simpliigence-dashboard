@@ -354,18 +354,11 @@ export default function UsersPage() {
                       onChange={(e) => {
                         setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, full_name: e.target.value } : x));
                       }}
-                      onBlur={(e) => {
-                        const next = e.target.value.trim();
-                        if (next !== (r.full_name ?? '').trim()) patchRow(r.email, { full_name: next });
-                      }}
+                      onBlur={(e) => patchRow(r.email, { full_name: e.target.value.trim() })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                        else if (e.key === 'Escape') {
-                          setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, full_name: r.full_name } : x));
-                          (e.target as HTMLInputElement).blur();
-                        }
                       }}
-                      title="Press Enter or click away to save · Esc to cancel"
+                      title="Press Enter or click away to save"
                       className="text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
                     />
                   </td>
@@ -442,18 +435,11 @@ export default function UsersPage() {
                       onChange={(e) => {
                         setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, notes: e.target.value } : x));
                       }}
-                      onBlur={(e) => {
-                        const next = e.target.value.trim();
-                        if (next !== (r.notes ?? '').trim()) patchRow(r.email, { notes: next });
-                      }}
+                      onBlur={(e) => patchRow(r.email, { notes: e.target.value.trim() })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                        else if (e.key === 'Escape') {
-                          setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, notes: r.notes } : x));
-                          (e.target as HTMLInputElement).blur();
-                        }
                       }}
-                      title="Press Enter or click away to save · Esc to cancel"
+                      title="Press Enter or click away to save"
                       className="text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
                     />
                   </td>

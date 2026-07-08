@@ -1016,8 +1016,8 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
       audioPath: d.recordingPath || undefined,
     });
     setOrganizing(false);
-    if (!result) {
-      setStructureError('AI organize failed. The structure-connect-notes edge function returned an error — check its logs in the Supabase dashboard.');
+    if (!result.ok) {
+      setStructureError(result.error);
       return;
     }
     setD((cur) => ({ ...cur, discussion: result.discussion, outcome: result.outcome }));

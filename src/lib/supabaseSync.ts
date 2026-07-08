@@ -1483,8 +1483,8 @@ export const db = {
     text?: string;
     audioPath?: string;
   }): Promise<
-    | { transcript: string; discussion: string; outcome: string; actionItems: Array<{ title: string; description: string; owner_email: string | null; due_date: string | null }> }
-    | null
+    | { ok: true; transcript: string; discussion: string; outcome: string; actionItems: Array<{ title: string; description: string; owner_email: string | null; due_date: string | null }> }
+    | { ok: false; error: string }
   > {
     const { data, error } = await supabase.functions.invoke<{
       ok?: boolean;
@@ -1493,12 +1493,35 @@ export const db = {
       outcome?: string;
       actionItems?: Array<{ title: string; description: string; owner_email: string | null; due_date: string | null }>;
       error?: string;
+      detail?: string;
     }>('structure-connect-notes', { body: params });
-    if (error || !data || data.error) {
-      console.warn('[supabase] structure-connect-notes failed:', error?.message || data?.error);
-      return null;
+    if (error) {
+      // Non-2xx returns arrive here — pull the response body if we can so the
+      // user sees the ACTUAL problem (e.g. "OPENAI_API_KEY is not set") not
+      // just "check logs".
+      let detail = error.message;
+      const ctx = (error as unknown as { context?: Response }).context;
+      if (ctx && typeof ctx.text === 'function') {
+        try {
+          const bodyText = await ctx.text();
+          if (bodyText) {
+            try {
+              const parsed = JSON.parse(bodyText) as { error?: string; detail?: string };
+              detail = parsed.error || parsed.detail || bodyText.slice(0, 400);
+            } catch { detail = bodyText.slice(0, 400); }
+          }
+        } catch { /* ignore */ }
+      }
+      console.warn('[supabase] structure-connect-notes failed:', detail);
+      return { ok: false, error: detail };
+    }
+    if (!data || data.error) {
+      const msg = data?.error || 'Edge function returned an error';
+      console.warn('[supabase] structure-connect-notes failed:', msg);
+      return { ok: false, error: msg };
     }
     return {
+      ok: true,
       transcript: data.transcript || '',
       discussion: data.discussion || '',
       outcome: data.outcome || '',

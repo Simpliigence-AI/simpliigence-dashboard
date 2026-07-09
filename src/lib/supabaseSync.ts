@@ -2244,7 +2244,15 @@ export const db = {
     const { error } = await supabase
       .from('presales_activities')
       .upsert(presalesActivityToRow(a), { onConflict: 'id' });
-    if (error) console.warn('[supabase] upsert presales_activity failed:', error);
+    if (error) {
+      // Was silently console.warn — that hid a "invalid uuid" persistence
+      // failure for days. Escalate to console.error with the full row so the
+      // problem is visible in DevTools, and re-throw so the calling store can
+      // surface it to the user rather than showing an optimistically-updated
+      // row that never landed in the database.
+      console.error('[supabase] upsert presales_activity failed:', error, { row: presalesActivityToRow(a) });
+      throw new Error(`Failed to save presales activity: ${error.message}`);
+    }
   },
 
   async deletePresalesActivity(id: string) {

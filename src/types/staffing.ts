@@ -10,12 +10,18 @@ export type StaffingStatus =
   | 'Open'
   | 'In Progress'
   | 'On Hold'
-  | 'Closed'
-  | 'Lost'
+  | 'Closed Won'
+  | 'Closed Lost'
   | 'Cancelled';
 
 /** Statuses that move a requisition into the archive (out of the main list) */
-export const ARCHIVED_STATUSES: StaffingStatus[] = ['Closed', 'Lost', 'Cancelled'];
+export const ARCHIVED_STATUSES: StaffingStatus[] = ['Closed Won', 'Closed Lost', 'Cancelled'];
+
+/** Sub-buckets inside the Archived section:
+ *  - Closed Won → celebrated separately
+ *  - Closed Lost / Cancelled → grouped together (both are non-wins) */
+export const CLOSED_WON_STATUSES: StaffingStatus[] = ['Closed Won'];
+export const LOST_OR_CANCELLED_STATUSES: StaffingStatus[] = ['Closed Lost', 'Cancelled'];
 
 export interface StaffingRequisition {
   id: string;

@@ -17,6 +17,8 @@
     "@hookform/resolvers": "^5.2.2",
     "@supabase/supabase-js": "^2.101.0",
     "@tanstack/react-table": "^8.21.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
     "d3-geo": "^3.1.1",
     "date-fns": "^4.1.0",
     "docx": "^9.7.1",

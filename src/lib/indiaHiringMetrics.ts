@@ -44,7 +44,7 @@ export interface ClientDemand {
 
 export interface StageVelocity {
   fromStage: PipelineStage | 'created';
-  toStage: PipelineStage | 'Closed';
+  toStage: PipelineStage | 'Closed Won';
   /** Median days observed between transitions of this kind */
   medianDays: number;
   /** Sample size */
@@ -222,7 +222,7 @@ export function computeIndiaHiringMetrics(input: {
     .sort((a, b) => b.count - a.count);
 
   /* ── Demand metrics ─────────────────────────── */
-  const ARCHIVED = ['Closed', 'Lost', 'Cancelled'];
+  const ARCHIVED = ['Closed Won', 'Closed Lost', 'Cancelled'];
   const activeReqs = requisitions.filter((r) => !ARCHIVED.includes(r.status_field));
   const activePositions = activeReqs.reduce((s, r) => s + (r.new_positions || 0), 0);
 
@@ -259,7 +259,7 @@ export function computeIndiaHiringMetrics(input: {
   }
   // Recent closures per account from history (status_field → Closed)
   for (const h of history) {
-    if (h.field !== 'status_field' || h.new_value !== 'Closed') continue;
+    if (h.field !== 'status_field' || h.new_value !== 'Closed Won') continue;
     if (Date.parse(h.changed_at) < cutoff90Stamp) continue;
     const req = requisitions.find((r) => r.id === h.requisition_id);
     if (!req) continue;
@@ -284,8 +284,8 @@ export function computeIndiaHiringMetrics(input: {
     for (const h of history) {
       if (h.field !== 'status_field') continue;
       if (h.changed_at.slice(0, 10) < weekStart || h.changed_at.slice(0, 10) >= weekEnd) continue;
-      if (h.new_value === 'Closed') closures += 1;
-      if (h.new_value === 'Lost' || h.new_value === 'Cancelled') losses += 1;
+      if (h.new_value === 'Closed Won') closures += 1;
+      if (h.new_value === 'Closed Lost' || h.new_value === 'Cancelled') losses += 1;
     }
     closureTimeline.push({ weekStart, closures, losses });
   }
@@ -306,7 +306,7 @@ export function computeIndiaHiringMetrics(input: {
   // Time-to-close: days from req.created_at to status_field → Closed
   const closeTimes: number[] = [];
   for (const h of history) {
-    if (h.field !== 'status_field' || h.new_value !== 'Closed') continue;
+    if (h.field !== 'status_field' || h.new_value !== 'Closed Won') continue;
     const req = requisitions.find((r) => r.id === h.requisition_id);
     if (!req?.created_at) continue;
     const days = (Date.parse(h.changed_at) - Date.parse(req.created_at)) / DAY_MS;

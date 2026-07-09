@@ -107,7 +107,7 @@ export function computeFunnel(
         currentPositions += r.new_positions;
       }
       // Stalled here: max stage is exactly this one AND status is Lost/Cancelled
-      if (maxIdx === i && (r.status_field === 'Lost' || r.status_field === 'Cancelled')) {
+      if (maxIdx === i && (r.status_field === 'Closed Lost' || r.status_field === 'Cancelled')) {
         stalledLost++;
       }
     }
@@ -144,10 +144,10 @@ export function computeFunnel(
   }
 
   const successful = requisitions.filter(
-    (r) => r.status_field === 'Closed' || r.stage === 'Closed/Selected' || r.stage === 'Onboarding',
+    (r) => r.status_field === 'Closed Won' || r.stage === 'Closed/Selected' || r.stage === 'Onboarding',
   ).length;
   const terminallyLost = requisitions.filter(
-    (r) => r.status_field === 'Lost' || r.status_field === 'Cancelled',
+    (r) => r.status_field === 'Closed Lost' || r.status_field === 'Cancelled',
   ).length;
 
   return {

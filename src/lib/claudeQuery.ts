@@ -607,7 +607,7 @@ function buildBriefingContext(input: StaffingBriefingInput) {
   const acctName = (id: string) => accounts.find((a) => a.id === id)?.name || 'Unknown';
 
   // Only consider non-archived reqs for the briefing.
-  const active = requisitions.filter((r) => !['Closed', 'Lost', 'Cancelled'].includes(r.status_field));
+  const active = requisitions.filter((r) => !['Closed Won', 'Closed Lost', 'Cancelled'].includes(r.status_field));
 
   const activeSummary = active.map((r) => {
     const timing = computeStageTiming(r, history);
@@ -1159,8 +1159,8 @@ function buildStaffingQueryContext(input: StaffingQueryInput) {
   for (const r of requisitions) {
     const key = acctName(r.account_id);
     const entry = byAccount.get(key) || { active: 0, closed: 0, lost: 0, positions: 0 };
-    if (['Lost', 'Cancelled'].includes(r.status_field)) entry.lost++;
-    else if (r.status_field === 'Closed') entry.closed++;
+    if (['Closed Lost', 'Cancelled'].includes(r.status_field)) entry.lost++;
+    else if (r.status_field === 'Closed Won') entry.closed++;
     else { entry.active++; entry.positions += r.new_positions; }
     byAccount.set(key, entry);
   }
@@ -1190,9 +1190,9 @@ function buildStaffingQueryContext(input: StaffingQueryInput) {
     today: new Date().toISOString().slice(0, 10),
     totals: {
       totalReqs: requisitions.length,
-      activeReqs: requisitions.filter((r) => !['Closed', 'Lost', 'Cancelled'].includes(r.status_field)).length,
+      activeReqs: requisitions.filter((r) => !['Closed Won', 'Closed Lost', 'Cancelled'].includes(r.status_field)).length,
       stuckReqs: requisitions.filter((r) => {
-        if (['Closed', 'Lost', 'Cancelled'].includes(r.status_field)) return false;
+        if (['Closed Won', 'Closed Lost', 'Cancelled'].includes(r.status_field)) return false;
         return computeStageTiming(r, history).isStuck;
       }).length,
     },

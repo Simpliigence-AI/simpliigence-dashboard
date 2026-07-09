@@ -25,16 +25,17 @@ import { ClipboardList } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { StaffingRow, RiskLevel, PipelineStage, StaffingStatus } from '../types/staffing';
-import { STAGE_COLORS, ARCHIVED_STATUSES } from '../types/staffing';
+import { STAGE_COLORS, ARCHIVED_STATUSES, CLOSED_WON_STATUSES, LOST_OR_CANCELLED_STATUSES } from '../types/staffing';
+import confetti from 'canvas-confetti';
 
 /* -- Constants -- */
-const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed', 'Lost', 'Cancelled'];
+const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed Won', 'Closed Lost', 'Cancelled'];
 const STATUS_COLORS: Record<StaffingStatus, string> = {
   'Open': '#3b82f6',
   'In Progress': '#f59e0b',
   'On Hold': '#94a3b8',
-  'Closed': '#10b981',
-  'Lost': '#b91c1c',
+  'Closed Won': '#10b981',
+  'Closed Lost': '#b91c1c',
   'Cancelled': '#ef4444',
 };
 const probColor = (p: number) => p >= 65 ? '#10b981' : p >= 40 ? '#f59e0b' : '#ef4444';
@@ -42,6 +43,21 @@ const PIPELINE_STAGES: PipelineStage[] = ['Sourcing','Profiles Shared','Intervie
 const ALL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 const isArchived = (s: StaffingStatus) => ARCHIVED_STATUSES.includes(s);
+const isClosedWon = (s: StaffingStatus) => CLOSED_WON_STATUSES.includes(s);
+const isLostOrCancelled = (s: StaffingStatus) => LOST_OR_CANCELLED_STATUSES.includes(s);
+
+/** Fires a short confetti burst — used when a requisition is marked Closed Won. */
+function celebrateWin(): void {
+  const duration = 1200;
+  const end = Date.now() + duration;
+  const colors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#f97316'];
+  const tick = () => {
+    confetti({ particleCount: 5, startVelocity: 45, spread: 60, angle: 60, origin: { x: 0, y: 0.9 }, colors });
+    confetti({ particleCount: 5, startVelocity: 45, spread: 60, angle: 120, origin: { x: 1, y: 0.9 }, colors });
+    if (Date.now() < end) requestAnimationFrame(tick);
+  };
+  tick();
+}
 
 /** Days between today (UTC midnight) and an ISO date string. Returns 0 if missing/invalid. */
 function calcAgeing(startDate: string): number {
@@ -363,8 +379,15 @@ export default function IndiaStaffingPage() {
       }
       default: return;
     }
+    // Fire the confetti when a requisition transitions INTO Closed Won.
+    // Guarded on the previous value so re-saving an already-won req doesn't
+    // re-trigger the celebration.
+    if (field === 'status_field' && value === 'Closed Won') {
+      const prev = rows.find((r) => r.id === reqId)?.statusField;
+      if (prev !== 'Closed Won') celebrateWin();
+    }
     updateRequisition(reqId, patch);
-  }, [updateRequisition]);
+  }, [updateRequisition, rows]);
 
   /* -- Inline status add (Enter to submit) -- */
   const handleInlineStatus = useCallback((reqId: string, text: string) => {
@@ -483,7 +506,7 @@ export default function IndiaStaffingPage() {
     const fieldLabel = (f: string) => ({
       title: 'Requisition', account_id: 'Account', month: 'Month', new_positions: 'Positions',
       expected_closure: 'Expected Closure', start_date: 'Start Date', close_by_date: 'Close Date',
-      status_field: 'Status', stage: 'Stage', anticipation: 'Anticipation',
+      status_field: 'Status', stage: 'TA Stage', anticipation: 'Anticipation',
       client_spoc: 'Client SPOC', department: 'Department',
       probability: 'Prob (manual)', ai_probability: 'AI Prob',
     } as Record<string, string>)[f] || f;
@@ -824,7 +847,7 @@ export default function IndiaStaffingPage() {
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Close Date</th>
         <th className="text-center p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Days since Start Date">Ageing</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Status</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Stage</th>
+        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">TA Stage</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Risk</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Manually set probability. Blank = use AI.">Prob</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Auto-calculated from status updates">AI Prob</th>
@@ -1215,6 +1238,7 @@ export default function IndiaStaffingPage() {
                       setBulkBusy(true);
                       try {
                         selectedIds.forEach((id) => updateRequisition(id, { status_field: next }));
+                        if (next === 'Closed Won') celebrateWin();
                         setSelectedIds(new Set());
                       } finally { setBulkBusy(false); e.currentTarget.value = ''; }
                     }}
@@ -1225,17 +1249,18 @@ export default function IndiaStaffingPage() {
                 </label>
                 <button
                   onClick={() => {
-                    if (!confirm(`Archive ${selectedIds.size} requisitions as Closed?`)) return;
+                    if (!confirm(`Mark ${selectedIds.size} requisitions as Closed Won?`)) return;
                     setBulkBusy(true);
                     try {
-                      selectedIds.forEach((id) => updateRequisition(id, { status_field: 'Closed' }));
+                      selectedIds.forEach((id) => updateRequisition(id, { status_field: 'Closed Won' }));
+                      celebrateWin();
                       setSelectedIds(new Set());
                     } finally { setBulkBusy(false); }
                   }}
                   disabled={bulkBusy}
                   className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
                 >
-                  <Archive size={11} /> Mark Closed
+                  <Archive size={11} /> Mark Closed Won
                 </button>
                 <button
                   onClick={() => {
@@ -1331,36 +1356,77 @@ export default function IndiaStaffingPage() {
             </div>
           </Card>
 
-          {/* Archived (Closed / Lost / Cancelled) — collapsible */}
-          <Card className="mt-6">
-            <button
-              onClick={() => setShowArchive((v) => !v)}
-              className="w-full flex items-center justify-between text-left"
-            >
-              <div className="flex items-center gap-2">
-                <Archive size={14} className="text-slate-400" />
-                <h3 className="font-bold text-sm">Archived Requisitions</h3>
-                <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                  {archivedRows.length} — Closed / Lost / Cancelled
-                </span>
-              </div>
-              {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
-            </button>
-            {showArchive && (
-              <div className="overflow-x-auto mt-4">
-                {archivedRows.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic py-4 text-center">No archived requisitions yet</p>
-                ) : (
-                  <table className="w-full text-xs">
-                    <TableHeader />
-                    <tbody>
-                      {archivedRows.map((r) => renderRow(r, { archived: true }))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
-          </Card>
+          {/* Archived — split into two buckets:
+           *   1. Closed Won (celebrated, kept separate)
+           *   2. Closed Lost / Cancelled (grouped — both are non-wins)
+           */}
+          {(() => {
+            const wonRows = archivedRows.filter((r) => isClosedWon(r.statusField));
+            const lostRows = archivedRows.filter((r) => isLostOrCancelled(r.statusField));
+            return (
+              <>
+                <Card className="mt-6">
+                  <button
+                    onClick={() => setShowArchive((v) => !v)}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Archive size={14} className="text-emerald-500" />
+                      <h3 className="font-bold text-sm">Closed Won</h3>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold">
+                        {wonRows.length} won
+                      </span>
+                    </div>
+                    {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                  </button>
+                  {showArchive && (
+                    <div className="overflow-x-auto mt-4">
+                      {wonRows.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">No wins yet — go close a deal.</p>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <TableHeader />
+                          <tbody>
+                            {wonRows.map((r) => renderRow(r, { archived: true }))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </Card>
+
+                <Card className="mt-6">
+                  <button
+                    onClick={() => setShowArchive((v) => !v)}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Archive size={14} className="text-slate-400" />
+                      <h3 className="font-bold text-sm">Closed Lost / Cancelled</h3>
+                      <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {lostRows.length}
+                      </span>
+                    </div>
+                    {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                  </button>
+                  {showArchive && (
+                    <div className="overflow-x-auto mt-4">
+                      {lostRows.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">Nothing lost or cancelled.</p>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <TableHeader />
+                          <tbody>
+                            {lostRows.map((r) => renderRow(r, { archived: true }))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              </>
+            );
+          })()}
         </>
       )}
 
@@ -1646,7 +1712,7 @@ export default function IndiaStaffingPage() {
                           <th className="p-2">Month</th>
                           <th className="p-2">Pos</th>
                           <th className="p-2">Ageing</th>
-                          <th className="p-2">Stage</th>
+                          <th className="p-2">TA Stage</th>
                           <th className="p-2">Risk</th>
                           <th className="p-2">Prob</th>
                           <th className="p-2">AI Prob</th>
@@ -1800,7 +1866,7 @@ export default function IndiaStaffingPage() {
             <h3 className="font-bold text-sm mb-3">Forecast Reasoning by Requisition</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead><tr className="border-b-2 border-slate-100"><th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Account</th><th className="p-2">Requisition</th><th className="p-2">Stage</th><th className="p-2">Ageing</th><th className="p-2">Prob</th><th className="p-2">Risk</th><th className="p-2">Recommendation</th></tr></thead>
+                <thead><tr className="border-b-2 border-slate-100"><th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Account</th><th className="p-2">Requisition</th><th className="p-2">TA Stage</th><th className="p-2">Ageing</th><th className="p-2">Prob</th><th className="p-2">Risk</th><th className="p-2">Recommendation</th></tr></thead>
                 <tbody>
                   {[...filtered].sort((a, b) => b.closureProb - a.closureProb).map((r) => {
                     let rec = 'Monitor';

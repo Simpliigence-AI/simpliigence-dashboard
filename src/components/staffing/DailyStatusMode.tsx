@@ -22,7 +22,7 @@ interface Props {
   onClose: () => void;
 }
 
-const ARCHIVED = ['Closed', 'Lost', 'Cancelled'];
+const ARCHIVED = ['Closed Won', 'Closed Lost', 'Cancelled'];
 
 export function DailyStatusMode({ requisitions, statuses, accounts, onAddStatus, onClose }: Props) {
   const today = new Date().toISOString().slice(0, 10);

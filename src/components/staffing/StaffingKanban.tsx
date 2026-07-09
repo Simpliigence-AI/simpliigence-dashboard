@@ -224,7 +224,7 @@ export function StaffingKanban({
   const cards: KanbanReq[] = useMemo(() => {
     // Only active reqs — archived ones don't appear on the board.
     const active = requisitions.filter(
-      (r) => !['Closed', 'Lost', 'Cancelled'].includes(r.status_field),
+      (r) => !['Closed Won', 'Closed Lost', 'Cancelled'].includes(r.status_field),
     );
     return active.map((r) => {
       const timing = computeStageTiming(r, history);

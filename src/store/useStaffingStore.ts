@@ -344,9 +344,9 @@ export const useStaffingStore = create<StaffingState>()(
                 (r) =>
                   r.account_id === acct!.id &&
                   r.title === row.requisition &&
-                  r.status_field !== 'Closed' &&
+                  r.status_field !== 'Closed Won' &&
                   r.status_field !== 'Cancelled' &&
-                  r.status_field !== 'Lost',
+                  r.status_field !== 'Closed Lost',
               );
               if (req) {
                 req.month = row.month;

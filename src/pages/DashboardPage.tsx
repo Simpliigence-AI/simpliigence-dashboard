@@ -332,7 +332,7 @@ export default function DashboardPage() {
 
   /* ── Cross-section KPIs ──────────────────────────────────── */
 
-  const ARCHIVED = ['Closed', 'Lost', 'Cancelled'];
+  const ARCHIVED = ['Closed Won', 'Closed Lost', 'Cancelled'];
 
   // PROJECTS
   const activeZohoProjects = pipelineStoreProjects.filter(

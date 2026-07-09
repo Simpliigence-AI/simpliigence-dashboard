@@ -1482,6 +1482,7 @@ export const db = {
     connectType?: 'sales' | 'delivery';
     text?: string;
     audioPath?: string;
+    sourceUrl?: string;
   }): Promise<
     | { ok: true; transcript: string; discussion: string; outcome: string; actionItems: Array<{ title: string; description: string; owner_email: string | null; due_date: string | null }> }
     | { ok: false; error: string }

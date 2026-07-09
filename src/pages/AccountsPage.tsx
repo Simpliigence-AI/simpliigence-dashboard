@@ -1004,8 +1004,8 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
   };
 
   const organize = async () => {
-    if (!d.rawNotes.trim() && !d.recordingPath) {
-      setStructureError('Type some notes, or record/upload a recording first.');
+    if (!d.rawNotes.trim() && !d.recordingPath && !d.recordingUrl.trim()) {
+      setStructureError('Paste a meeting link, upload/record audio, or type some notes first.');
       return;
     }
     setOrganizing(true);
@@ -1014,6 +1014,7 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
       accountName, connectType,
       text: d.rawNotes || undefined,
       audioPath: d.recordingPath || undefined,
+      sourceUrl: d.recordingUrl.trim() || undefined,
     });
     setOrganizing(false);
     if (!result.ok) {

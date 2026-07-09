@@ -12,6 +12,7 @@ import { useCallsStore } from './store/useCallsStore';
 import { useAccountStore } from './store/useAccountStore';
 import { usePresalesStore } from './store/usePresalesStore';
 import { useVendorStore } from './store/useVendorStore';
+import { useConciergeAccountsStore } from './store/useConciergeAccountsStore';
 import {
   fetchAssignments,
   fetchFinancialSettings,
@@ -33,6 +34,7 @@ import {
   fetchCallTemplates,
   fetchAccountManagement,
   fetchVendors,
+  fetchConcierge,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -86,6 +88,7 @@ function useSupabaseInit() {
           candidateCallsRes,
           callTemplatesRes,
           presalesRes,
+          conciergeRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -107,6 +110,7 @@ function useSupabaseInit() {
           withTimeout(fetchCandidateCalls()),
           withTimeout(fetchCallTemplates()),
           withTimeout(fetchPresales()),
+          withTimeout(fetchConcierge()),
         ]);
 
         // --- Forecast assignments ---
@@ -336,6 +340,18 @@ function useSupabaseInit() {
           }
         } else {
           console.warn('[supabase] Vendors fetch timed out — using localStorage');
+        }
+
+        // --- Concierge accounts (managed-services 360 view) ---
+        if (!conciergeRes.timedOut) {
+          const data = conciergeRes.value;
+          if (data) {
+            useConciergeAccountsStore.getState().hydrate(data.accounts, data.features, data.billing);
+            console.log('[supabase] Loaded concierge:', data.accounts.length, 'accounts /',
+              data.features.length, 'features /', data.billing.length, 'billing entries');
+          }
+        } else {
+          console.warn('[supabase] Concierge fetch timed out — using localStorage');
         }
 
         // --- Candidate AI calls + templates ---

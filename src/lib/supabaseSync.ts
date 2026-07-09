@@ -26,6 +26,9 @@ import type { Vendor, VendorOutreach } from '../types/vendor';
 import type {
   PresalesActivity, PresalesMeeting, ActivityType, Priority, ActivityStatus,
 } from '../types/presales';
+import type {
+  ConciergeAccount, ConciergeFeature, ConciergeBillingEntry,
+} from '../types/concierge';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
@@ -2315,7 +2318,139 @@ export const db = {
       activities: data.activities || [],
     };
   },
+
+  // --- Concierge (managed services) ---
+  async upsertConciergeAccount(a: ConciergeAccount) {
+    const { error } = await supabase.from('concierge_accounts').upsert(conciergeAccountToRow(a), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert concierge_account failed:', error); throw error; }
+  },
+  async deleteConciergeAccount(id: string) {
+    const { error } = await supabase.from('concierge_accounts').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete concierge_account failed:', error);
+  },
+  async upsertConciergeFeature(f: ConciergeFeature) {
+    const { error } = await supabase.from('concierge_features').upsert(conciergeFeatureToRow(f), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert concierge_feature failed:', error); throw error; }
+  },
+  async deleteConciergeFeature(id: string) {
+    const { error } = await supabase.from('concierge_features').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete concierge_feature failed:', error);
+  },
+  async upsertConciergeBilling(b: ConciergeBillingEntry) {
+    const { error } = await supabase.from('concierge_billing').upsert(conciergeBillingToRow(b), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert concierge_billing failed:', error); throw error; }
+  },
+  async deleteConciergeBilling(id: string) {
+    const { error } = await supabase.from('concierge_billing').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete concierge_billing failed:', error);
+  },
 };
+
+// ─── Concierge row converters + fetch ─────────────────────────────
+
+function conciergeAccountToRow(a: ConciergeAccount) {
+  return {
+    id: a.id,
+    name: a.name,
+    billing_model: a.billingModel,
+    monthly_rate: a.monthlyRate,
+    contract_start: a.contractStart,
+    contract_end: a.contractEnd,
+    health: a.health,
+    owner_email: a.ownerEmail?.toLowerCase() ?? null,
+    tech_stack: a.techStack ?? [],
+    current_work: a.currentWork,
+    previous_work: a.previousWork,
+    notes: a.notes,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToConciergeAccount(row: any): ConciergeAccount {
+  return {
+    id: row.id,
+    name: row.name,
+    billingModel: row.billing_model || 'monthly_retainer',
+    monthlyRate: row.monthly_rate != null ? Number(row.monthly_rate) : null,
+    contractStart: row.contract_start ?? null,
+    contractEnd: row.contract_end ?? null,
+    health: row.health || 'green',
+    ownerEmail: row.owner_email ?? null,
+    techStack: Array.isArray(row.tech_stack) ? row.tech_stack : [],
+    currentWork: row.current_work ?? null,
+    previousWork: row.previous_work ?? null,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function conciergeFeatureToRow(f: ConciergeFeature) {
+  return {
+    id: f.id,
+    account_id: f.accountId,
+    name: f.name,
+    category: f.category || '',
+    status: f.status,
+    priority: f.priority,
+    upsell_estimate: f.upsellEstimate,
+    notes: f.notes,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToConciergeFeature(row: any): ConciergeFeature {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    name: row.name,
+    category: row.category ?? '',
+    status: row.status || 'not_implemented',
+    priority: row.priority || 'medium',
+    upsellEstimate: row.upsell_estimate != null ? Number(row.upsell_estimate) : null,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function conciergeBillingToRow(b: ConciergeBillingEntry) {
+  return {
+    id: b.id,
+    account_id: b.accountId,
+    month: b.month,
+    amount: b.amount,
+    hours: b.hours,
+    notes: b.notes,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToConciergeBilling(row: any): ConciergeBillingEntry {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    month: row.month,
+    amount: Number(row.amount ?? 0),
+    hours: Number(row.hours ?? 0),
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchConcierge(): Promise<{
+  accounts: ConciergeAccount[]; features: ConciergeFeature[]; billing: ConciergeBillingEntry[];
+} | null> {
+  const [aRes, fRes, bRes] = await Promise.all([
+    supabase.from('concierge_accounts').select('*').order('name', { ascending: true }),
+    supabase.from('concierge_features').select('*'),
+    supabase.from('concierge_billing').select('*').order('month', { ascending: false }),
+  ]);
+  if (aRes.error) { console.warn('[supabase] fetch concierge_accounts failed:', aRes.error); return null; }
+  return {
+    accounts: (aRes.data || []).map(rowToConciergeAccount),
+    features: (fRes.data || []).map(rowToConciergeFeature),
+    billing: (bRes.data || []).map(rowToConciergeBilling),
+  };
+}
 
 // ─── Presales row converters ──────────────────────────────────────
 function presalesMeetingToRow(m: PresalesMeeting) {

@@ -12,6 +12,49 @@
  * an account by name-match on `account`.
  */
 
+/** A file or transcript attached to an account (owned by concierge_account_documents). */
+export type AccountDocKind = 'document' | 'meeting_transcript' | 'meeting_recording';
+export type AccountDocAiStatus = 'pending' | 'processing' | 'done' | 'failed';
+
+export interface AccountDocument {
+  id: string;
+  accountId: string;
+  kind: AccountDocKind;
+  title: string;
+  filename: string | null;
+  storagePath: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  meetingDate: string | null;
+  rawText: string | null;
+  aiStatus: AccountDocAiStatus;
+  aiSummary: string | null;
+  aiTopics: Record<string, unknown> | null;
+  aiError: string | null;
+  uploadedBy: string | null;
+  uploadedAt: string;
+  processedAt: string | null;
+}
+
+export interface AccountStakeholder { name: string; role?: string; notes?: string }
+export interface AccountInitiative { title: string; description?: string }
+export interface AccountRisk { title: string; severity?: 'low' | 'medium' | 'high'; notes?: string }
+export interface AccountOppSuggestion { title: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number }
+
+export interface AccountProfile {
+  accountId: string;
+  whatWeDo: string | null;
+  keyStakeholders: AccountStakeholder[];
+  technologies: string[];
+  currentInitiatives: AccountInitiative[];
+  risks: AccountRisk[];
+  upsellOpportunities: AccountOppSuggestion[];
+  crossSellOpportunities: AccountOppSuggestion[];
+  sourceDocIds: string[];
+  generatedAt: string | null;
+  updatedAt: string;
+}
+
 /** One entry in the master Salesforce feature catalog. Owned by sf_feature_catalog. */
 export interface SFFeatureCatalogEntry {
   id: string;

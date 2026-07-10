@@ -15,9 +15,10 @@
  * (case-insensitive contains, or explicit catalog_id link). This lights up
  * historical data without needing a data migration.
  */
-import { useMemo, useState } from 'react';
-import { X, ChevronRight, Sparkles, DollarSign } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { X, ChevronRight, Sparkles, DollarSign, TrendingUp, ArrowUpRight } from 'lucide-react';
 import type { ConciergeAccount, ConciergeFeature, SFFeatureCatalogEntry } from '../../types/concierge';
+import { useAccountDocsStore } from '../../store/useAccountDocsStore';
 
 interface Props {
   account: ConciergeAccount;
@@ -43,6 +44,9 @@ function isImplemented(catalog: SFFeatureCatalogEntry, features: ConciergeFeatur
 
 export function FeatureCoverageScorecard({ account, features, catalog, compact = false }: Props) {
   const [openCloud, setOpenCloud] = useState<string | null>(null);
+  const profile = useAccountDocsStore((s) => s.profileByAccount[account.id]);
+  const loadForAccount = useAccountDocsStore((s) => s.loadForAccount);
+  useEffect(() => { void loadForAccount(account.id); }, [account.id, loadForAccount]);
 
   const scorecard = useMemo(() => {
     // Restrict catalog to industry-relevant features
@@ -121,6 +125,39 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
           );
         })}
       </div>
+
+      {/* AI-suggested opportunities from docs/meetings */}
+      {profile && (profile.upsellOpportunities.length > 0 || profile.crossSellOpportunities.length > 0) && (
+        <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50/40 p-2 space-y-1.5">
+          <div className="text-[10px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles size={10} /> AI-surfaced opportunities from docs + meetings
+          </div>
+          <div className="space-y-1">
+            {profile.upsellOpportunities.slice(0, 3).map((o, i) => (
+              <div key={`u${i}`} className="text-[11px] text-slate-800 flex items-start gap-1.5">
+                <TrendingUp size={10} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <span className="font-semibold">{o.title}</span>
+                  {o.cloud && <span className="text-slate-500"> · {o.cloud}</span>}
+                  {o.upsell_estimate_usd ? <span className="text-amber-700 ml-1">· ~${o.upsell_estimate_usd.toLocaleString()}/yr</span> : null}
+                  {o.rationale && <div className="text-slate-600 text-[10px] leading-snug">{o.rationale}</div>}
+                </div>
+              </div>
+            ))}
+            {profile.crossSellOpportunities.slice(0, 3).map((o, i) => (
+              <div key={`x${i}`} className="text-[11px] text-slate-800 flex items-start gap-1.5">
+                <ArrowUpRight size={10} className="text-sky-600 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <span className="font-semibold">{o.title}</span>
+                  {o.cloud && <span className="text-slate-500"> · {o.cloud}</span>}
+                  {o.upsell_estimate_usd ? <span className="text-amber-700 ml-1">· ~${o.upsell_estimate_usd.toLocaleString()}/yr</span> : null}
+                  {o.rationale && <div className="text-slate-600 text-[10px] leading-snug">{o.rationale}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Drill-down modal */}
       {openDetail && (

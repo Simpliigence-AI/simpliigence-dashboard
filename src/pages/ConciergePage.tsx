@@ -20,6 +20,8 @@ import { useFeatureCatalogStore } from '../store/useFeatureCatalogStore';
 import { FeatureCatalogTab } from './concierge/FeatureCatalogTab';
 import { FeatureCoverageScorecard } from './concierge/FeatureCoverageScorecard';
 import { FeatureCoverageMatrix } from './concierge/FeatureCoverageMatrix';
+import { AccountDocsTab } from './concierge/AccountDocsTab';
+import { AccountProfileTab } from './concierge/AccountProfileTab';
 import { NewTicketModal } from './concierge/NewTicketModal';
 import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
@@ -395,6 +397,7 @@ function AccountDrawer({
 }) {
   const store = useConciergeAccountsStore();
   const featureCatalog = useFeatureCatalogStore((s) => s.entries);
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'documents' | 'meetings' | 'profile'>('overview');
   const [newFeatureName, setNewFeatureName] = useState('');
   const [newFeatureCategory, setNewFeatureCategory] = useState('Sales Cloud');
   const [newTech, setNewTech] = useState('');
@@ -448,6 +451,33 @@ function AccountDrawer({
 
   return (
     <Drawer open={true} onClose={onClose} title={account.name} width="max-w-3xl">
+      <div className="flex items-center gap-1 border-b border-slate-200 mb-4 -mt-2 overflow-x-auto">
+        {([
+          { key: 'overview', label: 'Overview' },
+          { key: 'documents', label: 'Documents' },
+          { key: 'meetings', label: 'Meetings' },
+          { key: 'profile', label: 'AI Profile' },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setDrawerTab(t.key)}
+            className={`px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
+              drawerTab === t.key
+                ? 'border-sky-600 text-sky-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {drawerTab === 'documents' && <AccountDocsTab accountId={account.id} mode="documents" />}
+      {drawerTab === 'meetings' && <AccountDocsTab accountId={account.id} mode="meetings" />}
+      {drawerTab === 'profile' && <AccountProfileTab accountId={account.id} />}
+
+      {drawerTab === 'overview' && (
       <div className="space-y-6">
         {/* Dormant flag */}
         <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer ${
@@ -799,6 +829,7 @@ function AccountDrawer({
           </Button>
         </section>
       </div>
+      )}
     </Drawer>
   );
 }

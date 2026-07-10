@@ -794,6 +794,23 @@ export default function ConciergePage() {
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [seedName, setSeedName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
+  const conciergeStore = useConciergeAccountsStore();
+  /** Which forecast cell is being edited inline (accountId + month key). */
+  const [overrideCell, setOverrideCell] = useState<{ accountId: string; month: string } | null>(null);
+  const [overrideValue, setOverrideValue] = useState('');
+
+  const commitOverride = async () => {
+    if (!overrideCell) return;
+    const amt = Number(overrideValue);
+    if (!Number.isFinite(amt) || amt < 0) { setOverrideCell(null); return; }
+    await conciergeStore.addBilling({
+      accountId: overrideCell.accountId,
+      month: overrideCell.month,
+      amount: amt,
+    });
+    setOverrideCell(null);
+    setOverrideValue('');
+  };
 
   const ticketsByAccount = useMemo(() => {
     const m = new Map<string, ConciergeTicket[]>();
@@ -1166,7 +1183,7 @@ export default function ConciergePage() {
               <span className="inline-flex items-center gap-1">
                 <span className="inline-block w-3 h-3 rounded bg-rose-100 border border-rose-200" /> down
               </span>
-              <span>* = AI forecast (trend-weighted from history)</span>
+              <span>* = AI forecast — click any * cell to override</span>
             </div>
           }
         >
@@ -1199,38 +1216,72 @@ export default function ConciergePage() {
                   {billingMatrix.rows.map(({ account, cells, ytdActual, yearTotal }) => (
                     <tr
                       key={account.id}
-                      onClick={() => setOpenAccountId(account.id)}
-                      className="border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50"
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
                     >
-                      <td className="py-2 pr-3 text-slate-800 font-medium sticky left-0 bg-white">{account.name}</td>
+                      <td
+                        onClick={() => setOpenAccountId(account.id)}
+                        className="py-2 pr-3 text-slate-800 font-medium sticky left-0 bg-white cursor-pointer"
+                      >{account.name}</td>
                       {cells.map((c, i) => {
                         const prev = i > 0 ? cells[i - 1].amount : 0;
                         const delta = c.amount - prev;
-                        // Only color-code once both months have data (skip the very first month if prev == 0).
                         const showColor = c.amount > 0 && prev > 0 && delta !== 0;
                         const bg = !showColor
                           ? undefined
                           : delta > 0
-                            ? 'rgba(16, 185, 129, 0.12)'  // green up
-                            : 'rgba(244, 63, 94, 0.12)';  // red down
+                            ? 'rgba(16, 185, 129, 0.12)'
+                            : 'rgba(244, 63, 94, 0.12)';
                         const arrow = !showColor ? '' : delta > 0 ? '▲' : '▼';
                         const arrowCls = delta > 0 ? 'text-emerald-600' : 'text-rose-600';
+                        const editing = overrideCell?.accountId === account.id && overrideCell.month === c.month;
                         return (
                           <td
                             key={i}
-                            className={`py-2 px-2 text-right relative ${c.forecast ? 'italic' : ''}`}
+                            className={`py-2 px-2 text-right relative ${c.forecast ? 'italic' : ''} ${c.forecast ? 'cursor-text' : 'cursor-pointer'}`}
                             style={bg ? { background: bg } : undefined}
+                            title={c.forecast ? 'Click to override the forecast for this month' : undefined}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (c.forecast) {
+                                setOverrideCell({ accountId: account.id, month: c.month });
+                                setOverrideValue(c.amount > 0 ? String(c.amount) : '');
+                              } else {
+                                setOpenAccountId(account.id);
+                              }
+                            }}
                           >
-                            <span className={`relative ${c.forecast ? 'text-slate-500' : 'text-slate-700'}`}>
-                              {c.amount > 0 ? fmtUSD(c.amount, { compact: true }) : '—'}
-                              {c.forecast && c.amount > 0 && '*'}
-                              {arrow && <span className={`ml-1 text-[10px] ${arrowCls}`}>{arrow}</span>}
-                            </span>
+                            {editing ? (
+                              <input
+                                autoFocus
+                                type="number"
+                                value={overrideValue}
+                                onChange={(ev) => setOverrideValue(ev.target.value)}
+                                onBlur={commitOverride}
+                                onKeyDown={(ev) => {
+                                  if (ev.key === 'Enter') { ev.preventDefault(); commitOverride(); }
+                                  else if (ev.key === 'Escape') { ev.preventDefault(); setOverrideCell(null); }
+                                }}
+                                onClick={(ev) => ev.stopPropagation()}
+                                className="w-20 px-1 py-0.5 text-right text-xs border border-primary rounded bg-white text-slate-900 focus:outline-none"
+                              />
+                            ) : (
+                              <span className={`relative ${c.forecast ? 'text-slate-500' : 'text-slate-700'}`}>
+                                {c.amount > 0 ? fmtUSD(c.amount, { compact: true }) : '—'}
+                                {c.forecast && c.amount > 0 && '*'}
+                                {arrow && <span className={`ml-1 text-[10px] ${arrowCls}`}>{arrow}</span>}
+                              </span>
+                            )}
                           </td>
                         );
                       })}
-                      <td className="py-2 pl-3 text-right font-semibold text-slate-900">{fmtUSD(ytdActual, { compact: true })}</td>
-                      <td className="py-2 pl-3 text-right font-semibold text-slate-500 italic">{fmtUSD(yearTotal, { compact: true })}*</td>
+                      <td
+                        onClick={() => setOpenAccountId(account.id)}
+                        className="py-2 pl-3 text-right font-semibold text-slate-900 cursor-pointer"
+                      >{fmtUSD(ytdActual, { compact: true })}</td>
+                      <td
+                        onClick={() => setOpenAccountId(account.id)}
+                        className="py-2 pl-3 text-right font-semibold text-slate-500 italic cursor-pointer"
+                      >{fmtUSD(yearTotal, { compact: true })}*</td>
                     </tr>
                   ))}
                 </tbody>

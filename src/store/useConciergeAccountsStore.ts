@@ -92,6 +92,7 @@ export const useConciergeAccountsStore = create<ConciergeAccountsState>()(
           isDormant,
           ownerEmail: ownerEmail?.toLowerCase() ?? null,
           techStack,
+          industry: null,
           currentWork: null,
           previousWork: null,
           notes: null,

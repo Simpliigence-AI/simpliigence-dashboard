@@ -12,6 +12,30 @@
  * an account by name-match on `account`.
  */
 
+/** One entry in the master Salesforce feature catalog. Owned by sf_feature_catalog. */
+export interface SFFeatureCatalogEntry {
+  id: string;
+  cloud: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  industriesRelevant: string[];      // empty = universal
+  upsellHint: number;
+  licenseTier: string | null;
+  isActive: boolean;
+  isSeed: boolean;
+}
+
+/** Industries used by the catalog & by the scorecard's relevance filter.
+ *  Matches the seed function's INDUSTRIES list. Kept in sync manually. */
+export const CATALOG_INDUSTRIES = [
+  'Financial Services', 'Insurance', 'Healthcare', 'Life Sciences / Pharma',
+  'Manufacturing', 'Retail', 'Consumer Goods', 'Automotive',
+  'Communications', 'Media / Entertainment', 'Energy / Utilities',
+  'Technology / SaaS', 'Professional Services', 'Public Sector',
+  'Education', 'Non-Profit', 'Real Estate', 'Travel / Hospitality',
+] as const;
+
 export type BillingModel = 'monthly_retainer' | 'annual_unlimited' | 'hourly';
 export type AccountHealth = 'green' | 'yellow' | 'red';
 export type FeatureStatus = 'implemented' | 'in_progress' | 'planned' | 'not_implemented';
@@ -28,6 +52,9 @@ export interface ConciergeAccount {
   isDormant: boolean;               // true = re-engagement target (inactive concierge relationship)
   ownerEmail: string | null;
   techStack: string[];              // e.g. ["Salesforce Sales Cloud", "Marketing Cloud"]
+  /** Industry — drives which catalog features count as "relevant" in the
+   *  Feature Coverage scorecard. See INDUSTRIES in feature catalog. */
+  industry: string | null;
   currentWork: string | null;       // free-text: what we're doing this month
   previousWork: string | null;      // free-text: last month/quarter
   notes: string | null;

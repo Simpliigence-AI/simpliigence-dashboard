@@ -98,11 +98,6 @@ function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _isOverdue(dueDate: string | null): boolean {
-  if (!dueDate) return false;
-  return new Date(dueDate) < new Date();
-}
 function ticketStatusVariant(status: string): 'danger' | 'warning' {
   return status === 'Open' ? 'danger' : 'warning';
 }
@@ -795,11 +790,10 @@ export default function ConciergePage() {
     graphConfigured, graphSubscriptions, checkGraphSubscription, setupGraphSubscription,
   } = useConciergeStore();
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
-  const [_showNewTicket, setShowNewTicket] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [showNewTicket, setShowNewTicket] = useState(false);
   const [graphSetupBusy, setGraphSetupBusy] = useState(false);
   const [graphMsg, setGraphMsg] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _openTicket = useMemo(() => tickets.find((t) => t.id === openTicketId) ?? null, [tickets, openTicketId]);
+  const openTicket = useMemo(() => tickets.find((t) => t.id === openTicketId) ?? null, [tickets, openTicketId]);
   const activeGraphSub = graphSubscriptions.find((s) => s.active);
   const { accounts, features, billing } = useConciergeAccountsStore();
 

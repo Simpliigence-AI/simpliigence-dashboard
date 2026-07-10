@@ -13,6 +13,7 @@ import { useAccountStore } from './store/useAccountStore';
 import { usePresalesStore } from './store/usePresalesStore';
 import { useVendorStore } from './store/useVendorStore';
 import { useConciergeAccountsStore } from './store/useConciergeAccountsStore';
+import { useFeatureCatalogStore } from './store/useFeatureCatalogStore';
 import {
   fetchAssignments,
   fetchFinancialSettings,
@@ -353,6 +354,9 @@ function useSupabaseInit() {
         } else {
           console.warn('[supabase] Concierge fetch timed out — using localStorage');
         }
+
+        // --- Feature catalog (used by Concierge scorecard + backlog + catalog tab) ---
+        void useFeatureCatalogStore.getState().load();
 
         // --- Candidate AI calls + templates ---
         if (!candidateCallsRes.timedOut) {

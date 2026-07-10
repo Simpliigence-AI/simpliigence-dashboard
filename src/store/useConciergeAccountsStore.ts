@@ -38,6 +38,7 @@ interface ConciergeAccountsState {
     monthlyRate?: number | null;
     ownerEmail?: string | null;
     techStack?: string[];
+    isDormant?: boolean;
   }) => Promise<ConciergeAccount>;
   updateAccount: (id: string, patch: Partial<ConciergeAccount>) => Promise<void>;
   removeAccount: (id: string) => Promise<void>;
@@ -78,7 +79,7 @@ export const useConciergeAccountsStore = create<ConciergeAccountsState>()(
 
       hydrate: (accounts, features, billing) => set({ accounts, features, billing }),
 
-      addAccount: async ({ name, billingModel = 'monthly_retainer', monthlyRate = null, ownerEmail = null, techStack = [] }) => {
+      addAccount: async ({ name, billingModel = 'monthly_retainer', monthlyRate = null, ownerEmail = null, techStack = [], isDormant = false }) => {
         const now = new Date().toISOString();
         const a: ConciergeAccount = {
           id: nanoid(),
@@ -88,6 +89,7 @@ export const useConciergeAccountsStore = create<ConciergeAccountsState>()(
           contractStart: null,
           contractEnd: null,
           health: 'green',
+          isDormant,
           ownerEmail: ownerEmail?.toLowerCase() ?? null,
           techStack,
           currentWork: null,

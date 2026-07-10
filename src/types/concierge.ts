@@ -25,6 +25,7 @@ export interface ConciergeAccount {
   contractStart: string | null;     // YYYY-MM-DD
   contractEnd: string | null;       // YYYY-MM-DD
   health: AccountHealth;
+  isDormant: boolean;               // true = re-engagement target (inactive concierge relationship)
   ownerEmail: string | null;
   techStack: string[];              // e.g. ["Salesforce Sales Cloud", "Marketing Cloud"]
   currentWork: string | null;       // free-text: what we're doing this month

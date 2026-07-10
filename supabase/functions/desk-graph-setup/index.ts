@@ -11,7 +11,7 @@
  *   { action: 'status' }
  *
  * Env:
- *   MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET  (client-credentials flow)
+ *   GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET  (client-credentials flow)
  *   DESK_INBOUND_URL   — full URL of the desk-inbound edge function
  *                         (default: '<SUPABASE_URL>/functions/v1/desk-inbound')
  *   DESK_CLIENT_STATE  — shared secret to verify incoming webhooks
@@ -27,9 +27,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = env('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = env('SUPABASE_SERVICE_ROLE_KEY')!;
-const MS_TENANT_ID = env('MS_TENANT_ID');
-const MS_CLIENT_ID = env('MS_CLIENT_ID');
-const MS_CLIENT_SECRET = env('MS_CLIENT_SECRET');
+const GRAPH_TENANT_ID = env('GRAPH_TENANT_ID');
+const GRAPH_CLIENT_ID = env('GRAPH_CLIENT_ID');
+const GRAPH_CLIENT_SECRET = env('GRAPH_CLIENT_SECRET');
 const DESK_INBOUND_URL = env('DESK_INBOUND_URL') || `${SUPABASE_URL}/functions/v1/desk-inbound`;
 const DESK_CLIENT_STATE_ENV = env('DESK_CLIENT_STATE');
 
@@ -52,11 +52,11 @@ function nanoid(len = 32): string {
 async function getGraphToken(): Promise<string> {
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
-    client_id: MS_CLIENT_ID!,
-    client_secret: MS_CLIENT_SECRET!,
+    client_id: GRAPH_CLIENT_ID!,
+    client_secret: GRAPH_CLIENT_SECRET!,
     scope: 'https://graph.microsoft.com/.default',
   });
-  const r = await fetch(`https://login.microsoftonline.com/${MS_TENANT_ID}/oauth2/v2.0/token`, { method: 'POST', body });
+  const r = await fetch(`https://login.microsoftonline.com/${GRAPH_TENANT_ID}/oauth2/v2.0/token`, { method: 'POST', body });
   if (!r.ok) throw new Error(`MS token (${r.status}): ${(await r.text()).slice(0, 300)}`);
   const d = await r.json() as { access_token?: string };
   if (!d.access_token) throw new Error('no access_token');
@@ -70,10 +70,10 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const body = await req.json().catch(() => ({})) as { action?: string; mailbox?: string; id?: string };
 
-  if (!MS_TENANT_ID || !MS_CLIENT_ID || !MS_CLIENT_SECRET) {
+  if (!GRAPH_TENANT_ID || !GRAPH_CLIENT_ID || !GRAPH_CLIENT_SECRET) {
     return new Response(JSON.stringify({
       ok: false,
-      message: 'Microsoft Graph credentials not configured. Set MS_TENANT_ID / MS_CLIENT_ID / MS_CLIENT_SECRET on this edge function in Supabase Dashboard → Edge Functions → Secrets. The Azure AD app needs Mail.Read (application permission) with admin consent granted.',
+      message: 'Microsoft Graph credentials not configured. Set GRAPH_TENANT_ID / GRAPH_CLIENT_ID / GRAPH_CLIENT_SECRET on this edge function in Supabase Dashboard → Edge Functions → Secrets. The Azure AD app needs Mail.Read (application permission) with admin consent granted.',
     }), { status: 200, headers: jsonHeaders });
   }
 

@@ -27,9 +27,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = env('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = env('SUPABASE_SERVICE_ROLE_KEY')!;
-const MS_TENANT_ID = env('MS_TENANT_ID');
-const MS_CLIENT_ID = env('MS_CLIENT_ID');
-const MS_CLIENT_SECRET = env('MS_CLIENT_SECRET');
+const GRAPH_TENANT_ID = env('GRAPH_TENANT_ID');
+const GRAPH_CLIENT_ID = env('GRAPH_CLIENT_ID');
+const GRAPH_CLIENT_SECRET = env('GRAPH_CLIENT_SECRET');
 
 function nanoid(len = 21): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -41,14 +41,14 @@ function nanoid(len = 21): string {
 }
 
 async function getGraphToken(): Promise<string> {
-  if (!MS_TENANT_ID || !MS_CLIENT_ID || !MS_CLIENT_SECRET) {
-    throw new Error('Missing MS_TENANT_ID / MS_CLIENT_ID / MS_CLIENT_SECRET');
+  if (!GRAPH_TENANT_ID || !GRAPH_CLIENT_ID || !GRAPH_CLIENT_SECRET) {
+    throw new Error('Missing GRAPH_TENANT_ID / GRAPH_CLIENT_ID / GRAPH_CLIENT_SECRET');
   }
-  const url = `https://login.microsoftonline.com/${MS_TENANT_ID}/oauth2/v2.0/token`;
+  const url = `https://login.microsoftonline.com/${GRAPH_TENANT_ID}/oauth2/v2.0/token`;
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
-    client_id: MS_CLIENT_ID,
-    client_secret: MS_CLIENT_SECRET,
+    client_id: GRAPH_CLIENT_ID,
+    client_secret: GRAPH_CLIENT_SECRET,
     scope: 'https://graph.microsoft.com/.default',
   });
   const r = await fetch(url, { method: 'POST', body });

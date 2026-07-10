@@ -194,12 +194,17 @@ function AccountCard({ account, features, openTickets, monthAmount, onOpen }: Ac
   const upsellPotential = features
     .filter((f) => f.status !== 'implemented')
     .reduce((sum, f) => sum + (f.upsellEstimate ?? 0), 0);
+  const dormant = account.isDormant;
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`text-left bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-primary/40 transition-all ring-1 ${health.ring} p-5 flex flex-col gap-4`}
+      className={`text-left rounded-xl shadow-sm hover:shadow-md transition-all p-5 flex flex-col gap-4 ${
+        dormant
+          ? 'bg-rose-50 border-2 border-rose-300 hover:border-rose-500 ring-1 ring-rose-200'
+          : `bg-white border border-slate-200 hover:border-primary/40 ring-1 ${health.ring}`
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -209,7 +214,11 @@ function AccountCard({ account, features, openTickets, monthAmount, onOpen }: Ac
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="neutral" className={billing.cls}>{billing.label}</Badge>
-            <Badge variant="neutral" className={health.cls}>{health.label}</Badge>
+            {dormant ? (
+              <Badge variant="danger" className="bg-rose-200 text-rose-900">Dormant — Re-engage</Badge>
+            ) : (
+              <Badge variant="neutral" className={health.cls}>{health.label}</Badge>
+            )}
           </div>
         </div>
         <div className="text-right">
@@ -342,6 +351,26 @@ function AccountDrawer({
   return (
     <Drawer open={true} onClose={onClose} title={account.name} width="max-w-3xl">
       <div className="space-y-6">
+        {/* Dormant flag */}
+        <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer ${
+          account.isDormant ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-200'
+        }`}>
+          <input
+            type="checkbox"
+            checked={account.isDormant}
+            onChange={(e) => store.updateAccount(account.id, { isDormant: e.target.checked })}
+            className="w-4 h-4 accent-rose-600"
+          />
+          <div className="flex-1">
+            <div className={`text-sm font-semibold ${account.isDormant ? 'text-rose-800' : 'text-slate-700'}`}>
+              {account.isDormant ? 'Dormant — needs re-engagement' : 'Mark as dormant'}
+            </div>
+            <div className="text-xs text-slate-600">
+              Dormant accounts render red on the Overview tab; use them as a re-engagement target list to reactivate concierge relationships.
+            </div>
+          </div>
+        </label>
+
         {/* Contract + status */}
         <section className="grid grid-cols-2 gap-4">
           <div>
@@ -664,6 +693,7 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
   const [name, setName] = useState(defaultName ?? '');
   const [billingModel, setBillingModel] = useState<BillingModel>('monthly_retainer');
   const [monthlyRate, setMonthlyRate] = useState('');
+  const [isDormant, setIsDormant] = useState(false);
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -671,6 +701,7 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
       name,
       billingModel,
       monthlyRate: monthlyRate ? Number(monthlyRate) : null,
+      isDormant,
     });
     onClose();
   };
@@ -694,6 +725,18 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
           <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Monthly rate (USD)</label>
           <Input type="number" value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder="e.g. 5000" className="mt-1" />
         </div>
+        <label className="flex items-center gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isDormant}
+            onChange={(e) => setIsDormant(e.target.checked)}
+            className="w-4 h-4 accent-rose-600"
+          />
+          <div>
+            <div className="text-sm font-medium text-rose-800">Mark as dormant</div>
+            <div className="text-xs text-rose-600">Card shows red — target for re-engagement to reactivate concierge.</div>
+          </div>
+        </label>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button onClick={submit}>Create account</Button>
@@ -747,15 +790,17 @@ export default function ConciergePage() {
   const nowMonth = currentMonth();
 
   const stats = useMemo(() => {
-    const mrr = accounts
+    const activeAccounts = accounts.filter((a) => !a.isDormant);
+    const mrr = activeAccounts
       .filter((a) => a.billingModel !== 'hourly')
       .reduce((sum, a) => sum + (a.monthlyRate ?? 0), 0);
     const openTickets = tickets.filter((t) => t.status === 'Open').length;
     const upsellPipeline = features
       .filter((f) => f.status !== 'implemented')
       .reduce((sum, f) => sum + (f.upsellEstimate ?? 0), 0);
-    const atRisk = accounts.filter((a) => a.health !== 'green').length;
-    return { mrr, openTickets, upsellPipeline, atRisk, accountCount: accounts.length };
+    const atRisk = activeAccounts.filter((a) => a.health !== 'green').length;
+    const dormantCount = accounts.filter((a) => a.isDormant).length;
+    return { mrr, openTickets, upsellPipeline, atRisk, dormantCount, accountCount: accounts.length };
   }, [accounts, tickets, features]);
 
   /* Overview: matching ticket-only accounts that don't yet have a concierge_account record */
@@ -772,14 +817,18 @@ export default function ConciergePage() {
   }, [accounts, tickets]);
 
   const filteredAccounts = useMemo(() => {
-    if (!search.trim()) return accounts;
-    const q = search.toLowerCase();
-    return accounts.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.techStack.some((t) => t.toLowerCase().includes(q)) ||
-        (a.currentWork ?? '').toLowerCase().includes(q),
-    );
+    const base = search.trim()
+      ? accounts.filter((a) => {
+          const q = search.toLowerCase();
+          return (
+            a.name.toLowerCase().includes(q) ||
+            a.techStack.some((t) => t.toLowerCase().includes(q)) ||
+            (a.currentWork ?? '').toLowerCase().includes(q)
+          );
+        })
+      : accounts;
+    // Dormant accounts float to the top so re-engagement targets are visible first.
+    return [...base].sort((a, b) => Number(b.isDormant) - Number(a.isDormant) || a.name.localeCompare(b.name));
   }, [accounts, search]);
 
   const openAccount = openAccountId ? accounts.find((a) => a.id === openAccountId) : null;
@@ -847,12 +896,13 @@ export default function ConciergePage() {
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <StatCard label="Accounts" value={stats.accountCount} icon={<Building2 size={20} />} />
-        <StatCard label="MRR" value={fmtUSD(stats.mrr, { compact: true })} subtitle="Retainers combined" icon={<DollarSign size={20} />} />
+        <StatCard label="MRR" value={fmtUSD(stats.mrr, { compact: true })} subtitle="Active retainers" icon={<DollarSign size={20} />} />
         <StatCard label="Open Tickets" value={stats.openTickets} icon={<Headset size={20} />} />
         <StatCard label="Upsell Pipeline" value={fmtUSD(stats.upsellPipeline, { compact: true })} subtitle="From backlog" icon={<TrendingUp size={20} />} />
         <StatCard label="At Risk" value={stats.atRisk} subtitle={stats.atRisk > 0 ? 'Need attention' : 'All healthy'} icon={<AlertTriangle size={20} />} />
+        <StatCard label="Dormant" value={stats.dormantCount} subtitle={stats.dormantCount > 0 ? 'Re-engage' : 'None'} icon={<AlertTriangle size={20} />} />
       </div>
 
       {/* Tab bar */}

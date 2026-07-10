@@ -798,6 +798,10 @@ export default function ConciergePage() {
   const openTicket = useMemo(() => tickets.find((t) => t.id === openTicketId) ?? null, [tickets, openTicketId]);
   const activeGraphSub = graphSubscriptions.find((s) => s.active);
   const { accounts, features, billing } = useConciergeAccountsStore();
+  // Hoisted to top-level so hook order is stable regardless of which tab is
+  // active (React error #310 fix — the Feature Coverage matrix was calling
+  // this hook only when tab === 'backlog', which shifted the hook order).
+  const featureCatalog = useFeatureCatalogStore((s) => s.entries);
 
   // Hydrate tickets from Supabase on mount + tick the "last synced" chip
   // every 30s so time-since stays reasonably accurate without a full reload.
@@ -1186,7 +1190,7 @@ export default function ConciergePage() {
         <FeatureCoverageMatrix
           accounts={accounts}
           featuresByAccount={featuresByAccount}
-          catalog={useFeatureCatalogStore((s) => s.entries)}
+          catalog={featureCatalog}
           onAccountClick={(id) => setOpenAccountId(id)}
         />
       )}

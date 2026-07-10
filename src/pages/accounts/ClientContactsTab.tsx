@@ -18,6 +18,7 @@ import { Fragment, useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Loader2, Gift, Mail, Phone, Calendar, Briefcase, StickyNote, ChevronDown, ChevronRight } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { supabase, CLIENT_ID } from '../../lib/supabase';
+import { SalesforceIntegrationBar } from './SalesforceIntegrationBar';
 import type { AccountClientContact, ClientContactRelationship } from '../../types/clientContact';
 import {
   CLIENT_CONTACT_RELATIONSHIPS,
@@ -39,6 +40,8 @@ function rowToContact(row: any): AccountClientContact {
     gift: row.gift ?? '',
     giftDate: row.gift_date ?? null,
     notes: row.notes ?? '',
+    source: (row.source === 'salesforce' ? 'salesforce' : 'manual'),
+    salesforceId: row.salesforce_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -62,7 +65,7 @@ function contactToRow(c: AccountClientContact) {
   };
 }
 
-export function ClientContactsTab({ accountId }: { accountId: string }) {
+export function ClientContactsTab({ accountId, accountName }: { accountId: string; accountName: string }) {
   const [contacts, setContacts] = useState<AccountClientContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
@@ -144,6 +147,8 @@ export function ClientContactsTab({ accountId }: { accountId: string }) {
       gift: '',
       giftDate: null,
       notes: '',
+      source: 'manual',
+      salesforceId: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -169,6 +174,7 @@ export function ClientContactsTab({ accountId }: { accountId: string }) {
 
   return (
     <div className="space-y-3">
+      <SalesforceIntegrationBar accountId={accountId} accountName={accountName} onSynced={refresh} />
       <div className="flex items-center justify-between">
         <div className="text-[11px] text-slate-500">
           People at this client we keep in touch with. Track last call + gifts so we never go cold.
@@ -239,13 +245,29 @@ export function ClientContactsTab({ accountId }: { accountId: string }) {
                         </button>
                       </td>
                       <td className="px-2 py-1.5">
-                        <input
-                          value={c.name}
-                          onChange={(e) => patchLocal(c.id, { name: e.target.value })}
-                          onBlur={blur}
-                          placeholder="Name *"
-                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
+                        <div className="flex items-center gap-1.5">
+                          {c.source === 'salesforce' && (
+                            <span
+                              className="flex-shrink-0 text-[8px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 px-1 py-0.5 rounded"
+                              title="Synced from Salesforce — edits will be overwritten on next sync"
+                            >
+                              SF
+                            </span>
+                          )}
+                          <input
+                            value={c.name}
+                            onChange={(e) => patchLocal(c.id, { name: e.target.value })}
+                            onBlur={blur}
+                            placeholder="Name *"
+                            readOnly={c.source === 'salesforce'}
+                            title={c.source === 'salesforce' ? 'Synced from Salesforce — edit in SF instead' : undefined}
+                            className={`w-full h-7 px-2 text-xs leading-tight border border-transparent rounded ${
+                              c.source === 'salesforce'
+                                ? 'bg-sky-50/40 text-slate-700 cursor-not-allowed'
+                                : 'hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30'
+                            }`}
+                          />
+                        </div>
                       </td>
                       <td className="px-2 py-1.5">
                         <input

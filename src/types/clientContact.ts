@@ -39,6 +39,10 @@ export interface AccountClientContact {
   giftDate: string | null;
   /** Optional freeform notes — rendered as a textarea below the row. */
   notes: string;
+  /** 'manual' (typed by team) or 'salesforce' (synced from SF). Never null. */
+  source: 'manual' | 'salesforce';
+  /** SF Contact.Id when source='salesforce'; null otherwise. */
+  salesforceId: string | null;
   createdAt: string;
   updatedAt: string;
 }

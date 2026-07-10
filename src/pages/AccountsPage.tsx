@@ -823,13 +823,13 @@ function AccountDetail(props: {
         />
       )}
       {activeTab === 'contacts' && (
-        <ClientContactsTab accountId={account.id} />
+        <ClientContactsTab accountId={account.id} accountName={account.name} />
       )}
       {activeTab === 'team' && (
         <TeamTab account={account} team={team} />
       )}
       {activeTab === 'info' && <AccountInfoTab account={account} />}
-      {activeTab === 'opportunities' && <OpportunitiesTab accountId={account.id} />}
+      {activeTab === 'opportunities' && <OpportunitiesTab accountId={account.id} accountName={account.name} />}
       {activeTab === 'projects' && <ProjectsTab accountId={account.id} accountName={account.name} suggestedTeam={team} />}
       {activeTab === 'innovation' && <InnovationTab accountId={account.id} />}
       {activeTab === 'csat' && <CSATTab accountId={account.id} />}

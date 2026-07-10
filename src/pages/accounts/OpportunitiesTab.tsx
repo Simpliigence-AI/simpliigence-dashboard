@@ -10,6 +10,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Plus, Trash2, Loader2, TrendingUp, Calendar } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { supabase, CLIENT_ID } from '../../lib/supabase';
+import { SalesforceIntegrationBar } from './SalesforceIntegrationBar';
 
 type OppType = 'cross_sell' | 'upsell';
 type OppStatus = 'identified' | 'pursuing' | 'proposed' | 'won' | 'lost' | 'paused';
@@ -25,6 +26,9 @@ interface Opportunity {
   status: OppStatus;
   targetDate: string | null;
   notes: string;
+  source: 'manual' | 'salesforce';
+  salesforceId: string | null;
+  stageName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -51,6 +55,9 @@ function rowTo(row: any): Opportunity {
     status: (row.status ?? 'identified') as OppStatus,
     targetDate: row.target_date ?? null,
     notes: row.notes ?? '',
+    source: (row.source === 'salesforce' ? 'salesforce' : 'manual'),
+    salesforceId: row.salesforce_id ?? null,
+    stageName: row.stage_name ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -73,7 +80,7 @@ function toRow(o: Opportunity) {
   };
 }
 
-export function OpportunitiesTab({ accountId }: { accountId: string }) {
+export function OpportunitiesTab({ accountId, accountName }: { accountId: string; accountName: string }) {
   const [rows, setRows] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
@@ -119,7 +126,8 @@ export function OpportunitiesTab({ accountId }: { accountId: string }) {
     setRows((r) => [...r, {
       id: nanoid(), accountId, oppType: 'upsell', title: '', description: '',
       valueEstimate: '', ownerEmail: null, status: 'identified', targetDate: null,
-      notes: '', createdAt: now, updatedAt: now,
+      notes: '', source: 'manual', salesforceId: null, stageName: null,
+      createdAt: now, updatedAt: now,
     }]);
   };
   const remove = async (id: string) => {
@@ -136,6 +144,7 @@ export function OpportunitiesTab({ accountId }: { accountId: string }) {
 
   return (
     <div className="space-y-3">
+      <SalesforceIntegrationBar accountId={accountId} accountName={accountName} onSynced={refresh} />
       <div className="flex items-center justify-between">
         <div className="text-[11px] text-slate-500">
           Cross-sell &amp; upsell opportunities we&apos;ve identified for this account. Track them from <em>identified</em> → <em>won</em> here.
@@ -179,11 +188,27 @@ export function OpportunitiesTab({ accountId }: { accountId: string }) {
                       </select>
                     </td>
                     <td className="px-2 py-1.5 min-w-[200px]">
-                      <input value={o.title}
-                             onChange={(e) => patch(o.id, { title: e.target.value })}
-                             onBlur={blur}
-                             placeholder="Title *"
-                             className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      <div className="flex items-center gap-1.5">
+                        {o.source === 'salesforce' && (
+                          <span
+                            className="flex-shrink-0 text-[8px] font-bold uppercase tracking-wider bg-sky-100 text-sky-700 px-1 py-0.5 rounded"
+                            title={`Salesforce Opportunity${o.stageName ? ` · Stage: ${o.stageName}` : ''} · Edits will be overwritten on next sync`}
+                          >
+                            SF
+                          </span>
+                        )}
+                        <input value={o.title}
+                               onChange={(e) => patch(o.id, { title: e.target.value })}
+                               onBlur={blur}
+                               placeholder="Title *"
+                               readOnly={o.source === 'salesforce'}
+                               title={o.source === 'salesforce' ? 'Synced from Salesforce — edit in SF instead' : undefined}
+                               className={`w-full h-7 px-2 text-xs leading-tight border border-transparent rounded ${
+                                 o.source === 'salesforce'
+                                   ? 'bg-sky-50/40 text-slate-700 cursor-not-allowed'
+                                   : 'hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30'
+                               }`} />
+                      </div>
                       {(o.description || o.notes) && (
                         <textarea value={o.description}
                                   onChange={(e) => patch(o.id, { description: e.target.value })}

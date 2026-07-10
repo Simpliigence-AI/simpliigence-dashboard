@@ -16,6 +16,11 @@ import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes,
 import { useConciergeStore } from '../store/useConciergeStore';
 import type { ConciergeTicket } from '../store/useConciergeStore';
 import { useConciergeAccountsStore } from '../store/useConciergeAccountsStore';
+import { useFeatureCatalogStore } from '../store/useFeatureCatalogStore';
+import { FeatureCatalogTab } from './concierge/FeatureCatalogTab';
+import { FeatureCoverageScorecard } from './concierge/FeatureCoverageScorecard';
+import { NewTicketModal } from './concierge/NewTicketModal';
+import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
   ConciergeAccount,
   ConciergeFeature,
@@ -68,6 +73,7 @@ import {
   Trash2,
   Loader2,
   RefreshCw,
+  Mail,
 } from 'lucide-react';
 
 /** Human-readable "last synced" chip. Handles null (never synced) + shows
@@ -91,10 +97,6 @@ function formatFreshness(iso: string | null): string {
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-function isOverdue(dueDate: string | null): boolean {
-  if (!dueDate) return false;
-  return new Date(dueDate) < new Date();
 }
 function ticketStatusVariant(status: string): 'danger' | 'warning' {
   return status === 'Open' ? 'danger' : 'warning';
@@ -121,7 +123,7 @@ function currentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-type Tab = 'overview' | 'tickets' | 'backlog' | 'billing';
+type Tab = 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog';
 
 /* ── Ticket group card (preserved from old page) ── */
 
@@ -132,7 +134,7 @@ interface ClientGroup {
   onHoldCount: number;
 }
 
-function ClientGroupCard({ group }: { group: ClientGroup }) {
+function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicketClick: (id: string) => void }) {
   const [expanded, setExpanded] = useState(group.openCount > 0);
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -160,26 +162,30 @@ function ClientGroupCard({ group }: { group: ClientGroup }) {
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Subject</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Status</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Priority</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Created</th>
-                <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Due</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Assignee</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Hours</th>
+                <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Created</th>
               </tr>
             </thead>
             <tbody>
               {group.tickets.map((t) => (
-                <tr key={t.id} className="border-b border-slate-50 last:border-0">
+                <tr
+                  key={t.id}
+                  onClick={() => onTicketClick(t.id)}
+                  className="border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50"
+                >
                   <td className="py-2.5 pr-4 text-slate-500 font-mono text-xs">{t.ticketNumber}</td>
                   <td className="py-2.5 pr-4 max-w-xs">
-                    <a href={t.webUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+                    <div className="text-primary inline-flex items-center gap-1">
                       <span className="truncate">{t.subject}</span>
-                      <ExternalLink size={12} className="flex-shrink-0 opacity-60" />
-                    </a>
+                      {t.webUrl && <ExternalLink size={12} className="flex-shrink-0 opacity-60" />}
+                    </div>
                   </td>
                   <td className="py-2.5 pr-4"><Badge variant={ticketStatusVariant(t.status)}>{t.status}</Badge></td>
                   <td className="py-2.5 pr-4"><Badge variant={priorityVariant(t.priority)}>{t.priority ?? 'None'}</Badge></td>
-                  <td className="py-2.5 pr-4 text-slate-600 whitespace-nowrap">{fmtDate(t.createdTime)}</td>
-                  <td className={`py-2.5 whitespace-nowrap ${isOverdue(t.dueDate) ? 'text-red-600 font-medium' : 'text-slate-600'}`}>
-                    {fmtDate(t.dueDate)}{isOverdue(t.dueDate) && <span className="ml-1 text-xs">(overdue)</span>}
-                  </td>
+                  <td className="py-2.5 pr-4 text-xs text-slate-600 truncate max-w-[10rem]">{t.assigneeEmail ?? <span className="text-slate-400">Unassigned</span>}</td>
+                  <td className="py-2.5 pr-4 text-slate-600 whitespace-nowrap tabular-nums">{t.hoursLogged > 0 ? `${t.hoursLogged.toFixed(1)}h` : '—'}</td>
+                  <td className="py-2.5 whitespace-nowrap text-slate-600">{fmtDate(t.createdTime)}</td>
                 </tr>
               ))}
             </tbody>
@@ -509,6 +515,17 @@ function AccountDrawer({
           </div>
         </section>
 
+        {/* Feature Coverage Scorecard — per-cloud X / Y-relevant with drill-down */}
+        <section>
+          <div className="rounded-lg border border-sky-100 bg-gradient-to-br from-sky-50/40 to-blue-50/30 p-3 mb-4">
+            <FeatureCoverageScorecard
+              account={account}
+              features={features}
+              catalog={useFeatureCatalogStore((s) => s.entries)}
+            />
+          </div>
+        </section>
+
         {/* Features / heat map / backlog */}
         <section>
           <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
@@ -770,16 +787,33 @@ export default function ConciergePage() {
   const {
     tickets, lastSynced, lastSyncOk, lastSyncError, refreshing,
     loadFromSupabase, refreshFromZoho,
+    graphConfigured, graphSubscriptions, checkGraphSubscription, setupGraphSubscription,
   } = useConciergeStore();
+  const [openTicketId, setOpenTicketId] = useState<string | null>(null);
+  const [showNewTicket, setShowNewTicket] = useState(false);
+  const [graphSetupBusy, setGraphSetupBusy] = useState(false);
+  const [graphMsg, setGraphMsg] = useState<string | null>(null);
+  const openTicket = useMemo(() => tickets.find((t) => t.id === openTicketId) ?? null, [tickets, openTicketId]);
+  const activeGraphSub = graphSubscriptions.find((s) => s.active);
   const { accounts, features, billing } = useConciergeAccountsStore();
 
   // Hydrate tickets from Supabase on mount + tick the "last synced" chip
   // every 30s so time-since stays reasonably accurate without a full reload.
   useEffect(() => {
     void loadFromSupabase();
+    void checkGraphSubscription();
     const interval = setInterval(() => { void loadFromSupabase(); }, 30_000);
     return () => clearInterval(interval);
-  }, [loadFromSupabase]);
+  }, [loadFromSupabase, checkGraphSubscription]);
+
+  const handleGraphSetup = async () => {
+    setGraphSetupBusy(true);
+    setGraphMsg(null);
+    const res = await setupGraphSubscription();
+    setGraphSetupBusy(false);
+    setGraphMsg(res.ok ? 'Graph subscription active' : (res.message || 'Setup failed'));
+    setTimeout(() => setGraphMsg(null), 6000);
+  };
 
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
   const handleRefresh = async () => {
@@ -1022,6 +1056,29 @@ export default function ConciergePage() {
             {refreshMsg && (
               <span className="text-[11px] text-slate-500 italic">{refreshMsg}</span>
             )}
+            {graphConfigured === false ? (
+              <button
+                type="button"
+                onClick={handleGraphSetup}
+                disabled={graphSetupBusy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                title="Set up Microsoft Graph subscription to auto-create tickets from desk@simpliigence.com"
+              >
+                {graphSetupBusy ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
+                {graphSetupBusy ? 'Setting up…' : 'Enable email → tickets'}
+              </button>
+            ) : activeGraphSub ? (
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium rounded border border-emerald-200 bg-emerald-50 text-emerald-700"
+                title={`Watching ${activeGraphSub.resource} — renews before ${new Date(activeGraphSub.expiresAt).toLocaleString()}`}
+              >
+                <Mail size={11} /> Email → tickets active
+              </span>
+            ) : null}
+            {graphMsg && <span className="text-[11px] text-slate-500 italic">{graphMsg}</span>}
+            <Button variant="secondary" onClick={() => setShowNewTicket(true)}>
+              <Plus size={14} /> New ticket
+            </Button>
             <Button onClick={() => { setSeedName(undefined); setShowNewAccount(true); }}>
               <Plus size={14} /> New account
             </Button>
@@ -1046,6 +1103,7 @@ export default function ConciergePage() {
           { key: 'tickets',  label: 'Tickets',  icon: <Ticket size={14} /> },
           { key: 'backlog',  label: 'Backlog',  icon: <Package size={14} /> },
           { key: 'billing',  label: 'Billing',  icon: <Receipt size={14} /> },
+          { key: 'catalog',  label: 'Feature Catalog', icon: <Sparkles size={14} /> },
         ] as Array<{ key: Tab; label: string; icon: JSX.Element }>).map((t) => (
           <button
             key={t.key}
@@ -1123,7 +1181,7 @@ export default function ConciergePage() {
             <EmptyState icon={<Ticket size={32} />} title="No tickets" description="Zoho Desk tickets will appear here once synced." />
           ) : (
             <div className="space-y-4">
-              {clientGroups.map((g) => <ClientGroupCard key={g.account} group={g} />)}
+              {clientGroups.map((g) => <ClientGroupCard key={g.account} group={g} onTicketClick={setOpenTicketId} />)}
             </div>
           )}
         </>
@@ -1315,6 +1373,9 @@ export default function ConciergePage() {
         </Card>
       )}
 
+      {/* ── FEATURE CATALOG ──────────────────────── */}
+      {tab === 'catalog' && <FeatureCatalogTab />}
+
       {/* Drawers */}
       {openAccount && (
         <AccountDrawer
@@ -1327,6 +1388,12 @@ export default function ConciergePage() {
       )}
       {showNewAccount && (
         <NewAccountForm onClose={() => setShowNewAccount(false)} defaultName={seedName} />
+      )}
+      {showNewTicket && (
+        <NewTicketModal open={showNewTicket} onClose={() => setShowNewTicket(false)} />
+      )}
+      {openTicket && (
+        <TicketDrawer ticket={openTicket} onClose={() => setOpenTicketId(null)} />
       )}
     </div>
   );

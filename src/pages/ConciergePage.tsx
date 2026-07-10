@@ -322,6 +322,7 @@ function AccountDrawer({
   onClose: () => void;
 }) {
   const store = useConciergeAccountsStore();
+  const featureCatalog = useFeatureCatalogStore((s) => s.entries);
   const [newFeatureName, setNewFeatureName] = useState('');
   const [newFeatureCategory, setNewFeatureCategory] = useState('Sales Cloud');
   const [newTech, setNewTech] = useState('');
@@ -522,7 +523,7 @@ function AccountDrawer({
             <FeatureCoverageScorecard
               account={account}
               features={features}
-              catalog={useFeatureCatalogStore((s) => s.entries)}
+              catalog={featureCatalog}
             />
           </div>
         </section>

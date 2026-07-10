@@ -139,19 +139,32 @@ function extractDomain(input: string | null | undefined): string | null {
   }
 }
 
-/** Best-effort logo URL for an account: prefer explicit logoUrl, else derive
- *  from website via Clearbit's free logo endpoint. */
+/** Best-effort logo URL for an account, in preference order:
+ *   1. explicit `logoUrl` set on the account
+ *   2. Google's public favicon service (`s2/favicons`) — guaranteed 200 with a
+ *      real image; falls back to a generic globe glyph for unknown domains
+ *  Clearbit's Logo API was shut down after HubSpot's 2023 acquisition — DNS no
+ *  longer resolves — so it is no longer viable as a source. */
 function resolveLogoUrl(account: { logoUrl: string | null; website: string | null }): string | null {
   if (account.logoUrl && account.logoUrl.trim()) return account.logoUrl.trim();
   const domain = extractDomain(account.website);
-  return domain ? `https://logo.clearbit.com/${domain}` : null;
+  return domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128` : null;
 }
 
-/** Circular logo tile with initials fallback. Silently falls back if the
- *  image fails to load (Clearbit 404s on unknown domains). */
+/** Secondary fallback tried once the primary source errors, so we still show
+ *  a real image for domains that Google's service doesn't know about. */
+function fallbackLogoUrl(account: { website: string | null }): string | null {
+  const domain = extractDomain(account.website);
+  return domain ? `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico` : null;
+}
+
+/** Circular logo tile with initials fallback. Tries primary source, then a
+ *  secondary favicon service on error, then bails to initials. */
 function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl: string | null; website: string | null }; size?: number }) {
-  const [broken, setBroken] = useState(false);
-  const src = broken ? null : resolveLogoUrl(account);
+  const primary = resolveLogoUrl(account);
+  const secondary = account.logoUrl ? null : fallbackLogoUrl(account);
+  const [srcIdx, setSrcIdx] = useState(0); // 0 = primary, 1 = secondary, 2 = broken
+  const src = srcIdx === 0 ? primary : srcIdx === 1 ? secondary : null;
   const initials = account.name
     .split(/\s+/)
     .filter(Boolean)
@@ -164,7 +177,7 @@ function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl:
       <img
         src={src}
         alt={`${account.name} logo`}
-        onError={() => setBroken(true)}
+        onError={() => setSrcIdx((i) => i + 1)}
         className="rounded-lg object-contain bg-white border border-slate-200 flex-shrink-0"
         style={{ width: size, height: size }}
       />
@@ -925,7 +938,7 @@ export default function ConciergePage() {
   const {
     tickets, lastSynced, lastSyncOk, lastSyncError, refreshing,
     loadFromSupabase, refreshFromZoho,
-    graphConfigured, graphSubscriptions, checkGraphSubscription, setupGraphSubscription,
+    graphSubscriptions, checkGraphSubscription, setupGraphSubscription,
   } = useConciergeStore();
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
   const [showNewTicket, setShowNewTicket] = useState(false);

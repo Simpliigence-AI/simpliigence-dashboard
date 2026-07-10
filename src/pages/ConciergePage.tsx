@@ -947,20 +947,23 @@ export default function ConciergePage() {
       const cells: { month: string; amount: number; forecast: boolean }[] = [];
       for (let m = 0; m < 12; m++) {
         const key = months[m];
-        if (m <= currentMonthIdx) {
-          const rec = byMonth.get(key);
+        const rec = byMonth.get(key);
+        // A month is "actual" if it's in the past (before the current month) OR
+        // if the account has a real DB record for it. Current + future months
+        // without data get forecasted. This means July becomes a forecast on
+        // Jul 1 (no data yet) but flips to actual the moment you enter a value.
+        if (rec || m < currentMonthIdx) {
           const amt = rec?.amount ?? 0;
           cells.push({ month: key, amount: amt, forecast: false });
           actualHistory.push(amt);
         } else {
           const predicted = forecastNext(actualHistory);
           cells.push({ month: key, amount: predicted, forecast: true });
-          // Include the forecast in history so subsequent months carry the momentum.
           actualHistory.push(predicted);
         }
       }
-      const ytdActual = cells.slice(0, currentMonthIdx + 1).reduce((s, c) => s + c.amount, 0);
-      const forecastRemaining = cells.slice(currentMonthIdx + 1).reduce((s, c) => s + c.amount, 0);
+      const ytdActual = cells.filter((c) => !c.forecast).reduce((s, c) => s + c.amount, 0);
+      const forecastRemaining = cells.filter((c) => c.forecast).reduce((s, c) => s + c.amount, 0);
       const yearTotal = ytdActual + forecastRemaining;
       const max = Math.max(...cells.map((c) => c.amount), 1);
       return { account: a, cells, ytdActual, forecastRemaining, yearTotal, max };
@@ -1176,7 +1179,9 @@ export default function ConciergePage() {
                   <tr className="border-b border-slate-100">
                     <th className="text-left py-2 pr-3 text-xs font-medium text-slate-500 uppercase sticky left-0 bg-white">Account</th>
                     {billingMatrix.months.map((m, i) => {
-                      const isForecast = i > billingMatrix.currentMonthIdx;
+                      // Header shows * only when the whole column is forecast for every account.
+                      // A per-row cell may still be actual if that account has explicit data.
+                      const isForecast = i >= billingMatrix.currentMonthIdx;
                       return (
                         <th
                           key={m}
@@ -1240,7 +1245,7 @@ export default function ConciergePage() {
                       <tr className="border-t border-slate-200 bg-slate-50 font-semibold">
                         <td className="py-2 pr-3 text-slate-900 sticky left-0 bg-slate-50">Total</td>
                         {totals.map((v, i) => {
-                          const isForecast = i > billingMatrix.currentMonthIdx;
+                          const isForecast = i >= billingMatrix.currentMonthIdx;
                           return (
                             <td key={i} className={`py-2 px-2 text-right ${isForecast ? 'italic text-slate-500' : 'text-slate-800'}`}>
                               {v > 0 ? fmtUSD(v, { compact: true }) : '—'}{isForecast && v > 0 && '*'}

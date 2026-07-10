@@ -124,6 +124,62 @@ function currentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Extract "example.com" from a URL or bare-domain input. Returns null if no
+ *  plausible hostname can be found. */
+function extractDomain(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const raw = input.trim();
+  if (!raw) return null;
+  try {
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const u = new URL(withScheme);
+    return u.hostname.replace(/^www\./i, '') || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort logo URL for an account: prefer explicit logoUrl, else derive
+ *  from website via Clearbit's free logo endpoint. */
+function resolveLogoUrl(account: { logoUrl: string | null; website: string | null }): string | null {
+  if (account.logoUrl && account.logoUrl.trim()) return account.logoUrl.trim();
+  const domain = extractDomain(account.website);
+  return domain ? `https://logo.clearbit.com/${domain}` : null;
+}
+
+/** Circular logo tile with initials fallback. Silently falls back if the
+ *  image fails to load (Clearbit 404s on unknown domains). */
+function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl: string | null; website: string | null }; size?: number }) {
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : resolveLogoUrl(account);
+  const initials = account.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase() || '·';
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={`${account.name} logo`}
+        onError={() => setBroken(true)}
+        className="rounded-lg object-contain bg-white border border-slate-200 flex-shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <div
+      className="rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 font-semibold flex-shrink-0"
+      style={{ width: size, height: size, fontSize: Math.max(11, size / 3) }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 type Tab = 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog';
 
 /* ── Ticket group card (preserved from old page) ── */
@@ -232,21 +288,24 @@ function AccountCard({ account, features, openTickets, monthAmount, onOpen }: Ac
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Building2 size={16} className="text-slate-400 flex-shrink-0" />
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <AccountLogo account={account} size={44} />
+          <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-slate-900 truncate">{account.name}</h3>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="neutral" className={billing.cls}>{billing.label}</Badge>
-            {dormant ? (
-              <Badge variant="danger" className="bg-rose-200 text-rose-900">Dormant — Re-engage</Badge>
-            ) : (
-              <Badge variant="neutral" className={health.cls}>{health.label}</Badge>
+            {account.industry && (
+              <div className="text-xs text-slate-500 truncate">{account.industry}</div>
             )}
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              <Badge variant="neutral" className={billing.cls}>{billing.label}</Badge>
+              {dormant ? (
+                <Badge variant="danger" className="bg-rose-200 text-rose-900">Dormant — Re-engage</Badge>
+              ) : (
+                <Badge variant="neutral" className={health.cls}>{health.label}</Badge>
+              )}
+            </div>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-right flex-shrink-0">
           <div className="text-xs text-slate-500">Monthly</div>
           <div className="text-sm font-semibold text-slate-900">{fmtUSD(account.monthlyRate, { compact: true })}</div>
         </div>
@@ -396,6 +455,58 @@ function AccountDrawer({
             </div>
           </div>
         </label>
+
+        {/* Identity: logo + industry + website */}
+        <section className="flex items-start gap-4 p-3 rounded-lg border border-slate-200 bg-slate-50">
+          <AccountLogo account={account} size={64} />
+          <div className="flex-1 grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Industry</label>
+              <Input
+                value={account.industry ?? ''}
+                onChange={(e) => store.updateAccount(account.id, { industry: e.target.value || null })}
+                placeholder="e.g. SaaS, Manufacturing, Healthcare"
+                className="mt-1"
+                list="concierge-industry-suggestions"
+              />
+              <datalist id="concierge-industry-suggestions">
+                <option value="SaaS" />
+                <option value="Manufacturing" />
+                <option value="Healthcare" />
+                <option value="Financial Services" />
+                <option value="Retail / eCommerce" />
+                <option value="Professional Services" />
+                <option value="Technology" />
+                <option value="Construction" />
+                <option value="Real Estate" />
+                <option value="Nonprofit" />
+                <option value="Education" />
+                <option value="Logistics" />
+                <option value="Energy / Utilities" />
+                <option value="Media / Entertainment" />
+                <option value="Hospitality" />
+              </datalist>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Website</label>
+              <Input
+                value={account.website ?? ''}
+                onChange={(e) => store.updateAccount(account.id, { website: e.target.value || null })}
+                placeholder="e.g. acme.com"
+                className="mt-1"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Logo URL (optional — auto-derived from website)</label>
+              <Input
+                value={account.logoUrl ?? ''}
+                onChange={(e) => store.updateAccount(account.id, { logoUrl: e.target.value || null })}
+                placeholder="Direct image URL, or leave blank"
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </section>
 
         {/* Contract + status */}
         <section className="grid grid-cols-2 gap-4">
@@ -731,6 +842,11 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
   const [billingModel, setBillingModel] = useState<BillingModel>('monthly_retainer');
   const [monthlyRate, setMonthlyRate] = useState('');
   const [isDormant, setIsDormant] = useState(false);
+  const [industry, setIndustry] = useState('');
+  const [website, setWebsite] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+
+  const previewAccount = { name: name || 'New Account', logoUrl: logoUrl || null, website: website || null };
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -739,6 +855,9 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
       billingModel,
       monthlyRate: monthlyRate ? Number(monthlyRate) : null,
       isDormant,
+      industry: industry || null,
+      website: website || null,
+      logoUrl: logoUrl || null,
     });
     onClose();
   };
@@ -746,9 +865,26 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
   return (
     <Drawer open={true} onClose={onClose} title="New Concierge Account" width="max-w-md">
       <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <AccountLogo account={previewAccount} size={52} />
+          <div className="flex-1">
+            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Account name</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Whitmore Inc." autoFocus className="mt-1" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Industry</label>
+            <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. SaaS, Manufacturing" className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Website</label>
+            <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g. acme.com" className="mt-1" />
+          </div>
+        </div>
         <div>
-          <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Account name</label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Whitmore Inc." autoFocus className="mt-1" />
+          <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Logo URL (optional)</label>
+          <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Auto-derived from website if empty" className="mt-1" />
         </div>
         <div>
           <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Billing model</label>

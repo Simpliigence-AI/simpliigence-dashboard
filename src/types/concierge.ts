@@ -50,11 +50,11 @@ export interface ConciergeAccount {
   contractEnd: string | null;       // YYYY-MM-DD
   health: AccountHealth;
   isDormant: boolean;               // true = re-engagement target (inactive concierge relationship)
+  industry: string | null;          // free-text industry classification (e.g. "SaaS", "Manufacturing")
+  website: string | null;           // optional; used to derive a logo via Clearbit if logoUrl is null
+  logoUrl: string | null;           // direct URL to a company logo image
   ownerEmail: string | null;
   techStack: string[];              // e.g. ["Salesforce Sales Cloud", "Marketing Cloud"]
-  /** Industry — drives which catalog features count as "relevant" in the
-   *  Feature Coverage scorecard. See INDUSTRIES in feature catalog. */
-  industry: string | null;
   currentWork: string | null;       // free-text: what we're doing this month
   previousWork: string | null;      // free-text: last month/quarter
   notes: string | null;

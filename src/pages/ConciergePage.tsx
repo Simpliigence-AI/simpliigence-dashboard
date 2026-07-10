@@ -1190,7 +1190,14 @@ export default function ConciergePage() {
             {refreshMsg && (
               <span className="text-[11px] text-slate-500 italic">{refreshMsg}</span>
             )}
-            {graphConfigured === false ? (
+            {activeGraphSub ? (
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium rounded border border-emerald-200 bg-emerald-50 text-emerald-700"
+                title={`Watching ${activeGraphSub.resource} — renews before ${new Date(activeGraphSub.expiresAt).toLocaleString()}`}
+              >
+                <Mail size={11} /> Email → tickets active
+              </span>
+            ) : (
               <button
                 type="button"
                 onClick={handleGraphSetup}
@@ -1201,14 +1208,7 @@ export default function ConciergePage() {
                 {graphSetupBusy ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
                 {graphSetupBusy ? 'Setting up…' : 'Enable email → tickets'}
               </button>
-            ) : activeGraphSub ? (
-              <span
-                className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium rounded border border-emerald-200 bg-emerald-50 text-emerald-700"
-                title={`Watching ${activeGraphSub.resource} — renews before ${new Date(activeGraphSub.expiresAt).toLocaleString()}`}
-              >
-                <Mail size={11} /> Email → tickets active
-              </span>
-            ) : null}
+            )}
             {graphMsg && <span className="text-[11px] text-slate-500 italic">{graphMsg}</span>}
             <Button variant="secondary" onClick={() => setShowNewTicket(true)}>
               <Plus size={14} /> New ticket

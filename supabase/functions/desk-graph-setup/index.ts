@@ -5,7 +5,7 @@
  * change-notification subscription that pushes new emails to `desk-inbound`.
  *
  * Actions (POST body):
- *   { action: 'create',  mailbox: 'desk@simpliigence.com' }
+ *   { action: 'create',  mailbox: 'sfconsulting@simpliigence.com' }
  *   { action: 'renew',   id: '<subscription-id>' }
  *   { action: 'delete',  id: '<subscription-id>' }
  *   { action: 'status' }
@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
     const token = await getGraphToken();
 
     if (body.action === 'create') {
-      const mailbox = body.mailbox || 'desk@simpliigence.com';
+      const mailbox = body.mailbox || 'sfconsulting@simpliigence.com';
       const clientState = DESK_CLIENT_STATE_ENV || nanoid(32);
       const expiration = new Date(Date.now() + 70 * 3600_000).toISOString();
       const resource = `/users/${mailbox}/messages`;

@@ -39,6 +39,9 @@ interface ConciergeAccountsState {
     ownerEmail?: string | null;
     techStack?: string[];
     isDormant?: boolean;
+    industry?: string | null;
+    website?: string | null;
+    logoUrl?: string | null;
   }) => Promise<ConciergeAccount>;
   updateAccount: (id: string, patch: Partial<ConciergeAccount>) => Promise<void>;
   removeAccount: (id: string) => Promise<void>;
@@ -79,7 +82,7 @@ export const useConciergeAccountsStore = create<ConciergeAccountsState>()(
 
       hydrate: (accounts, features, billing) => set({ accounts, features, billing }),
 
-      addAccount: async ({ name, billingModel = 'monthly_retainer', monthlyRate = null, ownerEmail = null, techStack = [], isDormant = false }) => {
+      addAccount: async ({ name, billingModel = 'monthly_retainer', monthlyRate = null, ownerEmail = null, techStack = [], isDormant = false, industry = null, website = null, logoUrl = null }) => {
         const now = new Date().toISOString();
         const a: ConciergeAccount = {
           id: nanoid(),
@@ -90,9 +93,11 @@ export const useConciergeAccountsStore = create<ConciergeAccountsState>()(
           contractEnd: null,
           health: 'green',
           isDormant,
+          industry: industry?.trim() || null,
+          website: website?.trim() || null,
+          logoUrl: logoUrl?.trim() || null,
           ownerEmail: ownerEmail?.toLowerCase() ?? null,
           techStack,
-          industry: null,
           currentWork: null,
           previousWork: null,
           notes: null,

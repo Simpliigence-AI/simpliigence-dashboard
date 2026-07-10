@@ -2,7 +2,7 @@
  * Supabase Edge Function: desk-inbound
  *
  * Microsoft Graph change-notification webhook. Called when a new email lands
- * in the monitored ticket mailbox (e.g. desk@simpliigence.com).
+ * in the monitored ticket mailbox (e.g. sfconsulting@simpliigence.com).
  *
  * Two request shapes to handle:
  *  1. Validation handshake — Graph POSTs `?validationToken=xxx` when creating

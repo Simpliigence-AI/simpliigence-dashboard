@@ -1060,7 +1060,7 @@ export default function ConciergePage() {
                 onClick={handleGraphSetup}
                 disabled={graphSetupBusy}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                title="Set up Microsoft Graph subscription to auto-create tickets from desk@simpliigence.com"
+                title="Set up Microsoft Graph subscription to auto-create tickets from sfconsulting@simpliigence.com"
               >
                 {graphSetupBusy ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
                 {graphSetupBusy ? 'Setting up…' : 'Enable email → tickets'}

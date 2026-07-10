@@ -1,12 +1,25 @@
+/**
+ * Concierge tickets store — real Zoho Desk sync (not seed).
+ *
+ * Source of truth: Supabase `tickets` table, populated by the
+ * `zoho-desk-sync` edge function. Store hydrates from Supabase on mount
+ * (see ConciergePage) and exposes `refreshFromZoho()` for the Refresh
+ * button.
+ *
+ * The old SEED_TICKETS array + `lastSynced: new Date()` faked freshness
+ * (data 3-6 months out of date, chip always said "today"). Gone.
+ */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { supabase } from '../lib/supabase';
 
 export interface ConciergeTicket {
   id: string;
   ticketNumber: string;
   subject: string;
-  status: 'Open' | 'On Hold';
-  priority: 'High' | 'Medium' | null;
+  /** Zoho Desk statuses vary — UI treats Open/Escalated as danger,
+   *  On Hold as warning. */
+  status: string;
+  priority: string | null;
   account: string;
   channel: string;
   createdTime: string;
@@ -18,41 +31,79 @@ export interface ConciergeTicket {
 
 interface ConciergeState {
   tickets: ConciergeTicket[];
-  lastSynced: string | null;
+  lastSynced: string | null;        // Real ISO from sync_status.last_synced_at
+  lastSyncOk: boolean;
+  lastSyncError: string | null;
+  refreshing: boolean;               // Refresh button spinner
+  loading: boolean;                  // initial hydrate
+
+  loadFromSupabase: () => Promise<void>;
+  refreshFromZoho: () => Promise<{ ok: boolean; message?: string; count?: number }>;
+  /** Legacy — kept in case anything still calls it. New code should use refreshFromZoho. */
   setTickets: (tickets: ConciergeTicket[]) => void;
 }
 
-const SEED_TICKETS: ConciergeTicket[] = [
-  {"id":"134512000007784001","ticketNumber":"2300","subject":"Service Cloud - Whitmore Inc. - Paul","status":"Open","priority":"High","account":"Whitmore","channel":"Email","createdTime":"2026-03-18T14:29:42.000Z","dueDate":"2026-03-31T17:30:00.000Z","webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000007784001","threadCount":11,"commentCount":2},
-  {"id":"134512000007873003","ticketNumber":"2313","subject":"Pricing Import","status":"Open","priority":"Medium","account":"Whitmore","channel":"Email","createdTime":"2026-03-26T19:58:16.000Z","dueDate":"2026-04-01T17:30:00.000Z","webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000007873003","threadCount":3,"commentCount":1},
-  {"id":"134512000001422852","ticketNumber":"1201","subject":"Setup Salesforce Foundations (Commerce and PayNow) for Sumedco","status":"On Hold","priority":null,"account":"Sumedco","channel":"Phone","createdTime":"2024-11-14T00:08:36.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000001422852","threadCount":1,"commentCount":30},
-  {"id":"134512000005395001","ticketNumber":"2055","subject":"Marketing app and Campaigns for Sumedco","status":"On Hold","priority":null,"account":"Sumedco","channel":"Phone","createdTime":"2025-10-15T08:55:36.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000005395001","threadCount":1,"commentCount":3},
-  {"id":"134512000007102001","ticketNumber":"2226","subject":"Make Opportunity Amount mandatory when creating a new Opportunity","status":"On Hold","priority":null,"account":"Sumedco","channel":"Phone","createdTime":"2026-02-03T07:21:30.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000007102001","threadCount":1,"commentCount":2},
-  {"id":"134512000007137015","ticketNumber":"2243","subject":"Create a URL for a google maps Link","status":"On Hold","priority":null,"account":"Sumedco","channel":"Phone","createdTime":"2026-02-09T07:25:02.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000007137015","threadCount":1,"commentCount":5},
-  {"id":"134512000001912015","ticketNumber":"1399","subject":"Chat setup Digital Engagement","status":"On Hold","priority":null,"account":"Balkan Plumbing","channel":"Phone","createdTime":"2025-01-10T14:06:57.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000001912015","threadCount":1,"commentCount":20},
-  {"id":"134512000005704007","ticketNumber":"2090","subject":"Draft: $50 Amazon Gift Card promotion","status":"On Hold","priority":null,"account":"Balkan Plumbing","channel":"Email","createdTime":"2025-11-03T20:28:56.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000005704007","threadCount":2,"commentCount":16},
-  {"id":"134512000006172001","ticketNumber":"2166","subject":"Linking Campaigns with the referred","status":"On Hold","priority":null,"account":"Balkan Plumbing","channel":"Phone","createdTime":"2025-12-03T15:38:38.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000006172001","threadCount":1,"commentCount":2},
-  {"id":"134512000006065001","ticketNumber":"2158","subject":"Market Segmentation (Chris)","status":"On Hold","priority":null,"account":"Knit","channel":"Phone","createdTime":"2025-11-26T18:47:21.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000006065001","threadCount":0,"commentCount":3},
-  {"id":"134512000006281001","ticketNumber":"2180","subject":"Use Case Activation Tracking - Knit","status":"On Hold","priority":"High","account":"Knit","channel":"Phone","createdTime":"2025-12-10T08:16:27.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000006281001","threadCount":1,"commentCount":0},
-  {"id":"134512000006419001","ticketNumber":"2186","subject":"Import ICP file in Salesforce","status":"On Hold","priority":null,"account":"Knit","channel":"Phone","createdTime":"2025-12-15T16:27:26.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000006419001","threadCount":0,"commentCount":0},
-  {"id":"134512000003177001","ticketNumber":"1664","subject":"Avochato Integration of Chatter Platform setup","status":"On Hold","priority":null,"account":"Integrity Together","channel":"Phone","createdTime":"2025-05-09T08:59:05.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000003177001","threadCount":0,"commentCount":15},
-  {"id":"134512000003650002","ticketNumber":"1753","subject":"Helpdesk integration with Zoho Desk","status":"On Hold","priority":null,"account":"Simpliigence","channel":"Email","createdTime":"2025-06-20T10:07:19.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000003650002","threadCount":1,"commentCount":0},
-  {"id":"134512000003924108","ticketNumber":"1815","subject":"Salesforce to G-Drive Connector","status":"On Hold","priority":null,"account":"Averifica","channel":"Phone","createdTime":"2025-07-10T16:49:36.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000003924108","threadCount":1,"commentCount":2},
-  {"id":"134512000005053001","ticketNumber":"2016","subject":"DayBack Work Post Demo","status":"On Hold","priority":null,"account":"Geo Environmental Drilling","channel":"Phone","createdTime":"2025-09-22T05:22:27.000Z","dueDate":null,"webUrl":"https://desk.zoho.in/support/simpliigence/ShowHomePage.do#Cases/dv/134512000005053001","threadCount":1,"commentCount":1},
-];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTicket(row: any): ConciergeTicket {
+  return {
+    id: row.id,
+    ticketNumber: row.ticket_number ?? '',
+    subject: row.subject ?? '',
+    status: row.status ?? 'Open',
+    priority: row.priority ?? null,
+    account: row.account ?? '',
+    channel: row.channel ?? '',
+    createdTime: row.created_time ?? '',
+    dueDate: row.due_date ?? null,
+    webUrl: row.web_url ?? '',
+    threadCount: row.thread_count ?? 0,
+    commentCount: row.comment_count ?? 0,
+  };
+}
 
-export const useConciergeStore = create<ConciergeState>()(
-  persist(
-    (set) => ({
-      tickets: SEED_TICKETS,
-      lastSynced: new Date().toISOString(),
+export const useConciergeStore = create<ConciergeState>((set, get) => ({
+  tickets: [],
+  lastSynced: null,
+  lastSyncOk: true,
+  lastSyncError: null,
+  refreshing: false,
+  loading: false,
 
-      setTickets: (tickets) =>
-        set({ tickets, lastSynced: new Date().toISOString() }),
-    }),
-    {
-      name: 'simpliigence-concierge',
-      version: 1,
-    },
-  ),
-);
+  loadFromSupabase: async () => {
+    set({ loading: true });
+    try {
+      const [{ data: rows, error: e1 }, { data: syncRow, error: e2 }] = await Promise.all([
+        supabase.from('tickets').select('*').order('created_time', { ascending: false }),
+        supabase.from('sync_status').select('*').eq('source', 'zoho_desk_tickets').maybeSingle(),
+      ]);
+      if (e1) console.warn('[concierge] load tickets failed:', e1.message);
+      if (e2 && e2.code !== 'PGRST116') console.warn('[concierge] load sync_status failed:', e2.message);
+      set({
+        tickets: (rows ?? []).map(rowToTicket),
+        lastSynced: syncRow?.last_synced_at ?? null,
+        lastSyncOk: syncRow?.last_ok ?? true,
+        lastSyncError: syncRow?.last_error ?? null,
+      });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  refreshFromZoho: async () => {
+    set({ refreshing: true });
+    try {
+      const { data, error } = await supabase.functions.invoke<{
+        ok?: boolean; error?: string; message?: string; count?: number;
+      }>('zoho-desk-sync', { body: {} });
+      // Always reload — the edge fn writes sync_status even on failure.
+      await get().loadFromSupabase();
+      if (error) return { ok: false, message: error.message };
+      if (data?.ok === false) return { ok: false, message: data.error || data.message || 'Refresh returned no data' };
+      return { ok: true, count: data?.count };
+    } finally {
+      set({ refreshing: false });
+    }
+  },
+
+  setTickets: (tickets) => set({ tickets, lastSynced: new Date().toISOString() }),
+}));

@@ -11,7 +11,7 @@
  *      feature, ranked by upsell revenue potential.
  *   4. Billing  — monthly billing history per account with sparkline trend.
  */
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, JSX } from 'react';
 import { useConciergeStore } from '../store/useConciergeStore';
 import type { ConciergeTicket } from '../store/useConciergeStore';
@@ -66,7 +66,25 @@ import {
   Building2,
   Cpu,
   Trash2,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
+
+/** Human-readable "last synced" chip. Handles null (never synced) + shows
+ *  relative time under an hour, absolute time otherwise. */
+function formatFreshness(iso: string | null): string {
+  if (!iso) return 'Tickets never synced';
+  const ms = Date.now() - Date.parse(iso);
+  if (!Number.isFinite(ms) || ms < 0) return `Tickets synced ${new Date(iso).toLocaleString()}`;
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return 'Tickets synced just now';
+  if (min < 60) return `Tickets synced ${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `Tickets synced ${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `Tickets synced ${day}d ago`;
+  return `Tickets synced ${new Date(iso).toLocaleDateString()}`;
+}
 
 /* ── Helpers ───────────────────────────────────── */
 
@@ -749,8 +767,28 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
 /* ── Main page ──────────────────────────────────── */
 
 export default function ConciergePage() {
-  const { tickets, lastSynced } = useConciergeStore();
+  const {
+    tickets, lastSynced, lastSyncOk, lastSyncError, refreshing,
+    loadFromSupabase, refreshFromZoho,
+  } = useConciergeStore();
   const { accounts, features, billing } = useConciergeAccountsStore();
+
+  // Hydrate tickets from Supabase on mount + tick the "last synced" chip
+  // every 30s so time-since stays reasonably accurate without a full reload.
+  useEffect(() => {
+    void loadFromSupabase();
+    const interval = setInterval(() => { void loadFromSupabase(); }, 30_000);
+    return () => clearInterval(interval);
+  }, [loadFromSupabase]);
+
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+  const handleRefresh = async () => {
+    setRefreshMsg(null);
+    const res = await refreshFromZoho();
+    if (!res.ok) setRefreshMsg(res.message || 'Refresh failed');
+    else if (typeof res.count === 'number') setRefreshMsg(`Synced ${res.count} tickets`);
+    setTimeout(() => setRefreshMsg(null), 4000);
+  };
   const [tab, setTab] = useState<Tab>('overview');
   const [openAccountId, setOpenAccountId] = useState<string | null>(null);
   const [showNewAccount, setShowNewAccount] = useState(false);
@@ -857,22 +895,77 @@ export default function ConciergePage() {
       .sort((a, b) => (b.feature.upsellEstimate ?? 0) - (a.feature.upsellEstimate ?? 0));
   }, [features, accounts]);
 
-  /* Billing tab: monthly totals per account across last 12 months */
+  /* Billing tab: calendar-year 2026 grid.
+   * Actual months (Jan..current) + forecast months (current+1..Dec).
+   * Forecast per account = trailing-weighted average of the last non-zero
+   * actual months, tempered by recent-month linear trend. `forecast: true`
+   * on a cell means "predicted, not billed" — rendered with an asterisk. */
   const billingMatrix = useMemo(() => {
-    const months: string[] = [];
     const now = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    const year = now.getFullYear();
+    const currentMonthIdx = now.getMonth();           // 0..11, e.g. Jun 2026 = 5
+    const months: string[] = [];
+    for (let m = 0; m < 12; m++) {
+      months.push(`${year}-${String(m + 1).padStart(2, '0')}`);
     }
+    // For forecast context, also pull the tail of prior year (Jul-Dec of last year)
+    // so a January forecast has recent history to lean on.
+    const priorMonths: string[] = [];
+    for (let m = 6; m < 12; m++) {
+      priorMonths.push(`${year - 1}-${String(m + 1).padStart(2, '0')}`);
+    }
+
+    /** Forecast using the last 6 months of history (actuals only), weighted so
+     *  recent months matter more, then nudged by a small linear trend. */
+    function forecastNext(history: number[]): number {
+      const tail = history.slice(-6);
+      if (tail.length === 0) return 0;
+      const nonZero = tail.filter((v) => v > 0);
+      if (nonZero.length === 0) return 0;
+      const weights = [0.5, 0.7, 0.9, 1.1, 1.3, 1.5].slice(-tail.length);
+      let wSum = 0, vSum = 0;
+      tail.forEach((v, i) => { vSum += v * weights[i]; wSum += weights[i]; });
+      const weightedAvg = vSum / wSum;
+      // Linear trend from first-half vs second-half average, damped.
+      const half = Math.floor(tail.length / 2);
+      const early = half > 0 ? tail.slice(0, half).reduce((s, v) => s + v, 0) / half : weightedAvg;
+      const late  = tail.slice(half).reduce((s, v) => s + v, 0) / Math.max(tail.length - half, 1);
+      const trend = late - early;                    // absolute delta
+      const forecast = weightedAvg + trend * 0.3;    // damp the trend
+      return Math.max(0, Math.round(forecast));
+    }
+
     const rows = accounts.map((a) => {
       const byMonth = new Map((billingByAccount.get(a.id) ?? []).map((b) => [b.month, b]));
-      const cells = months.map((m) => byMonth.get(m)?.amount ?? 0);
-      const total = cells.reduce((s, v) => s + v, 0);
-      const max = Math.max(...cells, 1);
-      return { account: a, cells, total, max };
+      // Actuals so far this year, in order
+      const actualHistory: number[] = [];
+      // Also pull last year's Jul-Dec if useful (only used for forecasting seed).
+      priorMonths.forEach((m) => {
+        const rec = byMonth.get(m);
+        if (rec) actualHistory.push(rec.amount);
+      });
+      const cells: { month: string; amount: number; forecast: boolean }[] = [];
+      for (let m = 0; m < 12; m++) {
+        const key = months[m];
+        if (m <= currentMonthIdx) {
+          const rec = byMonth.get(key);
+          const amt = rec?.amount ?? 0;
+          cells.push({ month: key, amount: amt, forecast: false });
+          actualHistory.push(amt);
+        } else {
+          const predicted = forecastNext(actualHistory);
+          cells.push({ month: key, amount: predicted, forecast: true });
+          // Include the forecast in history so subsequent months carry the momentum.
+          actualHistory.push(predicted);
+        }
+      }
+      const ytdActual = cells.slice(0, currentMonthIdx + 1).reduce((s, c) => s + c.amount, 0);
+      const forecastRemaining = cells.slice(currentMonthIdx + 1).reduce((s, c) => s + c.amount, 0);
+      const yearTotal = ytdActual + forecastRemaining;
+      const max = Math.max(...cells.map((c) => c.amount), 1);
+      return { account: a, cells, ytdActual, forecastRemaining, yearTotal, max };
     });
-    return { months, rows };
+    return { months, currentMonthIdx, year, rows };
   }, [accounts, billingByAccount]);
 
   return (
@@ -881,12 +974,33 @@ export default function ConciergePage() {
         title="Concierge"
         subtitle="360° view of managed-services accounts — contracts, functionality, tickets, billing"
         action={
-          <div className="flex items-center gap-3">
-            {lastSynced && (
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Clock size={14} />
-                Tickets synced {new Date(lastSynced).toLocaleDateString()}
-              </div>
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            <div className="flex items-center gap-1.5 text-xs">
+              <Clock size={14} className={lastSyncOk ? 'text-slate-400' : 'text-red-500'} />
+              <span className={lastSyncOk ? 'text-slate-500' : 'text-red-600'}>
+                {formatFreshness(lastSynced)}
+              </span>
+              {!lastSyncOk && lastSyncError && (
+                <span
+                  className="text-red-500 cursor-help underline decoration-dotted"
+                  title={lastSyncError}
+                >(error)</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50"
+              title="Pull the latest open/on-hold/escalated tickets from Zoho Desk"
+            >
+              {refreshing
+                ? <Loader2 size={12} className="animate-spin" />
+                : <RefreshCw size={12} />}
+              {refreshing ? 'Refreshing…' : 'Refresh tickets'}
+            </button>
+            {refreshMsg && (
+              <span className="text-[11px] text-slate-500 italic">{refreshMsg}</span>
             )}
             <Button onClick={() => { setSeedName(undefined); setShowNewAccount(true); }}>
               <Plus size={14} /> New account
@@ -1039,7 +1153,20 @@ export default function ConciergePage() {
 
       {/* ── BILLING ──────────────────────────── */}
       {tab === 'billing' && (
-        <Card title="Monthly Billing (last 12 months)">
+        <Card
+          title={`Monthly Billing — ${billingMatrix.year} (YTD + Forecast)`}
+          action={
+            <div className="flex items-center gap-3 text-[11px] text-slate-500">
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded bg-emerald-100 border border-emerald-200" /> up
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded bg-rose-100 border border-rose-200" /> down
+              </span>
+              <span>* = AI forecast (trend-weighted from history)</span>
+            </div>
+          }
+        >
           {accounts.length === 0 ? (
             <p className="text-center text-slate-500 py-8">Add concierge accounts to see billing history.</p>
           ) : (
@@ -1048,32 +1175,84 @@ export default function ConciergePage() {
                 <thead>
                   <tr className="border-b border-slate-100">
                     <th className="text-left py-2 pr-3 text-xs font-medium text-slate-500 uppercase sticky left-0 bg-white">Account</th>
-                    {billingMatrix.months.map((m) => (
-                      <th key={m} className="text-right py-2 px-2 text-xs font-medium text-slate-500 uppercase whitespace-nowrap">{monthLabel(m)}</th>
-                    ))}
-                    <th className="text-right py-2 pl-3 text-xs font-medium text-slate-500 uppercase">Total</th>
+                    {billingMatrix.months.map((m, i) => {
+                      const isForecast = i > billingMatrix.currentMonthIdx;
+                      return (
+                        <th
+                          key={m}
+                          className={`text-right py-2 px-2 text-xs font-medium uppercase whitespace-nowrap ${isForecast ? 'text-slate-400 italic' : 'text-slate-500'}`}
+                        >
+                          {monthLabel(m)}{isForecast ? '*' : ''}
+                        </th>
+                      );
+                    })}
+                    <th className="text-right py-2 pl-3 text-xs font-medium text-slate-500 uppercase">YTD</th>
+                    <th className="text-right py-2 pl-3 text-xs font-medium text-slate-400 uppercase italic">Year Fcst</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {billingMatrix.rows.map(({ account, cells, total, max }) => (
+                  {billingMatrix.rows.map(({ account, cells, ytdActual, yearTotal }) => (
                     <tr
                       key={account.id}
                       onClick={() => setOpenAccountId(account.id)}
                       className="border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50"
                     >
                       <td className="py-2 pr-3 text-slate-800 font-medium sticky left-0 bg-white">{account.name}</td>
-                      {cells.map((v, i) => (
-                        <td key={i} className="py-2 px-2 text-right relative">
-                          {v > 0 && (
-                            <div className="absolute inset-1 rounded" style={{ background: `rgba(16, 185, 129, ${0.08 + 0.35 * (v / max)})` }} />
-                          )}
-                          <span className="relative text-slate-700">{v > 0 ? fmtUSD(v, { compact: true }) : '—'}</span>
-                        </td>
-                      ))}
-                      <td className="py-2 pl-3 text-right font-semibold text-slate-900">{fmtUSD(total, { compact: true })}</td>
+                      {cells.map((c, i) => {
+                        const prev = i > 0 ? cells[i - 1].amount : 0;
+                        const delta = c.amount - prev;
+                        // Only color-code once both months have data (skip the very first month if prev == 0).
+                        const showColor = c.amount > 0 && prev > 0 && delta !== 0;
+                        const bg = !showColor
+                          ? undefined
+                          : delta > 0
+                            ? 'rgba(16, 185, 129, 0.12)'  // green up
+                            : 'rgba(244, 63, 94, 0.12)';  // red down
+                        const arrow = !showColor ? '' : delta > 0 ? '▲' : '▼';
+                        const arrowCls = delta > 0 ? 'text-emerald-600' : 'text-rose-600';
+                        return (
+                          <td
+                            key={i}
+                            className={`py-2 px-2 text-right relative ${c.forecast ? 'italic' : ''}`}
+                            style={bg ? { background: bg } : undefined}
+                          >
+                            <span className={`relative ${c.forecast ? 'text-slate-500' : 'text-slate-700'}`}>
+                              {c.amount > 0 ? fmtUSD(c.amount, { compact: true }) : '—'}
+                              {c.forecast && c.amount > 0 && '*'}
+                              {arrow && <span className={`ml-1 text-[10px] ${arrowCls}`}>{arrow}</span>}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td className="py-2 pl-3 text-right font-semibold text-slate-900">{fmtUSD(ytdActual, { compact: true })}</td>
+                      <td className="py-2 pl-3 text-right font-semibold text-slate-500 italic">{fmtUSD(yearTotal, { compact: true })}*</td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  {(() => {
+                    const totals = billingMatrix.months.map((_, i) =>
+                      billingMatrix.rows.reduce((s, r) => s + r.cells[i].amount, 0),
+                    );
+                    const ytdSum = billingMatrix.rows.reduce((s, r) => s + r.ytdActual, 0);
+                    const yearSum = billingMatrix.rows.reduce((s, r) => s + r.yearTotal, 0);
+                    return (
+                      <tr className="border-t border-slate-200 bg-slate-50 font-semibold">
+                        <td className="py-2 pr-3 text-slate-900 sticky left-0 bg-slate-50">Total</td>
+                        {totals.map((v, i) => {
+                          const isForecast = i > billingMatrix.currentMonthIdx;
+                          return (
+                            <td key={i} className={`py-2 px-2 text-right ${isForecast ? 'italic text-slate-500' : 'text-slate-800'}`}>
+                              {v > 0 ? fmtUSD(v, { compact: true }) : '—'}{isForecast && v > 0 && '*'}
+                            </td>
+                          );
+                        })}
+                        <td className="py-2 pl-3 text-right text-slate-900">{fmtUSD(ytdSum, { compact: true })}</td>
+                        <td className="py-2 pl-3 text-right text-slate-600 italic">{fmtUSD(yearSum, { compact: true })}*</td>
+                      </tr>
+                    );
+                  })()}
+                </tfoot>
               </table>
             </div>
           )}

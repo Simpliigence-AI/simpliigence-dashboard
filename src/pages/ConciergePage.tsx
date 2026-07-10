@@ -19,6 +19,7 @@ import { useConciergeAccountsStore } from '../store/useConciergeAccountsStore';
 import { useFeatureCatalogStore } from '../store/useFeatureCatalogStore';
 import { FeatureCatalogTab } from './concierge/FeatureCatalogTab';
 import { FeatureCoverageScorecard } from './concierge/FeatureCoverageScorecard';
+import { FeatureCoverageMatrix } from './concierge/FeatureCoverageMatrix';
 import { NewTicketModal } from './concierge/NewTicketModal';
 import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
@@ -934,17 +935,9 @@ export default function ConciergePage() {
       .sort((a, b) => b.tickets.length - a.tickets.length);
   }, [ticketsByAccount]);
 
-  /* Backlog tab: all not-implemented / planned features ranked by upsell */
-  const backlog = useMemo(() => {
-    return features
-      .filter((f) => f.status === 'not_implemented' || f.status === 'planned')
-      .map((f) => {
-        const acct = accounts.find((a) => a.id === f.accountId);
-        return { feature: f, account: acct };
-      })
-      .filter((row) => row.account)
-      .sort((a, b) => (b.feature.upsellEstimate ?? 0) - (a.feature.upsellEstimate ?? 0));
-  }, [features, accounts]);
+  // (Old freeform-feature backlog memo removed — the Feature Coverage tab is
+  // now a cross-account matrix computed from the master catalog via
+  // FeatureCoverageMatrix. See src/pages/concierge/FeatureCoverageMatrix.tsx.)
 
   /* Billing tab: calendar-year 2026 grid.
    * Actual months (Jan..current) + forecast months (current+1..Dec).
@@ -1101,7 +1094,7 @@ export default function ConciergePage() {
         {([
           { key: 'overview', label: 'Overview', icon: <LayoutGrid size={14} /> },
           { key: 'tickets',  label: 'Tickets',  icon: <Ticket size={14} /> },
-          { key: 'backlog',  label: 'Backlog',  icon: <Package size={14} /> },
+          { key: 'backlog',  label: 'Feature Coverage', icon: <Package size={14} /> },
           { key: 'billing',  label: 'Billing',  icon: <Receipt size={14} /> },
           { key: 'catalog',  label: 'Feature Catalog', icon: <Sparkles size={14} /> },
         ] as Array<{ key: Tab; label: string; icon: JSX.Element }>).map((t) => (
@@ -1187,46 +1180,14 @@ export default function ConciergePage() {
         </>
       )}
 
-      {/* ── BACKLOG ──────────────────────────── */}
+      {/* ── FEATURE COVERAGE (cross-account matrix) ──────────────────────────── */}
       {tab === 'backlog' && (
-        <Card title={`Upsell Backlog (${backlog.length})`} action={
-          <div className="text-sm text-slate-500">
-            Est. pipeline: <span className="font-semibold text-emerald-600">{fmtUSD(stats.upsellPipeline)}</span>
-          </div>
-        }>
-          {backlog.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">No open backlog items. Add "planned" or "not implemented" features to an account to build your upsell pipeline.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Account</th>
-                  <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Feature</th>
-                  <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Category</th>
-                  <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Status</th>
-                  <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Priority</th>
-                  <th className="text-right py-2 text-xs font-medium text-slate-500 uppercase">Est. Upsell</th>
-                </tr>
-              </thead>
-              <tbody>
-                {backlog.map(({ feature, account }) => (
-                  <tr
-                    key={feature.id}
-                    onClick={() => account && setOpenAccountId(account!.id)}
-                    className="border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50"
-                  >
-                    <td className="py-2 text-slate-800 font-medium">{account?.name}</td>
-                    <td className="py-2 text-slate-700">{feature.name}</td>
-                    <td className="py-2 text-slate-500">{feature.category || '—'}</td>
-                    <td className="py-2"><Badge className={FEATURE_STATUS_META[feature.status].cls}>{FEATURE_STATUS_META[feature.status].label}</Badge></td>
-                    <td className="py-2"><Badge className={FEATURE_PRIORITY_META[feature.priority].cls}>{FEATURE_PRIORITY_META[feature.priority].label}</Badge></td>
-                    <td className="py-2 text-right font-semibold text-emerald-600">{fmtUSD(feature.upsellEstimate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Card>
+        <FeatureCoverageMatrix
+          accounts={accounts}
+          featuresByAccount={featuresByAccount}
+          catalog={useFeatureCatalogStore((s) => s.entries)}
+          onAccountClick={(id) => setOpenAccountId(id)}
+        />
       )}
 
       {/* ── BILLING ──────────────────────────── */}

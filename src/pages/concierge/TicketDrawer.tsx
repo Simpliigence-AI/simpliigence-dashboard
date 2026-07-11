@@ -5,7 +5,7 @@ import { Input, Select, Textarea } from '../../components/ui/Input';
 import { useConciergeStore, type ConciergeTicket } from '../../store/useConciergeStore';
 import { useConciergeAccountsStore } from '../../store/useConciergeAccountsStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Clock, Mail, StickyNote, Check, RotateCcw } from 'lucide-react';
+import { Clock, Mail, StickyNote, Check, RotateCcw, Paperclip, Download, Trash2, Plus, Minus } from 'lucide-react';
 
 interface Props {
   ticket: ConciergeTicket;
@@ -18,6 +18,21 @@ function fmt(iso: string | null): string {
   return isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
+function fmtDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function fmtSize(bytes: number | null): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export function TicketDrawer({ ticket, onClose }: Props) {
   const store = useConciergeStore();
   const { accounts } = useConciergeAccountsStore();
@@ -27,18 +42,22 @@ export function TicketDrawer({ ticket, onClose }: Props) {
     (a.fullName || a.email).localeCompare(b.fullName || b.email));
 
   const [notesDraft, setNotesDraft] = useState('');
-  const [hoursInput, setHoursInput] = useState('');
+  const [draftMinutes, setDraftMinutes] = useState(15);
   const [hoursNotes, setHoursNotes] = useState('');
   const [resolutionDraft, setResolutionDraft] = useState('');
   const [showResolve, setShowResolve] = useState(false);
-  const [busy, setBusy] = useState<'note' | 'hours' | 'resolve' | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [busy, setBusy] = useState<'note' | 'hours' | 'resolve' | 'delete' | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const messages = store.messagesByTicket[ticket.id] ?? [];
   const entries = store.timeEntriesByTicket[ticket.id] ?? [];
+  const attachments = store.attachmentsByTicket[ticket.id] ?? [];
 
   useEffect(() => {
     void store.loadMessages(ticket.id);
     void store.loadTimeEntries(ticket.id);
+    void store.loadAttachments(ticket.id);
   }, [ticket.id, store]);
 
   const priorityChip = (p: string | null) => {
@@ -53,6 +72,12 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   };
 
   const isResolved = ticket.status === 'Resolved' || ticket.status === 'Closed';
+  const bumpMinutes = (delta: number) => setDraftMinutes((m) => Math.max(15, Math.min(480, m + delta)));
+
+  const openAttachment = async (storagePath: string) => {
+    const url = await store.attachmentDownloadUrl(storagePath);
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <Drawer open={true} onClose={onClose} title={`#${ticket.ticketNumber} — ${ticket.subject}`} width="max-w-3xl">
@@ -62,9 +87,21 @@ export function TicketDrawer({ ticket, onClose }: Props) {
           <span className={priorityChip(ticket.priority)}>{ticket.priority ?? 'medium'}</span>
           <span className="px-2 py-0.5 rounded border border-slate-300 bg-white font-medium">{ticket.status}</span>
           {ticket.source && <span className="text-slate-400">via {ticket.source}</span>}
-          {ticket.senderEmail && <span>from {ticket.senderName ?? ticket.senderEmail}</span>}
           <span className="ml-auto">Created {fmt(ticket.createdTime)}</span>
         </div>
+
+        {/* From address (prominent — separate from tiny meta chip) */}
+        {(ticket.senderEmail || ticket.senderName) && (
+          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+            <span className="text-xs text-slate-500 uppercase tracking-wider mr-2">From</span>
+            <span className="font-medium text-slate-800">{ticket.senderName || '—'}</span>
+            {ticket.senderEmail && (
+              <a href={`mailto:${ticket.senderEmail}`} className="ml-2 text-primary hover:underline">
+                &lt;{ticket.senderEmail}&gt;
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Editable fields grid */}
         <section className="grid grid-cols-2 gap-4">
@@ -111,34 +148,90 @@ export function TicketDrawer({ ticket, onClose }: Props) {
           </section>
         )}
 
-        {/* Time tracker */}
+        {/* Attachments */}
+        {attachments.length > 0 && (
+          <section>
+            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <Paperclip size={12} /> Attachments ({attachments.length})
+            </label>
+            <ul className="mt-1 space-y-1">
+              {attachments.map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => openAttachment(a.storagePath)}
+                    className="w-full flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-left hover:bg-slate-50 hover:border-primary/40"
+                  >
+                    <Download size={14} className="text-slate-400 flex-shrink-0" />
+                    <span className="flex-1 truncate text-slate-800">{a.fileName}</span>
+                    <span className="text-xs text-slate-500 flex-shrink-0">{fmtSize(a.sizeBytes)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Time tracker — 15-min stepper, logs against whoever taps Log */}
         <section className="rounded-lg border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-              <Clock size={16} /> Hours logged
-              <span className="ml-2 font-normal text-slate-500">total {ticket.hoursLogged.toFixed(1)}h</span>
+              <Clock size={16} /> Log time
+              <span className="ml-2 font-normal text-slate-500">total {ticket.hoursLogged.toFixed(2)}h</span>
             </div>
           </div>
-          <div className="grid grid-cols-[80px_1fr_auto] gap-2 items-end">
-            <Input label="Hours" type="number" step="0.25" min="0" value={hoursInput} onChange={(e) => setHoursInput(e.target.value)} placeholder="1.5" />
-            <Input label="Notes" value={hoursNotes} onChange={(e) => setHoursNotes(e.target.value)} placeholder="What did you work on?" />
+          <div className="flex items-center gap-3 mb-2">
+            <button
+              type="button"
+              onClick={() => bumpMinutes(-15)}
+              disabled={draftMinutes <= 15}
+              className="w-9 h-9 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
+              aria-label="Decrease 15 minutes"
+            ><Minus size={16} /></button>
+            <div className="min-w-[6rem] text-center">
+              <div className="text-2xl font-semibold text-slate-900 tabular-nums">{fmtDuration(draftMinutes)}</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider">15-min increments</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => bumpMinutes(15)}
+              disabled={draftMinutes >= 480}
+              className="w-9 h-9 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 flex items-center justify-center"
+              aria-label="Increase 15 minutes"
+            ><Plus size={16} /></button>
+            <div className="flex flex-wrap gap-1 ml-3">
+              {[15, 30, 60, 120].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDraftMinutes(m)}
+                  className={`px-2 py-1 text-xs rounded border ${
+                    draftMinutes === m
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >{fmtDuration(m)}</button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+            <Input label="Notes (optional)" value={hoursNotes} onChange={(e) => setHoursNotes(e.target.value)} placeholder="What did you work on?" />
             <Button
-              disabled={busy === 'hours' || !hoursInput}
+              disabled={busy === 'hours'}
               onClick={async () => {
-                const h = Number(hoursInput);
-                if (!Number.isFinite(h) || h <= 0) return;
                 setBusy('hours');
-                await store.logHours(ticket.id, h, hoursNotes, currentUser?.email ?? 'unknown');
-                setHoursInput(''); setHoursNotes('');
+                await store.logHours(ticket.id, draftMinutes / 60, hoursNotes, currentUser?.email ?? 'unknown');
+                setHoursNotes('');
+                setDraftMinutes(15);
                 setBusy(null);
               }}
-            >Log</Button>
+            >Log {fmtDuration(draftMinutes)} as {currentUser?.email ?? 'you'}</Button>
           </div>
           {entries.length > 0 && (
             <ul className="mt-3 space-y-1 text-xs text-slate-600 max-h-40 overflow-auto">
               {entries.map((e) => (
                 <li key={e.id} className="flex gap-2">
-                  <span className="font-mono w-14">{e.hours.toFixed(2)}h</span>
+                  <span className="font-mono w-14">{fmtDuration(Math.round(e.hours * 60))}</span>
                   <span className="flex-1 truncate">{e.notes || <em className="text-slate-400">no notes</em>}</span>
                   <span className="text-slate-400">{e.userEmail} · {fmt(e.loggedAt)}</span>
                 </li>
@@ -231,6 +324,42 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             <Button onClick={() => setShowResolve(true)}>
               <Check size={14} /> Resolve ticket
             </Button>
+          )}
+        </section>
+
+        {/* Delete — irreversible; cascades messages + time + attachments */}
+        <section className="pt-4 border-t border-slate-200">
+          {showDeleteConfirm ? (
+            <div className="rounded border border-red-300 bg-red-50 p-3 space-y-2">
+              <div className="text-sm font-semibold text-red-800">Delete this ticket?</div>
+              <div className="text-xs text-red-700">
+                Removes the ticket, all {messages.length} message(s), {entries.length} time entry(ies),
+                and {attachments.length} attachment file(s). This cannot be undone.
+              </div>
+              {deleteError && <div className="text-xs text-red-700">{deleteError}</div>}
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => { setShowDeleteConfirm(false); setDeleteError(null); }}>Cancel</Button>
+                <button
+                  type="button"
+                  disabled={busy === 'delete'}
+                  onClick={async () => {
+                    setBusy('delete');
+                    setDeleteError(null);
+                    const res = await store.deleteTicket(ticket.id);
+                    setBusy(null);
+                    if (!res.ok) { setDeleteError(res.message || 'Delete failed'); return; }
+                    onClose();
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                ><Trash2 size={14} /> {busy === 'delete' ? 'Deleting…' : 'Delete permanently'}</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-800 hover:underline"
+            ><Trash2 size={12} /> Delete ticket</button>
           )}
         </section>
       </div>

@@ -232,6 +232,7 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
               <tr className="border-b border-slate-100">
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">#</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Subject</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">From</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Status</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Priority</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Assignee</th>
@@ -252,6 +253,13 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                       <span className="truncate">{t.subject}</span>
                       {t.webUrl && <ExternalLink size={12} className="flex-shrink-0 opacity-60" />}
                     </div>
+                  </td>
+                  <td className="py-2.5 pr-4 text-xs text-slate-600 truncate max-w-[12rem]">
+                    {t.senderEmail ? (
+                      <span title={t.senderEmail}>{t.senderName || t.senderEmail}</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-4"><Badge variant={ticketStatusVariant(t.status)}>{t.status}</Badge></td>
                   <td className="py-2.5 pr-4"><Badge variant={priorityVariant(t.priority)}>{t.priority ?? 'None'}</Badge></td>

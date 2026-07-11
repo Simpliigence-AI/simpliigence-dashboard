@@ -109,6 +109,14 @@ Deno.serve(async (req: Request) => {
       if (existing.data) { results.push({ id: msg.id, ok: true, error: 'already ingested' }); continue; }
 
       const from = extractEmail(msg.from);
+
+      // Skip senders on the ignore list (info@salesforce.com et al.)
+      if (from.email) {
+        const { data: ignored } = await supabase.from('desk_ignored_senders')
+          .select('email').eq('email', from.email.toLowerCase()).maybeSingle();
+        if (ignored) { results.push({ id: msg.id, ok: true, error: `ignored sender: ${from.email}` }); continue; }
+      }
+
       const toEmails: string[] = (msg.toRecipients || []).map((r: unknown) => extractEmail(r).email).filter(Boolean);
       const ccEmails: string[] = (msg.ccRecipients || []).map((r: unknown) => extractEmail(r).email).filter(Boolean);
       const conversationId: string = msg.conversationId || '';
@@ -172,8 +180,9 @@ Deno.serve(async (req: Request) => {
         }).eq('id', ticketId);
       }
 
+      const messageRowId = nanoid();
       const { error: msgErr } = await supabase.from('ticket_messages').insert({
-        id: nanoid(),
+        id: messageRowId,
         ticket_id: ticketId,
         direction: 'inbound',
         from_email: from.email,
@@ -187,6 +196,44 @@ Deno.serve(async (req: Request) => {
         received_at: receivedAt,
       });
       if (msgErr) throw new Error(`message insert: ${msgErr.message}`);
+
+      // Attachments — fetch, upload to Storage, record row per attachment.
+      // Only fileAttachments (not item/reference); Graph inlines base64 contentBytes.
+      if (msg.hasAttachments) {
+        try {
+          const attRes = await fetch(`https://graph.microsoft.com/v1.0/${resource}/attachments`,
+            { headers: { Authorization: `Bearer ${token}` } });
+          if (attRes.ok) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const attJson = await attRes.json() as { value?: any[] };
+            for (const a of (attJson.value || [])) {
+              if (a['@odata.type'] !== '#microsoft.graph.fileAttachment') continue;
+              if (!a.contentBytes) continue;
+              const bytes = Uint8Array.from(atob(a.contentBytes), (c) => c.charCodeAt(0));
+              const attId = nanoid();
+              const safeName = String(a.name || 'file').replace(/[^A-Za-z0-9._-]/g, '_');
+              const storagePath = `${ticketId}/${attId}-${safeName}`;
+              const { error: upErr } = await supabase.storage.from('ticket-attachments').upload(
+                storagePath, bytes, { contentType: a.contentType || 'application/octet-stream', upsert: false });
+              if (upErr) { console.warn('[desk-inbound] attachment upload failed:', upErr.message); continue; }
+              await supabase.from('ticket_attachments').insert({
+                id: attId,
+                ticket_id: ticketId,
+                message_id: messageRowId,
+                file_name: a.name || 'file',
+                content_type: a.contentType || null,
+                size_bytes: a.size || bytes.byteLength,
+                storage_path: storagePath,
+                graph_attachment_id: a.id || null,
+              });
+            }
+          } else {
+            console.warn('[desk-inbound] attachments fetch failed:', attRes.status);
+          }
+        } catch (e) {
+          console.warn('[desk-inbound] attachments error:', e instanceof Error ? e.message : String(e));
+        }
+      }
 
       results.push({ id: msg.id, ok: true });
     } catch (err) {

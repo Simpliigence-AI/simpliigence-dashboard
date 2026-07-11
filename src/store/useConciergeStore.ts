@@ -73,6 +73,17 @@ export interface ConciergeTimeEntry {
   loggedAt: string;
 }
 
+export interface ConciergeAttachment {
+  id: string;
+  ticketId: string;
+  messageId: string | null;
+  fileName: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  storagePath: string;
+  createdAt: string;
+}
+
 export interface GraphSubscription {
   id: string;
   resource: string;
@@ -85,6 +96,7 @@ interface ConciergeState {
   tickets: ConciergeTicket[];
   messagesByTicket: Record<string, ConciergeTicketMessage[]>;
   timeEntriesByTicket: Record<string, ConciergeTimeEntry[]>;
+  attachmentsByTicket: Record<string, ConciergeAttachment[]>;
   graphSubscriptions: GraphSubscription[];
   graphConfigured: boolean | null; // null = unknown, true/false after status check
   lastSynced: string | null;
@@ -116,6 +128,9 @@ interface ConciergeState {
   logHours: (ticketId: string, hours: number, notes: string, userEmail: string) => Promise<void>;
   resolveTicket: (id: string, resolution: string) => Promise<void>;
   reopenTicket: (id: string) => Promise<void>;
+  deleteTicket: (id: string) => Promise<{ ok: boolean; message?: string }>;
+  loadAttachments: (ticketId: string) => Promise<void>;
+  attachmentDownloadUrl: (storagePath: string) => Promise<string | null>;
 
   refreshFromZoho: () => Promise<{ ok: boolean; message?: string; count?: number }>;
   setTickets: (tickets: ConciergeTicket[]) => void;
@@ -184,6 +199,7 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
   tickets: [],
   messagesByTicket: {},
   timeEntriesByTicket: {},
+  attachmentsByTicket: {},
   graphSubscriptions: [],
   graphConfigured: null,
   lastSynced: null,
@@ -352,6 +368,56 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     set((s) => ({
       tickets: s.tickets.map((t) => t.id === id ? { ...t, status: 'Open', resolution: null, resolvedAt: null } : t),
     }));
+  },
+
+  deleteTicket: async (id) => {
+    // Storage files first (Storage doesn't cascade with DB FK). Best-effort;
+    // the DB row delete cascades ticket_messages, ticket_time_entries, ticket_attachments.
+    const { data: atts } = await supabase.from('ticket_attachments').select('storage_path').eq('ticket_id', id);
+    const paths = (atts ?? []).map((a) => a.storage_path).filter(Boolean);
+    if (paths.length) {
+      const { error: rmErr } = await supabase.storage.from('ticket-attachments').remove(paths);
+      if (rmErr) console.warn('[concierge] deleteTicket storage rm:', rmErr.message);
+    }
+    const { error } = await supabase.from('tickets').delete().eq('id', id);
+    if (error) return { ok: false, message: error.message };
+    set((s) => {
+      const { [id]: _m, ...msgs } = s.messagesByTicket;
+      const { [id]: _t, ...tes } = s.timeEntriesByTicket;
+      const { [id]: _a, ...atx } = s.attachmentsByTicket;
+      void _m; void _t; void _a;
+      return {
+        tickets: s.tickets.filter((t) => t.id !== id),
+        messagesByTicket: msgs,
+        timeEntriesByTicket: tes,
+        attachmentsByTicket: atx,
+      };
+    });
+    return { ok: true };
+  },
+
+  loadAttachments: async (ticketId) => {
+    const { data, error } = await supabase.from('ticket_attachments').select('*')
+      .eq('ticket_id', ticketId).order('created_at', { ascending: true });
+    if (error) { console.warn('[concierge] loadAttachments:', error.message); return; }
+    const rows = (data ?? []).map((r) => ({
+      id: r.id,
+      ticketId: r.ticket_id,
+      messageId: r.message_id ?? null,
+      fileName: r.file_name,
+      contentType: r.content_type ?? null,
+      sizeBytes: r.size_bytes ?? null,
+      storagePath: r.storage_path,
+      createdAt: r.created_at,
+    } as ConciergeAttachment));
+    set((s) => ({ attachmentsByTicket: { ...s.attachmentsByTicket, [ticketId]: rows } }));
+  },
+
+  attachmentDownloadUrl: async (storagePath) => {
+    const { data, error } = await supabase.storage.from('ticket-attachments')
+      .createSignedUrl(storagePath, 60 * 60); // 1h
+    if (error || !data?.signedUrl) { console.warn('[concierge] signedUrl:', error?.message); return null; }
+    return data.signedUrl;
   },
 
   refreshFromZoho: async () => {

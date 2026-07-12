@@ -41,6 +41,13 @@ export interface AccountInitiative { title: string; description?: string }
 export interface AccountRisk { title: string; severity?: 'low' | 'medium' | 'high'; notes?: string }
 export interface AccountOppSuggestion { title: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number }
 
+export interface RefinementNote {
+  id: string;
+  note: string;
+  author: string | null;
+  addedAt: string;
+}
+
 export interface AccountProfile {
   accountId: string;
   whatWeDo: string | null;
@@ -51,6 +58,7 @@ export interface AccountProfile {
   upsellOpportunities: AccountOppSuggestion[];
   crossSellOpportunities: AccountOppSuggestion[];
   sourceDocIds: string[];
+  refinementNotes: RefinementNote[];
   generatedAt: string | null;
   updatedAt: string;
 }

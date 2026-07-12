@@ -5,10 +5,11 @@
  * exists yet, prompts the user to build one from uploaded docs + features.
  * Regenerate re-invokes rebuild-account-profile.
  */
-import { useEffect } from 'react';
-import { Sparkles, RefreshCw, Loader2, Users, Cpu, Target, AlertTriangle, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, RefreshCw, Loader2, Users, Cpu, Target, AlertTriangle, TrendingUp, ArrowUpRight, MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { useAccountDocsStore } from '../../store/useAccountDocsStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 interface Props { accountId: string }
 
@@ -24,8 +25,36 @@ export function AccountProfileTab({ accountId }: Props) {
   const rebuild = useAccountDocsStore((s) => s.rebuildProfile);
   const building = useAccountDocsStore((s) => s.profileBuilding.has(accountId));
   const loadForAccount = useAccountDocsStore((s) => s.loadForAccount);
+  const addRefinement = useAccountDocsStore((s) => s.addRefinement);
+  const removeRefinement = useAccountDocsStore((s) => s.removeRefinement);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const [refineText, setRefineText] = useState('');
+  const [refineBusy, setRefineBusy] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
+  const [autoRebuildPending, setAutoRebuildPending] = useState(false);
 
   useEffect(() => { void loadForAccount(accountId); }, [accountId, loadForAccount]);
+
+  async function submitRefinement() {
+    const text = refineText.trim();
+    if (!text) return;
+    setRefineBusy(true);
+    setRefineError(null);
+    try {
+      await addRefinement(accountId, text, currentUser?.email ?? null);
+      setRefineText('');
+      setAutoRebuildPending(true);
+    } catch (e) {
+      setRefineError((e as Error).message);
+    } finally {
+      setRefineBusy(false);
+    }
+  }
+
+  async function rebuildNow() {
+    setAutoRebuildPending(false);
+    await rebuild(accountId);
+  }
 
   const doneCount = docs.filter((d) => d.aiStatus === 'done').length;
   const hasProfile = !!profile && (profile.whatWeDo || profile.keyStakeholders.length > 0 || profile.upsellOpportunities.length > 0);
@@ -42,11 +71,71 @@ export function AccountProfileTab({ accountId }: Props) {
             {profile?.generatedAt && ` · last rebuilt ${new Date(profile.generatedAt).toLocaleString()}`}
           </div>
         </div>
-        <Button variant="primary" size="sm" onClick={() => rebuild(accountId)} disabled={building}>
+        <Button variant="primary" size="sm" onClick={rebuildNow} disabled={building}>
           {building ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
           <span className="ml-1">{hasProfile ? 'Rebuild' : 'Build profile'}</span>
         </Button>
       </div>
+
+      {/* Refinements — user corrections that OVERRIDE stale doc content */}
+      <section className={`rounded-lg border p-3 ${autoRebuildPending ? 'border-amber-300 bg-amber-50/60' : 'border-purple-200 bg-purple-50/40'}`}>
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div>
+            <h4 className="text-[11px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1">
+              <MessageSquare size={11} /> Refinements
+            </h4>
+            <div className="text-[11px] text-slate-600 mt-0.5">
+              Corrections here <span className="font-semibold">override the documents</span> on the next rebuild. Use them to mark old info as stale, note the current priority, or add context the docs miss.
+            </div>
+          </div>
+          {autoRebuildPending && !building && (
+            <Button variant="primary" size="sm" onClick={rebuildNow}>
+              <RefreshCw className="w-3 h-3" /><span className="ml-1">Rebuild now to apply</span>
+            </Button>
+          )}
+        </div>
+
+        <div className="flex gap-2 items-start">
+          <textarea
+            value={refineText}
+            onChange={(e) => setRefineText(e.target.value)}
+            placeholder="e.g. Marketing Cloud project is no longer active — customer paused it in June. Focus is now Service Cloud rollout."
+            rows={2}
+            className="flex-1 px-3 py-1.5 rounded border border-slate-300 text-sm resize-y"
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submitRefinement(); }}
+          />
+          <Button variant="primary" size="sm" onClick={submitRefinement} disabled={!refineText.trim() || refineBusy}>
+            {refineBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+            <span className="ml-1">Add</span>
+          </Button>
+        </div>
+        {refineError && (
+          <div className="text-[11px] text-rose-700 mt-1 flex items-center gap-1"><AlertTriangle size={10} /> {refineError}</div>
+        )}
+
+        {profile?.refinementNotes && profile.refinementNotes.length > 0 && (
+          <ul className="mt-2 space-y-1.5">
+            {profile.refinementNotes.map((n) => (
+              <li key={n.id} className="rounded bg-white border border-purple-100 px-2.5 py-1.5 flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-slate-800 whitespace-pre-wrap">{n.note}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {n.author ?? 'unknown'} · {new Date(n.addedAt).toLocaleString()}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { if (confirm('Remove this refinement?')) void removeRefinement(accountId, n.id); }}
+                  className="text-slate-400 hover:text-rose-600 p-1 flex-shrink-0"
+                  title="Remove"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {!hasProfile && !building && (
         <div className="text-center text-slate-500 text-sm py-8 border border-dashed border-slate-200 rounded-lg">

@@ -68,11 +68,12 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    const [acct, docs, feats, opps] = await Promise.all([
+    const [acct, docs, feats, opps, existingProfile] = await Promise.all([
       supabase.from('concierge_accounts').select('id, name, industry, tech_stack, current_work, previous_work, notes').eq('id', accountId).single(),
       supabase.from('concierge_account_documents').select('id, kind, title, ai_summary, ai_topics, meeting_date, uploaded_at').eq('account_id', accountId).eq('ai_status', 'done').order('uploaded_at', { ascending: false }).limit(50),
       supabase.from('concierge_features').select('name, category, status, priority, upsell_estimate').eq('account_id', accountId),
       supabase.from('account_opportunities').select('name, stage_name, amount, close_date').eq('account_id', accountId).limit(20),
+      supabase.from('concierge_account_profile').select('refinement_notes').eq('account_id', accountId).maybeSingle(),
     ]);
 
     if (acct.error || !acct.data) throw new Error(`Account not found: ${acct.error?.message}`);
@@ -81,6 +82,9 @@ Deno.serve(async (req: Request) => {
     const documents = docs.data ?? [];
     const features = feats.data ?? [];
     const opportunities = opps.data ?? [];
+    // Refinements are AUTHORITATIVE user overrides; preserve them across rebuilds.
+    const refinementNotes: Array<{ id?: string; note: string; author?: string | null; addedAt?: string }> =
+      Array.isArray(existingProfile.data?.refinement_notes) ? existingProfile.data!.refinement_notes : [];
 
     if (documents.length === 0 && features.length === 0) {
       // Nothing to synthesize from — bail with a friendly empty profile
@@ -94,13 +98,21 @@ Deno.serve(async (req: Request) => {
         upsell_opportunities: [],
         cross_sell_opportunities: [],
         source_doc_ids: [],
+        refinement_notes: refinementNotes,
         generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
       return new Response(JSON.stringify({ ok: true, profile: null, note: 'No documents or features — upload some to build a profile.' }), { headers: corsHeaders });
     }
 
+    const refinementsBlock = refinementNotes.length === 0
+      ? '(none)'
+      : refinementNotes.map((r, i) => `${i + 1}. ${r.note}${r.author ? ` — ${r.author}` : ''}${r.addedAt ? ` (${r.addedAt.slice(0, 10)})` : ''}`).join('\n');
+
     const prompt = `You are Simpliigence's Salesforce consulting AI. Build a synthesized profile for the account below by combining EVERY source. Ground every claim in one of the sources.
+
+USER REFINEMENTS (AUTHORITATIVE — these OVERRIDE any conflicting content from documents, features, or opportunities. Documents may be outdated; these notes represent the current truth as of today.)
+${refinementsBlock}
 
 ACCOUNT
 Name: ${account.name}
@@ -133,6 +145,7 @@ Return ONLY a JSON object with these keys (empty arrays are fine):
 }
 
 Rules:
+- USER REFINEMENTS above are ground truth. If a document says X but a refinement says "X is no longer the priority" or "we've moved to Y", trust the refinement and reflect it. Do NOT include contradictory items just because they appear in older documents.
 - Dedupe: don't repeat the same stakeholder/technology across documents.
 - Never invent people or budgets. If unknown, omit.
 - upsell_opportunities are for products the account already uses (deeper adoption).
@@ -152,6 +165,7 @@ Rules:
       upsell_opportunities: profile.upsell_opportunities ?? [],
       cross_sell_opportunities: profile.cross_sell_opportunities ?? [],
       source_doc_ids: documents.map((d) => d.id),
+      refinement_notes: refinementNotes,   // preserve across rebuild
       generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

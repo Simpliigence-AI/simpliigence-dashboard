@@ -14,10 +14,12 @@
  */
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { nanoid } from 'nanoid';
 import type {
   AccountDocument,
   AccountDocKind,
   AccountProfile,
+  RefinementNote,
 } from '../types/concierge';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,6 +56,15 @@ function rowToProfile(r: any): AccountProfile {
     upsellOpportunities: Array.isArray(r.upsell_opportunities) ? r.upsell_opportunities : [],
     crossSellOpportunities: Array.isArray(r.cross_sell_opportunities) ? r.cross_sell_opportunities : [],
     sourceDocIds: Array.isArray(r.source_doc_ids) ? r.source_doc_ids : [],
+    refinementNotes: Array.isArray(r.refinement_notes) ? r.refinement_notes.map((n: unknown) => {
+      const o = (n ?? {}) as Record<string, unknown>;
+      return {
+        id: (o.id as string) ?? nanoid(),
+        note: (o.note as string) ?? '',
+        author: (o.author as string | null) ?? null,
+        addedAt: (o.addedAt as string) ?? new Date().toISOString(),
+      };
+    }) : [],
     generatedAt: r.generated_at ?? null,
     updatedAt: r.updated_at,
   };
@@ -73,6 +84,8 @@ interface State {
   remove: (documentId: string) => Promise<void>;
   signedUrl: (storagePath: string) => Promise<string | null>;
   rebuildProfile: (accountId: string) => Promise<void>;
+  addRefinement: (accountId: string, note: string, author?: string | null) => Promise<void>;
+  removeRefinement: (accountId: string, noteId: string) => Promise<void>;
 }
 
 export const useAccountDocsStore = create<State>((set, get) => ({
@@ -248,5 +261,62 @@ export const useAccountDocsStore = create<State>((set, get) => ({
     } finally {
       set((s) => { const next = new Set(s.profileBuilding); next.delete(accountId); return { profileBuilding: next }; });
     }
+  },
+
+  addRefinement: async (accountId, noteText, author = null) => {
+    const trimmed = noteText.trim();
+    if (!trimmed) return;
+    const existing = get().profileByAccount[accountId];
+    const newNote: RefinementNote = {
+      id: nanoid(),
+      note: trimmed,
+      author: author ?? null,
+      addedAt: new Date().toISOString(),
+    };
+    const notes = [newNote, ...(existing?.refinementNotes ?? [])];
+    // Upsert: creates the profile row if it doesn't exist yet so refinements
+    // can be captured before the first rebuild.
+    const { error } = await supabase.from('concierge_account_profile').upsert({
+      account_id: accountId,
+      refinement_notes: notes,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+    set((s) => ({
+      profileByAccount: {
+        ...s.profileByAccount,
+        [accountId]: existing
+          ? { ...existing, refinementNotes: notes, updatedAt: new Date().toISOString() }
+          : {
+              accountId,
+              whatWeDo: null,
+              keyStakeholders: [],
+              technologies: [],
+              currentInitiatives: [],
+              risks: [],
+              upsellOpportunities: [],
+              crossSellOpportunities: [],
+              sourceDocIds: [],
+              refinementNotes: notes,
+              generatedAt: null,
+              updatedAt: new Date().toISOString(),
+            },
+      },
+    }));
+  },
+
+  removeRefinement: async (accountId, noteId) => {
+    const existing = get().profileByAccount[accountId];
+    if (!existing) return;
+    const notes = existing.refinementNotes.filter((n) => n.id !== noteId);
+    const { error } = await supabase.from('concierge_account_profile').upsert({
+      account_id: accountId,
+      refinement_notes: notes,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+    set((s) => ({
+      profileByAccount: { ...s.profileByAccount, [accountId]: { ...existing, refinementNotes: notes } },
+    }));
   },
 }));

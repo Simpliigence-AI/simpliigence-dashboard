@@ -1,8 +1,23 @@
 /** India Roster types — full FTE list (billable + bench). */
 
-export type IndiaRosterStatus = 'Billable' | 'Bench' | 'On Leave' | 'Notice';
+/**
+ * A person's current allocation state.
+ *   Billable  — currently on a paid project.
+ *   Bench     — full-time employee temporarily unassigned but available.
+ *   On Leave  — temporarily out (parental, medical, etc.).
+ *   Notice    — resigned; working out notice period.
+ *   Inactive  — no longer on the team: ex-contractors whose contracts ended,
+ *               alumni. Kept on the roster for historical reference but
+ *               excluded from the active-team headcount and from bench.
+ */
+export type IndiaRosterStatus = 'Billable' | 'Bench' | 'On Leave' | 'Notice' | 'Inactive';
 
 export const INDIA_ROSTER_STATUSES: IndiaRosterStatus[] = [
+  'Billable', 'Bench', 'On Leave', 'Notice', 'Inactive',
+];
+
+/** Statuses that count toward the active team (excludes Inactive alumni). */
+export const ACTIVE_INDIA_ROSTER_STATUSES: IndiaRosterStatus[] = [
   'Billable', 'Bench', 'On Leave', 'Notice',
 ];
 
@@ -11,6 +26,7 @@ export const INDIA_ROSTER_STATUS_COLORS: Record<IndiaRosterStatus, string> = {
   Bench:     '#f59e0b',  // amber  — available but not earning
   'On Leave':'#94a3b8',  // slate  — temporarily out
   Notice:    '#ef4444',  // red    — leaving
+  Inactive:  '#cbd5e1',  // slate-300 — off the team
 };
 
 /** Common role categories for the Roster + Project Team views. Free-text

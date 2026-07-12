@@ -161,21 +161,26 @@ export default function IndiaRosterPage() {
     return groupByAccount ? [...rows].sort(sortByProjectThen) : rows;
   }, [filtered, groupByAccount, sortByProjectThen]);
 
-  /* —— Stats —— */
-  const total = members.length;
-  const billable = members.filter(m => m.status === 'Billable').length;
-  const bench = members.filter(m => m.status === 'Bench').length;
+  /* —— Stats ——
+   *  "Active team" excludes Inactive alumni / ex-contractors so headcount and
+   *  bench percentages reflect who's actually on the team today. Inactive
+   *  members stay on the roster page for history but never inflate stats. */
+  const activeMembers = useMemo(() => members.filter(m => m.status !== 'Inactive'), [members]);
+  const total = activeMembers.length;
+  const billable = activeMembers.filter(m => m.status === 'Billable').length;
+  const bench = activeMembers.filter(m => m.status === 'Bench').length;
+  const inactive = members.length - activeMembers.length;
   const avgMargin = useMemo(() => {
-    const billableMembers = members.filter(m => m.status === 'Billable' && m.bill_rate > 0);
+    const billableMembers = activeMembers.filter(m => m.status === 'Billable' && m.bill_rate > 0);
     if (billableMembers.length === 0) return 0;
     const sum = billableMembers.reduce((s, m) => s + calcMarginPercent(m), 0);
     return Math.round(sum / billableMembers.length);
-  }, [members]);
+  }, [activeMembers]);
   const monthlyRevenue = useMemo(() => {
-    return members
+    return activeMembers
       .filter(m => m.status === 'Billable')
       .reduce((s, m) => s + m.bill_rate * 160, 0); // 160 hrs/mo standard
-  }, [members]);
+  }, [activeMembers]);
 
   /* —— Distribution by role —— */
   const roleDistribution = useMemo(() => {
@@ -253,9 +258,19 @@ export default function IndiaRosterPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Total Team" value={total} icon={<Users size={20} />} subtitle={`${members.length} members`} />
+        <StatCard
+          label="Total Team"
+          value={total}
+          icon={<Users size={20} />}
+          subtitle={inactive > 0 ? `${inactive} inactive/alumni not counted` : `${total} active members`}
+        />
         <StatCard label="Billable" value={billable} icon={<UserCheck size={20} />} subtitle={`${total > 0 ? Math.round(billable/total*100) : 0}% of team`} />
-        <StatCard label="On Bench" value={bench} icon={<Briefcase size={20} />} subtitle={`${total > 0 ? Math.round(bench/total*100) : 0}% of team`} />
+        <StatCard
+          label="On Bench"
+          value={bench}
+          icon={<Briefcase size={20} />}
+          subtitle={`${total > 0 ? Math.round(bench/total*100) : 0}% of team${inactive > 0 ? ` · ${inactive} inactive tracked separately` : ''}`}
+        />
         <StatCard label="Avg Margin" value={<Sensitive>{`${avgMargin}%`}</Sensitive>} icon={<TrendingUp size={20} />} subtitle="Billable members" />
         <StatCard label="Monthly Revenue" value={<Sensitive>{`$${(monthlyRevenue/1000).toFixed(0)}k`}</Sensitive>} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
       </div>

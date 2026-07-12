@@ -27,6 +27,7 @@ function rowToItem(r: any): UpsellBacklogItem {
     kind: r.kind,
     source: r.source,
     sourceRef: r.source_ref ?? null,
+    serviceArea: r.service_area ?? null,
     cloud: r.cloud ?? null,
     rationale: r.rationale ?? null,
     estimatedValueUsd: r.estimated_value_usd == null ? null : Number(r.estimated_value_usd),
@@ -51,6 +52,7 @@ interface State {
     kind: UpsellKind;
     source?: UpsellSource;
     sourceRef?: string | null;
+    serviceArea?: string | null;
     cloud?: string | null;
     rationale?: string | null;
     estimatedValueUsd?: number | null;
@@ -76,6 +78,7 @@ function toDbPatch(patch: Partial<UpsellBacklogItem>): Record<string, any> {
   if (patch.status !== undefined) out.status = patch.status;
   if (patch.assigneeEmail !== undefined) out.assignee_email = patch.assigneeEmail;
   if (patch.dueDate !== undefined) out.due_date = patch.dueDate;
+  if (patch.serviceArea !== undefined) out.service_area = patch.serviceArea;
   if (patch.cloud !== undefined) out.cloud = patch.cloud;
   if (patch.rationale !== undefined) out.rationale = patch.rationale;
   if (patch.estimatedValueUsd !== undefined) out.estimated_value_usd = patch.estimatedValueUsd;
@@ -107,13 +110,14 @@ export const useUpsellBacklogStore = create<State>((set, get) => ({
     }
   },
 
-  add: async ({ accountId, title, kind, source = 'manual', sourceRef = null, cloud = null, rationale = null, estimatedValueUsd = null, assigneeEmail = null, dueDate = null, notes = null, createdBy = null }) => {
+  add: async ({ accountId, title, kind, source = 'manual', sourceRef = null, serviceArea = null, cloud = null, rationale = null, estimatedValueUsd = null, assigneeEmail = null, dueDate = null, notes = null, createdBy = null }) => {
     const insert = {
       account_id: accountId,
       title: title.trim(),
       kind,
       source,
       source_ref: sourceRef,
+      service_area: serviceArea,
       cloud,
       rationale,
       estimated_value_usd: estimatedValueUsd,

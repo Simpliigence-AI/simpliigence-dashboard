@@ -109,7 +109,19 @@ Deno.serve(async (req: Request) => {
       ? '(none)'
       : refinementNotes.map((r, i) => `${i + 1}. ${r.note}${r.author ? ` — ${r.author}` : ''}${r.addedAt ? ` (${r.addedAt.slice(0, 10)})` : ''}`).join('\n');
 
-    const prompt = `You are Simpliigence's Salesforce consulting AI. Build a synthesized profile for the account below by combining EVERY source. Ground every claim in one of the sources.
+    const prompt = `You are Simpliigence's delivery AI. Build a synthesized profile for the account below by combining EVERY source. Ground every claim in one of the sources.
+
+Simpliigence delivers ALL of the following. Look for upsell/cross-sell across EVERY service area, not just Salesforce:
+
+- Salesforce Consulting — Sales Cloud, Service Cloud, Marketing Cloud, Data Cloud, Commerce Cloud, Experience Cloud, Field Service, Health Cloud, Revenue Cloud (CPQ), MuleSoft, Einstein / Agentforce, CRM Analytics / Tableau, OmniStudio, Platform / custom Apex
+- AI & Automation — AI business assistants (chatbots, copilots, in-app agents), custom AI integrations (LLM APIs, RAG, agentic workflows), intelligent document processing
+- Robotic Process Automation (RPA) — automating repetitive manual back-office work (data entry, reconciliations, ticket triage, invoicing, reporting), cross-system workflow automation
+- Custom Application Development — full-stack web apps, custom internal tools / portals, SaaS product engineering, backend microservices, API development, system integrations
+- Mobile — iOS / Android native, React Native / cross-platform, mobile UX/UI redesign
+- Website & Digital — website design & build, hosting & maintenance, SEO / SEM, marketing automation, email campaigns, analytics & tracking
+- Data & Analytics — data engineering, data migration, BI dashboards, custom reporting
+- Cloud & DevOps — cloud infra (AWS / Azure / GCP), CI/CD, DevOps, monitoring
+- Managed Services — ongoing support retainers, admin-as-a-service, 24×7 monitoring
 
 USER REFINEMENTS (AUTHORITATIVE — these OVERRIDE any conflicting content from documents, features, or opportunities. Documents may be outdated; these notes represent the current truth as of today.)
 ${refinementsBlock}
@@ -137,19 +149,27 @@ Return ONLY a JSON object with these keys (empty arrays are fine):
 {
   "what_we_do": "3-8 sentence narrative of what Simpliigence is delivering for this account today, grounded in the evidence above",
   "key_stakeholders": [ { "name": "...", "role": "...", "notes": "why they matter" } ],
-  "technologies": [ "Salesforce Sales Cloud", "Marketing Cloud Engagement", "..." ],
+  "technologies": [ "any product / platform / tool in play — Salesforce clouds, AWS, Zoho, custom stack, chatbot vendor, RPA tool, ..." ],
   "current_initiatives": [ { "title": "short", "description": "what & why" } ],
   "risks": [ { "title": "...", "severity": "low|medium|high", "notes": "..." } ],
-  "upsell_opportunities": [ { "title": "...", "cloud": "Sales Cloud|Service Cloud|...", "rationale": "why now, tied to evidence", "upsell_estimate_usd": 0 } ],
-  "cross_sell_opportunities": [ { "title": "...", "cloud": "...", "rationale": "...", "upsell_estimate_usd": 0 } ]
+  "upsell_opportunities": [ { "title": "...", "service_area": "Salesforce | AI & Automation | RPA | Custom Development | Mobile | Website & Digital | Data & Analytics | Cloud & DevOps | Managed Services", "cloud": "sub-area if applicable (e.g. Sales Cloud, invoicing RPA, iOS app, SEO retainer)", "rationale": "why now, tied to evidence", "upsell_estimate_usd": 0 } ],
+  "cross_sell_opportunities": [ { "title": "...", "service_area": "one of the above", "cloud": "sub-area if applicable", "rationale": "...", "upsell_estimate_usd": 0 } ]
 }
 
 Rules:
 - USER REFINEMENTS above are ground truth. If a document says X but a refinement says "X is no longer the priority" or "we've moved to Y", trust the refinement and reflect it. Do NOT include contradictory items just because they appear in older documents.
+- Look ACROSS ALL Simpliigence service areas. Do NOT limit opportunities to Salesforce. Concrete signals to watch for:
+    * Manual repetitive process (invoicing, reconciliations, data entry) → RPA
+    * Interest in chatbot / self-service / "AI helper" / agent-style automation → AI & Automation
+    * Dated website, no analytics, poor lead capture, no SEO → Website & Digital
+    * "We built this internally and can't maintain it" / stale internal tools → Custom Development or Managed Services
+    * Mobile-first user base with no app → Mobile
+    * Siloed data, painful reports, no BI → Data & Analytics + Integrations
+    * On-prem infra or manual deploys → Cloud & DevOps
+- upsell_opportunities are for service areas the account already buys from us (deeper adoption).
+- cross_sell_opportunities are for service areas NOT yet in their engagement with us (new footprint).
 - Dedupe: don't repeat the same stakeholder/technology across documents.
 - Never invent people or budgets. If unknown, omit.
-- upsell_opportunities are for products the account already uses (deeper adoption).
-- cross_sell_opportunities are for products NOT yet in their stack (new clouds/features).
 - upsell_estimate_usd is annual, best-effort, 0 if unknown.
 - Do NOT wrap the JSON in code fences.`;
 

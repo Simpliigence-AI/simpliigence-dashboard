@@ -39,16 +39,55 @@ async function askClaude(prompt: string): Promise<Record<string, unknown>> {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 4000,
+      max_tokens: 8000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
   if (!resp.ok) throw new Error(`Claude ${resp.status}: ${(await resp.text()).slice(0, 400)}`);
   const json = await resp.json();
   const raw = json.content?.[0]?.text ?? '';
+  const stopReason = json.stop_reason;
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('Claude did not return JSON.');
-  return JSON.parse(match[0]);
+  try {
+    return JSON.parse(match[0]);
+  } catch (e) {
+    console.warn('[rebuild-account-profile] JSON parse failed, attempting repair. stop_reason=%s err=%s', stopReason, (e as Error).message);
+    return repairTruncatedJson(match[0]);
+  }
+}
+
+/** Best-effort repair of JSON that got cut off at max_tokens. */
+function repairTruncatedJson(s: string): Record<string, unknown> {
+  let inString = false;
+  let escape = false;
+  let lastSafe = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\') { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === ',' || c === '}' || c === ']') lastSafe = i + (c === ',' ? 0 : 1);
+  }
+  let repaired = s.slice(0, lastSafe).replace(/,\s*$/, '');
+  const closeStack: string[] = [];
+  inString = false; escape = false;
+  for (let i = 0; i < repaired.length; i++) {
+    const c = repaired[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\') { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === '{' || c === '[') closeStack.push(c);
+    else if (c === '}' && closeStack[closeStack.length - 1] === '{') closeStack.pop();
+    else if (c === ']' && closeStack[closeStack.length - 1] === '[') closeStack.pop();
+  }
+  while (closeStack.length > 0) {
+    const open = closeStack.pop();
+    repaired += open === '{' ? '}' : ']';
+  }
+  return JSON.parse(repaired);
 }
 
 // @ts-expect-error Deno global

@@ -23,6 +23,7 @@ import { FeatureCoverageMatrix } from './concierge/FeatureCoverageMatrix';
 import { AccountDocsTab } from './concierge/AccountDocsTab';
 import { AccountProfileTab } from './concierge/AccountProfileTab';
 import { AccountOpportunitiesTab } from './concierge/AccountOpportunitiesTab';
+import { ConciergeAskAI } from './concierge/ConciergeAskAI';
 import { NewTicketModal } from './concierge/NewTicketModal';
 import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
@@ -1266,6 +1267,9 @@ export default function ConciergePage() {
           </div>
         }
       />
+
+      {/* AI query bar — natural-language questions across every Concierge signal */}
+      <ConciergeAskAI />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">

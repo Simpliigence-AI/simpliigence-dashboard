@@ -10,6 +10,9 @@ import { Sparkles, RefreshCw, Loader2, Users, Cpu, Target, AlertTriangle, Trendi
 import { Button } from '../../components/ui';
 import { useAccountDocsStore } from '../../store/useAccountDocsStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import type { AccountDocument } from '../../types/concierge';
+
+const EMPTY_DOCS: readonly AccountDocument[] = Object.freeze([]);
 
 interface Props { accountId: string }
 
@@ -21,7 +24,8 @@ function fmtUSD(n: number | undefined): string {
 
 export function AccountProfileTab({ accountId }: Props) {
   const profile = useAccountDocsStore((s) => s.profileByAccount[accountId]);
-  const docs = useAccountDocsStore((s) => s.docsByAccount[accountId] ?? []);
+  const docsRaw = useAccountDocsStore((s) => s.docsByAccount[accountId]);
+  const docs = docsRaw ?? (EMPTY_DOCS as AccountDocument[]);
   const rebuild = useAccountDocsStore((s) => s.rebuildProfile);
   const building = useAccountDocsStore((s) => s.profileBuilding.has(accountId));
   const loadForAccount = useAccountDocsStore((s) => s.loadForAccount);

@@ -39,9 +39,12 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+const EMPTY_DOCS: readonly AccountDocument[] = Object.freeze([]);
+
 export function AccountDocsTab({ accountId, mode }: Props) {
-  const docs = useAccountDocsStore((s) => s.docsByAccount[accountId] ?? []);
-  const loading = useAccountDocsStore((s) => s.loadingByAccount[accountId] ?? false);
+  const docsRaw = useAccountDocsStore((s) => s.docsByAccount[accountId]);
+  const docs = docsRaw ?? (EMPTY_DOCS as AccountDocument[]);
+  const loading = useAccountDocsStore((s) => s.loadingByAccount[accountId]) ?? false;
   const loadForAccount = useAccountDocsStore((s) => s.loadForAccount);
   const uploadFile = useAccountDocsStore((s) => s.uploadFile);
   const addTranscript = useAccountDocsStore((s) => s.addTranscript);

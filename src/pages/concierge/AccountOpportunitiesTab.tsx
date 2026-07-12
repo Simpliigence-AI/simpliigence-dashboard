@@ -27,6 +27,12 @@ import { useUpsellBacklogStore } from '../../store/useUpsellBacklogStore';
 import { useAccountDocsStore } from '../../store/useAccountDocsStore';
 import { useAuthStore } from '../../store/useAuthStore';
 
+// Module-level stable empty. Selectors that return `arr ?? []` inline create
+// a fresh array literal per call — Zustand's Object.is equality then treats
+// it as changed on every store notification and re-renders every subscriber
+// forever. Return `undefined` from the selector, default outside.
+const EMPTY_ITEMS: readonly UpsellBacklogItem[] = Object.freeze([]);
+
 interface Props { accountId: string }
 
 const KIND_META: Record<UpsellKind, { label: string; cls: string; Icon: typeof TrendingUp }> = {
@@ -35,13 +41,13 @@ const KIND_META: Record<UpsellKind, { label: string; cls: string; Icon: typeof T
 };
 
 export function AccountOpportunitiesTab({ accountId }: Props) {
-  const items = useUpsellBacklogStore((s) => s.itemsByAccount[accountId] ?? []);
-  const loading = useUpsellBacklogStore((s) => s.loadingByAccount[accountId] ?? false);
+  const itemsRaw = useUpsellBacklogStore((s) => s.itemsByAccount[accountId]);
+  const items = itemsRaw ?? (EMPTY_ITEMS as UpsellBacklogItem[]);
+  const loading = useUpsellBacklogStore((s) => s.loadingByAccount[accountId]) ?? false;
   const load = useUpsellBacklogStore((s) => s.loadForAccount);
   const add = useUpsellBacklogStore((s) => s.add);
   const update = useUpsellBacklogStore((s) => s.update);
   const remove = useUpsellBacklogStore((s) => s.remove);
-  const hasPromoted = useUpsellBacklogStore((s) => s.hasPromoted);
   const profile = useAccountDocsStore((s) => s.profileByAccount[accountId]);
   const loadDocs = useAccountDocsStore((s) => s.loadForAccount);
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -68,11 +74,14 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
 
   const aiOpps = useMemo(() => {
     if (!profile) return [];
+    const promoted = new Set(
+      items.map((x) => (x.sourceRef || x.title).toLowerCase()),
+    );
     return [
       ...(profile.upsellOpportunities ?? []).map((o) => ({ ...o, kind: 'upsell' as UpsellKind })),
       ...(profile.crossSellOpportunities ?? []).map((o) => ({ ...o, kind: 'cross_sell' as UpsellKind })),
-    ].filter((o) => o.title && !hasPromoted(accountId, o.title));
-  }, [profile, accountId, hasPromoted]);
+    ].filter((o) => o.title && !promoted.has(o.title.toLowerCase()));
+  }, [profile, items]);
 
   async function submitAdd() {
     if (!addTitle.trim()) return;

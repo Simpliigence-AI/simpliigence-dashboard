@@ -341,7 +341,7 @@ function ProfileList<T>({
   );
 }
 
-interface Opp { title: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number }
+interface Opp { title: string; service_area?: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number }
 function OppSection({ title, subtitle, items, icon, badgeCls }: {
   title: string; subtitle: string; items: Opp[]; icon: React.ReactNode; badgeCls: string;
 }) {
@@ -358,7 +358,11 @@ function OppSection({ title, subtitle, items, icon, badgeCls }: {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-slate-900">{o.title}</div>
-                {o.cloud && <div className="text-[10px] text-slate-500 uppercase tracking-wider">{o.cloud}</div>}
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider flex flex-wrap gap-x-1.5">
+                  {o.service_area && <span className="font-semibold text-slate-700">{o.service_area}</span>}
+                  {o.service_area && o.cloud && <span>·</span>}
+                  {o.cloud && <span>{o.cloud}</span>}
+                </div>
               </div>
               {o.upsell_estimate_usd ? (
                 <span className="flex-shrink-0 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">

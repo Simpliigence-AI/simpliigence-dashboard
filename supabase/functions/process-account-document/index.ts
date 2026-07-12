@@ -149,10 +149,30 @@ async function extractText(row: DocRow, supabase: ReturnType<typeof createClient
   throw new Error(`Unsupported file type: ${mime || fname} — supported: PDF, DOCX, XLSX, PPTX, CSV, TXT. For audio/video, paste a transcript.`);
 }
 
+/** Simpliigence's full delivery portfolio. The AI is told to look for
+ *  opportunities across ALL of these, not just Salesforce, so a document
+ *  that mentions e.g. a stuck manual invoicing process can surface as an
+ *  RPA opportunity even if the account is primarily a Salesforce customer. */
+const SIMPLIIGENCE_SERVICES = `
+Simpliigence delivers ALL of the following. Look for upsell/cross-sell across every service area:
+
+- Salesforce Consulting — Sales Cloud, Service Cloud, Marketing Cloud, Data Cloud, Commerce Cloud, Experience Cloud, Field Service, Health Cloud, Revenue Cloud (CPQ), MuleSoft, Einstein / Agentforce, CRM Analytics / Tableau, OmniStudio, Platform / custom Apex
+- AI & Automation — AI business assistants (chatbots, copilots, in-app agents), custom AI integrations (LLM APIs, RAG, agentic workflows), intelligent document processing, prompt engineering
+- Robotic Process Automation (RPA) — automating repetitive manual back-office work (data entry, reconciliations, ticket triage, invoicing, report generation), workflow automation across systems
+- Custom Application Development — full-stack web apps, custom internal tools / portals, SaaS product engineering, backend microservices, API development, system integrations
+- Mobile — iOS / Android native, React Native / cross-platform, mobile UX/UI redesign
+- Website & Digital — website design, website development, hosting & website maintenance, SEO / SEM, marketing automation, email campaign management, analytics & tracking
+- Data & Analytics — data engineering, data migration, BI dashboards, custom reporting
+- Cloud & DevOps — cloud infra (AWS / Azure / GCP), CI/CD, DevOps, monitoring
+- Managed Services — ongoing support retainers, admin-as-a-service, 24×7 monitoring
+`;
+
 async function askClaude(title: string, kind: string, text: string): Promise<{ summary: string; topics: Record<string, unknown> }> {
   const trimmed = text.length > 40000 ? text.slice(0, 40000) + '\n\n[...truncated at 40k chars]' : text;
   const isTranscript = kind === 'meeting_transcript' || kind === 'meeting_recording';
-  const prompt = `You are analyzing a ${isTranscript ? 'meeting transcript' : 'document'} for a Salesforce consulting engagement.
+  const prompt = `You are analyzing a ${isTranscript ? 'meeting transcript' : 'document'} for Simpliigence, a delivery firm serving mid-market and enterprise customers.
+
+${SIMPLIIGENCE_SERVICES}
 
 TITLE: ${title}
 CONTENT:
@@ -160,17 +180,24 @@ ${trimmed}
 
 Produce a JSON object with EXACTLY these keys — no prose outside the JSON:
 {
-  "summary": "3-6 sentence overview of what this ${isTranscript ? 'meeting covered' : 'document contains'} and its relevance to our Salesforce work",
+  "summary": "3-6 sentence overview of what this ${isTranscript ? 'meeting covered' : 'document contains'} and its relevance to our delivery work",
   "stakeholders": [ { "name": "...", "role": "...", "notes": "..." } ],
-  "technologies": [ "specific product / cloud / tool names mentioned" ],
+  "technologies": [ "specific product / platform / tool names mentioned (Salesforce clouds, AWS, Zoho, SAP, custom stack, etc.)" ],
   "initiatives": [ { "title": "short name", "description": "what we/they are doing or planning" } ],
   "risks": [ { "title": "...", "severity": "low|medium|high", "notes": "..." } ],
-  "opportunities": [ { "title": "upsell/cross-sell idea", "cloud": "e.g. Marketing Cloud", "rationale": "why this fits based on the doc", "upsell_estimate_usd": 0 } ]
+  "opportunities": [ { "title": "upsell/cross-sell idea", "service_area": "one of: Salesforce | AI & Automation | RPA | Custom Development | Mobile | Website & Digital | Data & Analytics | Cloud & DevOps | Managed Services", "cloud": "sub-area if applicable (e.g. Marketing Cloud, chatbot assistant, invoicing RPA, iOS app)", "rationale": "why this fits based on the doc", "upsell_estimate_usd": 0 } ]
 }
 
 Rules:
+- Look for opportunities ACROSS ALL Simpliigence service areas, not just Salesforce. Examples of non-Salesforce signals:
+    * Manual repetitive process mentioned → RPA opportunity
+    * People asking about a chatbot / self-service / AI helper → AI assistant opportunity
+    * Website looks dated, no analytics, poor lead capture → Website & Digital opportunity
+    * "We built this ourselves and can't maintain it" → Managed Services opportunity
+    * Mobile-first customer base, no app yet → Mobile opportunity
+    * Data siloed across systems, reporting is painful → Data & Analytics + Integration opportunity
 - Only include items actually grounded in the content. Empty arrays are fine.
-- upsell_estimate_usd is a rough annual value (0 if unknown).
+- upsell_estimate_usd is a rough annual value in USD (0 if unknown).
 - Do not invent stakeholders — only pull real names from the content.
 - Return ONLY the JSON object.`;
 

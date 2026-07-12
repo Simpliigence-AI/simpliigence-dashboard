@@ -39,7 +39,30 @@ export interface AccountDocument {
 export interface AccountStakeholder { name: string; role?: string; notes?: string }
 export interface AccountInitiative { title: string; description?: string }
 export interface AccountRisk { title: string; severity?: 'low' | 'medium' | 'high'; notes?: string }
-export interface AccountOppSuggestion { title: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number }
+export interface AccountOppSuggestion {
+  title: string;
+  /** High-level Simpliigence bucket: Salesforce, AI & Automation, RPA, etc. */
+  service_area?: string;
+  /** Sub-area — e.g. "Sales Cloud", "invoicing RPA", "iOS app". */
+  cloud?: string;
+  rationale?: string;
+  upsell_estimate_usd?: number;
+}
+
+/** Canonical list rendered in badges + used to group items. Keep in sync with
+ *  the delivery portfolio in the process/rebuild edge function prompts. */
+export const SIMPLIIGENCE_SERVICE_AREAS = [
+  'Salesforce',
+  'AI & Automation',
+  'RPA',
+  'Custom Development',
+  'Mobile',
+  'Website & Digital',
+  'Data & Analytics',
+  'Cloud & DevOps',
+  'Managed Services',
+] as const;
+export type SimpliigenceServiceArea = typeof SIMPLIIGENCE_SERVICE_AREAS[number];
 
 export type UpsellKind = 'upsell' | 'cross_sell';
 export type UpsellSource = 'manual' | 'ai_profile' | 'meeting' | 'document';
@@ -52,6 +75,7 @@ export interface UpsellBacklogItem {
   kind: UpsellKind;
   source: UpsellSource;
   sourceRef: string | null;
+  serviceArea: string | null;
   cloud: string | null;
   rationale: string | null;
   estimatedValueUsd: number | null;

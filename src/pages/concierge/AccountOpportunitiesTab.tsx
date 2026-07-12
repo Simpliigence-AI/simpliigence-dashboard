@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, User, Calendar, TrendingUp, ArrowUpRight, Sparkles, Loader2, AlertTriangle, ChevronDown } from 'lucide-react';
 import { Button } from '../../components/ui';
 import type { UpsellBacklogItem, UpsellKind, UpsellStatus } from '../../types/concierge';
-import { UPSELL_STATUS_META } from '../../types/concierge';
+import { UPSELL_STATUS_META, SIMPLIIGENCE_SERVICE_AREAS } from '../../types/concierge';
 import { useUpsellBacklogStore } from '../../store/useUpsellBacklogStore';
 import { useAccountDocsStore } from '../../store/useAccountDocsStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -58,6 +58,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [addTitle, setAddTitle] = useState('');
   const [addKind, setAddKind] = useState<UpsellKind>('upsell');
+  const [addServiceArea, setAddServiceArea] = useState<string>('');
   const [addAssignee, setAddAssignee] = useState('');
   const [addDue, setAddDue] = useState('');
   const [busy, setBusy] = useState(false);
@@ -92,11 +93,12 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
         title: addTitle.trim(),
         kind: addKind,
         source: 'manual',
+        serviceArea: addServiceArea || null,
         assigneeEmail: addAssignee.trim() || null,
         dueDate: addDue || null,
         createdBy: currentUser?.email ?? null,
       });
-      setAddTitle(''); setAddAssignee(''); setAddDue(''); setShowAdd(false);
+      setAddTitle(''); setAddServiceArea(''); setAddAssignee(''); setAddDue(''); setShowAdd(false);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -104,7 +106,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
     }
   }
 
-  async function promote(opp: { title: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number; kind: UpsellKind }) {
+  async function promote(opp: { title: string; service_area?: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number; kind: UpsellKind }) {
     setBusy(true); setError(null);
     try {
       await add({
@@ -113,6 +115,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
         kind: opp.kind,
         source: 'ai_profile',
         sourceRef: opp.title,
+        serviceArea: opp.service_area ?? null,
         cloud: opp.cloud ?? null,
         rationale: opp.rationale ?? null,
         estimatedValueUsd: opp.upsell_estimate_usd ?? null,
@@ -153,6 +156,11 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
                   <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${M.cls}`}>
                     <M.Icon size={9} /> {M.label}
                   </span>
+                  {o.service_area && (
+                    <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+                      {o.service_area}
+                    </span>
+                  )}
                   <span className="text-xs text-slate-800 flex-1 min-w-0 truncate" title={o.rationale}>{o.title}</span>
                   {o.upsell_estimate_usd ? (
                     <span className="text-[10px] text-amber-700 font-medium">${o.upsell_estimate_usd.toLocaleString()}/yr</span>
@@ -206,7 +214,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
             className="w-full px-3 py-1.5 rounded border border-slate-300 text-sm"
             autoFocus
           />
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <select
               value={addKind}
               onChange={(e) => setAddKind(e.target.value as UpsellKind)}
@@ -214,6 +222,17 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
             >
               <option value="upsell">Upsell</option>
               <option value="cross_sell">Cross-sell</option>
+            </select>
+            <select
+              value={addServiceArea}
+              onChange={(e) => setAddServiceArea(e.target.value)}
+              className="px-2 py-1.5 rounded border border-slate-300 text-xs bg-white"
+              title="Service area"
+            >
+              <option value="">Service area…</option>
+              {SIMPLIIGENCE_SERVICE_AREAS.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
             </select>
             <input
               type="email"
@@ -303,6 +322,17 @@ function OpportunityRow({
         >
           <option value="upsell">Upsell</option>
           <option value="cross_sell">Cross-sell</option>
+        </select>
+
+        {/* Service area (inline dropdown) */}
+        <select
+          value={item.serviceArea ?? ''}
+          onChange={(e) => onChange(item.id, { serviceArea: e.target.value || null })}
+          className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-200 bg-white cursor-pointer flex-shrink-0"
+          title="Service area"
+        >
+          <option value="">— area —</option>
+          {SIMPLIIGENCE_SERVICE_AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
 
         {/* Title */}

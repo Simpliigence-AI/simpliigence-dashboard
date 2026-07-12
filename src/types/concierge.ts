@@ -41,6 +41,37 @@ export interface AccountInitiative { title: string; description?: string }
 export interface AccountRisk { title: string; severity?: 'low' | 'medium' | 'high'; notes?: string }
 export interface AccountOppSuggestion { title: string; cloud?: string; rationale?: string; upsell_estimate_usd?: number }
 
+export type UpsellKind = 'upsell' | 'cross_sell';
+export type UpsellSource = 'manual' | 'ai_profile' | 'meeting' | 'document';
+export type UpsellStatus = 'open' | 'in_progress' | 'won' | 'lost' | 'dropped';
+
+export interface UpsellBacklogItem {
+  id: string;
+  accountId: string;
+  title: string;
+  kind: UpsellKind;
+  source: UpsellSource;
+  sourceRef: string | null;
+  cloud: string | null;
+  rationale: string | null;
+  estimatedValueUsd: number | null;
+  assigneeEmail: string | null;
+  dueDate: string | null;
+  status: UpsellStatus;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const UPSELL_STATUS_META: Record<UpsellStatus, { label: string; cls: string }> = {
+  open:         { label: 'Open',        cls: 'bg-slate-100 text-slate-700 border-slate-200' },
+  in_progress:  { label: 'In Progress', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+  won:          { label: 'Won',         cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  lost:         { label: 'Lost',        cls: 'bg-rose-50 text-rose-800 border-rose-200' },
+  dropped:      { label: 'Dropped',     cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+};
+
 export interface RefinementNote {
   id: string;
   note: string;

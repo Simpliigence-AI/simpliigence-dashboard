@@ -22,6 +22,7 @@ import { FeatureCoverageScorecard } from './concierge/FeatureCoverageScorecard';
 import { FeatureCoverageMatrix } from './concierge/FeatureCoverageMatrix';
 import { AccountDocsTab } from './concierge/AccountDocsTab';
 import { AccountProfileTab } from './concierge/AccountProfileTab';
+import { AccountOpportunitiesTab } from './concierge/AccountOpportunitiesTab';
 import { NewTicketModal } from './concierge/NewTicketModal';
 import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
@@ -397,7 +398,7 @@ function AccountDrawer({
 }) {
   const store = useConciergeAccountsStore();
   const featureCatalog = useFeatureCatalogStore((s) => s.entries);
-  const [drawerTab, setDrawerTab] = useState<'overview' | 'documents' | 'meetings' | 'profile'>('overview');
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'documents' | 'meetings' | 'profile' | 'opportunities'>('overview');
   const [newFeatureName, setNewFeatureName] = useState('');
   const [newFeatureCategory, setNewFeatureCategory] = useState('Sales Cloud');
   const [newTech, setNewTech] = useState('');
@@ -457,6 +458,7 @@ function AccountDrawer({
           { key: 'documents', label: 'Documents' },
           { key: 'meetings', label: 'Meetings' },
           { key: 'profile', label: 'AI Profile' },
+          { key: 'opportunities', label: 'Opportunities' },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -476,6 +478,7 @@ function AccountDrawer({
       {drawerTab === 'documents' && <AccountDocsTab accountId={account.id} mode="documents" />}
       {drawerTab === 'meetings' && <AccountDocsTab accountId={account.id} mode="meetings" />}
       {drawerTab === 'profile' && <AccountProfileTab accountId={account.id} />}
+      {drawerTab === 'opportunities' && <AccountOpportunitiesTab accountId={account.id} />}
 
       {drawerTab === 'overview' && (
       <div className="space-y-6">

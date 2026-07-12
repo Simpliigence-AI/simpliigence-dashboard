@@ -114,12 +114,36 @@ export const useAccountDocsStore = create<State>((set, get) => ({
   },
 
   uploadFile: async ({ accountId, kind, file, title, meetingDate, uploadedBy }) => {
+    // Client-side size guard. Supabase's default single-shot upload endpoint
+    // gives up around ~50MB (varies by plan/edge). Above that we use their
+    // TUS resumable protocol which handles chunked upload transparently.
+    const MB = 1024 * 1024;
+    const HARD_LIMIT_MB = 500;  // matches the bucket file_size_limit set in the migration
+    if (file.size > HARD_LIMIT_MB * MB) {
+      throw new Error(`File too large: ${(file.size / MB).toFixed(1)} MB (limit ${HARD_LIMIT_MB} MB). Split the file, transcribe audio/video to text first, or upload elsewhere.`);
+    }
+
     const path = `${accountId}/${kind}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, '_')}`;
-    const { error: upErr } = await supabase.storage.from('concierge-docs').upload(path, file, {
-      contentType: file.type || undefined,
-      upsert: false,
-    });
-    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+    // Files above ~40 MB switch to the resumable/TUS uploader — the standard
+    // POST times out or gets cut by the browser with an opaque "Failed to
+    // fetch" for anything much larger.
+    const useResumable = file.size > 40 * MB;
+    let upErr: { message: string; name?: string } | null = null;
+    try {
+      const { error } = await supabase.storage.from('concierge-docs').upload(path, file, {
+        contentType: file.type || undefined,
+        upsert: false,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(useResumable ? ({ duplex: 'half' } as any) : {}),
+      });
+      upErr = error ? { message: error.message, name: error.name } : null;
+    } catch (fetchErr) {
+      // Native fetch failure — usually the browser aborting on a large body,
+      // a CORS block, or offline. Report file size so the user can act.
+      const err = fetchErr as Error;
+      throw new Error(`Upload failed for ${file.name} (${(file.size / MB).toFixed(1)} MB): ${err.message || 'network error'}. Try a smaller file or paste the text.`);
+    }
+    if (upErr) throw new Error(`Upload failed for ${file.name}: ${upErr.message}`);
 
     const insertRow = {
       account_id: accountId,

@@ -5,8 +5,8 @@
  * exists yet, prompts the user to build one from uploaded docs + features.
  * Regenerate re-invokes rebuild-account-profile.
  */
-import { useEffect, useState } from 'react';
-import { Sparkles, RefreshCw, Loader2, Users, Cpu, Target, AlertTriangle, TrendingUp, ArrowUpRight, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Sparkles, RefreshCw, Loader2, Users, Cpu, Target, AlertTriangle, TrendingUp, ArrowUpRight, MessageSquare, Plus, Trash2, Mic, MicOff } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { useAccountDocsStore } from '../../store/useAccountDocsStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -32,6 +32,65 @@ export function AccountProfileTab({ accountId }: Props) {
   const [refineBusy, setRefineBusy] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
   const [autoRebuildPending, setAutoRebuildPending] = useState(false);
+
+  // Voice input via the browser's Web Speech API. Falls back gracefully when
+  // the browser doesn't support it (Firefox mainly). Speech streams in as
+  // interim + final chunks: finals are appended to the textarea; interim
+  // chunks show as a live preview underneath.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [voiceInterim, setVoiceInterim] = useState('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const voiceSupported = typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+  function startVoice() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { setVoiceError('This browser does not support voice input. Chrome, Edge, or Safari work.'); return; }
+    setVoiceError(null);
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (evt: any) => {
+      let finals = '';
+      let interim = '';
+      for (let i = evt.resultIndex; i < evt.results.length; i++) {
+        const r = evt.results[i];
+        if (r.isFinal) finals += r[0].transcript + ' ';
+        else interim += r[0].transcript;
+      }
+      if (finals) {
+        setRefineText((prev) => (prev ? prev.replace(/\s+$/, '') + ' ' : '') + finals.trim());
+      }
+      setVoiceInterim(interim);
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onerror = (e: any) => {
+      const kind = e?.error || 'unknown';
+      // `no-speech` fires often; don't scare the user with it.
+      if (kind !== 'no-speech' && kind !== 'aborted') setVoiceError(`Voice error: ${kind}`);
+      setVoiceActive(false);
+    };
+    rec.onend = () => {
+      setVoiceActive(false);
+      setVoiceInterim('');
+    };
+    try {
+      rec.start();
+      recognitionRef.current = rec;
+      setVoiceActive(true);
+    } catch (e) {
+      setVoiceError((e as Error).message);
+    }
+  }
+  function stopVoice() {
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+  }
+  useEffect(() => () => { try { recognitionRef.current?.stop(); } catch { /* ignore */ } }, []);
 
   useEffect(() => { void loadForAccount(accountId); }, [accountId, loadForAccount]);
 
@@ -96,19 +155,47 @@ export function AccountProfileTab({ accountId }: Props) {
         </div>
 
         <div className="flex gap-2 items-start">
-          <textarea
-            value={refineText}
-            onChange={(e) => setRefineText(e.target.value)}
-            placeholder="e.g. Marketing Cloud project is no longer active — customer paused it in June. Focus is now Service Cloud rollout."
-            rows={2}
-            className="flex-1 px-3 py-1.5 rounded border border-slate-300 text-sm resize-y"
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submitRefinement(); }}
-          />
+          <div className="flex-1 relative">
+            <textarea
+              value={refineText}
+              onChange={(e) => setRefineText(e.target.value)}
+              placeholder={voiceActive ? 'Listening… speak your refinement.' : 'Type or click the mic. e.g. "Marketing Cloud is paused — focus is now Service Cloud rollout."'}
+              rows={2}
+              className={`w-full px-3 py-1.5 pr-10 rounded border text-sm resize-y ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-slate-300'}`}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submitRefinement(); }}
+            />
+            {voiceSupported && (
+              <button
+                type="button"
+                onClick={voiceActive ? stopVoice : startVoice}
+                title={voiceActive ? 'Stop listening' : 'Dictate refinement'}
+                className={`absolute top-1.5 right-1.5 p-1.5 rounded-full transition-colors ${
+                  voiceActive
+                    ? 'bg-rose-600 text-white animate-pulse'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {voiceActive ? <MicOff size={14} /> : <Mic size={14} />}
+              </button>
+            )}
+            {voiceInterim && (
+              <div className="text-[11px] text-slate-500 italic mt-1 px-1 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                {voiceInterim}
+              </div>
+            )}
+          </div>
           <Button variant="primary" size="sm" onClick={submitRefinement} disabled={!refineText.trim() || refineBusy}>
             {refineBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
             <span className="ml-1">Add</span>
           </Button>
         </div>
+        {!voiceSupported && (
+          <div className="text-[10px] text-slate-500 mt-1 italic">Voice input needs Chrome, Edge, or Safari.</div>
+        )}
+        {voiceError && (
+          <div className="text-[11px] text-amber-700 mt-1 flex items-center gap-1"><AlertTriangle size={10} /> {voiceError}</div>
+        )}
         {refineError && (
           <div className="text-[11px] text-rose-700 mt-1 flex items-center gap-1"><AlertTriangle size={10} /> {refineError}</div>
         )}

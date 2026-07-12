@@ -1,8 +1,13 @@
 /** India Staffing Dashboard types */
 
+export type AccountTier = 1 | 2;
+
 export interface StaffingAccount {
   id: string;
   name: string;
+  /** Strategic segmentation. Tier 1 = named / must-serve strategic accounts,
+   *  surfaced at the top of the demand page. Tier 2 = everything else. */
+  tier: AccountTier;
   created_at: string;
 }
 

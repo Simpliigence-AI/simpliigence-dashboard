@@ -174,11 +174,12 @@ function staffingRequestToRow(r: StaffingRequest) {
 // ─── India Staffing converters ──────────────────────────────────────
 
 function indiaAccountToRow(a: IndiaAccount) {
-  return { id: a.id, name: a.name, created_at: a.created_at, updated_by: CLIENT_ID, updated_at: new Date().toISOString() };
+  return { id: a.id, name: a.name, tier: a.tier ?? 2, created_at: a.created_at, updated_by: CLIENT_ID, updated_at: new Date().toISOString() };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToIndiaAccount(row: any): IndiaAccount {
-  return { id: row.id, name: row.name, created_at: row.created_at };
+  const t = Number(row.tier);
+  return { id: row.id, name: row.name, tier: (t === 1 ? 1 : 2), created_at: row.created_at };
 }
 
 function indiaReqToRow(r: IndiaRequisition) {

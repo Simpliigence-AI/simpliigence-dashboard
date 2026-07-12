@@ -19,12 +19,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 /* ── Seed data from original Staffing.xlsx ── */
 const SEED_ACCOUNTS: StaffingAccount[] = [
-  { id: 'acct-1', name: 'Acuity', created_at: '2026-03-01' },
-  { id: 'acct-2', name: 'Amex', created_at: '2026-03-01' },
-  { id: 'acct-3', name: 'Ciklum', created_at: '2026-03-01' },
-  { id: 'acct-4', name: 'Ness', created_at: '2026-03-01' },
-  { id: 'acct-5', name: 'Persistent', created_at: '2026-03-01' },
-  { id: 'acct-6', name: 'Merck', created_at: '2026-03-01' },
+  { id: 'acct-1', name: 'Acuity', tier: 2, created_at: '2026-03-01' },
+  { id: 'acct-2', name: 'Amex', tier: 2, created_at: '2026-03-01' },
+  { id: 'acct-3', name: 'Ciklum', tier: 1, created_at: '2026-03-01' },
+  { id: 'acct-4', name: 'Ness', tier: 2, created_at: '2026-03-01' },
+  { id: 'acct-5', name: 'Persistent', tier: 1, created_at: '2026-03-01' },
+  { id: 'acct-6', name: 'Merck', tier: 2, created_at: '2026-03-01' },
 ];
 
 const seedReq = (p: Partial<StaffingRequisition> & { id: string; account_id: string; title: string; month: string; new_positions: number; expected_closure: string; anticipation: string; created_at: string; updated_at: string; }): StaffingRequisition => ({
@@ -118,8 +118,9 @@ interface StaffingState {
   history: StaffingHistoryEntry[];
   candidates: StaffingCandidate[];
 
-  addAccount: (name: string) => StaffingAccount;
+  addAccount: (name: string, tier?: 1 | 2) => StaffingAccount;
   removeAccount: (id: string) => void;
+  setAccountTier: (id: string, tier: 1 | 2) => void;
 
   addRequisition: (req: Omit<StaffingRequisition, 'id' | 'created_at' | 'updated_at' | 'ai_probability'> & Partial<Pick<StaffingRequisition, 'ai_probability'>>) => StaffingRequisition;
   updateRequisition: (id: string, patch: Partial<StaffingRequisition>) => void;
@@ -162,11 +163,19 @@ export const useStaffingStore = create<StaffingState>()(
       history: [],
       candidates: [],
 
-      addAccount: (name) => {
-        const acct: StaffingAccount = { id: nanoid(), name, created_at: new Date().toISOString() };
+      addAccount: (name, tier = 2) => {
+        const acct: StaffingAccount = { id: nanoid(), name, tier, created_at: new Date().toISOString() };
         set((s) => ({ accounts: [...s.accounts, acct] }));
         db.upsertIndiaAccount(acct);
         return acct;
+      },
+
+      setAccountTier: (id, tier) => {
+        set((s) => ({
+          accounts: s.accounts.map((a) => (a.id === id ? { ...a, tier } : a)),
+        }));
+        const acct = get().accounts.find((a) => a.id === id);
+        if (acct) db.upsertIndiaAccount(acct);
       },
 
       removeAccount: (id) => {
@@ -333,7 +342,7 @@ export const useStaffingStore = create<StaffingState>()(
             }
             let acct = newAccounts.find((a) => a.name === row.account);
             if (!acct) {
-              acct = { id: nanoid(), name: row.account, created_at: new Date().toISOString() };
+              acct = { id: nanoid(), name: row.account, tier: 2, created_at: new Date().toISOString() };
               newAccounts.push(acct);
             }
             let req = newReqs.find(

@@ -857,6 +857,106 @@ export default function IndiaStaffingPage() {
     </thead>
   );
 
+  /** Renders one tier's Active Requisitions Card. Tier 1 stays open and gets
+   *  a primary-accent left border to draw the eye; Tier 2 is collapsible so
+   *  the strategic list stays visible when you're scanning the top of the
+   *  page. Both share the same table + section-header rendering as before
+   *  so account grouping still works. */
+  const ActiveReqsBlock = ({
+    title, subtitle, tier, rows, collapsibleDefault = false, emptyMsg,
+  }: {
+    title: string;
+    subtitle: string;
+    tier: 1 | 2;
+    rows: StaffingRow[];
+    collapsibleDefault?: boolean;
+    emptyMsg: string;
+  }) => {
+    // Local collapse state, per instance. Tier 1 defaults to open.
+    // Tier 2 defaults to open if it has data — we want visibility by
+    // default and only collapse if the user actively minimizes it.
+    const [collapsed, setCollapsed] = useState(collapsibleDefault && rows.length > 10);
+    const totalPositions = rows.reduce((s, r) => s + r.openPositions, 0);
+    const distinctAccounts = new Set(rows.map((r) => r.account)).size;
+    const totalCols = 18; // must match TableHeader with selectable=true
+
+    return (
+      <Card className={`mb-4 ${tier === 1 ? 'border-l-4 border-l-primary bg-primary/[0.02]' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className="w-full flex items-center justify-between mb-3 text-left"
+        >
+          <div className="flex items-center gap-3 flex-wrap">
+            <h3 className={`font-bold text-sm ${tier === 1 ? 'text-primary' : 'text-slate-700'}`}>{title}</h3>
+            <span className="text-[11px] text-slate-500">{subtitle}</span>
+            {rows.length > 0 && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {distinctAccounts} {distinctAccounts === 1 ? 'account' : 'accounts'} · {rows.length} reqs · {totalPositions} open positions
+              </span>
+            )}
+          </div>
+          {collapsed ? <ChevronRight size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+        </button>
+        {!collapsed && (rows.length === 0 ? (
+          <p className="text-xs text-slate-400 italic py-4 text-center">{emptyMsg}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <TableHeader selectable />
+              <tbody>
+                {(() => {
+                  const ordered = groupByAccount
+                    ? [...rows].sort((a, b) => a.account.localeCompare(b.account) || b.aiProbability - a.aiProbability)
+                    : rows;
+                  let prevAccount: string | null = null;
+                  return ordered.map((r) => {
+                    const showHeader = groupByAccount && r.account !== prevAccount;
+                    if (showHeader) prevAccount = r.account;
+                    let sectionReqs = 0, sectionPositions = 0, sectionAvgAi = 0;
+                    if (showHeader) {
+                      const same = ordered.filter((x) => x.account === r.account);
+                      sectionReqs = same.length;
+                      sectionPositions = same.reduce((s, x) => s + x.openPositions, 0);
+                      sectionAvgAi = same.length ? Math.round(same.reduce((s, x) => s + x.aiProbability, 0) / same.length) : 0;
+                    }
+                    return (
+                      <Fragment key={`tier${tier}-row-${r.id}`}>
+                        {showHeader && (
+                          <tr className={`border-y-2 ${tier === 1 ? 'border-primary/30 bg-primary/5' : 'border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50'}`}>
+                            <td colSpan={totalCols} className="py-2 px-3">
+                              <div className="flex items-baseline gap-3 flex-wrap">
+                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${tier === 1 ? 'bg-primary/20 text-primary' : 'bg-primary/15 text-primary'}`}>
+                                  <Building2 size={14} />
+                                </span>
+                                <span className="text-base font-extrabold text-slate-900 tracking-tight">{r.account}</span>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${tier === 1 ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                  Tier {tier}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
+                                  {sectionReqs} {sectionReqs === 1 ? 'req' : 'reqs'}
+                                  <span className="text-slate-300 mx-1">·</span>
+                                  <span className="text-slate-700">{sectionPositions}</span> open positions
+                                  <span className="text-slate-300 mx-1">·</span>
+                                  avg AI prob <span className="text-slate-700">{sectionAvgAi}%</span>
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {renderRow(r, { selectable: true, hideAccount: groupByAccount })}
+                      </Fragment>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </Card>
+    );
+  };
+
   return (
     <>
       <PageHeader title="India Staffing" subtitle="Real-time staffing tracker with AI-powered closure forecasting" />
@@ -1180,7 +1280,40 @@ export default function IndiaStaffingPage() {
             )}
           </Card>
 
-          <Card>
+          {/* ── Tier 1 + Tier 2 rendering (extracted so it runs twice) ──
+           *  Splits `filtered` by the tier of its owning account, renders
+           *  Tier 1 as a prominent, always-open card and Tier 2 as a
+           *  collapsible one below. Each section only shows its own
+           *  bulk-action bar so selecting doesn't leak across tiers. */}
+          {(() => {
+            const accountTier = new Map<string, 1 | 2>(accounts.map((a) => [a.id, (a.tier === 1 ? 1 : 2)]));
+            const tier1Rows = filtered.filter((r) => accountTier.get(r.account_id) === 1);
+            const tier2Rows = filtered.filter((r) => accountTier.get(r.account_id) !== 1);
+            return (
+              <>
+                <ActiveReqsBlock
+                  title="Tier 1 · Strategic accounts"
+                  subtitle="Persistent, Ciklum — named accounts we can't miss on"
+                  tier={1}
+                  rows={tier1Rows}
+                  emptyMsg="No active Tier 1 requisitions."
+                />
+                <ActiveReqsBlock
+                  title="Tier 2 · Volume accounts"
+                  subtitle="Everything else — collapsed by default so Tier 1 stays in focus"
+                  tier={2}
+                  rows={tier2Rows}
+                  collapsibleDefault
+                  emptyMsg="No active Tier 2 requisitions."
+                />
+              </>
+            );
+          })()}
+
+          {/* -- OLD single-card Active Requisitions kept only as a fallback if
+                tier-split needs to be reverted; guarded by `false` so it stays
+                out of the render tree. Delete once the split has bedded in. */}
+          {false && (<Card>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <h3 className="font-bold text-sm">Active Requisitions</h3>
@@ -1354,7 +1487,7 @@ export default function IndiaStaffingPage() {
                 </tbody>
               </table>
             </div>
-          </Card>
+          </Card>)}
 
           {/* Archived — split into two buckets:
            *   1. Closed Won (celebrated, kept separate)

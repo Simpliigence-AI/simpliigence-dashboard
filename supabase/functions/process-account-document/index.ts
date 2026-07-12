@@ -51,6 +51,32 @@ interface DocRow {
   raw_text: string | null;
 }
 
+/** Sentinel value returned when the file is stored but has no text to
+ *  summarize (audio/video). The caller treats this as a soft-success. */
+const NO_TEXT_AVAILABLE = '__NO_TEXT_AVAILABLE__';
+
+function isAudioOrVideo(mime: string, filename: string): boolean {
+  if (mime.startsWith('audio/') || mime.startsWith('video/')) return true;
+  const lower = filename.toLowerCase();
+  return /\.(mp3|mp4|m4a|wav|mov|webm|mkv|avi|aac|flac|ogg|opus)$/.test(lower);
+}
+function isDocx(mime: string, filename: string): boolean {
+  return mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      || filename.toLowerCase().endsWith('.docx');
+}
+function isXlsx(mime: string, filename: string): boolean {
+  return mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || filename.toLowerCase().endsWith('.xlsx')
+      || filename.toLowerCase().endsWith('.xlsm');
+}
+function isCsv(mime: string, filename: string): boolean {
+  return mime === 'text/csv' || filename.toLowerCase().endsWith('.csv');
+}
+function isPptx(mime: string, filename: string): boolean {
+  return mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      || filename.toLowerCase().endsWith('.pptx');
+}
+
 async function extractText(row: DocRow, supabase: ReturnType<typeof createClient>): Promise<string> {
   if (row.raw_text && row.raw_text.trim().length > 0) return row.raw_text;
   if (!row.storage_path) throw new Error('No storage_path and no raw_text — nothing to extract.');
@@ -59,11 +85,15 @@ async function extractText(row: DocRow, supabase: ReturnType<typeof createClient
   if (error || !blob) throw new Error(`Storage download failed: ${error?.message ?? 'no data'}`);
 
   const mime = (row.mime_type || '').toLowerCase();
-  if (mime.startsWith('text/') || mime === 'application/json' || mime === 'application/xml' || mime === 'application/x-ndjson') {
+  const fname = row.filename || '';
+
+  // Plain text formats
+  if (mime.startsWith('text/') || mime === 'application/json' || mime === 'application/xml' || mime === 'application/x-ndjson' || isCsv(mime, fname)) {
     return await blob.text();
   }
-  if (mime === 'application/pdf') {
-    // unpdf ships pdf.js pre-bundled for Deno.
+
+  // PDF via unpdf (pdf.js pre-bundled for Deno)
+  if (mime === 'application/pdf' || fname.toLowerCase().endsWith('.pdf')) {
     // @ts-expect-error esm.sh
     const { extractText: unpdfExtract, getDocumentProxy } = await import('https://esm.sh/unpdf@0.12.1');
     const buf = new Uint8Array(await blob.arrayBuffer());
@@ -71,7 +101,52 @@ async function extractText(row: DocRow, supabase: ReturnType<typeof createClient
     const result = await unpdfExtract(pdf, { mergePages: true });
     return typeof result.text === 'string' ? result.text : result.text.join('\n\n');
   }
-  throw new Error(`Unsupported mime type: ${mime || 'unknown'} — upload PDF, txt, or paste transcript text.`);
+
+  // DOCX via mammoth
+  if (isDocx(mime, fname)) {
+    // @ts-expect-error esm.sh
+    const mammoth = (await import('https://esm.sh/mammoth@1.8.0?bundle')).default;
+    const buf = await blob.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    return (result?.value ?? '').toString();
+  }
+
+  // XLSX via SheetJS — flatten every sheet to CSV so the summary can reason over content
+  if (isXlsx(mime, fname)) {
+    // @ts-expect-error esm.sh
+    const XLSX = await import('https://esm.sh/xlsx@0.18.5');
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    const wb = XLSX.read(buf, { type: 'array' });
+    const parts: string[] = [];
+    for (const sheetName of wb.SheetNames as string[]) {
+      const sheet = wb.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      if (csv.trim()) parts.push(`## Sheet: ${sheetName}\n${csv}`);
+    }
+    return parts.join('\n\n');
+  }
+
+  // PPTX — extract slide text using a lightweight ZIP walk (jszip)
+  if (isPptx(mime, fname)) {
+    // @ts-expect-error esm.sh
+    const JSZip = (await import('https://esm.sh/jszip@3.10.1')).default;
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const slideFiles = Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort();
+    const parts: string[] = [];
+    for (const name of slideFiles) {
+      const xml = await zip.files[name].async('string');
+      const text = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (text) parts.push(text);
+    }
+    return parts.join('\n\n');
+  }
+
+  // Audio / video — store raw, don't fail. Transcription is deferred until we wire a provider.
+  if (isAudioOrVideo(mime, fname)) {
+    return NO_TEXT_AVAILABLE;
+  }
+
+  throw new Error(`Unsupported file type: ${mime || fname} — supported: PDF, DOCX, XLSX, PPTX, CSV, TXT. For audio/video, paste a transcript.`);
 }
 
 async function askClaude(title: string, kind: string, text: string): Promise<{ summary: string; topics: Record<string, unknown> }> {
@@ -152,6 +227,23 @@ Deno.serve(async (req: Request) => {
     const row = data as DocRow;
 
     const text = await extractText(row, supabase);
+
+    // Audio / video: stored raw. Mark done with an explanatory note so the row
+    // isn't red, but skip Claude — transcription provider isn't wired yet.
+    if (text === NO_TEXT_AVAILABLE) {
+      await supabase
+        .from('concierge_account_documents')
+        .update({
+          ai_status: 'done',
+          ai_summary: '🎥 Audio/video stored. Paste or upload a transcript to unlock AI insights.',
+          ai_topics: {},
+          ai_error: null,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', documentId);
+      return new Response(JSON.stringify({ ok: true, note: 'stored, no transcript' }), { headers: corsHeaders });
+    }
+
     if (!text.trim()) throw new Error('Extracted text was empty.');
 
     const { summary, topics } = await askClaude(row.title, row.kind, text);

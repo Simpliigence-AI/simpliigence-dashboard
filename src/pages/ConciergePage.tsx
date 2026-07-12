@@ -1105,8 +1105,8 @@ export default function ConciergePage() {
           );
         })
       : accounts;
-    // Dormant accounts float to the top so re-engagement targets are visible first.
-    return [...base].sort((a, b) => Number(b.isDormant) - Number(a.isDormant) || a.name.localeCompare(b.name));
+    // Dormant accounts sink to the bottom so active accounts lead the grid.
+    return [...base].sort((a, b) => Number(a.isDormant) - Number(b.isDormant) || a.name.localeCompare(b.name));
   }, [accounts, search]);
 
   const openAccount = openAccountId ? accounts.find((a) => a.id === openAccountId) : null;

@@ -156,16 +156,23 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 2. Filter to India + active. Active = sowEnd month >= current month.
+    // 2. Filter to India + active. Effective end = max(sowEnd, safeEnd).
+    //    safeEnd is the planning tool's "extended through" date — when it's
+    //    later than sowEnd, the position is still active until then.
+    //    Positions with no declared end are treated as active.
     const nowMonthIdx = new Date().getUTCMonth();  // 0..11
+    const monthIdx = (m: string): number => {
+      const i = MONTHS.indexOf((m || '').toLowerCase() as typeof MONTHS[number]);
+      return i;   // -1 if not a month code
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const active = positions.filter((p: any) => {
       if ((p.location || '').toLowerCase() !== 'india') return false;
-      const end = (p.sowEnd || '').toLowerCase();
-      if (!end) return true;   // no SOW end declared → assume active
-      const endIdx = MONTHS.indexOf(end as typeof MONTHS[number]);
-      if (endIdx === -1) return true;
-      return endIdx >= nowMonthIdx;
+      const sowIdx = monthIdx(p.sowEnd);
+      const safeIdx = monthIdx(p.safeEnd);
+      if (sowIdx === -1 && safeIdx === -1) return true;   // no end declared
+      const effective = Math.max(sowIdx, safeIdx);
+      return effective >= nowMonthIdx;
     });
 
     // 3. Load current planning-2026-tagged rows so we can diff.

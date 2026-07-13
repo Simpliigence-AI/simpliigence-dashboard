@@ -5,7 +5,7 @@ import { Input, Select, Textarea } from '../../components/ui/Input';
 import { useConciergeStore, type ConciergeTicket } from '../../store/useConciergeStore';
 import { useConciergeAccountsStore } from '../../store/useConciergeAccountsStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Clock, Mail, StickyNote, Check, RotateCcw } from 'lucide-react';
+import { Clock, Mail, StickyNote, Check, RotateCcw, Trash2, Loader2 } from 'lucide-react';
 
 interface Props {
   ticket: ConciergeTicket;
@@ -31,7 +31,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   const [hoursNotes, setHoursNotes] = useState('');
   const [resolutionDraft, setResolutionDraft] = useState('');
   const [showResolve, setShowResolve] = useState(false);
-  const [busy, setBusy] = useState<'note' | 'hours' | 'resolve' | null>(null);
+  const [busy, setBusy] = useState<'note' | 'hours' | 'resolve' | 'delete' | null>(null);
 
   const messages = store.messagesByTicket[ticket.id] ?? [];
   const entries = store.timeEntriesByTicket[ticket.id] ?? [];
@@ -232,6 +232,33 @@ export function TicketDrawer({ ticket, onClose }: Props) {
               <Check size={14} /> Resolve ticket
             </Button>
           )}
+
+          {/* Delete — separated visually so it's obviously destructive */}
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+            <span className="text-[11px] text-slate-500">
+              Permanently delete this ticket and all its messages/notes/hours.
+            </span>
+            <button
+              type="button"
+              disabled={busy === 'delete'}
+              onClick={async () => {
+                if (!confirm(`Delete ticket #${ticket.ticketNumber} — "${ticket.subject}"?\n\nThis is permanent and removes all messages, internal notes, and hours logs.`)) return;
+                setBusy('delete');
+                try {
+                  await store.deleteTicket(ticket.id);
+                  onClose();
+                } catch (e) {
+                  alert(`Delete failed: ${(e as Error).message}`);
+                } finally {
+                  setBusy(null);
+                }
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+            >
+              {busy === 'delete' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              Delete ticket
+            </button>
+          </div>
         </section>
       </div>
     </Drawer>

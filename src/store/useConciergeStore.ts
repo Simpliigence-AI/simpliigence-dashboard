@@ -116,6 +116,7 @@ interface ConciergeState {
   logHours: (ticketId: string, hours: number, notes: string, userEmail: string) => Promise<void>;
   resolveTicket: (id: string, resolution: string) => Promise<void>;
   reopenTicket: (id: string) => Promise<void>;
+  deleteTicket: (id: string) => Promise<void>;
 
   refreshFromZoho: () => Promise<{ ok: boolean; message?: string; count?: number }>;
   setTickets: (tickets: ConciergeTicket[]) => void;
@@ -352,6 +353,19 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     set((s) => ({
       tickets: s.tickets.map((t) => t.id === id ? { ...t, status: 'Open', resolution: null, resolvedAt: null } : t),
     }));
+  },
+
+  deleteTicket: async (id) => {
+    // Cascade any child rows first (messages, hours, notes) so we don't
+    // leave orphans behind. Best-effort — if a table doesn't exist the
+    // errors are logged and swallowed rather than aborting the delete.
+    for (const child of ['ticket_messages', 'ticket_hours_log', 'ticket_internal_notes'] as const) {
+      const { error: cErr } = await supabase.from(child).delete().eq('ticket_id', id);
+      if (cErr) console.warn(`[concierge] deleteTicket ${child}:`, cErr.message);
+    }
+    const { error } = await supabase.from('tickets').delete().eq('id', id);
+    if (error) { console.warn('[concierge] deleteTicket:', error.message); throw new Error(error.message); }
+    set((s) => ({ tickets: s.tickets.filter((t) => t.id !== id) }));
   },
 
   refreshFromZoho: async () => {

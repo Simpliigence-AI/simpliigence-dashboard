@@ -34,7 +34,7 @@ const GRAPH_CLIENT_ID = env('GRAPH_CLIENT_ID');
 const GRAPH_CLIENT_SECRET = env('GRAPH_CLIENT_SECRET');
 const GRAPH_SENDER_MAILBOX = env('GRAPH_SENDER_MAILBOX');
 const GRAPH_SENDER_NAME = env('GRAPH_SENDER_NAME') || 'Simpliigence Presales';
-const DASHBOARD_URL = env('DASHBOARD_URL') || 'https://raghu-simplii.github.io/simpliigence-dashboard/pipeline';
+const DASHBOARD_URL = env('DASHBOARD_URL') || 'https://simpliigence-ai.github.io/simpliigence-dashboard/pipeline';
 
 /** How long since the last reminder before we send another. 44h so a daily-
  *  fired cron ends up sending roughly every other day even if the cron

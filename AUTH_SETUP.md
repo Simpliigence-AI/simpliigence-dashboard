@@ -19,9 +19,9 @@ Supabase configuration so the auth flow works end-to-end.
 Supabase needs to know where to send users after they click a magic link.
 
 1. Supabase dashboard → **Authentication** → **URL Configuration**
-2. **Site URL:** `https://raghu-simplii.github.io/simpliigence-dashboard/`
+2. **Site URL:** `https://simpliigence-ai.github.io/simpliigence-dashboard/`
 3. **Redirect URLs** (add both):
-   - `https://raghu-simplii.github.io/simpliigence-dashboard/`
+   - `https://simpliigence-ai.github.io/simpliigence-dashboard/`
    - `http://localhost:5173/` (for local dev)
 
 ### 2. (Optional) Enable Google OAuth

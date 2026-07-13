@@ -13,8 +13,10 @@ import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'rea
 import {
   Users, UserCheck, Briefcase, TrendingUp, DollarSign, Plus, Search,
   Trash2, Pencil, Filter, Download, ChevronDown, ChevronRight, Building2,
+  RefreshCw, Loader2, AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
+import { supabase } from '../lib/supabase';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
@@ -252,8 +254,11 @@ export default function IndiaRosterPage() {
         subtitle="Full India FTE roster — billable allocations, bench, and margin"
       />
 
-      {/* SharePoint sync banner */}
+      {/* SharePoint sync banner (legacy — see PlanningSyncBanner below) */}
       <SharePointSyncBanner members={members} />
+
+      {/* New: sync billable roster from Sales Planning 2026 */}
+      <PlanningSyncBanner />
 
 
       {/* Stats */}
@@ -680,5 +685,87 @@ function renderMemberRow(
         </button>
       </td>
     </tr>
+  );
+}
+
+/* —— Sales Planning 2026 sync banner ——
+ * Manual button that pulls the India+active positions from planning-2026's
+ * /api/inputs (proxied through our sync-india-roster-planning edge fn) and
+ * upserts them into india_roster with source='planning-2026'. Bench rows
+ * and other manually-entered rows are left untouched.
+ */
+function PlanningSyncBanner() {
+  const [busy, setBusy] = useState<'dry' | 'live' | null>(null);
+  const [result, setResult] = useState<{ added: number; updated: number; removed: number; active: number; dryRun: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const hydrate = useIndiaRosterStore((s) => s.hydrate);
+
+  async function run(dryRun: boolean) {
+    setBusy(dryRun ? 'dry' : 'live');
+    setError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string; added: number; updated: number; removed: number; active: number; dryRun: boolean }>(
+        'sync-india-roster-planning',
+        { body: { dryRun } },
+      );
+      if (error) throw new Error(error.message);
+      if (!data || data.ok === false) throw new Error(data?.error || 'Sync failed');
+      setResult({ added: data.added, updated: data.updated, removed: data.removed, active: data.active, dryRun: data.dryRun });
+      // Refresh the roster from Supabase on live sync so the table reflects new data
+      if (!dryRun) {
+        const { data: fresh } = await supabase.from('india_roster').select('*').order('name');
+        if (fresh) hydrate(fresh as never);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50/40 px-4 py-3 flex items-center gap-3 flex-wrap">
+      <div className="flex-1 min-w-[240px]">
+        <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+          <RefreshCw size={13} className="text-sky-600" /> Sync from Sales Planning 2026
+        </div>
+        <div className="text-[11px] text-slate-600 mt-0.5">
+          Pulls India + active positions from planning-2026 and updates <code className="text-[10px] bg-white border border-slate-200 px-1 rounded">source=planning-2026</code> rows only.
+          Bench rows and manual entries stay untouched.
+        </div>
+        {result && (
+          <div className={`mt-1 text-[11px] inline-flex items-center gap-1 ${result.dryRun ? 'text-slate-700' : 'text-emerald-700 font-semibold'}`}>
+            {result.dryRun ? <AlertTriangle size={11} /> : <CheckCircle2 size={11} />}
+            {result.dryRun ? 'Preview' : 'Synced'}: {result.active} active in planning-2026 · {result.added} added · {result.updated} updated · {result.removed} removed
+          </div>
+        )}
+        {error && (
+          <div className="mt-1 text-[11px] text-rose-700 inline-flex items-center gap-1"><AlertTriangle size={11} /> {error}</div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => run(true)}
+          disabled={!!busy}
+          className="text-xs px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 inline-flex items-center gap-1"
+        >
+          {busy === 'dry' ? <Loader2 size={12} className="animate-spin" /> : null}
+          Preview
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!confirm('Sync India+active positions from Sales Planning 2026?\n\nThis updates all source=planning-2026 rows in india_roster. Rows tagged as manual or bench are left untouched.')) return;
+            void run(false);
+          }}
+          disabled={!!busy}
+          className="text-xs px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-1"
+        >
+          {busy === 'live' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+          Sync now
+        </button>
+      </div>
+    </div>
   );
 }

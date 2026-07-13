@@ -109,6 +109,34 @@ Deno.serve(async (req: Request) => {
       if (existing.data) { results.push({ id: msg.id, ok: true, error: 'already ingested' }); continue; }
 
       const from = extractEmail(msg.from);
+
+      // Ignored-sender blocklist. Match rules:
+      //   kind='email'     → exact match (case-insensitive)
+      //   kind='domain'    → sender address ends with '@' + pattern
+      //   kind='substring' → substring of the full sender email
+      // If any active rule matches, we skip ticket creation entirely and
+      // bump the rule's suppressed_count so the UI can show noise volume.
+      if (from.email) {
+        const senderLower = from.email.toLowerCase();
+        const { data: rules } = await supabase
+          .from('concierge_ignored_senders')
+          .select('id, pattern, kind')
+          .eq('is_active', true);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const hit = (rules ?? []).find((r: any) => {
+          const p = (r.pattern || '').toLowerCase();
+          if (!p) return false;
+          if (r.kind === 'email') return senderLower === p;
+          if (r.kind === 'domain') return senderLower.endsWith('@' + p) || senderLower.endsWith('.' + p);
+          return senderLower.includes(p);
+        });
+        if (hit) {
+          await supabase.rpc('increment_ignored_sender', { rule_id: hit.id });
+          results.push({ id: msg.id, ok: true, error: `suppressed: matched ignored-sender rule "${hit.pattern}"` });
+          continue;
+        }
+      }
+
       const toEmails: string[] = (msg.toRecipients || []).map((r: unknown) => extractEmail(r).email).filter(Boolean);
       const ccEmails: string[] = (msg.ccRecipients || []).map((r: unknown) => extractEmail(r).email).filter(Boolean);
       const conversationId: string = msg.conversationId || '';

@@ -24,6 +24,7 @@ import { AccountDocsTab } from './concierge/AccountDocsTab';
 import { AccountProfileTab } from './concierge/AccountProfileTab';
 import { AccountOpportunitiesTab } from './concierge/AccountOpportunitiesTab';
 import { ConciergeAskAI } from './concierge/ConciergeAskAI';
+import { IgnoredSendersModal } from './concierge/IgnoredSendersModal';
 import { NewTicketModal } from './concierge/NewTicketModal';
 import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
@@ -79,6 +80,7 @@ import {
   Loader2,
   RefreshCw,
   Mail,
+  ShieldOff,
 } from 'lucide-react';
 
 /** Human-readable "last synced" chip. Handles null (never synced) + shows
@@ -977,6 +979,7 @@ export default function ConciergePage() {
   } = useConciergeStore();
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
   const [showNewTicket, setShowNewTicket] = useState(false);
+  const [showIgnoredSenders, setShowIgnoredSenders] = useState(false);
   const [graphSetupBusy, setGraphSetupBusy] = useState(false);
   const [graphMsg, setGraphMsg] = useState<string | null>(null);
   const openTicket = useMemo(() => tickets.find((t) => t.id === openTicketId) ?? null, [tickets, openTicketId]);
@@ -1259,6 +1262,14 @@ export default function ConciergePage() {
               </button>
             )}
             {graphMsg && <span className="text-[11px] text-slate-500 italic">{graphMsg}</span>}
+            <button
+              type="button"
+              onClick={() => setShowIgnoredSenders(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-700 bg-white"
+              title="Manage ignored email senders — noise blocklist for auto-ticket creation"
+            >
+              <ShieldOff size={12} /> Ignored senders
+            </button>
             <Button variant="secondary" onClick={() => setShowNewTicket(true)}>
               <Plus size={14} /> New ticket
             </Button>
@@ -1566,6 +1577,9 @@ export default function ConciergePage() {
       )}
       {showNewAccount && (
         <NewAccountForm onClose={() => setShowNewAccount(false)} defaultName={seedName} />
+      )}
+      {showIgnoredSenders && (
+        <IgnoredSendersModal onClose={() => setShowIgnoredSenders(false)} />
       )}
       {showNewTicket && (
         <NewTicketModal open={showNewTicket} onClose={() => setShowNewTicket(false)} />

@@ -22,6 +22,7 @@ import TAMetricsPage from '../pages/TAMetricsPage';
 import ProfileFormatPage from '../pages/ProfileFormatPage';
 import AccountsPage from '../pages/AccountsPage';
 import VendorsPage from '../pages/VendorsPage';
+import GtmListPage from '../pages/GtmListPage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
 import UsersPage from '../pages/admin/UsersPage';
@@ -77,6 +78,7 @@ export const router = createBrowserRouter(
         // Account Management
         { path: 'accounts', element: <AccountsPage /> },
         { path: 'vendors',  element: <VendorsPage /> },
+        { path: 'gtm-list', element: <GtmListPage /> },
 
         // Other
         { path: 'concierge', element: <ConciergePage /> },

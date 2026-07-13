@@ -24,6 +24,7 @@ import {
   BarChart3,
   Building2,
   Handshake,
+  Target,
   ChevronDown,
   ChevronRight,
   FileEdit,
@@ -84,6 +85,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/accounts', icon: Building2, label: 'Accounts' },
       { to: '/vendors',  icon: Handshake, label: 'Vendors' },
+      { to: '/gtm-list', icon: Target,    label: 'GTM List' },
     ],
   },
   {

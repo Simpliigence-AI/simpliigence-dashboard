@@ -54,7 +54,6 @@ const HUBS: Hub[] = [
     links: [
       { to: '/accounts',    icon: Building2, label: 'Accounts',        desc: 'Client accounts, sales + delivery connects, forecast vs secured' },
       { to: '/gtm-list',    icon: Target,    label: 'GTM List',        desc: 'Strategic partnership targets — assignees, contacts, action items' },
-      { to: '/vendors',     icon: Handshake, label: 'Vendors',         desc: 'Vendor + partner directory' },
       { to: '/pipeline',    icon: Layers,    label: 'Pipeline Projects', desc: 'Pre-sales / pipeline projects in flight' },
     ],
   },
@@ -82,6 +81,7 @@ const HUBS: Hub[] = [
       { to: '/ta-daily-log',        icon: CalendarCheck, label: 'TA Daily Log',       desc: 'Daily recruiting activity log across the TA team' },
       { to: '/ta-metrics',          icon: BarChart3,     label: 'TA Metrics',         desc: 'Team-level TA KPIs and trends' },
       { to: '/candidates',          icon: Contact,       label: 'Candidates',         desc: 'Candidate database with Ask Claude search' },
+      { to: '/vendors',             icon: Handshake,     label: 'Vendors',            desc: 'TA vendor directory — staffing + recruiting partners' },
       { to: '/profile-format',      icon: FileEdit,      label: 'Profile Format',     desc: 'Resume reformatter + parser' },
       { to: '/india-hiring-forecast', icon: UserPlus,    label: 'Hiring Forecast (India)', desc: 'India hiring plan vs demand' },
       { to: '/hiring-forecast',     icon: UserPlus,      label: 'Hiring Forecast (US)',    desc: 'US hiring plan vs demand' },

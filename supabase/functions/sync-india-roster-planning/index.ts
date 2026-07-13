@@ -155,7 +155,10 @@ Deno.serve(async (req: Request) => {
           if (error) throw new Error(`migrate ${p.role}: ${error.message}`);
           updated += 1;
         } else {
-          const { error } = await supabase.from('india_roster').insert(row);
+          // id is a text column with no default — mint one so the not-null
+          // constraint is satisfied. Client-created rows use nanoid; the
+          // format is text so a UUID works equally well.
+          const { error } = await supabase.from('india_roster').insert({ id: crypto.randomUUID(), ...row });
           if (error) throw new Error(`insert ${p.role}: ${error.message}`);
           added += 1;
         }

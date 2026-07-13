@@ -1014,6 +1014,7 @@ export default function ConciergePage() {
     setTimeout(() => setRefreshMsg(null), 4000);
   };
   const [tab, setTab] = useState<Tab>('overview');
+  const [includeDormantInCoverage, setIncludeDormantInCoverage] = useState(false);
   const [openAccountId, setOpenAccountId] = useState<string | null>(null);
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [seedName, setSeedName] = useState<string | undefined>(undefined);
@@ -1373,14 +1374,38 @@ export default function ConciergePage() {
       )}
 
       {/* ── FEATURE COVERAGE (cross-account matrix) ──────────────────────────── */}
-      {tab === 'backlog' && (
-        <FeatureCoverageMatrix
-          accounts={accounts}
-          featuresByAccount={featuresByAccount}
-          catalog={featureCatalog}
-          onAccountClick={(id) => setOpenAccountId(id)}
-        />
-      )}
+      {tab === 'backlog' && (() => {
+        // Coverage should reflect where we can still act — dormant accounts
+        // don't need "you're missing Marketing Cloud" callouts on the daily
+        // scorecard. Default to active-only with a toggle for full history.
+        const dormantCount = accounts.filter((a) => a.isDormant).length;
+        const shown = includeDormantInCoverage ? accounts : accounts.filter((a) => !a.isDormant);
+        return (
+          <>
+            {dormantCount > 0 && (
+              <div className="mb-3 flex items-center gap-2 text-xs">
+                <span className="text-slate-500">
+                  Showing {shown.length} {includeDormantInCoverage ? 'accounts' : 'active accounts'}
+                  {!includeDormantInCoverage && ` · ${dormantCount} dormant hidden`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIncludeDormantInCoverage((v) => !v)}
+                  className="px-2 py-0.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium"
+                >
+                  {includeDormantInCoverage ? 'Hide dormant' : `Include dormant (${dormantCount})`}
+                </button>
+              </div>
+            )}
+            <FeatureCoverageMatrix
+              accounts={shown}
+              featuresByAccount={featuresByAccount}
+              catalog={featureCatalog}
+              onAccountClick={(id) => setOpenAccountId(id)}
+            />
+          </>
+        );
+      })()}
 
       {/* ── BILLING ──────────────────────────── */}
       {tab === 'billing' && (

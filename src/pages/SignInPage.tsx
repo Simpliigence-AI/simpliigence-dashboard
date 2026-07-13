@@ -7,13 +7,32 @@
  * member has an @simpliigence.com Microsoft account, so there is no
  * legitimate reason to hit any other path.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Zap, AlertCircle, Loader2 } from 'lucide-react';
 import { signInWithMicrosoft } from '../lib/auth';
 
 export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* If the user just came back from an OAuth round-trip and Supabase couldn't
+   * establish a session, the callback URL (or its hash fragment) carries the
+   * reason. Surface it so we don't quietly loop back to this page. Also logs
+   * to the console so we can debug from a shared screenshot. */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const errParam = params.get('error') || hash.get('error');
+    const errDesc = params.get('error_description') || hash.get('error_description');
+    if (errParam) {
+      const msg = errDesc || errParam;
+      console.warn('[auth] OAuth callback returned an error:', { error: errParam, description: errDesc });
+      setError(`Microsoft sign-in failed: ${msg}. Try again, or contact your admin if this keeps happening.`);
+      // Clean the URL so a refresh doesn't keep firing the same error.
+      const clean = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, '', clean);
+    }
+  }, []);
 
   const handleMicrosoft = async () => {
     setError(null);

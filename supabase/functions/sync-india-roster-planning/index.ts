@@ -57,8 +57,48 @@ interface PlanningPosition {
   createdAt?: string;
 }
 
+/** Strip to lowercase alphanumeric only. Handles whitespace and punctuation
+ *  variants like "Ravi Kumar" ↔ "Ravikumar", "A / B" ↔ "A/B". */
 function normName(s: string): string {
-  return (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** Iterative Levenshtein — O(n*m) memory-efficient. Used to catch spelling
+ *  drift like "Samsheer" ↔ "Samsher" or "Geetanjali" ↔ "Gitanjali" that
+ *  exact-normalized matching misses. */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array(b.length + 1);
+  const curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
+/** Match a candidate normalized name against a map by exact first, then
+ *  fuzzy with Levenshtein ≤ 2 among names of similar length (guards against
+ *  false positives — "Ravi" vs "Ravi Shah" would be dist=4 anyway). */
+function findMatch(nNorm: string, map: Map<string, string>): string | null {
+  const exact = map.get(nNorm);
+  if (exact) return exact;
+  let bestKey: string | null = null;
+  let bestDist = 3;
+  for (const [key, id] of map) {
+    // Skip obvious length mismatches to keep cost sane
+    if (Math.abs(key.length - nNorm.length) > 2) continue;
+    const d = levenshtein(nNorm, key);
+    if (d < bestDist) { bestDist = d; bestKey = key; if (d === 0) break; }
+  }
+  return bestKey ? map.get(bestKey)! : null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,20 +155,32 @@ Deno.serve(async (req: Request) => {
       .from('india_roster')
       .select('id, name, source, status')
       .neq('source', SOURCE);
-    const manualBillableByName = new Map<string, { id: string; source: string; status: string }>();
+    const manualBillableByName = new Map<string, string>();  // normName → id
     for (const r of (manualBillable ?? [])) {
-      manualBillableByName.set(normName(r.name), { id: r.id, source: r.source, status: r.status });
+      manualBillableByName.set(normName(r.name), r.id);
     }
 
-    // 5. Upsert each active position
+    // 5. Upsert each active position. touchedNames is populated in BOTH
+    //    dry-run and live paths so the removal count is accurate for both.
     const now = new Date().toISOString();
     let added = 0, updated = 0;
     const touchedNames = new Set<string>();
+    for (const p of active) {
+      const key = normName(p.role);
+      if (!key) continue;
+      touchedNames.add(key);
+      // In dry-run, do the classification (add vs update) without writing.
+      if (dryRun) {
+        const foundExisting = findMatch(key, existingByName);
+        const foundManual = foundExisting ? null : findMatch(key, manualBillableByName);
+        if (foundExisting || foundManual) updated += 1;
+        else added += 1;
+      }
+    }
     if (!dryRun) {
       for (const p of active) {
         const key = normName(p.role);
         if (!key) continue;
-        touchedNames.add(key);
         // Fields this sync OWNS (SOW-derived). Anything not listed here is
         // preserved on update so we don't destroy manually-entered data
         // (project assignments, role labels, skills, notes, etc.).
@@ -143,19 +195,19 @@ Deno.serve(async (req: Request) => {
         };
         const sowNote = p.sowEnd ? `Planning-2026: SOW ends ${p.sowEnd}${p.safeEnd ? ` · safe end ${p.safeEnd}` : ''}` : null;
 
-        const existingId = existingByName.get(key);
-        const conflictingManual = manualBillableByName.get(key);
+        const existingId = findMatch(key, existingByName);
+        const conflictingManualId = existingId ? null : findMatch(key, manualBillableByName);
         if (existingId) {
           // Preserve existing project/role/skills/notes on an already-
           // synced row. Only update the SOW-owned fields.
           const { error } = await supabase.from('india_roster').update(ownedPatch).eq('id', existingId);
           if (error) throw new Error(`update ${p.role}: ${error.message}`);
           updated += 1;
-        } else if (conflictingManual) {
+        } else if (conflictingManualId) {
           // First time this person is being migrated to planning-2026
-          // ownership. Update owned fields + set the SOW note IF the row
-          // had no notes previously — but do NOT touch project or role.
-          const { error } = await supabase.from('india_roster').update(ownedPatch).eq('id', conflictingManual.id);
+          // ownership. Update owned fields but do NOT touch project or
+          // role — those are user-entered and precious.
+          const { error } = await supabase.from('india_roster').update(ownedPatch).eq('id', conflictingManualId);
           if (error) throw new Error(`migrate ${p.role}: ${error.message}`);
           updated += 1;
         } else {

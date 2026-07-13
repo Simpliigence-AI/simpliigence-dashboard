@@ -32,6 +32,11 @@ import type {
   GtmPriority,
   GtmStatus,
 } from '../types/gtm';
+
+// Stable module-level empties — a fresh `[]` from a selector triggers Zustand's
+// Object.is compare on every store update and re-renders forever (React #185).
+const EMPTY_CONTACTS: readonly GtmContact[] = Object.freeze([]);
+const EMPTY_ACTIONS: readonly GtmAction[] = Object.freeze([]);
 import {
   GTM_STATUS_META,
   GTM_PRIORITY_META,
@@ -278,8 +283,10 @@ function GtmAccountDrawer({ account, onClose }: { account: GtmAccount; onClose: 
   const update = useGtmStore((s) => s.updateAccount);
   const remove = useGtmStore((s) => s.removeAccount);
   const loadDetail = useGtmStore((s) => s.loadDetail);
-  const contacts = useGtmStore((s) => s.contactsByAccount[account.id] ?? []);
-  const actions = useGtmStore((s) => s.actionsByAccount[account.id] ?? []);
+  const contactsRaw = useGtmStore((s) => s.contactsByAccount[account.id]);
+  const contacts = contactsRaw ?? (EMPTY_CONTACTS as GtmContact[]);
+  const actionsRaw = useGtmStore((s) => s.actionsByAccount[account.id]);
+  const actions = actionsRaw ?? (EMPTY_ACTIONS as GtmAction[]);
   const directory = useAuthStore((s) => s.directory);
 
   const [tab, setTab] = useState<'plan' | 'contacts' | 'actions'>('plan');

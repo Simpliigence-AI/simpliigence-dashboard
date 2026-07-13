@@ -118,14 +118,34 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    // 1. Fetch from planning-2026
+    // 1. Fetch from planning-2026:
+    //    - /api/inputs        gives the positions (people + rate + SOW window)
+    //    - /api/refresh       gives the account list keyed by rank number; we
+    //                         use it to translate position.rankId → account
+    //                         name so `project` gets populated.
     const auth = btoa(`${PLANNING_2026_USER}:${PLANNING_2026_PASS}`);
-    const res = await fetch(`${PLANNING_2026_URL}/api/inputs`, {
-      headers: { Authorization: `Basic ${auth}` },
-    });
-    if (!res.ok) throw new Error(`planning-2026 /api/inputs → ${res.status}: ${(await res.text()).slice(0, 200)}`);
-    const data = await res.json();
+    const [inputsRes, refreshRes] = await Promise.all([
+      fetch(`${PLANNING_2026_URL}/api/inputs`, { headers: { Authorization: `Basic ${auth}` } }),
+      fetch(`${PLANNING_2026_URL}/api/refresh`, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      }),
+    ]);
+    if (!inputsRes.ok) throw new Error(`planning-2026 /api/inputs → ${inputsRes.status}: ${(await inputsRes.text()).slice(0, 200)}`);
+    if (!refreshRes.ok) throw new Error(`planning-2026 /api/refresh → ${refreshRes.status}: ${(await refreshRes.text()).slice(0, 200)}`);
+    const data = await inputsRes.json();
+    const refreshJson = await refreshRes.json();
     const positions: PlanningPosition[] = Array.isArray(data?.positions) ? data.positions : [];
+
+    // rankId → account name map. Refresh rows look like { rank, name, ... }.
+    const refreshRows: Array<{ rank: number; name: string }> = Array.isArray(refreshJson?.rows) ? refreshJson.rows : (Array.isArray(refreshJson) ? refreshJson : []);
+    const rankToAccount = new Map<number, string>();
+    for (const r of refreshRows) {
+      if (typeof r?.rank === 'number' && typeof r?.name === 'string') {
+        rankToAccount.set(r.rank, r.name.trim());
+      }
+    }
 
     // 2. Filter to India + active. Active = sowEnd month >= current month.
     const nowMonthIdx = new Date().getUTCMonth();  // 0..11
@@ -181,14 +201,16 @@ Deno.serve(async (req: Request) => {
       for (const p of active) {
         const key = normName(p.role);
         if (!key) continue;
-        // Fields this sync OWNS (SOW-derived). Anything not listed here is
-        // preserved on update so we don't destroy manually-entered data
-        // (project assignments, role labels, skills, notes, etc.).
+        // Fields this sync OWNS (SOW-derived). project comes from the
+        // planning-2026 rank→account map — that's the account each SOW
+        // position rolls up to. It's canonical, so we set it every run.
+        const accountName = typeof p.rankId === 'number' ? rankToAccount.get(p.rankId) ?? null : null;
         const ownedPatch = {
           name: p.role.trim(),
           status: 'Billable',
           bill_rate: typeof p.rate === 'number' ? p.rate : null,
           cost_per_hour: typeof p.cost === 'number' ? p.cost : null,
+          project: accountName,   // rankId → account (Ciklum, Persistent, Acquity, …)
           source: SOURCE,
           updated_at: now,
           updated_by: 'planning-2026-sync',
@@ -198,25 +220,17 @@ Deno.serve(async (req: Request) => {
         const existingId = findMatch(key, existingByName);
         const conflictingManualId = existingId ? null : findMatch(key, manualBillableByName);
         if (existingId) {
-          // Preserve existing project/role/skills/notes on an already-
-          // synced row. Only update the SOW-owned fields.
           const { error } = await supabase.from('india_roster').update(ownedPatch).eq('id', existingId);
           if (error) throw new Error(`update ${p.role}: ${error.message}`);
           updated += 1;
         } else if (conflictingManualId) {
-          // First time this person is being migrated to planning-2026
-          // ownership. Update owned fields but do NOT touch project or
-          // role — those are user-entered and precious.
           const { error } = await supabase.from('india_roster').update(ownedPatch).eq('id', conflictingManualId);
           if (error) throw new Error(`migrate ${p.role}: ${error.message}`);
           updated += 1;
         } else {
-          // Brand-new person. project/role start blank — the user fills
-          // them in on the India Roster page.
           const insertRow = {
             id: crypto.randomUUID(),
             ...ownedPatch,
-            project: null as string | null,
             role: null as string | null,
             skills: [],
             notes: sowNote,

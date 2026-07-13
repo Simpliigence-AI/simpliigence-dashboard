@@ -25,6 +25,7 @@ import {
   Building2,
   Handshake,
   Target,
+  Home,
   ChevronDown,
   ChevronRight,
   FileEdit,
@@ -45,7 +46,8 @@ const sections: NavSection[] = [
   {
     label: 'Home',
     items: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/home', icon: Home,             label: 'Home' },
+      { to: '/',     icon: LayoutDashboard,  label: 'Dashboard' },
     ],
   },
   {

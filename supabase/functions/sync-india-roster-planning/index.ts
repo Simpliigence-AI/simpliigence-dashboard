@@ -139,11 +139,20 @@ Deno.serve(async (req: Request) => {
     const positions: PlanningPosition[] = Array.isArray(data?.positions) ? data.positions : [];
 
     // rankId → account name map. Refresh rows look like { rank, name, ... }.
+    // Planning-2026 uses short (sometimes misspelled) labels; the dashboard
+    // uses the manually-maintained legal names. Alias-normalize so both
+    // sides land in the same project bucket instead of splitting the group.
+    const ACCOUNT_ALIAS: Record<string, string> = {
+      'Acquity': 'Acuity Knowledge Centre (India) Pvt Ltd',
+      'Carrier (Combined)': 'Carrier Technologies India Limited',
+      'Persistent': 'Persistent Systems Limited',
+    };
     const refreshRows: Array<{ rank: number; name: string }> = Array.isArray(refreshJson?.rows) ? refreshJson.rows : (Array.isArray(refreshJson) ? refreshJson : []);
     const rankToAccount = new Map<number, string>();
     for (const r of refreshRows) {
       if (typeof r?.rank === 'number' && typeof r?.name === 'string') {
-        rankToAccount.set(r.rank, r.name.trim());
+        const raw = r.name.trim();
+        rankToAccount.set(r.rank, ACCOUNT_ALIAS[raw] ?? raw);
       }
     }
 

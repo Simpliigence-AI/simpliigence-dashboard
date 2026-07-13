@@ -129,36 +129,47 @@ Deno.serve(async (req: Request) => {
         const key = normName(p.role);
         if (!key) continue;
         touchedNames.add(key);
-        const row = {
+        // Fields this sync OWNS (SOW-derived). Anything not listed here is
+        // preserved on update so we don't destroy manually-entered data
+        // (project assignments, role labels, skills, notes, etc.).
+        const ownedPatch = {
           name: p.role.trim(),
-          role: null as string | null,     // rankId → role name mapping not available yet
-          project: null as string | null,
           status: 'Billable',
           bill_rate: typeof p.rate === 'number' ? p.rate : null,
           cost_per_hour: typeof p.cost === 'number' ? p.cost : null,
-          skills: [],
-          notes: p.sowEnd ? `Planning-2026: SOW ends ${p.sowEnd}${p.safeEnd ? ` · safe end ${p.safeEnd}` : ''}` : null,
           source: SOURCE,
           updated_at: now,
           updated_by: 'planning-2026-sync',
         };
+        const sowNote = p.sowEnd ? `Planning-2026: SOW ends ${p.sowEnd}${p.safeEnd ? ` · safe end ${p.safeEnd}` : ''}` : null;
+
         const existingId = existingByName.get(key);
         const conflictingManual = manualBillableByName.get(key);
         if (existingId) {
-          const { error } = await supabase.from('india_roster').update(row).eq('id', existingId);
+          // Preserve existing project/role/skills/notes on an already-
+          // synced row. Only update the SOW-owned fields.
+          const { error } = await supabase.from('india_roster').update(ownedPatch).eq('id', existingId);
           if (error) throw new Error(`update ${p.role}: ${error.message}`);
           updated += 1;
         } else if (conflictingManual) {
-          // Same person already exists under a different source. Take
-          // ownership so we don't duplicate; preserve original id.
-          const { error } = await supabase.from('india_roster').update(row).eq('id', conflictingManual.id);
+          // First time this person is being migrated to planning-2026
+          // ownership. Update owned fields + set the SOW note IF the row
+          // had no notes previously — but do NOT touch project or role.
+          const { error } = await supabase.from('india_roster').update(ownedPatch).eq('id', conflictingManual.id);
           if (error) throw new Error(`migrate ${p.role}: ${error.message}`);
           updated += 1;
         } else {
-          // id is a text column with no default — mint one so the not-null
-          // constraint is satisfied. Client-created rows use nanoid; the
-          // format is text so a UUID works equally well.
-          const { error } = await supabase.from('india_roster').insert({ id: crypto.randomUUID(), ...row });
+          // Brand-new person. project/role start blank — the user fills
+          // them in on the India Roster page.
+          const insertRow = {
+            id: crypto.randomUUID(),
+            ...ownedPatch,
+            project: null as string | null,
+            role: null as string | null,
+            skills: [],
+            notes: sowNote,
+          };
+          const { error } = await supabase.from('india_roster').insert(insertRow);
           if (error) throw new Error(`insert ${p.role}: ${error.message}`);
           added += 1;
         }

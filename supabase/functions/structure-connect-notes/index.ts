@@ -9,10 +9,14 @@
  * Required secrets:
  *   ANTHROPIC_API_KEY   — Anthropic console key with messages access
  *
- * Optional (enables audio transcription):
- *   OPENAI_API_KEY      — used only when an audioPath is provided. If absent,
- *                         the function works with text only and returns a
- *                         clear error when only audio is supplied.
+ * Optional (either one enables audio transcription; Deepgram is preferred):
+ *   DEEPGRAM_API_KEY    — Deepgram key. Uses nova-3 model, cheaper + faster
+ *                         than Whisper, and the format we standardized on.
+ *   OPENAI_API_KEY      — OpenAI key. Used as a fallback if Deepgram fails
+ *                         or if only OpenAI is configured. Whisper-1 model.
+ *
+ * If neither is set and an audioPath is supplied, the function returns a
+ * clear error and the client should paste the notes as text instead.
  *
  * Request body:
  *   { accountName?: string, connectType?: 'sales' | 'delivery',
@@ -34,12 +38,14 @@ const env = (name: string) => Deno.env.get(name);
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY');
+const DEEPGRAM_API_KEY = env('DEEPGRAM_API_KEY');
 const OPENAI_API_KEY = env('OPENAI_API_KEY');
 const SUPABASE_URL = env('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = env('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const CLAUDE_MODEL = 'claude-sonnet-4-5';
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const DEEPGRAM_API_URL = 'https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&punctuate=true';
 const WHISPER_API_URL = 'https://api.openai.com/v1/audio/transcriptions';
 
 const corsHeaders = {
@@ -84,11 +90,36 @@ Rules:
   - actionItems must be concrete and SPECIFIC. "Send proposal" is OK; "follow up" is too vague — skip it.
   - No markdown, no code fences, no prose outside the JSON object.`;
 
-/** Transcribe an audio file via OpenAI Whisper. Throws if key missing or call fails. */
-async function transcribeAudio(audioBlob: Blob, filename: string): Promise<string> {
-  if (!OPENAI_API_KEY) {
-    throw new Error('Audio transcription requires the OPENAI_API_KEY secret on this Supabase project. For now, paste the notes as text instead.');
+/** Transcribe audio via Deepgram (primary, nova-3). Throws if the key is
+ *  missing or the API call fails. */
+async function transcribeWithDeepgram(audioBlob: Blob): Promise<string> {
+  if (!DEEPGRAM_API_KEY) throw new Error('DEEPGRAM_API_KEY not set');
+  const contentType = audioBlob.type || 'audio/webm';
+  const res = await fetch(DEEPGRAM_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Token ${DEEPGRAM_API_KEY}`,
+      'Content-Type': contentType,
+    },
+    body: audioBlob,
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Deepgram API failed (${res.status}): ${detail.slice(0, 400)}`);
   }
+  const data = await res.json() as {
+    results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
+  };
+  const transcript = data.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim();
+  if (!transcript) throw new Error('Deepgram returned an empty transcript');
+  return transcript;
+}
+
+/** Transcribe audio via OpenAI Whisper. Used only as fallback if Deepgram
+ *  fails or isn't configured. Throws if the key is missing or the API call
+ *  fails. */
+async function transcribeWithWhisper(audioBlob: Blob, filename: string): Promise<string> {
+  if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
   const form = new FormData();
   form.append('file', audioBlob, filename);
   form.append('model', 'whisper-1');
@@ -103,6 +134,36 @@ async function transcribeAudio(audioBlob: Blob, filename: string): Promise<strin
     throw new Error(`Whisper API failed (${res.status}): ${detail.slice(0, 400)}`);
   }
   return (await res.text()).trim();
+}
+
+/** Transcribe an audio blob using whichever provider is configured. Prefers
+ *  Deepgram (cheaper, faster, standardized here); falls back to Whisper if
+ *  Deepgram errors and Whisper is available. Throws a clear message if
+ *  neither is configured. */
+async function transcribeAudio(audioBlob: Blob, filename: string): Promise<string> {
+  if (!DEEPGRAM_API_KEY && !OPENAI_API_KEY) {
+    throw new Error(
+      'Audio transcription requires DEEPGRAM_API_KEY (preferred) or OPENAI_API_KEY on this Supabase project. Paste the notes as text instead.',
+    );
+  }
+  const errors: string[] = [];
+  if (DEEPGRAM_API_KEY) {
+    try {
+      return await transcribeWithDeepgram(audioBlob);
+    } catch (e) {
+      const msg = (e as Error).message;
+      console.warn('[structure-connect-notes] Deepgram failed, will try Whisper if available:', msg);
+      errors.push(`Deepgram: ${msg}`);
+    }
+  }
+  if (OPENAI_API_KEY) {
+    try {
+      return await transcribeWithWhisper(audioBlob, filename);
+    } catch (e) {
+      errors.push(`Whisper: ${(e as Error).message}`);
+    }
+  }
+  throw new Error(`All transcription providers failed — ${errors.join(' | ')}`);
 }
 
 /** Ask Claude to structure the raw text into {discussion, outcome, actionItems}. */

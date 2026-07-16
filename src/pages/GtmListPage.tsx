@@ -24,6 +24,7 @@ import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, Badge, Button, Drawer } from '../components/ui';
 import { useGtmStore } from '../store/useGtmStore';
 import { useAuthStore, lookupProfile } from '../store/useAuthStore';
+import { GtmNotesEditor } from './gtm/GtmNotesEditor';
 import type {
   GtmAccount,
   GtmAction,
@@ -323,7 +324,7 @@ function GtmAccountDrawer({ account, onClose }: { account: GtmAccount; onClose: 
         </button>
       </div>
 
-      {tab === 'plan' && <PlanEditor account={account} update={update} directoryEmails={directoryEmails} />}
+      {tab === 'plan' && <PlanEditor account={account} update={update} directoryEmails={directoryEmails} actions={actions} />}
       {tab === 'contacts' && <ContactsEditor accountId={account.id} contacts={contacts} directoryEmails={directoryEmails} />}
       {tab === 'actions' && <ActionsEditor accountId={account.id} actions={actions} directoryEmails={directoryEmails} />}
     </Drawer>
@@ -331,7 +332,7 @@ function GtmAccountDrawer({ account, onClose }: { account: GtmAccount; onClose: 
 }
 
 /* ── Plan tab ── */
-function PlanEditor({ account, update, directoryEmails }: { account: GtmAccount; update: (id: string, patch: Partial<GtmAccount>) => Promise<void>; directoryEmails: string[] }) {
+function PlanEditor({ account, update, directoryEmails, actions }: { account: GtmAccount; update: (id: string, patch: Partial<GtmAccount>) => Promise<void>; directoryEmails: string[]; actions: GtmAction[] }) {
   const setField = <K extends keyof GtmAccount>(k: K, v: GtmAccount[K]) => void update(account.id, { [k]: v } as Partial<GtmAccount>);
   return (
     <div className="space-y-4">
@@ -367,7 +368,7 @@ function PlanEditor({ account, update, directoryEmails }: { account: GtmAccount;
       </div>
 
       <FieldTextarea label="Rationale (why this account, why now)" value={account.rationale ?? ''} rows={3} onCommit={(v) => setField('rationale', v || null)} />
-      <FieldTextarea label="Notes" value={account.notes ?? ''} rows={4} onCommit={(v) => setField('notes', v || null)} />
+      <GtmNotesEditor account={account} existingActions={actions} />
     </div>
   );
 }

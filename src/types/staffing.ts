@@ -42,6 +42,11 @@ export interface StaffingRequisition {
   close_by_date: string;
   status_field: StaffingStatus;
   stage: PipelineStage;
+  /** ISO date (YYYY-MM-DD) when the candidate actually joined. Set separately
+   *  from status; a req can be Closed Won but not yet Onboarded until this
+   *  date is filled in. Used to split the Closed Won archive into two
+   *  buckets: won-and-onboarded vs won-but-awaiting-onboarding. */
+  onboarding_date?: string | null;
   anticipation: string;
   client_spoc: string;
   department: string;

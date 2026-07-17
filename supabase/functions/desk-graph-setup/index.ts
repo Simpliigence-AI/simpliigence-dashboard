@@ -107,16 +107,67 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === 'renew') {
-      if (!body.id) throw new Error('id required');
+      // Auto-lookup the current active subscription if the caller didn't
+      // pass one — that's what the hourly cron does.
+      let subId: string | undefined = body.id;
+      if (!subId) {
+        const { data: row } = await supabase.from('graph_subscriptions')
+          .select('id').eq('active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+        subId = row?.id;
+      }
+
       const expiration = new Date(Date.now() + 70 * 3600_000).toISOString();
-      const r = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${body.id}`, {
-        method: 'PATCH',
+
+      // If there's no known sub OR the extend PATCH fails with 404/410
+      // (already expired on Graph's side), fall through to create.
+      let renewed = false;
+      if (subId) {
+        const r = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subId}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expirationDateTime: expiration }),
+        });
+        if (r.ok) {
+          await supabase.from('graph_subscriptions').update({ expires_at: expiration, last_renewed_at: new Date().toISOString() }).eq('id', subId);
+          renewed = true;
+        } else if (r.status !== 404 && r.status !== 410) {
+          throw new Error(`renew (${r.status}): ${(await r.text()).slice(0, 300)}`);
+        } else {
+          // Mark the dead row inactive so we don't keep hitting it.
+          await supabase.from('graph_subscriptions').update({ active: false }).eq('id', subId);
+        }
+      }
+
+      if (renewed) {
+        return new Response(JSON.stringify({ ok: true, action: 'renewed', id: subId, expiresAt: expiration }), { headers: jsonHeaders });
+      }
+
+      // No subscription or it was expired — create fresh.
+      const clientState = crypto.randomUUID().replace(/-/g, '').slice(0, 32);
+      const created = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expirationDateTime: expiration }),
+        body: JSON.stringify({
+          changeType: 'created',
+          notificationUrl: DESK_INBOUND_URL,
+          resource: `/users/${body.mailbox || 'sfconsulting@simpliigence.com'}/messages`,
+          expirationDateTime: expiration,
+          clientState,
+        }),
       });
-      if (!r.ok) throw new Error(`renew (${r.status}): ${(await r.text()).slice(0, 300)}`);
-      await supabase.from('graph_subscriptions').update({ expires_at: expiration, last_renewed_at: new Date().toISOString() }).eq('id', body.id);
-      return new Response(JSON.stringify({ ok: true, expiresAt: expiration }), { headers: jsonHeaders });
+      if (!created.ok) throw new Error(`create-fallback (${created.status}): ${(await created.text()).slice(0, 300)}`);
+      const createdSub = await created.json();
+      await supabase.from('graph_subscriptions').insert({
+        id: createdSub.id,
+        resource: createdSub.resource,
+        change_type: createdSub.changeType,
+        notification_url: createdSub.notificationUrl,
+        client_state: clientState,
+        expires_at: createdSub.expirationDateTime,
+        active: true,
+        last_renewed_at: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({ ok: true, action: 'recreated', id: createdSub.id, expiresAt: createdSub.expirationDateTime }), { headers: jsonHeaders });
     }
 
     if (body.action === 'delete') {

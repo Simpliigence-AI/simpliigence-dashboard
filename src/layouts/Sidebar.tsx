@@ -33,16 +33,35 @@ import {
   Activity,
   History,
   LogOut,
+  ExternalLink,
+  ShieldCheck,
+  BriefcaseBusiness,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { useAuthStore } from '../store/useAuthStore';
 
-interface NavItem { to: string; icon: LucideIcon; label: string; }
+/** Nav entry. If `href` is set the item renders as an external <a> that opens
+ *  a new tab. Otherwise `to` renders as an internal React Router NavLink. */
+interface NavItem {
+  to?: string;
+  href?: string;
+  icon: LucideIcon;
+  label: string;
+}
 interface NavSection { label: string; items: NavItem[]; }
 
 const sections: NavSection[] = [
+  {
+    label: 'Portals',
+    items: [
+      { to: '/my-time',                                                icon: Timer,             label: 'Timesheets' },
+      { to: '/home',                                                   icon: BriefcaseBusiness, label: 'Delivery Cockpit' },
+      { href: 'https://simpliigence-governance.onrender.com/',         icon: ShieldCheck,       label: 'Delivery Governance' },
+      { href: 'https://simpliigence-hr-portal.vercel.app/dossier',     icon: UserCog,           label: 'HR Portal' },
+    ],
+  },
   {
     label: 'Home',
     items: [
@@ -122,6 +141,53 @@ const myTimeItem: NavItem = { to: '/my-time', icon: Timer, label: 'My Time' };
 /** Manager approval queue, shown to admins/managers under the Projects group. */
 const teamTimeItem: NavItem = { to: '/my-team-time', icon: CheckSquare, label: 'Team Time' };
 
+/** Wraps NavLink (internal) or a plain <a target=_blank> (external) so we can
+ *  render both shapes side-by-side in the sidebar. External items get a small
+ *  ↗ affordance so users know they're leaving the app. */
+function NavItemLink({
+  item, className, iconOnly, title,
+}: {
+  item: NavItem;
+  className: (isActive: boolean) => string;
+  iconOnly?: boolean;
+  title?: string;
+}) {
+  const Icon = item.icon;
+  if (item.href) {
+    return (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={title ?? item.label}
+        className={className(false)}
+      >
+        <Icon size={17} className="flex-shrink-0" />
+        {!iconOnly && (
+          <span className="whitespace-nowrap overflow-hidden flex-1">{item.label}</span>
+        )}
+        {!iconOnly && (
+          <ExternalLink size={10} className="flex-shrink-0 opacity-50" />
+        )}
+      </a>
+    );
+  }
+  const to = item.to || '/';
+  return (
+    <NavLink
+      to={to}
+      end={to === '/'}
+      title={title}
+      className={({ isActive }) => className(isActive)}
+    >
+      <Icon size={17} className="flex-shrink-0" />
+      {!iconOnly && (
+        <span className="whitespace-nowrap overflow-hidden">{item.label}</span>
+      )}
+    </NavLink>
+  );
+}
+
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -190,10 +256,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   const activeSectionLabel = useMemo(() => {
     const path = location.pathname;
     for (const section of visibleSections) {
-      if (section.items.some((i) =>
-        path === i.to
-        || (i.to !== '/' && path.startsWith(i.to + '/'))
-        || (i.to === '/' && path === '/'))) {
+      // External items (href-only) never match the current location — only
+      // internal `to` items contribute to the "which section am I in" check.
+      if (section.items.some((i) => {
+        if (!i.to) return false;
+        if (path === i.to) return true;
+        if (i.to === '/') return path === '/';
+        return path.startsWith(i.to + '/');
+      })) {
         return section.label;
       }
     }
@@ -255,22 +325,20 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
               <div key={section.label}>
                 {idx > 0 && <div className="mx-2 my-2 border-t border-slate-700/40" />}
                 <div className="space-y-0.5">
-                  {section.items.map(({ to, icon: Icon, label }) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end={to === '/'}
-                      title={`${section.label} — ${label}`}
-                      className={({ isActive }) =>
+                  {section.items.map((item) => (
+                    <NavItemLink
+                      key={item.to || item.href}
+                      item={item}
+                      iconOnly
+                      title={`${section.label} — ${item.label}`}
+                      className={(isActive) =>
                         `flex items-center justify-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-sidebar-active text-white'
                             : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
                         }`
                       }
-                    >
-                      <Icon size={17} className="flex-shrink-0" />
-                    </NavLink>
+                    />
                   ))}
                 </div>
               </div>
@@ -304,22 +372,18 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
               </button>
               {expanded && (
                 <div className="space-y-0.5 mt-0.5">
-                  {section.items.map(({ to, icon: Icon, label }) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end={to === '/'}
-                      className={({ isActive }) =>
+                  {section.items.map((item) => (
+                    <NavItemLink
+                      key={item.to || item.href}
+                      item={item}
+                      className={(isActive) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-sidebar-active text-white'
                             : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
                         }`
                       }
-                    >
-                      <Icon size={17} className="flex-shrink-0" />
-                      <span className="whitespace-nowrap overflow-hidden">{label}</span>
-                    </NavLink>
+                    />
                   ))}
                 </div>
               )}

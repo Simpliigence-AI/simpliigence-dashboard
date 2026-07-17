@@ -192,6 +192,7 @@ function indiaReqToRow(r: IndiaRequisition) {
     client_spoc: r.client_spoc, department: r.department,
     probability: r.probability ?? 0,
     ai_probability: r.ai_probability ?? 0,
+    onboarding_date: r.onboarding_date ?? null,
     created_at: r.created_at, updated_at: r.updated_at, updated_by: CLIENT_ID,
   };
 }
@@ -206,6 +207,7 @@ function rowToIndiaReq(row: any): IndiaRequisition {
     client_spoc: row.client_spoc ?? '', department: row.department ?? '',
     probability: row.probability ?? 0,
     ai_probability: row.ai_probability ?? 0,
+    onboarding_date: row.onboarding_date ?? null,
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }

@@ -159,6 +159,10 @@ export default function IndiaStaffingPage() {
 
   // Daily Status mode — focused overlay for bulk-logging today's statuses.
   const [dailyStatusOpen, setDailyStatusOpen] = useState(false);
+  /** Split-on-close dialog state. When a multi-position req is being moved
+   *  into a closed status, we ask how many of the N positions actually
+   *  hit that outcome; the remainder stays open as a new req. */
+  const [splitClose, setSplitClose] = useState<{ reqId: string; targetStatus: StaffingStatus; total: number } | null>(null);
 
   // ── Send-to-vendor state ──
   const [sendVendorReqId, setSendVendorReqId] = useState<string | null>(null);
@@ -379,6 +383,20 @@ export default function IndiaStaffingPage() {
       }
       default: return;
     }
+    // Multi-position split: if this req has >1 position and the user is
+    // moving it into a closed state (Won / Lost / Cancelled), open the
+    // "how many of the N?" dialog before applying. The dialog fires the
+    // actual updates (partial close + remainder split-off) so we bail here.
+    if (
+      field === 'status_field' &&
+      (value === 'Closed Won' || value === 'Closed Lost' || value === 'Cancelled')
+    ) {
+      const req = requisitions.find((r) => r.id === reqId);
+      if (req && req.new_positions > 1) {
+        setSplitClose({ reqId, targetStatus: value as StaffingStatus, total: req.new_positions });
+        return;
+      }
+    }
     // Fire the confetti when a requisition transitions INTO Closed Won.
     // Guarded on the previous value so re-saving an already-won req doesn't
     // re-trigger the celebration.
@@ -387,7 +405,7 @@ export default function IndiaStaffingPage() {
       if (prev !== 'Closed Won') celebrateWin();
     }
     updateRequisition(reqId, patch);
-  }, [updateRequisition, rows]);
+  }, [updateRequisition, rows, requisitions]);
 
   /* -- Inline status add (Enter to submit) -- */
   const handleInlineStatus = useCallback((reqId: string, text: string) => {
@@ -630,22 +648,6 @@ export default function IndiaStaffingPage() {
               onSave={(val) => handleCellSave(r.id, 'status_field', val)}
               displayContent={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STATUS_COLORS[r.statusField] || '#94a3b8' }}>{r.statusField}</span>} />
           </td>
-          {/* Stage */}
-          <td className="p-2">
-            <div className="flex items-center gap-1">
-              <EditableCell value={r.stage} type="select" options={PIPELINE_STAGES}
-                onSave={(val) => handleCellSave(r.id, 'stage', val)}
-                displayContent={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span>} />
-              {!opts.archived && timing.isStuck && (
-                <span
-                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 text-red-700 whitespace-nowrap"
-                  title={`In ${r.stage} for ${timing.daysInStage} days — threshold ${timing.stuckThreshold}. Needs attention.`}
-                >
-                  <Clock size={9} /> {timing.daysInStage}d
-                </span>
-              )}
-            </div>
-          </td>
           {/* Risk */}
           <td className="p-2">
             <StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} />
@@ -847,7 +849,6 @@ export default function IndiaStaffingPage() {
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Close Date</th>
         <th className="text-center p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Days since Start Date">Ageing</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Status</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">TA Stage</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Risk</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Manually set probability. Blank = use AI.">Prob</th>
         <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Auto-calculated from status updates">AI Prob</th>
@@ -878,7 +879,7 @@ export default function IndiaStaffingPage() {
     const [collapsed, setCollapsed] = useState(collapsibleDefault && rows.length > 10);
     const totalPositions = rows.reduce((s, r) => s + r.openPositions, 0);
     const distinctAccounts = new Set(rows.map((r) => r.account)).size;
-    const totalCols = 18; // must match TableHeader with selectable=true
+    const totalCols = 17; // dropped TA Stage // must match TableHeader with selectable=true
 
     return (
       <Card className={`mb-4 ${tier === 1 ? 'border-l-4 border-l-primary bg-primary/[0.02]' : ''}`}>
@@ -1438,7 +1439,7 @@ export default function IndiaStaffingPage() {
                     // Total columns must include the bulk-select checkbox + the
                     // expand-chevron + every data column + the trash button so
                     // the section banner spans the whole row width.
-                    const totalCols = 18; // selectable=true → 18, see TableHeader
+                    const totalCols = 17; // dropped TA Stage // selectable=true → 18, see TableHeader
                     return ordered.map((r) => {
                       const showHeader = groupByAccount && r.account !== prevAccount;
                       if (showHeader) prevAccount = r.account;
@@ -1489,12 +1490,18 @@ export default function IndiaStaffingPage() {
             </div>
           </Card>)}
 
-          {/* Archived — split into two buckets:
-           *   1. Closed Won (celebrated, kept separate)
-           *   2. Closed Lost / Cancelled (grouped — both are non-wins)
+          {/* Archived — split into three buckets:
+           *   1. Closed Won & Onboarded         (won, candidate has joined)
+           *   2. Closed Won & Not yet Onboarded (won, still waiting for join)
+           *   3. Closed Lost / Cancelled        (grouped — both are non-wins)
+           * Bucket 1 vs 2 keys off `onboarding_date`. Set the date on a row
+           * to move it from "not onboarded" → "onboarded".
            */}
           {(() => {
             const wonRows = archivedRows.filter((r) => isClosedWon(r.statusField));
+            const lookupReq = (id: string) => requisitions.find((x) => x.id === id);
+            const wonOnboarded = wonRows.filter((r) => !!lookupReq(r.id)?.onboarding_date);
+            const wonPending = wonRows.filter((r) => !lookupReq(r.id)?.onboarding_date);
             const lostRows = archivedRows.filter((r) => isLostOrCancelled(r.statusField));
             return (
               <>
@@ -1505,24 +1512,82 @@ export default function IndiaStaffingPage() {
                   >
                     <div className="flex items-center gap-2">
                       <Archive size={14} className="text-emerald-500" />
-                      <h3 className="font-bold text-sm">Closed Won</h3>
+                      <h3 className="font-bold text-sm">Closed Won &amp; Onboarded</h3>
                       <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold">
-                        {wonRows.length} won
+                        {wonOnboarded.length} joined
                       </span>
                     </div>
                     {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
                   </button>
                   {showArchive && (
                     <div className="overflow-x-auto mt-4">
-                      {wonRows.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic py-4 text-center">No wins yet — go close a deal.</p>
+                      {wonOnboarded.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">No onboarded wins yet.</p>
                       ) : (
                         <table className="w-full text-xs">
                           <TableHeader />
                           <tbody>
-                            {wonRows.map((r) => renderRow(r, { archived: true }))}
+                            {wonOnboarded.map((r) => renderRow(r, { archived: true }))}
                           </tbody>
                         </table>
+                      )}
+                    </div>
+                  )}
+                </Card>
+
+                <Card className="mt-6 border-amber-200">
+                  <button
+                    onClick={() => setShowArchive((v) => !v)}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Archive size={14} className="text-amber-500" />
+                      <h3 className="font-bold text-sm">Closed Won &amp; Not Onboarded</h3>
+                      <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full font-semibold">
+                        {wonPending.length} awaiting join
+                      </span>
+                    </div>
+                    {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                  </button>
+                  {showArchive && (
+                    <div className="overflow-x-auto mt-4">
+                      {wonPending.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">Everyone we won has joined. Great work.</p>
+                      ) : (
+                        <>
+                          <p className="text-[11px] text-slate-500 mb-2">Enter the onboarding date on a row to move it into the Onboarded bucket above.</p>
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-slate-100 text-left">
+                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Account</th>
+                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Requisition</th>
+                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Close Date</th>
+                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Onboarding Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {wonPending.map((r) => (
+                                <tr key={`won-pending-${r.id}`} className="border-b border-slate-50">
+                                  <td className="p-2 text-slate-700">{r.account}</td>
+                                  <td className="p-2 text-slate-700">{r.requisition}</td>
+                                  <td className="p-2 text-slate-500">{r.closeByDate || '—'}</td>
+                                  <td className="p-2">
+                                    <input
+                                      type="date"
+                                      defaultValue=""
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (!val) return;
+                                        updateRequisition(r.id, { onboarding_date: val });
+                                      }}
+                                      className="px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </>
                       )}
                     </div>
                   )}
@@ -2025,6 +2090,57 @@ export default function IndiaStaffingPage() {
         </>
       )}
 
+      {/* ── Split-on-close dialog for multi-position reqs ──
+       *  When someone moves a req with >1 open positions into Closed Won /
+       *  Closed Lost / Cancelled, we ask how many of the N actually landed
+       *  in that state. If less than the full count, we mark the original
+       *  req closed for the confirmed count and spin off a new req that
+       *  keeps the remaining positions open. */}
+      {splitClose && (() => {
+        const parent = requisitions.find((r) => r.id === splitClose.reqId);
+        if (!parent) { setSplitClose(null); return null; }
+        return (
+          <SplitCloseDialog
+            parent={parent}
+            targetStatus={splitClose.targetStatus}
+            total={splitClose.total}
+            onCancel={() => setSplitClose(null)}
+            onConfirm={(closedCount) => {
+              const target = splitClose.targetStatus;
+              if (closedCount >= splitClose.total) {
+                // All positions hit the closed state — treat as normal close.
+                updateRequisition(splitClose.reqId, { status_field: target, new_positions: splitClose.total });
+                if (target === 'Closed Won') celebrateWin();
+              } else if (closedCount > 0) {
+                // Partial: original row keeps the confirmed count and moves
+                // to the closed status. A new req takes the remainder and
+                // stays open. Same title + account + month so the pipeline
+                // stays legible.
+                const remainder = splitClose.total - closedCount;
+                updateRequisition(splitClose.reqId, { status_field: target, new_positions: closedCount });
+                addRequisition({
+                  account_id: parent.account_id,
+                  title: parent.title,
+                  month: parent.month,
+                  new_positions: remainder,
+                  expected_closure: parent.expected_closure,
+                  start_date: parent.start_date,
+                  close_by_date: parent.close_by_date,
+                  status_field: 'Open',
+                  stage: parent.stage,
+                  anticipation: `Split from parent req — ${closedCount} closed as ${target}, ${remainder} still open.`,
+                  client_spoc: parent.client_spoc,
+                  department: parent.department,
+                  probability: parent.probability,
+                });
+                if (target === 'Closed Won') celebrateWin();
+              }
+              setSplitClose(null);
+            }}
+          />
+        );
+      })()}
+
       {/* ── Send-to-Vendor dialog ── */}
       {sendVendorReqId && (() => {
         const r = requisitions.find((x) => x.id === sendVendorReqId);
@@ -2156,5 +2272,77 @@ export default function IndiaStaffingPage() {
         />
       )}
     </>
+  );
+}
+
+/** Small modal that asks "how many of the N positions actually closed?"
+ *  when a multi-position req is being moved into a closed status. Emits the
+ *  confirmed count via onConfirm; caller handles the split. */
+function SplitCloseDialog({
+  parent, targetStatus, total, onConfirm, onCancel,
+}: {
+  parent: { title: string; account_name?: string };
+  targetStatus: StaffingStatus;
+  total: number;
+  onConfirm: (closedCount: number) => void;
+  onCancel: () => void;
+}) {
+  const [count, setCount] = useState(total);
+  const remainder = total - count;
+  const badgeCls =
+    targetStatus === 'Closed Won' ? 'bg-emerald-100 text-emerald-800' :
+    targetStatus === 'Closed Lost' ? 'bg-rose-100 text-rose-800' :
+    'bg-slate-100 text-slate-700';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="text-base font-bold text-slate-900">Partial close?</h3>
+          <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeCls}`}>{targetStatus}</span>
+        </div>
+        <p className="text-sm text-slate-600 mb-4">
+          <strong>{parent.title}</strong>{parent.account_name ? ` · ${parent.account_name}` : ''} has <strong>{total} positions</strong>. How many actually closed as <strong>{targetStatus}</strong>?
+        </p>
+        <div className="flex items-center gap-3 mb-4">
+          <input
+            type="number"
+            min={1}
+            max={total}
+            value={count}
+            onChange={(e) => {
+              const n = Math.max(1, Math.min(total, Number(e.target.value) || 1));
+              setCount(n);
+            }}
+            className="w-24 px-3 py-2 text-lg font-bold text-center rounded-lg border-2 border-slate-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+            autoFocus
+          />
+          <span className="text-sm text-slate-500">of {total}</span>
+        </div>
+        {remainder > 0 && (
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 mb-4">
+            Remaining <strong>{remainder}</strong> position{remainder === 1 ? '' : 's'} will stay <strong>Open</strong> as a new requisition so you can keep working them.
+          </div>
+        )}
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(count)}
+            className="px-3 py-1.5 text-sm font-semibold rounded-md bg-primary text-white hover:bg-primary/90"
+          >
+            Confirm {count === total ? 'all closed' : `${count} closed, ${remainder} stays open`}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

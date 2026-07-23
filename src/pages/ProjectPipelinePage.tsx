@@ -193,7 +193,6 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             {expanded ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
             <h3 className="font-semibold text-slate-800 text-base">{project.name}</h3>
             <Badge variant={projectStatusVariant(project.status)}>{project.status}</Badge>
-            {project.source === 'zoho' && <Badge variant="info">Zoho</Badge>}
           </div>
           <div className="flex items-center gap-4 mt-1 ml-6 text-xs text-slate-500 flex-wrap">
             <span className="flex items-center gap-1"><Users size={12} /> {project.owner}</span>
@@ -425,7 +424,7 @@ export default function ProjectPipelinePage() {
     <>
       <PageHeader
         title="Current Projects"
-        subtitle={`${currentProjects.length} projects from Zoho`}
+        subtitle={`${currentProjects.length} current projects`}
       />
 
       {/* Summary stats */}
@@ -444,8 +443,8 @@ export default function ProjectPipelinePage() {
         </div>
       </div>
 
-      {/* Current projects (from Zoho) */}
-      <h2 className="text-lg font-semibold text-slate-800 mb-3">Projects <span className="text-sm font-normal text-slate-400">(from Zoho)</span></h2>
+      {/* Current projects */}
+      <h2 className="text-lg font-semibold text-slate-800 mb-3">Current Projects</h2>
       <div className="grid grid-cols-1 gap-3 mb-8">
         {currentProjects.map((project) => {
           const ps = teamByProject.get((project.forecastName ?? project.name).toLowerCase()) ?? teamByProject.get(project.name.toLowerCase());

@@ -5,8 +5,7 @@ import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, RefreshCw, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
-import { ZOHO_SEED_PROJECTS } from '../data/zohoSeed';
+import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -194,7 +193,6 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             {expanded ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
             <h3 className="font-semibold text-slate-800 text-base">{project.name}</h3>
             <Badge variant={projectStatusVariant(project.status)}>{project.status}</Badge>
-            {project.source === 'zoho' && <Badge variant="info">Zoho</Badge>}
           </div>
           <div className="flex items-center gap-4 mt-1 ml-6 text-xs text-slate-500 flex-wrap">
             <span className="flex items-center gap-1"><Users size={12} /> {project.owner}</span>
@@ -405,32 +403,7 @@ export default function ProjectPipelinePage() {
   const assignments = useForecastStore((s) => s.assignments);
   const allProjects = usePipelineStore((s) => s.projects);
   const updateProject = usePipelineStore((s) => s.updateProject);
-  const syncFromZoho = usePipelineStore((s) => s.syncFromZoho);
-  const lastSync = usePipelineStore((s) => s.lastZohoSync);
   const cadToUsdRate = useFinancialStore((s) => s.settings.cadToUsdRate) || 0.73;
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    setSyncMsg(null);
-    try {
-      const result = await syncFromZoho(ZOHO_SEED_PROJECTS);
-      if (result.ok) {
-        setSyncMsg(`✓ Synced ${result.count} active projects from Zoho`);
-      } else {
-        setSyncMsg(
-          result.source === 'fallback'
-            ? `⚠ Live sync unavailable — loaded ${result.count ?? 0} projects from cached snapshot. (${result.error})`
-            : `✗ Sync failed: ${result.error}`,
-        );
-      }
-    } finally {
-      setSyncing(false);
-      // Clear the message after 6 seconds
-      setTimeout(() => setSyncMsg(null), 6000);
-    }
-  };
 
   // Current projects = Zoho-sourced only
   const currentProjects = useMemo(() => allProjects.filter((p) => p.source === 'zoho'), [allProjects]);
@@ -451,30 +424,8 @@ export default function ProjectPipelinePage() {
     <>
       <PageHeader
         title="Current Projects"
-        subtitle={`${currentProjects.length} projects from Zoho`}
-        action={
-          <div className="flex items-center gap-3">
-            {lastSync && (
-              <span className="text-xs text-slate-400">
-                Last synced {new Date(lastSync).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="flex items-center gap-1.5 text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all"
-            >
-              {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              {syncing ? 'Syncing...' : 'Sync from Zoho'}
-            </button>
-          </div>
-        }
+        subtitle={`${currentProjects.length} current projects`}
       />
-      {syncMsg && (
-        <div className="mb-4 text-xs px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
-          {syncMsg}
-        </div>
-      )}
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -492,8 +443,8 @@ export default function ProjectPipelinePage() {
         </div>
       </div>
 
-      {/* Current projects (from Zoho) */}
-      <h2 className="text-lg font-semibold text-slate-800 mb-3">Projects <span className="text-sm font-normal text-slate-400">(from Zoho)</span></h2>
+      {/* Current projects */}
+      <h2 className="text-lg font-semibold text-slate-800 mb-3">Current Projects</h2>
       <div className="grid grid-cols-1 gap-3 mb-8">
         {currentProjects.map((project) => {
           const ps = teamByProject.get((project.forecastName ?? project.name).toLowerCase()) ?? teamByProject.get(project.name.toLowerCase());

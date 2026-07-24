@@ -33,6 +33,28 @@ import type {
 
 type CountryCode = '+1' | '+91';
 
+/** Extract every useful field from a Twilio Voice SDK error (or any error). */
+function describeErr(e: unknown): string {
+  if (!e) return 'unknown (empty error)';
+  if (typeof e === 'string') return e;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const a = e as any;
+  const parts: string[] = [];
+  const code = a.code ?? a.twilioError?.code;
+  if (code != null) parts.push(`[${code}]`);
+  const name = a.name ?? a.constructor?.name;
+  if (name && name !== 'Error' && name !== 'Object') parts.push(name);
+  const message = a.message || a.twilioError?.message || a.description || a.twilioError?.description || a.explanation;
+  if (message) parts.push(message);
+  if (Array.isArray(a.causes) && a.causes.length) parts.push(`causes: ${a.causes.join('; ')}`);
+  if (Array.isArray(a.solutions) && a.solutions.length) parts.push(`fix: ${a.solutions.join('; ')}`);
+  if (!parts.length) {
+    try { parts.push(JSON.stringify(e, Object.getOwnPropertyNames(e as object)).slice(0, 250)); }
+    catch { parts.push(String(e)); }
+  }
+  return parts.join(' ');
+}
+
 /** Best-effort E.164 normalization with a selected default country. */
 function toE164(raw: string, cc: CountryCode): string | null {
   const trimmed = raw.trim();
@@ -338,9 +360,9 @@ export default function DialerPage() {
           const { data: t2 } = await supabase.functions.invoke<TwilioTokenResponse>('twilio-token', { body: {} });
           if (t2?.token) device.updateToken(t2.token);
         });
-        device.on('error', (e: { code?: number; message?: string }) => {
+        device.on('error', (e: unknown) => {
           console.error('[dialer] device error', e);
-          setCallError(`Twilio device error ${e?.code ?? '?'}: ${e?.message || 'unknown'}`);
+          setCallError(`Device error: ${describeErr(e)}`);
         });
         deviceRef.current = device;
         setPhoneState('ready');
@@ -458,12 +480,12 @@ export default function DialerPage() {
       call.on('disconnect', done);
       call.on('cancel', done);
       call.on('reject', done);
-      call.on('error', (e: { code?: number; message?: string }) => {
+      call.on('error', (e: unknown) => {
         console.error('[dialer] call error', e);
-        const msg = `Twilio error ${e?.code ?? '?'}: ${e?.message || 'call failed'}`;
+        const msg = `Call error: ${describeErr(e)}`;
         setCallError(msg);
         supabase.from('dialer_calls').update({
-          status: 'failed', error_msg: msg.slice(0, 300), updated_by: 'dialer-ui',
+          status: 'failed', error_msg: msg.slice(0, 500), updated_by: 'dialer-ui',
         }).eq('id', callId);
         done();
       });
@@ -471,11 +493,10 @@ export default function DialerPage() {
       console.error('[dialer] connect failed', e);
       setPhoneState('ready');
       setActiveCallId(null);
-      const err = e as { code?: number; message?: string };
-      const msg = `Connect failed${err?.code ? ` (${err.code})` : ''}: ${err?.message || 'unknown'}`;
+      const msg = `Connect failed: ${describeErr(e)}`;
       setCallError(msg);
       await supabase.from('dialer_calls').update({
-        status: 'failed', error_msg: msg.slice(0, 300), updated_by: 'dialer-ui',
+        status: 'failed', error_msg: msg.slice(0, 500), updated_by: 'dialer-ui',
       }).eq('id', callId);
     }
   };

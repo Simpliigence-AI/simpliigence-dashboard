@@ -466,6 +466,52 @@ CREATE POLICY "Delete: own or admin" ON timesheet_documents
     OR current_user_role() = 'admin'
   );
 
+-- Storage object RLS for the private 'timesheet-documents' bucket. Object paths
+-- are `${email}/${period_start}/...`, so the top folder ((storage.foldername(name))[1])
+-- is the owner's email. These policies mirror the timesheet_documents table RLS:
+-- a user reaches only their OWN folder, managers read their reports' folders, and
+-- admins reach everything. (The bucket itself is created in the console/CLI —
+-- buckets aren't declarable in tracked SQL here.) Idempotent (drop-if-exists then create).
+DROP POLICY IF EXISTS "timesheet-documents: read own, team, or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: read own, team, or admin" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: insert own" ON storage.objects;
+CREATE POLICY "timesheet-documents: insert own" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'timesheet-documents'
+    AND (storage.foldername(name))[1] = current_user_email()
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: update own, team, or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: update own, team, or admin" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: delete own or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: delete own or admin" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR current_user_role() = 'admin'
+    )
+  );
+
 -- ============================================================
 -- 13. ta_daily_log — one row per (TA × day × requisition)
 -- ============================================================

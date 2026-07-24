@@ -1640,7 +1640,10 @@ export const db = {
     uploadedBy?: string | null;
   }): Promise<TimesheetDocument> {
     const { employeeEmail, periodStart, periodEnd, file, uploadedBy } = params;
-    const safeEmail = employeeEmail.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '_');
+    // Top folder must equal current_user_email() (the raw lowercased auth email)
+    // so the storage.objects RLS owner check on (storage.foldername(name))[1]
+    // matches. Only strip path-dangerous chars — keep '@' etc. intact.
+    const safeEmail = employeeEmail.trim().toLowerCase().replace(/[\s/\\]+/g, '_');
     const safeName = (file.name || 'timesheet').replace(/[^\w.-]+/g, '_').slice(0, 120) || 'timesheet';
     const path = `${safeEmail}/${periodStart}/${Date.now()}-${safeName}`;
     const { error: upErr } = await supabase.storage

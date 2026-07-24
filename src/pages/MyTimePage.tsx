@@ -401,6 +401,7 @@ export default function MyTimePage() {
           addEntry={addEntry}
           updateEntry={updateEntry}
           deleteEntry={deleteEntry}
+          submitWeek={submitWeek}
         />
       ) : (
       /* Day cards */
@@ -916,8 +917,10 @@ function CalendarGrid({ cells, onPickDay }: {
  * Cell semantics (dirty-only writes to avoid clobbering untouched data):
  *   - dirty cell, 0 matching entries + hours>0  → create
  *   - dirty cell, 1 matching entry              → update its hours
- *   - dirty cell, >1 matching entries           → update the first, delete rest
- *   - dirty cell cleared to 0/empty             → delete all matching
+ *   - dirty cell cleared to 0/empty             → delete matching entry
+ *   - cell mapping to >1 entries                → LOCKED (read-only): the grid
+ *       can't faithfully represent the billable split / per-entry notes, so it
+ *       shows the summed hours but refuses edits (edit in list view instead).
  * Untouched cells are never written. The component is remounted per-week
  * (key={weekStart}) so edit state resets on navigation.
  */
@@ -927,7 +930,7 @@ function clampHours(n: number): number {
   return Math.max(0, Math.min(24, n));
 }
 
-function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntry, deleteEntry }: {
+function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntry, deleteEntry, submitWeek }: {
   days: { iso: string; label: string; isToday: boolean }[];
   projectOptions: { id: string | null; name: string; billable: boolean }[];
   entries: TimeEntry[];
@@ -938,6 +941,8 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
   }) => Promise<TimeEntry>;
   updateEntry: (id: string, patch: Partial<TimeEntry>) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
+  /** Promote every draft/rejected entry in the visible week to 'submitted'. */
+  submitWeek: () => Promise<void>;
 }) {
   // Only dirty cells live here (key = `${projectName}\u0000${dayIso}` → raw string).
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -959,6 +964,9 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
     entries.filter((e) => e.projectName === name && e.workDate === iso);
   const baseHours = (name: string, iso: string) =>
     matchesFor(name, iso).reduce((s, e) => s + e.hours, 0);
+  // A cell backed by >1 entries can't be faithfully edited as a single number
+  // (it would collapse the billable split / notes), so it's rendered read-only.
+  const isLocked = (name: string, iso: string) => matchesFor(name, iso).length > 1;
 
   const cellValue = (name: string, iso: string): string => {
     const key = `${name}${CELL_SEP}${iso}`;
@@ -984,6 +992,12 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
     projectOptions.find((p) => p.name === name)?.id ?? null;
 
   const dirtyCount = Object.keys(edits).length;
+  // Existing draft/rejected entries in the week that "Submit week" can promote.
+  const promotableCount = useMemo(
+    () => entries.filter((e) => e.status === 'draft' || e.status === 'rejected').length,
+    [entries],
+  );
+  const canSubmit = dirtyCount > 0 || promotableCount > 0;
 
   const dayTotals = days.map((d) => rowNames.reduce((s, n) => s + cellNumber(n, d.iso), 0));
   const rowTotals = rowNames.map((n) => days.reduce((s, d) => s + cellNumber(n, d.iso), 0));
@@ -996,42 +1010,66 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
     setNewRow('');
   };
 
-  const save = async (mode: 'draft' | 'submit') => {
-    if (dirtyCount === 0 || saving) return;
-    setSaving(mode);
-    setSavedMsg(null);
-    const status: TimeEntryStatus = mode === 'draft' ? 'draft' : 'submitted';
-    const submittedAt = mode === 'submit' ? new Date().toISOString() : null;
-    try {
-      for (const key of Object.keys(edits)) {
-        const sep = key.indexOf(CELL_SEP);
-        const name = key.slice(0, sep);
-        const iso = key.slice(sep + 1);
-        const hours = clampHours(Number(edits[key]) || 0);
-        const matches = matchesFor(name, iso);
-        if (hours > 0) {
-          if (matches.length === 0) {
-            await addEntry({
-              employeeEmail: myEmail,
-              workDate: iso,
-              projectId: projectIdFor(name),
-              projectName: name,
-              hours,
-              billable: billableFor(name),
-              notes: '',
-              status,
-            });
-          } else {
-            await updateEntry(matches[0].id, { hours, status, submittedAt });
-            for (const extra of matches.slice(1)) await deleteEntry(extra.id);
-          }
+  /** Persist every dirty cell with the given status. Locked (>1 match) cells
+   *  are read-only and never dirty, so each cell maps to 0 or 1 entry. */
+  const persistDirty = async (status: TimeEntryStatus, submittedAt: string | null) => {
+    for (const key of Object.keys(edits)) {
+      const sep = key.indexOf(CELL_SEP);
+      const name = key.slice(0, sep);
+      const iso = key.slice(sep + 1);
+      const hours = clampHours(Number(edits[key]) || 0);
+      const matches = matchesFor(name, iso);
+      if (hours > 0) {
+        if (matches.length === 0) {
+          await addEntry({
+            employeeEmail: myEmail,
+            workDate: iso,
+            projectId: projectIdFor(name),
+            projectName: name,
+            hours,
+            billable: billableFor(name),
+            notes: '',
+            status,
+          });
         } else {
-          // Cleared cell: delete any entries that existed.
-          for (const m of matches) await deleteEntry(m.id);
+          // Clear any stale approval/rejection metadata on resubmit (mirrors submitWeek).
+          await updateEntry(matches[0].id, { hours, status, submittedAt, approvedBy: null, approvedAt: null, rejectReason: null });
+          for (const extra of matches.slice(1)) await deleteEntry(extra.id);
         }
+      } else {
+        // Cleared cell: delete any entries that existed.
+        for (const m of matches) await deleteEntry(m.id);
       }
+    }
+  };
+
+  const saveDraft = async () => {
+    if (dirtyCount === 0 || saving) return;
+    setSaving('draft');
+    setSavedMsg(null);
+    try {
+      await persistDirty('draft', null);
       setEdits({});
-      setSavedMsg(mode === 'draft' ? 'Draft saved' : 'Week submitted');
+      setSavedMsg('Draft saved');
+      setTimeout(() => setSavedMsg(null), 2500);
+    } catch (e) {
+      setSavedMsg(`Save failed: ${(e as Error).message}`);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  /** Submit the whole week (like the list view): persist edited cells as
+   *  submitted, then promote every remaining draft/rejected entry via submitWeek. */
+  const submitWeekAll = async () => {
+    if (!canSubmit || saving) return;
+    setSaving('submit');
+    setSavedMsg(null);
+    try {
+      await persistDirty('submitted', new Date().toISOString());
+      await submitWeek();
+      setEdits({});
+      setSavedMsg('Week submitted');
       setTimeout(() => setSavedMsg(null), 2500);
     } catch (e) {
       setSavedMsg(`Save failed: ${(e as Error).message}`);
@@ -1075,19 +1113,35 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
                     {!billableFor(name) && <span className="text-[9px] uppercase tracking-wide text-slate-400">non-bill</span>}
                   </div>
                 </td>
-                {days.map((d) => (
-                  <td key={d.iso} className="px-1 py-1 text-center">
-                    <input
-                      type="number" step={0.25} min={0} max={24}
-                      value={cellValue(name, d.iso)}
-                      onChange={(e) => setCell(name, d.iso, e.target.value)}
-                      placeholder="0"
-                      className={`w-14 border rounded-md px-1 py-1 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40 ${
-                        `${name}${CELL_SEP}${d.iso}` in edits ? 'border-primary/60 bg-primary/5' : 'border-slate-300'
-                      }`}
-                    />
-                  </td>
-                ))}
+                {days.map((d) => {
+                  if (isLocked(name, d.iso)) {
+                    return (
+                      <td key={d.iso} className="px-1 py-1 text-center">
+                        <input
+                          type="text"
+                          value={baseHours(name, d.iso).toFixed(2)}
+                          readOnly
+                          tabIndex={-1}
+                          title="Multiple entries this day — edit in list view"
+                          className="w-14 border border-slate-200 rounded-md px-1 py-1 text-sm tabular-nums text-right bg-slate-100 text-slate-400 cursor-not-allowed"
+                        />
+                      </td>
+                    );
+                  }
+                  return (
+                    <td key={d.iso} className="px-1 py-1 text-center">
+                      <input
+                        type="number" step={0.25} min={0} max={24}
+                        value={cellValue(name, d.iso)}
+                        onChange={(e) => setCell(name, d.iso, e.target.value)}
+                        placeholder="0"
+                        className={`w-14 border rounded-md px-1 py-1 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                          `${name}${CELL_SEP}${d.iso}` in edits ? 'border-primary/60 bg-primary/5' : 'border-slate-300'
+                        }`}
+                      />
+                    </td>
+                  );
+                })}
                 <td className="px-2 py-1 text-center font-bold tabular-nums text-slate-900">
                   {rowTotals[ri].toFixed(2)}
                 </td>
@@ -1131,7 +1185,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => save('draft')}
+            onClick={saveDraft}
             disabled={dirtyCount === 0 || saving !== null}
             className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1.5"
           >
@@ -1139,9 +1193,10 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
           </button>
           <button
             type="button"
-            onClick={() => save('submit')}
-            disabled={dirtyCount === 0 || saving !== null}
+            onClick={submitWeekAll}
+            disabled={!canSubmit || saving !== null}
             className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1.5"
+            title="Submit edited cells and promote all draft/rejected entries this week"
           >
             {saving === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Submit week
           </button>

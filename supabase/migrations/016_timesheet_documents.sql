@@ -80,3 +80,49 @@ BEGIN
     CREATE TRIGGER timesheet_documents_touch BEFORE UPDATE ON timesheet_documents FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
   END IF;
 END$$;
+
+-- Storage object RLS for the private 'timesheet-documents' bucket. Object paths
+-- are `${email}/${period_start}/...`, so the top folder ((storage.foldername(name))[1])
+-- is the owner's email. These policies mirror the timesheet_documents table RLS:
+-- a user reaches only their OWN folder, managers read their reports' folders, and
+-- admins reach everything. (The bucket itself is still created in the console/CLI,
+-- see the STORAGE note above.) Idempotent (drop-if-exists then create).
+DROP POLICY IF EXISTS "timesheet-documents: read own, team, or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: read own, team, or admin" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: insert own" ON storage.objects;
+CREATE POLICY "timesheet-documents: insert own" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'timesheet-documents'
+    AND (storage.foldername(name))[1] = current_user_email()
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: update own, team, or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: update own, team, or admin" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: delete own or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: delete own or admin" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR current_user_role() = 'admin'
+    )
+  );

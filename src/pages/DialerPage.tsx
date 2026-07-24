@@ -365,10 +365,16 @@ export default function DialerPage() {
           setCallError(`Device error: ${describeErr(e)}`);
         });
         deviceRef.current = device;
+        if (cancelled) { device.destroy(); return; }
+        // Registration is only needed for INCOMING calls; outbound works
+        // without it. We register best-effort to warm the signaling
+        // connection, but never block dialing on it.
+        device.register().catch((e) => console.warn('[dialer] register (non-fatal):', describeErr(e)));
         setPhoneState('ready');
       } catch (e) {
+        console.error('[dialer] device init failed', e);
         setPhoneState('error');
-        setSetupError((e as Error).message);
+        setSetupError(describeErr(e));
       }
     }
     init();

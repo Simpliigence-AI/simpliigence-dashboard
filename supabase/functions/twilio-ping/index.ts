@@ -100,6 +100,20 @@ Deno.serve(async (req: Request) => {
     // 4. Account type (trial accounts can't dial unverified numbers).
     report.accountType = (acct as { type?: string }).type ?? null;
 
+    // 4b. CRITICAL: validate the API Key SID+Secret pair. The Voice access
+    // token is HMAC-signed with the API Key Secret; if it's wrong the token
+    // is rejected by Twilio signaling with error 53000 even though the
+    // account auth above (SID+AuthToken) succeeds. An API key can basic-auth
+    // to REST, so this directly tests whether the stored secret is correct.
+    if (TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET) {
+      const keyAuth = 'Basic ' + btoa(`${TWILIO_API_KEY_SID}:${TWILIO_API_KEY_SECRET}`);
+      const keyRes = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}.json`, { headers: { Authorization: keyAuth } });
+      report.apiKeyValid = keyRes.ok;
+      if (!keyRes.ok) {
+        report.apiKeyError = `API Key SID+Secret rejected (${keyRes.status}). The signing secret is wrong → Voice calls fail with 53000. Re-set TWILIO_API_KEY_SECRET (or create a fresh API key).`;
+      }
+    }
+
     // 5. Recent calls (last few) — helps see if Twilio even created a call.
     const callsRes = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json?PageSize=5`, { headers: auth });
     if (callsRes.ok) {

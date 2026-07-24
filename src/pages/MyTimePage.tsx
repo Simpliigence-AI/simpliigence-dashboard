@@ -15,16 +15,17 @@
  *
  * Mini stat strip at the bottom: this-week logged vs forecast for awareness.
  */
-import { useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2, X, Copy, CalendarDays, List as ListIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, Plus, Save, Trash2, X, Copy, CalendarDays, List as ListIcon, LayoutGrid, UploadCloud, Download, Loader2, FileText, AlertTriangle, Paperclip } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useForecastStore } from '../store/useForecastStore';
 import { usePipelineStore } from '../store/usePipelineStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
+import { useTimesheetDocsStore, timesheetDocsKey } from '../store/useTimesheetDocsStore';
 import { INTERNAL_PROJECTS } from '../types/timeEntry';
-import type { TimeEntry } from '../types/timeEntry';
+import type { TimeEntry, TimeEntryStatus, TimesheetDocument } from '../types/timeEntry';
 
 function toIsoDate(d: Date): string {
   const y = d.getFullYear();
@@ -109,7 +110,7 @@ export default function MyTimePage() {
 
   const [weekStart, setWeekStart] = useState(toIsoDate(startOfWeek(toIsoDate(new Date()))));
   const [openDay, setOpenDay] = useState<string | null>(toIsoDate(new Date()));
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'grid'>('list');
   const [calendarAnchor, setCalendarAnchor] = useState(toIsoDate(new Date()));
 
   // Project list relevant to this user:
@@ -155,6 +156,13 @@ export default function MyTimePage() {
     }
     return map;
   }, [allEntries, days, myEmail]);
+
+  // Flat list of this user's entries in the visible week (grid view + docs).
+  const weekEntries = useMemo(() => {
+    const out: TimeEntry[] = [];
+    for (const d of days) out.push(...(entriesByDay.get(d.iso) || []));
+    return out;
+  }, [days, entriesByDay]);
 
   const weekStats = useMemo(() => {
     let logged = 0, billable = 0;
@@ -332,6 +340,15 @@ export default function MyTimePage() {
           </button>
           <button
             type="button"
+            onClick={() => setViewMode('grid')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+              viewMode === 'grid' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <LayoutGrid size={12} /> Grid
+          </button>
+          <button
+            type="button"
             onClick={() => setViewMode('calendar')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
               viewMode === 'calendar' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
@@ -373,6 +390,17 @@ export default function MyTimePage() {
             setOpenDay(iso);
             setViewMode('list');
           }}
+        />
+      ) : viewMode === 'grid' ? (
+        <GridView
+          key={weekStart}
+          days={days}
+          projectOptions={myProjects}
+          entries={weekEntries}
+          myEmail={myEmail}
+          addEntry={addEntry}
+          updateEntry={updateEntry}
+          deleteEntry={deleteEntry}
         />
       ) : (
       /* Day cards */
@@ -431,6 +459,7 @@ export default function MyTimePage() {
                       hours: params.hours,
                       billable: params.billable,
                       notes: params.notes,
+                      status: params.status,
                     })}
                   />
                   {/* Quick-copy actions */}
@@ -476,6 +505,16 @@ export default function MyTimePage() {
         })}
       </div>
       )}
+
+      {/* Per-week client-approved timesheet documents (all view modes) */}
+      <div className="mt-5">
+        <DocumentsPanel
+          employeeEmail={myEmail}
+          periodStart={days[0].iso}
+          periodEnd={days[6].iso}
+          uploadedBy={myEmail}
+        />
+      </div>
 
       {/* Sticky bottom mini stat */}
       <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-white border-t border-slate-200 shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
@@ -631,7 +670,7 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
 function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   workDate: string;
   projectOptions: { id: string | null; name: string; billable: boolean }[];
-  onAdd: (params: { projectId: string | null; projectName: string; hours: number; billable: boolean; notes: string }) => Promise<unknown>;
+  onAdd: (params: { projectId: string | null; projectName: string; hours: number; billable: boolean; notes: string; status?: TimeEntryStatus }) => Promise<unknown>;
 }) {
   const [projectName, setProjectName] = useState('');
   const [hours, setHours] = useState<number>(0);
@@ -653,7 +692,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   /** Save the current entry. If `keepOpen`, leave the row open with the
    *  same project selected so the user can queue up more entries — used
    *  when they hit Enter. Otherwise close the row (button click). */
-  const handleAdd = async (opts: { keepOpen?: boolean } = {}) => {
+  const handleAdd = async (opts: { keepOpen?: boolean; asDraft?: boolean } = {}) => {
     if (!projectName || hours <= 0) return;
     setSaving(true);
     try {
@@ -663,6 +702,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         hours,
         billable,
         notes,
+        status: opts.asDraft ? 'draft' : 'submitted',
       });
       if (opts.keepOpen) {
         // Rapid-entry: clear per-entry fields but keep the project sticky.
@@ -754,11 +794,20 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
           </button>
           <button
             type="button"
+            onClick={() => handleAdd({ keepOpen: false, asDraft: true })}
+            disabled={!projectName || hours <= 0 || saving}
+            className="text-[11px] font-semibold border border-slate-300 text-slate-700 bg-white px-3 py-1 rounded-md hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+            title="Save without submitting for approval"
+          >
+            <Save size={11} /> Save as draft
+          </button>
+          <button
+            type="button"
             onClick={() => handleAdd({ keepOpen: false })}
             disabled={!projectName || hours <= 0 || saving}
             className="text-[11px] font-semibold bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 disabled:opacity-40 flex items-center gap-1"
           >
-            <Save size={11} /> {saving ? 'Adding…' : 'Add & close'}
+            <Save size={11} /> {saving ? 'Adding…' : 'Add & submit'}
           </button>
         </div>
       </div>
@@ -854,6 +903,375 @@ function CalendarGrid({ cells, onPickDay }: {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200" /> 8h+</span>
         <span className="ml-auto">Click a day to jump to the list view.</span>
       </div>
+    </Card>
+  );
+}
+
+/* ── Weekly grid entry view ──
+ *
+ * Rows = projects, columns = the 7 days of the week, each cell a numeric hours
+ * input. Rows are seeded from the projects already logged this week; the user
+ * adds more via the ProjectPicker (which draws on the full myProjects list).
+ *
+ * Cell semantics (dirty-only writes to avoid clobbering untouched data):
+ *   - dirty cell, 0 matching entries + hours>0  → create
+ *   - dirty cell, 1 matching entry              → update its hours
+ *   - dirty cell, >1 matching entries           → update the first, delete rest
+ *   - dirty cell cleared to 0/empty             → delete all matching
+ * Untouched cells are never written. The component is remounted per-week
+ * (key={weekStart}) so edit state resets on navigation.
+ */
+const CELL_SEP = '\u0000';  // NUL — never present in a project name or ISO date
+function clampHours(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(24, n));
+}
+
+function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntry, deleteEntry }: {
+  days: { iso: string; label: string; isToday: boolean }[];
+  projectOptions: { id: string | null; name: string; billable: boolean }[];
+  entries: TimeEntry[];
+  myEmail: string;
+  addEntry: (input: {
+    employeeEmail: string; workDate: string; projectId?: string | null; projectName: string;
+    hours: number; billable: boolean; notes?: string; status?: TimeEntryStatus;
+  }) => Promise<TimeEntry>;
+  updateEntry: (id: string, patch: Partial<TimeEntry>) => Promise<void>;
+  deleteEntry: (id: string) => Promise<void>;
+}) {
+  // Only dirty cells live here (key = `${projectName}\u0000${dayIso}` → raw string).
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [extraRows, setExtraRows] = useState<string[]>([]);
+  const [newRow, setNewRow] = useState('');
+  const [saving, setSaving] = useState<'draft' | 'submit' | null>(null);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  const internalSet = new Set<string>(INTERNAL_PROJECTS);
+
+  const rowNames = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of entries) s.add(e.projectName);
+    for (const r of extraRows) s.add(r);
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [entries, extraRows]);
+
+  const matchesFor = (name: string, iso: string) =>
+    entries.filter((e) => e.projectName === name && e.workDate === iso);
+  const baseHours = (name: string, iso: string) =>
+    matchesFor(name, iso).reduce((s, e) => s + e.hours, 0);
+
+  const cellValue = (name: string, iso: string): string => {
+    const key = `${name}${CELL_SEP}${iso}`;
+    if (key in edits) return edits[key];
+    const base = baseHours(name, iso);
+    return base > 0 ? String(base) : '';
+  };
+  const cellNumber = (name: string, iso: string): number => {
+    const key = `${name}${CELL_SEP}${iso}`;
+    if (key in edits) return clampHours(Number(edits[key]) || 0);
+    return baseHours(name, iso);
+  };
+
+  const setCell = (name: string, iso: string, v: string) => {
+    setEdits((prev) => ({ ...prev, [`${name}${CELL_SEP}${iso}`]: v }));
+  };
+
+  const billableFor = (name: string): boolean => {
+    if (internalSet.has(name)) return false;
+    return projectOptions.find((p) => p.name === name)?.billable ?? true;
+  };
+  const projectIdFor = (name: string): string | null =>
+    projectOptions.find((p) => p.name === name)?.id ?? null;
+
+  const dirtyCount = Object.keys(edits).length;
+
+  const dayTotals = days.map((d) => rowNames.reduce((s, n) => s + cellNumber(n, d.iso), 0));
+  const rowTotals = rowNames.map((n) => days.reduce((s, d) => s + cellNumber(n, d.iso), 0));
+  const grandTotal = dayTotals.reduce((s, x) => s + x, 0);
+
+  const addRow = () => {
+    const name = newRow.trim();
+    if (!name || rowNames.includes(name)) { setNewRow(''); return; }
+    setExtraRows((prev) => [...prev, name]);
+    setNewRow('');
+  };
+
+  const save = async (mode: 'draft' | 'submit') => {
+    if (dirtyCount === 0 || saving) return;
+    setSaving(mode);
+    setSavedMsg(null);
+    const status: TimeEntryStatus = mode === 'draft' ? 'draft' : 'submitted';
+    const submittedAt = mode === 'submit' ? new Date().toISOString() : null;
+    try {
+      for (const key of Object.keys(edits)) {
+        const sep = key.indexOf(CELL_SEP);
+        const name = key.slice(0, sep);
+        const iso = key.slice(sep + 1);
+        const hours = clampHours(Number(edits[key]) || 0);
+        const matches = matchesFor(name, iso);
+        if (hours > 0) {
+          if (matches.length === 0) {
+            await addEntry({
+              employeeEmail: myEmail,
+              workDate: iso,
+              projectId: projectIdFor(name),
+              projectName: name,
+              hours,
+              billable: billableFor(name),
+              notes: '',
+              status,
+            });
+          } else {
+            await updateEntry(matches[0].id, { hours, status, submittedAt });
+            for (const extra of matches.slice(1)) await deleteEntry(extra.id);
+          }
+        } else {
+          // Cleared cell: delete any entries that existed.
+          for (const m of matches) await deleteEntry(m.id);
+        }
+      }
+      setEdits({});
+      setSavedMsg(mode === 'draft' ? 'Draft saved' : 'Week submitted');
+      setTimeout(() => setSavedMsg(null), 2500);
+    } catch (e) {
+      setSavedMsg(`Save failed: ${(e as Error).message}`);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="overflow-x-auto -mx-2 px-2">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-slate-400">
+              <th className="text-left font-bold py-2 pr-3 min-w-[10rem] sticky left-0 bg-white">Project</th>
+              {days.map((d) => {
+                const dt = parseIsoDate(d.iso);
+                return (
+                  <th key={d.iso} className={`text-center font-bold px-1 py-2 min-w-[3.75rem] ${d.isToday ? 'text-primary' : ''}`}>
+                    <div>{dt.toLocaleDateString(undefined, { weekday: 'short' })}</div>
+                    <div className="text-slate-500 font-semibold">{dt.getDate()}</div>
+                  </th>
+                );
+              })}
+              <th className="text-center font-bold px-2 py-2 min-w-[3.5rem]">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rowNames.length === 0 && (
+              <tr>
+                <td colSpan={days.length + 2} className="text-center text-slate-400 italic py-6 text-xs">
+                  No projects yet. Add a project row below to start filling in hours.
+                </td>
+              </tr>
+            )}
+            {rowNames.map((name, ri) => (
+              <tr key={name} className="border-t border-slate-100">
+                <td className="py-1.5 pr-3 text-slate-800 font-medium sticky left-0 bg-white">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate max-w-[12rem]" title={name}>{name}</span>
+                    {!billableFor(name) && <span className="text-[9px] uppercase tracking-wide text-slate-400">non-bill</span>}
+                  </div>
+                </td>
+                {days.map((d) => (
+                  <td key={d.iso} className="px-1 py-1 text-center">
+                    <input
+                      type="number" step={0.25} min={0} max={24}
+                      value={cellValue(name, d.iso)}
+                      onChange={(e) => setCell(name, d.iso, e.target.value)}
+                      placeholder="0"
+                      className={`w-14 border rounded-md px-1 py-1 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                        `${name}${CELL_SEP}${d.iso}` in edits ? 'border-primary/60 bg-primary/5' : 'border-slate-300'
+                      }`}
+                    />
+                  </td>
+                ))}
+                <td className="px-2 py-1 text-center font-bold tabular-nums text-slate-900">
+                  {rowTotals[ri].toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-slate-200 text-slate-900">
+              <td className="py-2 pr-3 text-[11px] uppercase tracking-wider font-bold text-slate-500 sticky left-0 bg-white">Day total</td>
+              {dayTotals.map((t, i) => (
+                <td key={days[i].iso} className={`px-1 py-2 text-center font-bold tabular-nums ${t >= 8 ? 'text-emerald-600' : t === 0 ? 'text-slate-300' : ''}`}>
+                  {t.toFixed(2)}
+                </td>
+              ))}
+              <td className="px-2 py-2 text-center font-extrabold tabular-nums">{grandTotal.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Add a project row */}
+      <div className="mt-4 flex items-center gap-2 flex-wrap border-t border-slate-100 pt-3">
+        <span className="text-[11px] text-slate-500">Add project row:</span>
+        <ProjectPicker value={newRow} onChange={setNewRow} options={projectOptions} onEnter={addRow} />
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={!newRow.trim()}
+          className="text-[11px] font-semibold px-2.5 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1"
+        >
+          <Plus size={11} /> Add row
+        </button>
+      </div>
+
+      {/* Save actions */}
+      <div className="mt-4 flex items-center justify-between gap-2 flex-wrap border-t border-slate-100 pt-3">
+        <span className="text-[11px] text-slate-500">
+          {dirtyCount > 0 ? `${dirtyCount} unsaved cell${dirtyCount === 1 ? '' : 's'}` : 'All changes saved'}
+          {savedMsg && <span className="ml-2 text-emerald-600 font-semibold">{savedMsg}</span>}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => save('draft')}
+            disabled={dirtyCount === 0 || saving !== null}
+            className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1.5"
+          >
+            {saving === 'draft' ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save draft
+          </button>
+          <button
+            type="button"
+            onClick={() => save('submit')}
+            disabled={dirtyCount === 0 || saving !== null}
+            className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1.5"
+          >
+            {saving === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Submit week
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/* ── Per-week client-approved timesheet documents ── */
+function humanFileSize(n: number | null): string {
+  if (!n) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const DOC_ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.csv';
+
+function DocumentsPanel({ employeeEmail, periodStart, periodEnd, uploadedBy }: {
+  employeeEmail: string;
+  periodStart: string;
+  periodEnd: string;
+  uploadedBy: string | null;
+}) {
+  const cacheKey = timesheetDocsKey(employeeEmail, periodStart);
+  const docs = useTimesheetDocsStore((s) => s.docsByWeek[cacheKey]) ?? [];
+  const loading = useTimesheetDocsStore((s) => s.loadingByWeek[cacheKey]) ?? false;
+  const loadForWeek = useTimesheetDocsStore((s) => s.loadForWeek);
+  const upload = useTimesheetDocsStore((s) => s.upload);
+  const remove = useTimesheetDocsStore((s) => s.remove);
+  const signedUrl = useTimesheetDocsStore((s) => s.signedUrl);
+
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  // Refresh whenever the week (or user) changes.
+  useEffect(() => {
+    if (employeeEmail) void loadForWeek(employeeEmail, periodStart);
+  }, [employeeEmail, periodStart, loadForWeek]);
+
+  async function onFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setError(null);
+    try {
+      for (const f of Array.from(files)) {
+        await upload({ employeeEmail, periodStart, periodEnd, file: f, uploadedBy });
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  }
+
+  async function download(doc: TimesheetDocument) {
+    const url = await signedUrl(doc.storagePath);
+    if (url) window.open(url, '_blank', 'noopener');
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-3">
+        <Paperclip size={15} className="text-slate-400" />
+        <h3 className="text-sm font-semibold text-slate-900">Documents for this week</h3>
+        <span className="text-[11px] text-slate-400">Attach the client-approved timesheet (PDF, image, Word, Excel)</span>
+      </div>
+
+      <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50 flex flex-wrap items-center gap-2">
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          className="hidden"
+          accept={DOC_ACCEPT}
+          onChange={(e) => onFiles(e.target.files)}
+        />
+        <button
+          type="button"
+          onClick={() => fileInput.current?.click()}
+          disabled={uploading}
+          className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1.5"
+        >
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />}
+          {uploading ? 'Uploading…' : 'Upload document'}
+        </button>
+        <span className="text-[11px] text-slate-500">PDF, PNG/JPG/GIF/WebP, DOC/DOCX, XLS/XLSX/CSV · max 15 MB</span>
+      </div>
+
+      {error && (
+        <div className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-1.5">
+          <AlertTriangle size={12} /> {error}
+        </div>
+      )}
+
+      {loading && docs.length === 0 ? (
+        <div className="text-center text-slate-500 py-4 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
+      ) : docs.length === 0 ? (
+        <div className="text-center text-slate-400 py-4 text-sm italic">No documents uploaded for this week yet.</div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {docs.map((d) => (
+            <div key={d.id} className="rounded-lg border border-slate-200 bg-white p-2.5 flex items-center gap-3">
+              <FileText size={16} className="text-slate-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-slate-900 truncate" title={d.filename}>{d.filename}</div>
+                <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-2">
+                  {d.sizeBytes && <span>{humanFileSize(d.sizeBytes)}</span>}
+                  <span>uploaded {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  {d.uploadedBy && <span>by {d.uploadedBy}</span>}
+                </div>
+              </div>
+              <button type="button" onClick={() => download(d)} title="Download" className="p-1.5 text-slate-400 hover:text-slate-700">
+                <Download size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => { if (confirm(`Delete "${d.filename}"?`)) void remove(employeeEmail, periodStart, d); }}
+                title="Delete"
+                className="p-1.5 text-slate-400 hover:text-rose-600"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

@@ -33,6 +33,21 @@ export interface TimeEntryPeriod {
   lockedAt: string | null;
 }
 
+/** Client-approved timesheet file attached to a week (period_start = Monday). */
+export interface TimesheetDocument {
+  id: string;
+  employeeEmail: string;
+  periodStart: string;         // YYYY-MM-DD (Monday)
+  periodEnd: string;           // YYYY-MM-DD (Sunday)
+  filename: string;
+  storagePath: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  uploadedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Common non-billable buckets surfaced as quick-pick projects. */
 export const INTERNAL_PROJECTS = [
   'Internal — Admin',

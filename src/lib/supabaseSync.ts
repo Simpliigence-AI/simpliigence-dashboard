@@ -20,7 +20,7 @@ import type { IndiaRosterMember, IndiaRosterStatus } from '../types/indiaRoster'
 import type { USRosterMember, USRosterStatus } from '../types/usRoster';
 import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
-import type { TimeEntry } from '../types/timeEntry';
+import type { TimeEntry, TimesheetDocument } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import type { Vendor, VendorOutreach } from '../types/vendor';
 import type {
@@ -360,6 +360,23 @@ function rowToTimeEntry(row: any): TimeEntry {
     approvedBy: row.approved_by ?? null,
     approvedAt: row.approved_at ?? null,
     rejectReason: row.reject_reason ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTimesheetDoc(row: any): TimesheetDocument {
+  return {
+    id: row.id,
+    employeeEmail: row.employee_email,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    filename: row.filename,
+    storagePath: row.storage_path,
+    mimeType: row.mime_type ?? null,
+    sizeBytes: row.size_bytes ?? null,
+    uploadedBy: row.uploaded_by ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -1610,6 +1627,76 @@ export const db = {
   async deleteTimeEntry(id: string) {
     const { error } = await supabase.from('time_entries').delete().eq('id', id);
     if (error) console.warn('[supabase] delete time_entry failed:', error);
+  },
+
+  // --- Timesheet documents (Supabase Storage: timesheet-documents bucket) ---
+  /** Upload a client-approved timesheet file for a week and insert its metadata
+   *  row. Path: `${employeeEmail}/${periodStart}/${timestamp}-${sanitized}`. */
+  async uploadTimesheetDocument(params: {
+    employeeEmail: string;
+    periodStart: string;
+    periodEnd: string;
+    file: File;
+    uploadedBy?: string | null;
+  }): Promise<TimesheetDocument> {
+    const { employeeEmail, periodStart, periodEnd, file, uploadedBy } = params;
+    const safeEmail = employeeEmail.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '_');
+    const safeName = (file.name || 'timesheet').replace(/[^\w.-]+/g, '_').slice(0, 120) || 'timesheet';
+    const path = `${safeEmail}/${periodStart}/${Date.now()}-${safeName}`;
+    const { error: upErr } = await supabase.storage
+      .from('timesheet-documents')
+      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    if (upErr) throw new Error(`Upload failed for ${file.name}: ${upErr.message}`);
+
+    const insertRow = {
+      id: nanoid(),
+      employee_email: employeeEmail.trim().toLowerCase(),
+      period_start: periodStart,
+      period_end: periodEnd,
+      filename: file.name,
+      storage_path: path,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      uploaded_by: uploadedBy ?? null,
+    };
+    const { data, error } = await supabase.from('timesheet_documents').insert(insertRow).select().single();
+    if (error || !data) {
+      // Roll back the orphaned storage object best-effort.
+      await supabase.storage.from('timesheet-documents').remove([path]);
+      throw new Error(`Insert row failed: ${error?.message}`);
+    }
+    return rowToTimesheetDoc(data);
+  },
+
+  /** List timesheet documents for a given employee + week (period_start). */
+  async listTimesheetDocuments(employeeEmail: string, periodStart: string): Promise<TimesheetDocument[]> {
+    const { data, error } = await supabase
+      .from('timesheet_documents')
+      .select('*')
+      .eq('employee_email', employeeEmail.trim().toLowerCase())
+      .eq('period_start', periodStart)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.warn('[supabase] list timesheet_documents failed:', error);
+      return [];
+    }
+    return (data || []).map(rowToTimesheetDoc);
+  },
+
+  /** Delete a timesheet document row and its underlying storage object. */
+  async deleteTimesheetDocument(id: string, storagePath: string) {
+    if (storagePath) {
+      await supabase.storage.from('timesheet-documents').remove([storagePath]);
+    }
+    const { error } = await supabase.from('timesheet_documents').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
+  /** Short-lived signed URL (1h) for downloading a timesheet document. */
+  async signedTimesheetDocumentUrl(storagePath: string): Promise<string | null> {
+    const { data, error } = await supabase.storage.from('timesheet-documents').createSignedUrl(storagePath, 3600);
+    if (error || !data) return null;
+    return data.signedUrl;
   },
 
   // --- User avatars (Supabase Storage: user-avatars bucket) ---

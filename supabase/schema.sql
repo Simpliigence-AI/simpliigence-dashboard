@@ -416,6 +416,56 @@ FROM time_entries te
 LEFT JOIN authorized_users au ON LOWER(au.email) = LOWER(te.employee_email)
 WHERE te.status IN ('approved','submitted');
 
+-- Timesheet documents — client-approved timesheet attachments at the WEEK level
+-- (period_start = Monday, period_end = Sunday). See migration
+-- 016_timesheet_documents.sql. Files live in the PRIVATE Storage bucket
+-- 'timesheet-documents', created in the Supabase console/CLI (buckets aren't
+-- declarable in tracked SQL here, same as 'concierge-docs' / 'candidate-resumes').
+CREATE TABLE timesheet_documents (
+  id             TEXT PRIMARY KEY,
+  employee_email TEXT NOT NULL,
+  period_start   DATE NOT NULL,          -- Monday of the week
+  period_end     DATE NOT NULL,          -- Sunday of the week
+  filename       TEXT NOT NULL,
+  storage_path   TEXT NOT NULL,
+  mime_type      TEXT,
+  size_bytes     BIGINT,
+  uploaded_by    TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_tsdoc_emp_period ON timesheet_documents(employee_email, period_start);
+
+ALTER TABLE timesheet_documents ENABLE ROW LEVEL SECURITY;
+
+-- RLS mirrors time_entries (own; managers read reports'; admins read/manage all)
+CREATE POLICY "Read: own, team, or admin" ON timesheet_documents
+  FOR SELECT TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
+CREATE POLICY "Insert: own" ON timesheet_documents
+  FOR INSERT TO authenticated
+  WITH CHECK (LOWER(employee_email) = current_user_email());
+
+CREATE POLICY "Update: own, team, or admin" ON timesheet_documents
+  FOR UPDATE TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
+CREATE POLICY "Delete: own or admin" ON timesheet_documents
+  FOR DELETE TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR current_user_role() = 'admin'
+  );
+
 -- ============================================================
 -- 13. ta_daily_log — one row per (TA × day × requisition)
 -- ============================================================

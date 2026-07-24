@@ -29,6 +29,7 @@ import type {
 import type {
   ConciergeAccount, ConciergeFeature, ConciergeBillingEntry,
 } from '../types/concierge';
+import type { LeaveType, LeaveRequest } from '../types/leave';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
@@ -2896,3 +2897,107 @@ export function registerHiringConfigGetter(fn: typeof _getHiringConfig) {
 function getHiringConfigFromStore() {
   return _getHiringConfig();
 }
+
+// ─── Leave management ────────────────────────────────────────────
+
+function leaveTypeToRow(t: LeaveType) {
+  return {
+    id: t.id, name: t.name, code: t.code, annual_quota: t.annualQuota,
+    color: t.color, active: t.active, sort_order: t.sortOrder,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveType(row: any): LeaveType {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    annualQuota: Number(row.annual_quota ?? 0),
+    color: row.color ?? '#64748b',
+    active: row.active !== false,
+    sortOrder: Number(row.sort_order ?? 100),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function leaveRequestToRow(r: LeaveRequest) {
+  return {
+    id: r.id,
+    employee_email: r.employeeEmail.toLowerCase(),
+    leave_type_id: r.leaveTypeId,
+    start_date: r.startDate,
+    end_date: r.endDate,
+    days: r.days,
+    reason: r.reason,
+    status: r.status,
+    manager_email: r.managerEmail?.toLowerCase() ?? null,
+    decided_at: r.decidedAt,
+    decided_by: r.decidedBy?.toLowerCase() ?? null,
+    decision_comment: r.decisionComment,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveRequest(row: any): LeaveRequest {
+  return {
+    id: row.id,
+    employeeEmail: row.employee_email,
+    leaveTypeId: row.leave_type_id,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    days: Number(row.days),
+    reason: row.reason ?? null,
+    status: row.status,
+    managerEmail: row.manager_email ?? null,
+    decidedAt: row.decided_at ?? null,
+    decidedBy: row.decided_by ?? null,
+    decisionComment: row.decision_comment ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchLeaveData(): Promise<{ types: LeaveType[]; requests: LeaveRequest[] } | null> {
+  const [tRes, rRes] = await Promise.all([
+    supabase.from('leave_types').select('*').order('sort_order', { ascending: true }),
+    supabase.from('leave_requests').select('*').order('created_at', { ascending: false }),
+  ]);
+  if (tRes.error) { console.warn('[supabase] fetch leave_types failed:', tRes.error); return null; }
+  return {
+    types: (tRes.data || []).map(rowToLeaveType),
+    requests: (rRes.data || []).map(rowToLeaveRequest),
+  };
+}
+
+/** Notify a manager that a new leave request is waiting. Fire-and-forget —
+ *  UI doesn't block on this. Uses the leave-notify edge function which
+ *  wraps the shared Graph client-credentials flow. */
+export async function notifyLeaveRequest(requestId: string, event: 'submitted' | 'approved' | 'rejected'): Promise<void> {
+  try {
+    await supabase.functions.invoke('leave-notify', { body: { requestId, event } });
+  } catch (e) {
+    console.warn('[supabase] leave-notify failed (non-blocking):', e);
+  }
+}
+
+/** Named leave-CRUD helpers — kept as top-level exports (rather than shoved
+ *  into the `db` object literal above) so their types are legible without
+ *  touching the 1500-line `db` definition. Callers: `import { leaveDb } ...` */
+export const leaveDb = {
+  async upsertType(t: LeaveType) {
+    const { error } = await supabase.from('leave_types').upsert(leaveTypeToRow(t), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert leave_type failed:', error); throw error; }
+  },
+  async deleteType(id: string) {
+    const { error } = await supabase.from('leave_types').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete leave_type failed:', error);
+  },
+  async upsertRequest(r: LeaveRequest) {
+    const { error } = await supabase.from('leave_requests').upsert(leaveRequestToRow(r), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert leave_request failed:', error); throw error; }
+  },
+  async deleteRequest(id: string) {
+    const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete leave_request failed:', error);
+  },
+};

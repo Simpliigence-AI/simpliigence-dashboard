@@ -36,6 +36,7 @@ import {
   ExternalLink,
   ShieldCheck,
   BriefcaseBusiness,
+  PhoneCall,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -57,6 +58,7 @@ const sections: NavSection[] = [
     label: 'Portals',
     items: [
       { to: '/my-time',                                                icon: Timer,             label: 'Timesheets' },
+      { to: '/leave',                                                  icon: CalendarCheck,     label: 'Leave' },
       { to: '/home',                                                   icon: BriefcaseBusiness, label: 'Delivery Cockpit' },
       { href: 'https://simpliigence-governance.onrender.com/',         icon: ShieldCheck,       label: 'Delivery Governance' },
       { href: 'https://simpliigence-hr-portal.vercel.app/dossier',     icon: UserCog,           label: 'HR Portal' },
@@ -107,6 +109,7 @@ const sections: NavSection[] = [
       { to: '/accounts', icon: Building2, label: 'Accounts' },
       { to: '/vendors',  icon: Handshake, label: 'Vendors' },
       { to: '/gtm-list', icon: Target,    label: 'GTM List' },
+      { to: '/dialer',   icon: PhoneCall, label: 'Dialer' },
     ],
   },
   {
@@ -126,12 +129,13 @@ const adminSection: NavSection = {
   ],
 };
 
-/** Nav shown to role='employee' users — they only see "My Time". */
+/** Nav shown to role='employee' users — timesheet + leave request. */
 const employeeOnlySections: NavSection[] = [
   {
     label: 'My Work',
     items: [
-      { to: '/my-time', icon: Timer, label: 'My Time' },
+      { to: '/my-time', icon: Timer,        label: 'My Time' },
+      { to: '/leave',   icon: CalendarCheck, label: 'Leave' },
     ],
   },
 ];

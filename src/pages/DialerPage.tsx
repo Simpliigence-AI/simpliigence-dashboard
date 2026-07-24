@@ -308,6 +308,9 @@ export default function DialerPage() {
   const [calls, setCalls] = useState<DialerCallRow[]>([]);
   const [userEmail, setUserEmail] = useState<string>('');
 
+  // Last runtime error surfaced from the Voice SDK (mic denied, token, network…)
+  const [callError, setCallError] = useState<string | null>(null);
+
   const e164 = useMemo(() => toE164(rawNumber, country), [rawNumber, country]);
   const inCall = phoneState === 'connecting' || phoneState === 'ringing' || phoneState === 'in-call';
 
@@ -335,9 +338,9 @@ export default function DialerPage() {
           const { data: t2 } = await supabase.functions.invoke<TwilioTokenResponse>('twilio-token', { body: {} });
           if (t2?.token) device.updateToken(t2.token);
         });
-        device.on('error', (e: { message?: string }) => {
+        device.on('error', (e: { code?: number; message?: string }) => {
           console.error('[dialer] device error', e);
-          setSetupError(e?.message || 'Twilio device error');
+          setCallError(`Twilio device error ${e?.code ?? '?'}: ${e?.message || 'unknown'}`);
         });
         deviceRef.current = device;
         setPhoneState('ready');
@@ -414,6 +417,19 @@ export default function DialerPage() {
     setActiveCallId(callId);
     setPhoneState('connecting');
     setMuted(false);
+    setCallError(null);
+
+    // Proactively acquire the mic so a denied/blocked permission surfaces as a
+    // clear message instead of the Voice SDK silently dropping the call.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch (micErr) {
+      setPhoneState('ready');
+      setActiveCallId(null);
+      setCallError(`Microphone blocked (${(micErr as Error).name}). Click the 🔒 icon in the address bar → allow the microphone → try again.`);
+      return;
+    }
 
     await supabase.from('dialer_calls').insert({
       id: callId,
@@ -442,18 +458,24 @@ export default function DialerPage() {
       call.on('disconnect', done);
       call.on('cancel', done);
       call.on('reject', done);
-      call.on('error', (e: { message?: string }) => {
+      call.on('error', (e: { code?: number; message?: string }) => {
         console.error('[dialer] call error', e);
+        const msg = `Twilio error ${e?.code ?? '?'}: ${e?.message || 'call failed'}`;
+        setCallError(msg);
+        supabase.from('dialer_calls').update({
+          status: 'failed', error_msg: msg.slice(0, 300), updated_by: 'dialer-ui',
+        }).eq('id', callId);
         done();
       });
     } catch (e) {
       console.error('[dialer] connect failed', e);
       setPhoneState('ready');
       setActiveCallId(null);
+      const err = e as { code?: number; message?: string };
+      const msg = `Connect failed${err?.code ? ` (${err.code})` : ''}: ${err?.message || 'unknown'}`;
+      setCallError(msg);
       await supabase.from('dialer_calls').update({
-        status: 'failed',
-        error_msg: (e as Error).message?.slice(0, 300) || 'connect failed (mic permission?)',
-        updated_by: 'dialer-ui',
+        status: 'failed', error_msg: msg.slice(0, 300), updated_by: 'dialer-ui',
       }).eq('id', callId);
     }
   };
@@ -514,6 +536,17 @@ export default function DialerPage() {
               Contact search and call history still work.
             </p>
           </div>
+        </div>
+      )}
+
+      {callError && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
+          <AlertTriangle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-red-800 flex-1">
+            <p className="font-semibold">Call failed</p>
+            <p className="mt-0.5">{callError}</p>
+          </div>
+          <button className="text-red-400 hover:text-red-600 text-lg leading-none" onClick={() => setCallError(null)}>×</button>
         </div>
       )}
 

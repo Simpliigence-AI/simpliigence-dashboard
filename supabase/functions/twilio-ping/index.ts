@@ -97,6 +97,28 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // 4. Account type (trial accounts can't dial unverified numbers).
+    report.accountType = (acct as { type?: string }).type ?? null;
+
+    // 5. Recent calls (last few) — helps see if Twilio even created a call.
+    const callsRes = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json?PageSize=5`, { headers: auth });
+    if (callsRes.ok) {
+      const cj = await callsRes.json() as { calls?: Array<{ sid: string; to: string; from: string; status: string; direction: string; start_time: string }> };
+      report.recentCalls = (cj.calls || []).map((c) => ({ sid: c.sid, to: c.to, from: c.from, status: c.status, direction: c.direction, startTime: c.start_time }));
+    }
+
+    // 6. Recent Monitor alerts (errors/warnings) — the real reason a client call died.
+    const alertsRes = await fetch(`https://monitor.twilio.com/v1/Alerts?PageSize=5`, { headers: auth });
+    if (alertsRes.ok) {
+      const aj = await alertsRes.json() as { alerts?: Array<{ error_code: string; log_level: string; alert_text: string; date_generated: string; more_info?: string }> };
+      report.recentAlerts = (aj.alerts || []).map((a) => ({
+        errorCode: a.error_code, level: a.log_level,
+        text: (a.alert_text || '').slice(0, 300), date: a.date_generated, moreInfo: a.more_info,
+      }));
+    } else {
+      report.recentAlerts = `alerts fetch failed (${alertsRes.status})`;
+    }
+
     const missing = Object.entries(report.secrets as Record<string, unknown>)
       .filter(([, v]) => !v).map(([k]) => k);
     return new Response(JSON.stringify({ ok: missing.length === 0, missing, ...report }), { headers: corsHeaders });

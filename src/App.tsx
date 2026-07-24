@@ -13,6 +13,7 @@ import { useAccountStore } from './store/useAccountStore';
 import { usePresalesStore } from './store/usePresalesStore';
 import { useVendorStore } from './store/useVendorStore';
 import { useConciergeAccountsStore } from './store/useConciergeAccountsStore';
+import { useLeaveStore } from './store/useLeaveStore';
 import { useFeatureCatalogStore } from './store/useFeatureCatalogStore';
 import {
   fetchAssignments,
@@ -36,6 +37,7 @@ import {
   fetchAccountManagement,
   fetchVendors,
   fetchConcierge,
+  fetchLeaveData,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -90,6 +92,7 @@ function useSupabaseInit() {
           callTemplatesRes,
           presalesRes,
           conciergeRes,
+          leaveRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -112,6 +115,7 @@ function useSupabaseInit() {
           withTimeout(fetchCallTemplates()),
           withTimeout(fetchPresales()),
           withTimeout(fetchConcierge()),
+          withTimeout(fetchLeaveData()),
         ]);
 
         // --- Forecast assignments ---
@@ -353,6 +357,17 @@ function useSupabaseInit() {
           }
         } else {
           console.warn('[supabase] Concierge fetch timed out — using localStorage');
+        }
+
+        // --- Leave management (types + requests) ---
+        if (!leaveRes.timedOut) {
+          const data = leaveRes.value;
+          if (data) {
+            useLeaveStore.getState().hydrate(data.types, data.requests);
+            console.log('[supabase] Loaded leave:', data.types.length, 'types /', data.requests.length, 'requests');
+          }
+        } else {
+          console.warn('[supabase] Leave fetch timed out — using localStorage');
         }
 
         // --- Feature catalog (used by Concierge scorecard + backlog + catalog tab) ---

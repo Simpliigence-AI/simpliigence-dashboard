@@ -23,9 +23,11 @@ import ProfileFormatPage from '../pages/ProfileFormatPage';
 import AccountsPage from '../pages/AccountsPage';
 import VendorsPage from '../pages/VendorsPage';
 import GtmListPage from '../pages/GtmListPage';
+import DialerPage from '../pages/DialerPage';
 import HomePage from '../pages/HomePage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
+import LeavePage from '../pages/LeavePage';
 import UsersPage from '../pages/admin/UsersPage';
 import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
@@ -46,6 +48,8 @@ export const router = createBrowserRouter(
         { path: 'my-time', element: <MyTimePage /> },
         // Team Time — manager/admin approval queue (page itself enforces the role gate)
         { path: 'my-team-time', element: <TeamTimePage /> },
+        // Leave — everyone; approvals tab is auto-shown for anyone with reports
+        { path: 'leave', element: <LeavePage /> },
 
         // Projects section — admin only. TA Managers (role='manager') see
         // these in neither the sidebar nor when typing the URL directly.
@@ -80,6 +84,7 @@ export const router = createBrowserRouter(
         { path: 'accounts', element: <AccountsPage /> },
         { path: 'vendors',  element: <VendorsPage /> },
         { path: 'gtm-list', element: <GtmListPage /> },
+        { path: 'dialer',   element: <DialerPage /> },   // NEW — Twilio softphone + AI call notes
         { path: 'home',     element: <HomePage /> },
 
         // Other

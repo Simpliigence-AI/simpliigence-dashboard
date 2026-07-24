@@ -1,0 +1,106 @@
+/**
+ * Supabase Edge Function: twilio-ping
+ *
+ * One-time smoke test for the dialer's Twilio setup (mirrors
+ * salesforce-ping). Reports which TWILIO_* secrets are present, whether
+ * the account credentials authenticate, which incoming phone numbers are
+ * available as caller IDs, and whether the TwiML app exists and points
+ * at the twilio-voice function.
+ */
+
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference lib="deno.ns" />
+
+// @ts-expect-error Deno global
+const env = (name: string) => Deno.env.get(name);
+
+const TWILIO_ACCOUNT_SID = env('TWILIO_ACCOUNT_SID');
+const TWILIO_AUTH_TOKEN = env('TWILIO_AUTH_TOKEN');
+const TWILIO_API_KEY_SID = env('TWILIO_API_KEY_SID');
+const TWILIO_API_KEY_SECRET = env('TWILIO_API_KEY_SECRET');
+const TWILIO_TWIML_APP_SID = env('TWILIO_TWIML_APP_SID');
+const TWILIO_CALLER_ID = env('TWILIO_CALLER_ID');
+const SUPABASE_URL = env('SUPABASE_URL')!;
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Type': 'application/json',
+};
+
+const API = 'https://api.twilio.com/2010-04-01';
+
+// @ts-expect-error Deno global
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const report: Record<string, unknown> = {
+    secrets: {
+      TWILIO_ACCOUNT_SID: !!TWILIO_ACCOUNT_SID,
+      TWILIO_AUTH_TOKEN: !!TWILIO_AUTH_TOKEN,
+      TWILIO_API_KEY_SID: !!TWILIO_API_KEY_SID,
+      TWILIO_API_KEY_SECRET: !!TWILIO_API_KEY_SECRET,
+      TWILIO_TWIML_APP_SID: !!TWILIO_TWIML_APP_SID,
+      TWILIO_CALLER_ID: TWILIO_CALLER_ID || null,
+    },
+    expectedVoiceUrl: `${SUPABASE_URL}/functions/v1/twilio-voice`,
+  };
+
+  try {
+    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: 'TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN not set — see DIALER_SETUP.md',
+        ...report,
+      }), { headers: corsHeaders });
+    }
+
+    const auth = { Authorization: 'Basic ' + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`) };
+
+    // 1. Account authenticates?
+    const acctRes = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}.json`, { headers: auth });
+    if (!acctRes.ok) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: `Twilio auth failed (${acctRes.status}): ${(await acctRes.text()).slice(0, 300)}`,
+        ...report,
+      }), { headers: corsHeaders });
+    }
+    const acct = await acctRes.json() as { friendly_name?: string; status?: string };
+    report.account = { friendlyName: acct.friendly_name, status: acct.status };
+
+    // 2. Available caller-ID candidates (numbers owned by this account).
+    const numsRes = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}/IncomingPhoneNumbers.json?PageSize=20`, { headers: auth });
+    if (numsRes.ok) {
+      const nums = await numsRes.json() as { incoming_phone_numbers?: Array<{ phone_number: string; friendly_name: string; capabilities?: { voice?: boolean } }> };
+      report.phoneNumbers = (nums.incoming_phone_numbers || []).map((n) => ({
+        phoneNumber: n.phone_number,
+        friendlyName: n.friendly_name,
+        voice: n.capabilities?.voice ?? null,
+      }));
+    }
+
+    // 3. TwiML app sanity.
+    if (TWILIO_TWIML_APP_SID) {
+      const appRes = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}/Applications/${TWILIO_TWIML_APP_SID}.json`, { headers: auth });
+      if (appRes.ok) {
+        const app = await appRes.json() as { friendly_name?: string; voice_url?: string; voice_method?: string };
+        report.twimlApp = {
+          friendlyName: app.friendly_name,
+          voiceUrl: app.voice_url,
+          voiceMethod: app.voice_method,
+          voiceUrlMatches: app.voice_url === report.expectedVoiceUrl,
+        };
+      } else {
+        report.twimlApp = { error: `fetch failed (${appRes.status})` };
+      }
+    }
+
+    const missing = Object.entries(report.secrets as Record<string, unknown>)
+      .filter(([, v]) => !v).map(([k]) => k);
+    return new Response(JSON.stringify({ ok: missing.length === 0, missing, ...report }), { headers: corsHeaders });
+  } catch (e) {
+    return new Response(JSON.stringify({ ok: false, error: (e as Error).message || String(e), ...report }), { status: 500, headers: corsHeaders });
+  }
+});

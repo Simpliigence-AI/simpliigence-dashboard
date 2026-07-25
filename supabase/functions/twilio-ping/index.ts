@@ -110,7 +110,17 @@ Deno.serve(async (req: Request) => {
       const keyRes = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}.json`, { headers: { Authorization: keyAuth } });
       report.apiKeyValid = keyRes.ok;
       if (!keyRes.ok) {
-        report.apiKeyError = `API Key SID+Secret rejected (${keyRes.status}). The signing secret is wrong → Voice calls fail with 53000. Re-set TWILIO_API_KEY_SECRET (or create a fresh API key).`;
+        report.apiKeyError = `API Key SID+Secret rejected (${keyRes.status}). Either the secret doesn't match the SID, or the SID isn't on this account.`;
+      }
+      // List the account's API keys (SIDs only, no secrets) so we can tell
+      // whether the configured SID actually exists here.
+      const keysList = await fetch(`${API}/Accounts/${TWILIO_ACCOUNT_SID}/Keys.json?PageSize=50`, { headers: auth });
+      if (keysList.ok) {
+        const kl = await keysList.json() as { keys?: Array<{ sid: string; friendly_name: string }> };
+        const sids = (kl.keys || []).map((k) => ({ sid: k.sid, name: k.friendly_name }));
+        report.accountApiKeys = sids;
+        report.configuredKeySidExists = sids.some((k) => k.sid === TWILIO_API_KEY_SID);
+        report.configuredKeySidTail = TWILIO_API_KEY_SID.slice(-6);
       }
     }
 

@@ -123,9 +123,10 @@ const sections: NavSection[] = [
 const adminSection: NavSection = {
   label: 'Admin',
   items: [
-    { to: '/admin/users',    icon: UserCog,  label: 'Users' },
-    { to: '/admin/activity', icon: Activity, label: 'Activity' },
-    { to: '/admin/audit',    icon: History,  label: 'Audit Log' },
+    { to: '/admin/users',    icon: UserCog,      label: 'Users' },
+    { to: '/admin/leave',    icon: CalendarCheck, label: 'Leave Admin' },
+    { to: '/admin/activity', icon: Activity,     label: 'Activity' },
+    { to: '/admin/audit',    icon: History,      label: 'Audit Log' },
   ],
 };
 

@@ -359,12 +359,15 @@ function useSupabaseInit() {
           console.warn('[supabase] Concierge fetch timed out — using localStorage');
         }
 
-        // --- Leave management (types + requests) ---
+        // --- Leave management (types + requests + allocations) ---
         if (!leaveRes.timedOut) {
           const data = leaveRes.value;
           if (data) {
-            useLeaveStore.getState().hydrate(data.types, data.requests);
-            console.log('[supabase] Loaded leave:', data.types.length, 'types /', data.requests.length, 'requests');
+            useLeaveStore.getState().hydrate(data.types, data.requests, data.allocations);
+            console.log('[supabase] Loaded leave:',
+              data.types.length, 'types /',
+              data.requests.length, 'requests /',
+              data.allocations.length, 'allocations');
           }
         } else {
           console.warn('[supabase] Leave fetch timed out — using localStorage');

@@ -29,7 +29,7 @@ import type {
 import type {
   ConciergeAccount, ConciergeFeature, ConciergeBillingEntry,
 } from '../types/concierge';
-import type { LeaveType, LeaveRequest } from '../types/leave';
+import type { LeaveType, LeaveRequest, LeaveAllocation, LeaveAuditEntry } from '../types/leave';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
@@ -3047,16 +3047,80 @@ function rowToLeaveRequest(row: any): LeaveRequest {
   };
 }
 
-export async function fetchLeaveData(): Promise<{ types: LeaveType[]; requests: LeaveRequest[] } | null> {
-  const [tRes, rRes] = await Promise.all([
+function leaveAllocationToRow(a: LeaveAllocation) {
+  return {
+    id: a.id,
+    employee_email: a.employeeEmail.toLowerCase(),
+    leave_type_id: a.leaveTypeId,
+    year: a.year,
+    quota: a.quota,
+    carried_forward: a.carriedForward,
+    source: a.source,
+    notes: a.notes,
+    created_by: a.createdBy?.toLowerCase() ?? null,
+    updated_by: a.updatedBy?.toLowerCase() ?? null,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveAllocation(row: any): LeaveAllocation {
+  return {
+    id: row.id,
+    employeeEmail: row.employee_email,
+    leaveTypeId: row.leave_type_id,
+    year: Number(row.year),
+    quota: Number(row.quota ?? 0),
+    carriedForward: Number(row.carried_forward ?? 0),
+    source: (row.source ?? 'admin') as LeaveAllocation['source'],
+    notes: row.notes ?? null,
+    createdBy: row.created_by ?? null,
+    updatedBy: row.updated_by ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveAudit(row: any): LeaveAuditEntry {
+  return {
+    id: Number(row.id),
+    entity: row.entity,
+    entityId: row.entity_id,
+    action: row.action,
+    actorEmail: row.actor_email ?? null,
+    beforeData: row.before_data ?? null,
+    afterData: row.after_data ?? null,
+    changedAt: row.changed_at,
+  };
+}
+
+export async function fetchLeaveData(): Promise<{
+  types: LeaveType[];
+  requests: LeaveRequest[];
+  allocations: LeaveAllocation[];
+} | null> {
+  const [tRes, rRes, aRes] = await Promise.all([
     supabase.from('leave_types').select('*').order('sort_order', { ascending: true }),
     supabase.from('leave_requests').select('*').order('created_at', { ascending: false }),
+    supabase.from('leave_allocations').select('*'),
   ]);
   if (tRes.error) { console.warn('[supabase] fetch leave_types failed:', tRes.error); return null; }
   return {
     types: (tRes.data || []).map(rowToLeaveType),
     requests: (rRes.data || []).map(rowToLeaveRequest),
+    allocations: (aRes.data || []).map(rowToLeaveAllocation),
   };
+}
+
+/** Fetch the leave audit trail. RLS restricts non-admins to rows that touch
+ *  their own email. Newest first. Limit defaults to 500 — the admin page can
+ *  ask for more if needed. */
+export async function fetchLeaveAudit(opts: { limit?: number; entity?: string; entityId?: string } = {}): Promise<LeaveAuditEntry[]> {
+  let q = supabase.from('leave_audit').select('*').order('changed_at', { ascending: false }).limit(opts.limit ?? 500);
+  if (opts.entity) q = q.eq('entity', opts.entity);
+  if (opts.entityId) q = q.eq('entity_id', opts.entityId);
+  const { data, error } = await q;
+  if (error) { console.warn('[supabase] fetch leave_audit failed:', error); return []; }
+  return (data || []).map(rowToLeaveAudit);
 }
 
 /** Notify a manager that a new leave request is waiting. Fire-and-forget —
@@ -3089,5 +3153,27 @@ export const leaveDb = {
   async deleteRequest(id: string) {
     const { error } = await supabase.from('leave_requests').delete().eq('id', id);
     if (error) console.warn('[supabase] delete leave_request failed:', error);
+  },
+  async upsertAllocation(a: LeaveAllocation) {
+    const { error } = await supabase.from('leave_allocations').upsert(leaveAllocationToRow(a), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert leave_allocation failed:', error); throw error; }
+  },
+  async deleteAllocation(id: string) {
+    const { error } = await supabase.from('leave_allocations').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete leave_allocation failed:', error);
+  },
+  /** Bulk-insert allocations for a year. Uses onConflict on the unique
+   *  (employee, type, year) tuple so re-running with the same year is a
+   *  no-op-if-unchanged / update-in-place. */
+  async bulkUpsertAllocations(rows: LeaveAllocation[]): Promise<{ ok: number; failed: number; error?: string }> {
+    if (rows.length === 0) return { ok: 0, failed: 0 };
+    const { error } = await supabase
+      .from('leave_allocations')
+      .upsert(rows.map(leaveAllocationToRow), { onConflict: 'employee_email,leave_type_id,year' });
+    if (error) {
+      console.error('[supabase] bulk upsert leave_allocations failed:', error);
+      return { ok: 0, failed: rows.length, error: error.message };
+    }
+    return { ok: rows.length, failed: 0 };
   },
 };

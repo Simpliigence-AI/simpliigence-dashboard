@@ -10,14 +10,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { leaveDb, notifyLeaveRequest } from '../lib/supabaseSync';
-import type { LeaveRequest, LeaveType, LeaveStatus } from '../types/leave';
+import type { LeaveRequest, LeaveType, LeaveStatus, LeaveAllocation, AllocationSource } from '../types/leave';
 import { countDaysInclusive } from '../types/leave';
 
 interface LeaveState {
   types: LeaveType[];
   requests: LeaveRequest[];
+  allocations: LeaveAllocation[];
 
-  hydrate: (types: LeaveType[], requests: LeaveRequest[]) => void;
+  hydrate: (types: LeaveType[], requests: LeaveRequest[], allocations: LeaveAllocation[]) => void;
 
   /** Submit a new leave request. Manager email is passed in (looked up from
    *  authorized_users by the caller — the store doesn't know the directory).
@@ -39,9 +40,18 @@ interface LeaveState {
    *  used pre-approval, but useful post-approval too if plans change). */
   cancelRequest: (id: string, deciderEmail: string) => Promise<void>;
 
-  /** Admin utilities. */
+  /** Admin: leave types. */
   upsertType: (t: LeaveType) => Promise<void>;
   removeType: (id: string) => Promise<void>;
+
+  /** Admin: per-employee allocations. */
+  upsertAllocation: (a: LeaveAllocation, actorEmail: string) => Promise<void>;
+  removeAllocation: (id: string) => Promise<void>;
+  bulkUpsertAllocations: (
+    rows: Omit<LeaveAllocation, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>[],
+    actorEmail: string,
+    source?: AllocationSource,
+  ) => Promise<{ ok: number; failed: number; error?: string }>;
 }
 
 export const useLeaveStore = create<LeaveState>()(
@@ -49,8 +59,9 @@ export const useLeaveStore = create<LeaveState>()(
     (set, get) => ({
       types: [],
       requests: [],
+      allocations: [],
 
-      hydrate: (types, requests) => set({ types, requests }),
+      hydrate: (types, requests, allocations) => set({ types, requests, allocations }),
 
       submitRequest: async ({ employeeEmail, leaveTypeId, startDate, endDate, days, reason, managerEmail }) => {
         const now = new Date().toISOString();
@@ -119,6 +130,58 @@ export const useLeaveStore = create<LeaveState>()(
       removeType: async (id) => {
         set((s) => ({ types: s.types.filter((t) => t.id !== id) }));
         await leaveDb.deleteType(id);
+      },
+
+      upsertAllocation: async (a, actorEmail) => {
+        const now = new Date().toISOString();
+        const stamped: LeaveAllocation = {
+          ...a,
+          updatedBy: actorEmail.toLowerCase(),
+          createdBy: a.createdBy ?? actorEmail.toLowerCase(),
+          updatedAt: now,
+          createdAt: a.createdAt ?? now,
+        };
+        set((s) => {
+          const has = s.allocations.some((x) => x.id === stamped.id);
+          return {
+            allocations: has
+              ? s.allocations.map((x) => (x.id === stamped.id ? stamped : x))
+              : [...s.allocations, stamped],
+          };
+        });
+        await leaveDb.upsertAllocation(stamped);
+      },
+
+      removeAllocation: async (id) => {
+        set((s) => ({ allocations: s.allocations.filter((x) => x.id !== id) }));
+        await leaveDb.deleteAllocation(id);
+      },
+
+      bulkUpsertAllocations: async (rows, actorEmail, source = 'admin') => {
+        const now = new Date().toISOString();
+        const stamped: LeaveAllocation[] = rows.map((r) => ({
+          ...r,
+          id: nanoid(),
+          source: r.source ?? source,
+          createdBy: actorEmail.toLowerCase(),
+          updatedBy: actorEmail.toLowerCase(),
+          createdAt: now,
+          updatedAt: now,
+        }));
+        const res = await leaveDb.bulkUpsertAllocations(stamped);
+        if (res.failed === 0) {
+          // On success, refetch to pick up server-assigned timestamps + the
+          // DB-side merge that happened when (employee, type, year) already
+          // existed. We do this lazily — the App-level hydrate loop refreshes
+          // via realtime, but nudge the local store optimistically.
+          set((s) => {
+            const byKey = new Map<string, LeaveAllocation>();
+            for (const a of s.allocations) byKey.set(`${a.employeeEmail}|${a.leaveTypeId}|${a.year}`, a);
+            for (const a of stamped) byKey.set(`${a.employeeEmail}|${a.leaveTypeId}|${a.year}`, a);
+            return { allocations: Array.from(byKey.values()) };
+          });
+        }
+        return res;
       },
     }),
     { name: 'simpliigence-leave', version: 1 },

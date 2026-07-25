@@ -61,7 +61,7 @@ function fmtRange(a: string, b: string): string {
 export default function LeavePage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const directory = useAuthStore((s) => s.directory);
-  const { types, requests, submitRequest, decideRequest, cancelRequest } = useLeaveStore();
+  const { types, requests, allocations, submitRequest, decideRequest, cancelRequest } = useLeaveStore();
 
   const [tab, setTab] = useState<'mine' | 'approvals'>('mine');
   const [showNewRequest, setShowNewRequest] = useState(false);
@@ -83,7 +83,10 @@ export default function LeavePage() {
   const pendingApprovals = toApprove.filter((r) => r.status === 'pending');
   const isManager = toApprove.length > 0;
 
-  const balances = useMemo(() => computeBalances(types, myRequests, year), [types, myRequests, year]);
+  const balances = useMemo(
+    () => computeBalances(types, myRequests, allocations, email, year),
+    [types, myRequests, allocations, email, year],
+  );
   const typeById = useMemo(() => new Map(types.map((t) => [t.id, t])), [types]);
 
   const managerProfile = currentUser?.managerEmail ? directory[currentUser.managerEmail.toLowerCase()] : null;
@@ -373,7 +376,7 @@ function NewRequestDialog({
   onClose: () => void;
   onSubmit: (params: { leaveTypeId: string; startDate: string; endDate: string; reason: string }) => Promise<void>;
 }) {
-  const { types, requests } = useLeaveStore();
+  const { types, requests, allocations } = useLeaveStore();
   const currentUser = useAuthStore((s) => s.currentUser);
   const [leaveTypeId, setLeaveTypeId] = useState<string>(types[0]?.id ?? '');
   const [startDate, setStartDate] = useState<string>('');
@@ -388,8 +391,8 @@ function NewRequestDialog({
   const balances = useMemo(() => {
     const email = (currentUser?.email || '').toLowerCase();
     const mine = requests.filter((r) => r.employeeEmail.toLowerCase() === email);
-    return computeBalances(activeTypes, mine, new Date().getFullYear());
-  }, [activeTypes, requests, currentUser?.email]);
+    return computeBalances(activeTypes, mine, allocations, email, new Date().getFullYear());
+  }, [activeTypes, requests, allocations, currentUser?.email]);
   const currentBalance = balances.find((b) => b.typeId === leaveTypeId);
 
   const submit = async () => {

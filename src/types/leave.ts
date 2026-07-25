@@ -57,32 +57,87 @@ export function countDaysInclusive(startISO: string, endISO: string): number {
   return Math.round((b - a) / 86400000) + 1;
 }
 
+/** Per-employee, per-year, per-type allocation. If a row exists it OVERRIDES
+ *  leave_types.annual_quota when computing the balance. Rows are the source
+ *  of truth after the initial Zoho migration — admins tweak them individually
+ *  or via bulk CSV import. */
+export type AllocationSource = 'zoho_import' | 'admin' | 'rollover' | 'csv_import';
+
+export interface LeaveAllocation {
+  id: string;
+  employeeEmail: string;
+  leaveTypeId: string;
+  year: number;
+  quota: number;              // days allocated for the year
+  carriedForward: number;     // days carried in from the prior year
+  source: AllocationSource;
+  notes: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** One row on the audit trail. Immutable; inserted by DB trigger on every
+ *  mutation to leave_types / leave_allocations / leave_requests, regardless
+ *  of who called it. `actorEmail` = 'system' means the mutation came from
+ *  a service-role edge function (e.g. Zoho sync). */
+export interface LeaveAuditEntry {
+  id: number;
+  entity: 'leave_types' | 'leave_allocations' | 'leave_requests';
+  entityId: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  actorEmail: string | null;
+  beforeData: Record<string, unknown> | null;
+  afterData: Record<string, unknown> | null;
+  changedAt: string;
+}
+
 /** Balance for one leave type in one year. Approved requests deduct fully;
  *  pending requests are tracked separately so the UI can show a hold. */
 export interface LeaveBalance {
   typeId: string;
-  quota: number;
+  quota: number;         // effective quota: allocation.quota + carried_forward, else type.annualQuota
   used: number;          // days deducted (status='approved')
   pending: number;       // days waiting on approval
   remaining: number;     // quota - used - pending
+  source: 'allocation' | 'type_default';
 }
 
-/** Compute per-type balances for an employee's requests in a given year. */
+/** Compute per-type balances for one employee in a given year. When an
+ *  allocation row exists for (employee, type, year), it wins; otherwise we
+ *  fall back to the leave-type's default annual quota. */
 export function computeBalances(
   types: LeaveType[],
   requests: LeaveRequest[],
+  allocations: LeaveAllocation[],
+  employeeEmail: string,
   year: number,
 ): LeaveBalance[] {
+  const eLower = employeeEmail.toLowerCase();
+  const allocByType = new Map<string, LeaveAllocation>();
+  for (const a of allocations) {
+    if (a.employeeEmail.toLowerCase() === eLower && a.year === year) {
+      allocByType.set(a.leaveTypeId, a);
+    }
+  }
   return types.filter((t) => t.active).map((t) => {
-    const inYear = requests.filter((r) => r.leaveTypeId === t.id && new Date(r.startDate).getUTCFullYear() === year);
+    const inYear = requests.filter(
+      (r) => r.leaveTypeId === t.id
+        && r.employeeEmail.toLowerCase() === eLower
+        && new Date(r.startDate).getUTCFullYear() === year,
+    );
     const used = inYear.filter((r) => r.status === 'approved').reduce((s, r) => s + r.days, 0);
     const pending = inYear.filter((r) => r.status === 'pending').reduce((s, r) => s + r.days, 0);
+    const alloc = allocByType.get(t.id);
+    const quota = alloc ? Number(alloc.quota) + Number(alloc.carriedForward) : t.annualQuota;
     return {
       typeId: t.id,
-      quota: t.annualQuota,
+      quota,
       used,
       pending,
-      remaining: Math.max(0, t.annualQuota - used - pending),
+      remaining: Math.max(0, quota - used - pending),
+      source: alloc ? 'allocation' : 'type_default',
     };
   });
 }

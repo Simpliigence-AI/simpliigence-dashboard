@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Device, Call } from '@twilio/voice-sdk';
 import { nanoid } from 'nanoid';
 import {
-  Phone, PhoneOff, Mic, MicOff, Delete, Search, Loader2,
+  Phone, PhoneOff, PhoneCall, Mic, MicOff, Delete, Search, Loader2,
   User, ChevronDown, ChevronUp, Play, FileText, Sparkles, AlertTriangle,
   Clock, CheckCircle2, RefreshCw,
 } from 'lucide-react';
@@ -160,7 +160,11 @@ function AiNotesView({ notes }: { notes: DialerAiNotes }) {
 
 /* ─────────────────────── history row ─────────────────────── */
 
-function CallHistoryRow({ call }: { call: DialerCallRow }) {
+function CallHistoryRow({ call, onRedial, canRedial }: {
+  call: DialerCallRow;
+  onRedial: (call: DialerCallRow) => void;
+  canRedial: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
@@ -178,6 +182,11 @@ function CallHistoryRow({ call }: { call: DialerCallRow }) {
     setAudioLoading(false);
   }, [audioUrl, call.recording_path]);
 
+  // Auto-load the recording player as soon as the row is expanded.
+  useEffect(() => {
+    if (expanded && call.recording_path && !audioUrl) loadAudio();
+  }, [expanded, call.recording_path, audioUrl, loadAudio]);
+
   const saveNotes = async () => {
     setSavingNotes(true);
     await supabase.from('dialer_calls').update({
@@ -190,38 +199,48 @@ function CallHistoryRow({ call }: { call: DialerCallRow }) {
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
-      <button
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
-        onClick={() => setExpanded((e) => !e)}
-      >
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-          call.status === 'in-progress' ? 'bg-emerald-100 text-emerald-600'
-          : call.status === 'completed' ? 'bg-slate-100 text-slate-500'
-          : ['failed', 'busy', 'no-answer'].includes(call.status) ? 'bg-red-50 text-red-500'
-          : 'bg-blue-50 text-blue-500'
-        }`}>
-          <Phone size={14} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-slate-800 truncate">
-            {call.to_name || call.to_phone}
-            {call.to_company && <span className="font-normal text-slate-500"> · {call.to_company}</span>}
-          </p>
-          <p className="text-xs text-slate-500">
-            {call.to_name ? `${call.to_phone} · ` : ''}{timeAgo(call.created_at)}
-            {call.duration_sec != null && ` · ${fmtDuration(call.duration_sec)}`}
-            {call.placed_by && ` · ${call.placed_by.split('@')[0]}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {call.ai_status === 'done' && <Sparkles size={14} className="text-violet-500" />}
-          {(call.ai_status === 'transcribing' || call.ai_status === 'analyzing') && (
-            <Loader2 size={14} className="text-violet-400 animate-spin" />
-          )}
-          <Badge variant={badge.variant}>{badge.label}</Badge>
-          {expanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-        </div>
-      </button>
+      <div className="flex items-stretch">
+        <button
+          className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+          onClick={() => setExpanded((e) => !e)}
+        >
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+            call.status === 'in-progress' ? 'bg-emerald-100 text-emerald-600'
+            : call.status === 'completed' ? 'bg-slate-100 text-slate-500'
+            : ['failed', 'busy', 'no-answer'].includes(call.status) ? 'bg-red-50 text-red-500'
+            : 'bg-blue-50 text-blue-500'
+          }`}>
+            <Phone size={14} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-slate-800 truncate">
+              {call.to_name || call.to_phone}
+              {call.to_company && <span className="font-normal text-slate-500"> · {call.to_company}</span>}
+            </p>
+            <p className="text-xs text-slate-500">
+              {call.to_name ? `${call.to_phone} · ` : ''}{timeAgo(call.created_at)}
+              {call.duration_sec != null && ` · ${fmtDuration(call.duration_sec)}`}
+              {call.placed_by && ` · ${call.placed_by.split('@')[0]}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {call.ai_status === 'done' && <Sparkles size={14} className="text-violet-500" />}
+            {(call.ai_status === 'transcribing' || call.ai_status === 'analyzing') && (
+              <Loader2 size={14} className="text-violet-400 animate-spin" />
+            )}
+            <Badge variant={badge.variant}>{badge.label}</Badge>
+            {expanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+          </div>
+        </button>
+        <button
+          className="px-3 border-l border-slate-100 text-emerald-600 hover:bg-emerald-50 disabled:text-slate-300 disabled:hover:bg-transparent transition-colors flex items-center"
+          onClick={() => onRedial(call)}
+          disabled={!canRedial}
+          title={canRedial ? `Redial ${call.to_phone}` : 'Softphone busy or not ready'}
+        >
+          <PhoneCall size={16} />
+        </button>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-4">
@@ -437,9 +456,20 @@ export default function DialerPage() {
   }, [search]);
 
   /* ── place / end call ── */
-  const placeCall = async () => {
+  /**
+   * Place a call. With no argument it dials the current pad input; with a
+   * `target` it dials that number directly (used by Redial in the history).
+   */
+  const placeCall = async (target?: {
+    phone: string; name?: string | null; title?: string | null;
+    company?: string | null; source?: DialerContact['source'] | 'manual' | null; contactId?: string | null;
+  }) => {
     const device = deviceRef.current;
-    if (!device || !e164 || inCall) return;
+    const dialTo = target?.phone || e164;
+    if (!device || !dialTo || inCall) return;
+
+    // Reflect the dialed number in the pad.
+    if (target) { setRawNumber(target.phone); setSelectedContact(null); }
 
     const callId = nanoid();
     setActiveCallId(callId);
@@ -461,19 +491,19 @@ export default function DialerPage() {
 
     await supabase.from('dialer_calls').insert({
       id: callId,
-      to_phone: e164,
-      to_name: selectedContact?.name || null,
-      to_title: selectedContact?.title || null,
-      to_company: selectedContact?.company || null,
-      contact_source: selectedContact ? selectedContact.source : 'manual',
-      contact_id: selectedContact?.id || null,
+      to_phone: dialTo,
+      to_name: target ? (target.name ?? null) : (selectedContact?.name || null),
+      to_title: target ? (target.title ?? null) : (selectedContact?.title || null),
+      to_company: target ? (target.company ?? null) : (selectedContact?.company || null),
+      contact_source: target ? (target.source ?? 'manual') : (selectedContact ? selectedContact.source : 'manual'),
+      contact_id: target ? (target.contactId ?? null) : (selectedContact?.id || null),
       placed_by: userEmail || null,
       status: 'queued',
       updated_by: 'dialer-ui',
     });
 
     try {
-      const call = await device.connect({ params: { To: e164, callId } });
+      const call = await device.connect({ params: { To: dialTo, callId } });
       callRef.current = call;
       call.on('ringing', () => setPhoneState('ringing'));
       call.on('accept', () => setPhoneState('in-call'));
@@ -508,6 +538,15 @@ export default function DialerPage() {
   };
 
   const hangUp = () => callRef.current?.disconnect();
+
+  const redial = (c: DialerCallRow) => {
+    if (inCall) { setCallError('Finish the current call first.'); return; }
+    if (phoneState !== 'ready') { setCallError('Softphone is not ready yet.'); return; }
+    placeCall({
+      phone: c.to_phone, name: c.to_name, title: c.to_title,
+      company: c.to_company, source: c.contact_source, contactId: c.contact_id,
+    });
+  };
 
   const toggleMute = () => {
     const call = callRef.current;
@@ -679,7 +718,7 @@ export default function DialerPage() {
             ) : (
               <button
                 className="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
-                onClick={placeCall}
+                onClick={() => placeCall()}
                 disabled={!e164 || phoneState !== 'ready'}
               >
                 <Phone size={18} /> Call
@@ -779,7 +818,9 @@ export default function DialerPage() {
             />
           ) : (
             <div className="space-y-2">
-              {calls.map((c) => <CallHistoryRow key={c.id} call={c} />)}
+              {calls.map((c) => (
+                <CallHistoryRow key={c.id} call={c} onRedial={redial} canRedial={phoneState === 'ready' && !inCall} />
+              ))}
             </div>
           )}
         </Card>

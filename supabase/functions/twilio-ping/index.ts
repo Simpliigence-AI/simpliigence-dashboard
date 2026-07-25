@@ -143,6 +143,18 @@ Deno.serve(async (req: Request) => {
       report.recentAlerts = `alerts fetch failed (${alertsRes.status})`;
     }
 
+    // 7. Post-call AI pipeline keys (used by twilio-recording).
+    const dgKey = env('DEEPGRAM_API_KEY');
+    if (dgKey) {
+      const dg = await fetch('https://api.deepgram.com/v1/projects', { headers: { Authorization: `Token ${dgKey}` } });
+      report.deepgramKeyValid = dg.ok;
+      if (!dg.ok) report.deepgramError = `Deepgram key rejected (${dg.status}) — transcription fails, so AI notes fail.`;
+    } else {
+      report.deepgramKeyValid = false;
+      report.deepgramError = 'DEEPGRAM_API_KEY not set';
+    }
+    report.anthropicKeySet = !!env('ANTHROPIC_API_KEY');
+
     const missing = Object.entries(report.secrets as Record<string, unknown>)
       .filter(([, v]) => !v).map(([k]) => k);
     return new Response(JSON.stringify({ ok: missing.length === 0, missing, ...report }), { headers: corsHeaders });

@@ -62,8 +62,9 @@ async function validSignature(req: Request, form: URLSearchParams): Promise<bool
 interface DeepgramUtterance { channel: number; transcript: string; start: number }
 
 /** Deepgram multichannel transcription → "Agent: …\nContact: …" transcript. */
-async function transcribe(audio: ArrayBuffer): Promise<string | null> {
-  if (!DEEPGRAM_API_KEY) return null;
+async function transcribe(audio: Uint8Array): Promise<{ text: string | null; error: string | null }> {
+  if (!DEEPGRAM_API_KEY) return { text: null, error: 'DEEPGRAM_API_KEY not set' };
+  if (!audio || audio.byteLength === 0) return { text: null, error: 'audio was empty (0 bytes)' };
   const params = new URLSearchParams({
     model: 'nova-2',
     smart_format: 'true',
@@ -77,8 +78,9 @@ async function transcribe(audio: ArrayBuffer): Promise<string | null> {
     body: audio,
   });
   if (!res.ok) {
-    console.warn('[twilio-recording] deepgram failed:', res.status, (await res.text()).slice(0, 300));
-    return null;
+    const detail = (await res.text()).slice(0, 300);
+    console.warn('[twilio-recording] deepgram failed:', res.status, detail);
+    return { text: null, error: `Deepgram ${res.status}: ${detail}` };
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const j = await res.json() as any;
@@ -86,13 +88,15 @@ async function transcribe(audio: ArrayBuffer): Promise<string | null> {
   if (Array.isArray(utterances) && utterances.length) {
     // Dual-channel <Dial> recording: channel 0 is the browser (agent) leg,
     // channel 1 the dialed contact.
-    return utterances
+    const text = utterances
       .sort((a, b) => a.start - b.start)
       .map((u) => `${u.channel === 0 ? 'Agent' : 'Contact'}: ${u.transcript}`)
       .join('\n');
+    return { text: text.trim() || null, error: text.trim() ? null : 'empty transcript (silent recording?)' };
   }
   const flat = j?.results?.channels?.[0]?.alternatives?.[0]?.transcript;
-  return typeof flat === 'string' && flat.trim() ? flat : null;
+  const text = typeof flat === 'string' && flat.trim() ? flat.trim() : null;
+  return { text, error: text ? null : 'empty transcript (silent recording?)' };
 }
 
 const NOTES_SYSTEM = `You receive the transcript of a business phone call placed by a Simpliigence (IT consulting) team member ("Agent") to an external contact ("Contact") — typically sales/BD outreach, a client check-in, or a vendor/partner conversation. Produce call notes as ONLY this JSON shape (omit list items you can't support from the transcript; never invent facts):
@@ -180,14 +184,18 @@ Deno.serve(async (req: Request) => {
       updated_by: 'twilio-recording',
     }).eq('id', row.id);
 
-    // 1. Download the mp3 from Twilio.
-    let audio: ArrayBuffer | null = null;
+    // 1. Download the mp3 from Twilio. Twilio finalizes recordings a beat
+    // after the callback fires, so retry briefly on a 404.
+    let audio: Uint8Array | null = null;
     if (recordingUrl && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
-      const mediaRes = await fetch(`${recordingUrl}.mp3`, {
-        headers: { Authorization: 'Basic ' + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`) },
-      });
-      if (mediaRes.ok) audio = await mediaRes.arrayBuffer();
-      else console.warn('[twilio-recording] media download failed:', mediaRes.status);
+      for (let attempt = 0; attempt < 3 && !audio; attempt++) {
+        if (attempt) await new Promise((r) => setTimeout(r, 1500));
+        const mediaRes = await fetch(`${recordingUrl}.mp3`, {
+          headers: { Authorization: 'Basic ' + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`) },
+        });
+        if (mediaRes.ok) audio = new Uint8Array(await mediaRes.arrayBuffer());
+        else console.warn('[twilio-recording] media download attempt', attempt, 'failed:', mediaRes.status);
+      }
     }
     if (!audio) {
       await supabase.from('dialer_calls').update({
@@ -199,25 +207,27 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ ok: false, error: 'download failed' }), { headers: jsonHeaders });
     }
 
-    // 2. Mirror into our private bucket so the UI can play it via signed URL.
+    // 2. Transcribe FIRST (on its own copy of the bytes) so the storage
+    // upload can't interfere with the buffer, then mirror to the bucket.
+    const { text: transcript, error: txErr } = await transcribe(audio.slice());
+
     const path = `${row.id}.mp3`;
     const { error: upErr } = await supabase.storage
       .from('call-recordings')
       .upload(path, audio, { contentType: 'audio/mpeg', upsert: true });
     if (upErr) console.warn('[twilio-recording] storage upload failed:', upErr.message);
 
-    // 3. Transcribe.
-    const transcript = await transcribe(audio);
     await supabase.from('dialer_calls').update({
       recording_path: upErr ? null : path,
       transcript,
       ai_status: transcript ? 'analyzing' : 'failed',
+      error_msg: transcript ? null : (txErr || 'transcription failed'),
       ...(Number.isFinite(recDuration) ? { duration_sec: recDuration } : {}),
       updated_at: new Date().toISOString(),
       updated_by: 'twilio-recording',
     }).eq('id', row.id);
 
-    // 4. AI notes.
+    // 3. AI notes.
     let aiOk = false;
     if (transcript) {
       const notes = await extractNotes(transcript);
@@ -225,12 +235,13 @@ Deno.serve(async (req: Request) => {
       await supabase.from('dialer_calls').update({
         ai_notes: notes,
         ai_status: notes ? 'done' : 'failed',
+        error_msg: notes ? null : 'AI note generation failed (Claude)',
         updated_at: new Date().toISOString(),
         updated_by: 'twilio-recording',
       }).eq('id', row.id);
     }
 
-    return new Response(JSON.stringify({ ok: true, transcribed: !!transcript, analyzed: aiOk }), { headers: jsonHeaders });
+    return new Response(JSON.stringify({ ok: true, transcribed: !!transcript, analyzed: aiOk, txErr }), { headers: jsonHeaders });
   } catch (e) {
     console.error('[twilio-recording]', (e as Error).message || String(e));
     return new Response(JSON.stringify({ ok: false }), { headers: jsonHeaders });

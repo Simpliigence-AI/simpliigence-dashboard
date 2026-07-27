@@ -447,9 +447,15 @@ CREATE POLICY "Read: own, team, or admin" ON timesheet_documents
     OR current_user_role() IN ('admin','manager')
   );
 
+-- Insert: own row, a report's row, or (admin/manager) anyone's row. Mirrors the
+-- SELECT/UPDATE policies so managers can attach docs for their team from Team Time.
 CREATE POLICY "Insert: own" ON timesheet_documents
   FOR INSERT TO authenticated
-  WITH CHECK (LOWER(employee_email) = current_user_email());
+  WITH CHECK (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
 
 CREATE POLICY "Update: own, team, or admin" ON timesheet_documents
   FOR UPDATE TO authenticated
@@ -483,12 +489,17 @@ CREATE POLICY "timesheet-documents: read own, team, or admin" ON storage.objects
     )
   );
 
+-- Insert: own folder, a report's folder, or (admin/manager) any folder — mirrors
+-- the read/update object policies so managers can upload for their team.
 DROP POLICY IF EXISTS "timesheet-documents: insert own" ON storage.objects;
 CREATE POLICY "timesheet-documents: insert own" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
-    bucket_id = 'timesheet-documents'
-    AND (storage.foldername(name))[1] = current_user_email()
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
   );
 
 DROP POLICY IF EXISTS "timesheet-documents: update own, team, or admin" ON storage.objects;

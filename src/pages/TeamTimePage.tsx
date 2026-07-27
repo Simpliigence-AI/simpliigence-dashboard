@@ -14,16 +14,42 @@
  * approve checkbox column at the left for blasting through a backlog.
  */
 import { useMemo, useState } from 'react';
-import { Check, X, Filter, CheckCheck, Download } from 'lucide-react';
+import { Check, X, Filter, CheckCheck, Download, Pencil, Paperclip, Loader2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
+import { DocumentsPanel } from '../components/timesheet/DocumentsPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
 import { TaIdentity } from '../components/TaIdentity';
 import type { TimeEntry } from '../types/timeEntry';
 
+/** Parse YYYY-MM-DD as LOCAL midnight (avoids UTC day-shift). */
+function parseIsoDate(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+/** Monday-based week bounds for a given work date (matches My Time). */
+function weekBounds(workDate: string): { periodStart: string; periodEnd: string } {
+  const d = parseIsoDate(workDate);
+  const dow = d.getDay() || 7; // Sun=0 -> 7
+  if (dow !== 1) d.setDate(d.getDate() - (dow - 1));
+  const monday = new Date(d);
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  return { periodStart: toIsoDate(monday), periodEnd: toIsoDate(sunday) };
+}
+
 type TabKey = 'pending' | 'approved' | 'rejected' | 'all';
+
+type EditState = { id: string; hours: string; billable: boolean; projectName: string; notes: string };
+type DocsTarget = { employeeEmail: string; periodStart: string; periodEnd: string };
 
 const TAB_LABELS: { key: TabKey; label: string; statuses: TimeEntry['status'][] }[] = [
   { key: 'pending',  label: 'Pending',  statuses: ['submitted'] },
@@ -44,7 +70,7 @@ export default function TeamTimePage() {
   const loading = useAuthStore((s) => s.loading);
   const role = currentUser?.role;
 
-  const { entries, approveEntry, rejectEntry } = useTimeEntryStore();
+  const { entries, approveEntry, rejectEntry, updateEntryFields } = useTimeEntryStore();
 
   const [tab, setTab] = useState<TabKey>('pending');
   const [filterEmployee, setFilterEmployee] = useState('');
@@ -52,6 +78,9 @@ export default function TeamTimePage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [editing, setEditing] = useState<EditState | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [docsTarget, setDocsTarget] = useState<DocsTarget | null>(null);
 
   if (loading) {
     return <div className="py-12 text-center text-sm text-slate-400">Checking permissions…</div>;
@@ -117,6 +146,33 @@ export default function TeamTimePage() {
     await rejectEntry(id, myEmail, rejectReason.trim());
     setRejecting(null);
     setRejectReason('');
+  };
+
+  const openEdit = (e: TimeEntry) => {
+    setEditing({ id: e.id, hours: String(e.hours), billable: e.billable, projectName: e.projectName, notes: e.notes ?? '' });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const hours = Number(editing.hours);
+    if (!Number.isFinite(hours) || hours < 0) return;
+    setSavingEdit(true);
+    try {
+      await updateEntryFields(editing.id, {
+        hours,
+        billable: editing.billable,
+        projectName: editing.projectName.trim(),
+        notes: editing.notes,
+      });
+      setEditing(null);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const openDocs = (e: TimeEntry) => {
+    const { periodStart, periodEnd } = weekBounds(e.workDate);
+    setDocsTarget({ employeeEmail: e.employeeEmail.toLowerCase(), periodStart, periodEnd });
   };
 
   /** Build a CSV string from the currently-visible entries and download it.
@@ -288,51 +344,68 @@ export default function TeamTimePage() {
                       )}
                     </td>
                     <td className="py-2 pr-3 align-top text-right">
-                      {e.status === 'submitted' ? (
-                        rejecting === e.id ? (
-                          <div className="flex items-center gap-1 justify-end">
-                            <input
-                              autoFocus
-                              value={rejectReason}
-                              onChange={(ev) => setRejectReason(ev.target.value)}
-                              placeholder="Reason…"
-                              onKeyDown={(ev) => { if (ev.key === 'Enter') handleReject(e.id); }}
-                              className="text-xs border border-slate-300 rounded px-2 py-1 w-32"
-                            />
-                            <button type="button" onClick={() => handleReject(e.id)}
-                                    className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">
-                              OK
-                            </button>
-                            <button type="button" onClick={() => { setRejecting(null); setRejectReason(''); }}
-                                    className="text-xs text-slate-400 hover:text-slate-700">
-                              <X size={12} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 justify-end">
+                      <div className="flex items-center gap-1 justify-end flex-wrap">
+                        {e.status === 'submitted' ? (
+                          rejecting === e.id ? (
+                            <div className="flex items-center gap-1 justify-end">
+                              <input
+                                autoFocus
+                                value={rejectReason}
+                                onChange={(ev) => setRejectReason(ev.target.value)}
+                                placeholder="Reason…"
+                                onKeyDown={(ev) => { if (ev.key === 'Enter') handleReject(e.id); }}
+                                className="text-xs border border-slate-300 rounded px-2 py-1 w-32"
+                              />
+                              <button type="button" onClick={() => handleReject(e.id)}
+                                      className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">
+                                OK
+                              </button>
+                              <button type="button" onClick={() => { setRejecting(null); setRejectReason(''); }}
+                                      className="text-xs text-slate-400 hover:text-slate-700">
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button type="button"
+                                      onClick={() => approveEntry(e.id, myEmail)}
+                                      className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700 inline-flex items-center gap-1"
+                                      title="Approve">
+                                <Check size={12} /> Approve
+                              </button>
+                              <button type="button"
+                                      onClick={() => setRejecting(e.id)}
+                                      className="text-xs bg-white border border-red-300 text-red-700 px-2 py-1 rounded hover:bg-red-50 inline-flex items-center gap-1"
+                                      title="Reject">
+                                <X size={12} /> Reject
+                              </button>
+                            </>
+                          )
+                        ) : e.status === 'approved' && isAdmin ? (
+                          <button type="button"
+                                  onClick={() => rejectEntry(e.id, myEmail, 'Unapproved by admin')}
+                                  className="text-[11px] text-slate-400 hover:text-red-700">
+                            Unapprove
+                          </button>
+                        ) : null}
+                        {/* Manager/admin: edit any existing entry + manage that week's documents */}
+                        {rejecting !== e.id && (
+                          <>
                             <button type="button"
-                                    onClick={() => approveEntry(e.id, myEmail)}
-                                    className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700 inline-flex items-center gap-1"
-                                    title="Approve">
-                              <Check size={12} /> Approve
+                                    onClick={() => openEdit(e)}
+                                    className="text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded hover:bg-slate-50 inline-flex items-center gap-1"
+                                    title="Edit entry">
+                              <Pencil size={12} /> Edit
                             </button>
                             <button type="button"
-                                    onClick={() => setRejecting(e.id)}
-                                    className="text-xs bg-white border border-red-300 text-red-700 px-2 py-1 rounded hover:bg-red-50 inline-flex items-center gap-1"
-                                    title="Reject">
-                              <X size={12} /> Reject
+                                    onClick={() => openDocs(e)}
+                                    className="text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded hover:bg-slate-50 inline-flex items-center gap-1"
+                                    title="Manage this week's documents">
+                              <Paperclip size={12} /> Docs
                             </button>
-                          </div>
-                        )
-                      ) : e.status === 'approved' && isAdmin ? (
-                        <button type="button"
-                                onClick={() => rejectEntry(e.id, myEmail, 'Unapproved by admin')}
-                                className="text-[11px] text-slate-400 hover:text-red-700">
-                          Unapprove
-                        </button>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">—</span>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -341,6 +414,90 @@ export default function TeamTimePage() {
           </div>
         )}
       </Card>
+
+      {/* Edit-entry modal (manager/admin edits an existing employee entry) */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !savingEdit && setEditing(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={(ev) => ev.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-900">Edit time entry</h3>
+              <button type="button" onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Project</label>
+                <input
+                  value={editing.projectName}
+                  onChange={(ev) => setEditing({ ...editing, projectName: ev.target.value })}
+                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Hours</label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    value={editing.hours}
+                    onChange={(ev) => setEditing({ ...editing, hours: ev.target.value })}
+                    className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-700 mt-5">
+                  <input
+                    type="checkbox"
+                    checked={editing.billable}
+                    onChange={(ev) => setEditing({ ...editing, billable: ev.target.checked })}
+                  />
+                  Billable
+                </label>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Notes</label>
+                <textarea
+                  rows={3}
+                  value={editing.notes}
+                  onChange={(ev) => setEditing({ ...editing, notes: ev.target.value })}
+                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">Editing hours, billable, or project on an approved entry re-opens it for approval.</p>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-5">
+              <button type="button" onClick={() => setEditing(null)} disabled={savingEdit}
+                      className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40">
+                Cancel
+              </button>
+              <button type="button" onClick={saveEdit} disabled={savingEdit}
+                      className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1.5">
+                {savingEdit ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Documents modal (manager/admin manages an employee's weekly timesheet docs) */}
+      {docsTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setDocsTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900 truncate">Documents · {docsTarget.employeeEmail}</h3>
+                <p className="text-[11px] text-slate-500">Week of {docsTarget.periodStart} – {docsTarget.periodEnd}</p>
+              </div>
+              <button type="button" onClick={() => setDocsTarget(null)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+            </div>
+            <DocumentsPanel
+              employeeEmail={docsTarget.employeeEmail}
+              periodStart={docsTarget.periodStart}
+              periodEnd={docsTarget.periodEnd}
+              uploadedBy={myEmail}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

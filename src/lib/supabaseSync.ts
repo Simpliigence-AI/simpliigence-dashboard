@@ -1625,6 +1625,27 @@ export const db = {
     const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert time_entry failed:', error);
   },
+  /** Plain UPDATE of specific fields on an existing entry (no upsert/INSERT
+   *  path). Used by the Team Time manager edit flow so it always takes the
+   *  UPDATE-policy branch (which admins/managers are permitted). */
+  async updateTimeEntry(id: string, patch: Partial<TimeEntry>) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row: Record<string, any> = { updated_by: CLIENT_ID, updated_at: new Date().toISOString() };
+    if (patch.employeeEmail !== undefined) row.employee_email = patch.employeeEmail.toLowerCase();
+    if (patch.workDate !== undefined) row.work_date = patch.workDate;
+    if (patch.projectId !== undefined) row.project_id = patch.projectId;
+    if (patch.projectName !== undefined) row.project_name = patch.projectName;
+    if (patch.hours !== undefined) row.hours = patch.hours;
+    if (patch.billable !== undefined) row.billable = patch.billable;
+    if (patch.notes !== undefined) row.notes = patch.notes ?? '';
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.submittedAt !== undefined) row.submitted_at = patch.submittedAt;
+    if (patch.approvedBy !== undefined) row.approved_by = patch.approvedBy;
+    if (patch.approvedAt !== undefined) row.approved_at = patch.approvedAt;
+    if (patch.rejectReason !== undefined) row.reject_reason = patch.rejectReason;
+    const { error } = await supabase.from('time_entries').update(row).eq('id', id);
+    if (error) console.warn('[supabase] update time_entry failed:', error);
+  },
   async deleteTimeEntry(id: string) {
     const { error } = await supabase.from('time_entries').delete().eq('id', id);
     if (error) console.warn('[supabase] delete time_entry failed:', error);

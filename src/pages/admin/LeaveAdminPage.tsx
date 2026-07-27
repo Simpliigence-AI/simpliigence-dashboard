@@ -21,6 +21,7 @@ import {
   Users as UsersIcon, Upload, Palette, History, Save, Trash2, Plus,
   Download, AlertCircle, CheckCircle2, Loader2, RefreshCw,
 } from 'lucide-react';
+import { nanoid } from 'nanoid';
 import { useLeaveStore } from '../../store/useLeaveStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { fetchLeaveAudit } from '../../lib/supabaseSync';
@@ -36,6 +37,19 @@ const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSel
   <select className={`${INPUT_CLS} bg-white ${className}`} {...p}>{children}</select>;
 const Textarea = ({ className = '', ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) =>
   <textarea className={`${INPUT_CLS} font-mono text-xs ${className}`} {...p} />;
+
+// Swatch + hex input, shared by the leave-type add form and inline row editor.
+const ColorField = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <div className="flex items-center gap-1">
+    <input
+      type="color"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-8 h-8 rounded border border-slate-300 cursor-pointer shrink-0"
+    />
+    <Input value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
+  </div>
+);
 
 type Tab = 'allocations' | 'import' | 'types' | 'audit';
 
@@ -368,6 +382,11 @@ function BulkImportTab({ year, types }: { year: number; types: LeaveType[] }) {
   const updateCount = validRows.filter((r) => r.matched.existing).length;
   const errorCount = parsedRows.filter((r) => !!r.error).length;
 
+  // Rows whose type_code isn't in the catalog are dropped from the import.
+  // Surface the distinct unmapped codes prominently so they don't vanish silently.
+  const unmappedRows = parsedRows.filter((r) => !r.matched.typeId && r.leaveTypeCode);
+  const unmappedCodes = [...new Set(unmappedRows.map((r) => r.leaveTypeCode))];
+
   const apply = async () => {
     if (!currentUser || validRows.length === 0) return;
     setApplying(true);
@@ -417,6 +436,24 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
         placeholder={sample}
         className="mb-3"
       />
+      {unmappedCodes.length > 0 && (
+        <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+          <AlertCircle size={15} className="shrink-0 mt-0.5 text-amber-600" />
+          <div>
+            <p className="font-semibold">
+              {unmappedRows.length} row{unmappedRows.length === 1 ? '' : 's'} will be skipped — unknown leave type{unmappedCodes.length === 1 ? '' : 's'}:{' '}
+              {unmappedCodes.map((c) => (
+                <span key={c} className="inline-block font-mono font-bold bg-amber-100 border border-amber-300 rounded px-1 mr-1">{c}</span>
+              ))}
+            </p>
+            <p className="mt-1 text-amber-800">
+              These codes aren't in the leave-type catalog, so their rows won't import. Add each one in the{' '}
+              <strong>Leave Types</strong> tab (matching the exact code above), then re-run the preview.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <Button variant="secondary" onClick={parse} disabled={!raw.trim()}>
           <RefreshCw size={14} /> Preview
@@ -511,13 +548,26 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
 
 function LeaveTypesTab({ types }: { types: LeaveType[] }) {
   const { upsertType, removeType } = useLeaveStore();
+  const [adding, setAdding] = useState(false);
 
   return (
     <Card>
-      <p className="text-xs text-slate-500 mb-3">
-        These are the default annual quotas applied when an employee has no allocation row for the year.
-        Once you've imported per-employee allocations, these defaults only matter for new joiners without a row.
-      </p>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <p className="text-xs text-slate-500 max-w-2xl">
+          These are the default annual quotas applied when an employee has no allocation row for the year.
+          Once you've imported per-employee allocations, these defaults only matter for new joiners without a row.
+        </p>
+        <Button size="sm" variant="secondary" onClick={() => setAdding((v) => !v)}>
+          <Plus size={14} /> Add leave type
+        </Button>
+      </div>
+      {adding && (
+        <AddLeaveTypeForm
+          existing={types}
+          onCancel={() => setAdding(false)}
+          onCreate={async (t) => { await upsertType(t); setAdding(false); }}
+        />
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-left">
@@ -536,6 +586,89 @@ function LeaveTypesTab({ types }: { types: LeaveType[] }) {
         </tbody>
       </table>
     </Card>
+  );
+}
+
+function AddLeaveTypeForm({
+  existing, onCreate, onCancel,
+}: {
+  existing: LeaveType[];
+  onCreate: (t: LeaveType) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const nextSort = existing.reduce((m, t) => Math.max(m, t.sortOrder), 0) + 10;
+  const [draft, setDraft] = useState<LeaveType>({
+    id: nanoid(),
+    name: '',
+    code: '',
+    annualQuota: 0,
+    color: '#64748b',
+    active: true,
+    sortOrder: nextSort,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const name = draft.name.trim();
+  const code = draft.code.trim().toUpperCase();
+  const error =
+    !name ? 'Name is required'
+      : !code ? 'Code is required'
+      : existing.some((t) => t.code.toUpperCase() === code) ? `Code "${code}" is already in use`
+      : null;
+
+  const save = async () => {
+    if (error) return;
+    setSaving(true);
+    try {
+      await onCreate({ ...draft, name, code });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+        <label className="text-xs text-slate-600">
+          <span className="block mb-1 font-medium">Name</span>
+          <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Annual Leave" autoFocus />
+        </label>
+        <label className="text-xs text-slate-600">
+          <span className="block mb-1 font-medium">Code</span>
+          <Input value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toUpperCase() })} placeholder="AL" className="uppercase" />
+        </label>
+        <label className="text-xs text-slate-600">
+          <span className="block mb-1 font-medium">Default quota</span>
+          <Input type="number" value={draft.annualQuota} onChange={(e) => setDraft({ ...draft, annualQuota: Number(e.target.value) })} />
+        </label>
+        <label className="text-xs text-slate-600">
+          <span className="block mb-1 font-medium">Sort order</span>
+          <Input type="number" value={draft.sortOrder} onChange={(e) => setDraft({ ...draft, sortOrder: Number(e.target.value) })} />
+        </label>
+        <label className="text-xs text-slate-600">
+          <span className="block mb-1 font-medium">Color</span>
+          <ColorField value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
+        </label>
+      </div>
+      <div className="flex items-center gap-3 mt-3">
+        <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={draft.active}
+            onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
+            className="w-4 h-4 accent-primary"
+          />
+          Active
+        </label>
+        {error && <span className="text-xs text-rose-600">{error}</span>}
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>Cancel</Button>
+          <Button size="sm" onClick={save} disabled={!!error || saving}>
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Create type
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -561,15 +694,7 @@ function LeaveTypeRow({
         <Input type="number" value={draft.annualQuota} onChange={(e) => setDraft({ ...draft, annualQuota: Number(e.target.value) })} />
       </td>
       <td className="p-2 w-32">
-        <div className="flex items-center gap-1">
-          <input
-            type="color"
-            value={draft.color}
-            onChange={(e) => setDraft({ ...draft, color: e.target.value })}
-            className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
-          />
-          <Input value={draft.color} onChange={(e) => setDraft({ ...draft, color: e.target.value })} className="font-mono text-xs" />
-        </div>
+        <ColorField value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
       </td>
       <td className="p-2">
         <label className="inline-flex items-center gap-1.5 cursor-pointer">
@@ -712,6 +837,6 @@ function AuditSummary({ entry }: { entry: LeaveAuditEntry }) {
   return <code className="text-[10px] text-slate-500">{JSON.stringify({ before, after }).slice(0, 200)}</code>;
 }
 
-/* Unused Plus/Download imports silenced — leaving them in case the file gains
- * "add row" / "export CSV" buttons in the next iteration. */
-void Plus; void Download;
+/* Unused Download import silenced — leaving it in case the file gains an
+ * "export CSV" button in the next iteration. */
+void Download;

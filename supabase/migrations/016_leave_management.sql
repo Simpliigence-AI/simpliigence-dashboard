@@ -36,5 +36,25 @@ CREATE INDEX IF NOT EXISTS idx_leave_requests_manager  ON leave_requests(manager
 CREATE INDEX IF NOT EXISTS idx_leave_requests_status   ON leave_requests(status);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_dates    ON leave_requests(start_date, end_date);
 
--- Realtime + RLS + policies + seed types (see live-applied migration; kept
--- verbatim on disk so a `supabase db reset` reproduces the same state).
+-- Realtime + RLS + policies — see live-applied migration; kept verbatim on
+-- disk so a `supabase db reset` reproduces the same state.
+
+-- Default leave-type catalog, mirroring Zoho's THREE leave types (Casual and
+-- Sick are a SINGLE combined type in Zoho, not two). NOTE: codes AL/CL are a
+-- BEST-GUESS default — the exact Zoho export codes are still being confirmed;
+-- COF is confirmed. Treat this as a starting catalog that admins can rename or
+-- re-code from the Leave Types admin tab; do NOT rely on these ids/codes when
+-- reconciling the live database. Idempotent: ON CONFLICT (code) DO NOTHING so a
+-- re-apply / db reset won't duplicate rows or clobber admin edits.
+--
+-- Note: editing this already-applied migration only affects fresh environments
+-- (`supabase db reset`). To fix the live DB, apply migration 018.
+INSERT INTO leave_types (id, name, code, annual_quota, color, active, sort_order) VALUES
+  ('annual',   'Annual Leave/Privilege', 'AL',  0, '#2563eb', TRUE, 10),
+  ('casual',   'Casual/Sick Leave',      'CL',  0, '#16a34a', TRUE, 20),
+  ('comp_off', 'Compensatory Off',       'COF', 0, '#7c3aed', TRUE, 30)
+ON CONFLICT (code) DO NOTHING;
+
+-- Pseudo / non-leave placeholder types must never surface as balance cards on
+-- the Leave page (which renders one card per *active* type). Idempotent.
+UPDATE leave_types SET active = FALSE WHERE upper(code) IN ('ABSENT', 'ABS', 'LOP');

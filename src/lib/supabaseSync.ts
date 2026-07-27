@@ -20,7 +20,7 @@ import type { IndiaRosterMember, IndiaRosterStatus } from '../types/indiaRoster'
 import type { USRosterMember, USRosterStatus } from '../types/usRoster';
 import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
-import type { TimeEntry, TimesheetDocument } from '../types/timeEntry';
+import type { TimeEntry, TimesheetDocument, TimeEntryAudit } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import type { Vendor, VendorOutreach } from '../types/vendor';
 import type {
@@ -363,6 +363,22 @@ function rowToTimeEntry(row: any): TimeEntry {
     rejectReason: row.reject_reason ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTimeEntryAudit(row: any): TimeEntryAudit {
+  return {
+    id: row.id,
+    timeEntryId: row.time_entry_id,
+    employeeEmail: row.employee_email ?? null,
+    operation: row.operation as TimeEntryAudit['operation'],
+    changedByEmail: row.changed_by_email ?? null,
+    changedByRole: row.changed_by_role ?? null,
+    changedFields: row.changed_fields ?? [],
+    oldData: row.old_data ?? null,
+    newData: row.new_data ?? null,
+    changedAt: row.changed_at,
   };
 }
 
@@ -1649,6 +1665,20 @@ export const db = {
   async deleteTimeEntry(id: string) {
     const { error } = await supabase.from('time_entries').delete().eq('id', id);
     if (error) console.warn('[supabase] delete time_entry failed:', error);
+  },
+  /** Read the audit trail (who changed what) for one entry, newest first.
+   *  Rows are written by a DB trigger; RLS gates who can read them. */
+  async getTimeEntryAudit(timeEntryId: string): Promise<TimeEntryAudit[]> {
+    const { data, error } = await supabase
+      .from('time_entry_audit')
+      .select('*')
+      .eq('time_entry_id', timeEntryId)
+      .order('changed_at', { ascending: false });
+    if (error) {
+      console.warn('[supabase] fetch time_entry_audit failed:', error);
+      return [];
+    }
+    return (data || []).map(rowToTimeEntryAudit);
   },
 
   // --- Timesheet documents (Supabase Storage: timesheet-documents bucket) ---

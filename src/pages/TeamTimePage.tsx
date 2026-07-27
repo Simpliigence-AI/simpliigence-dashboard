@@ -13,16 +13,17 @@
  * Inline Approve / Reject buttons. Reject opens a small reason prompt. Bulk
  * approve checkbox column at the left for blasting through a backlog.
  */
-import { useMemo, useState } from 'react';
-import { Check, X, Filter, CheckCheck, Download, Pencil, Paperclip, Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, X, Filter, CheckCheck, Download, Pencil, Paperclip, History, Loader2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { DocumentsPanel } from '../components/timesheet/DocumentsPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
+import { db } from '../lib/supabaseSync';
 import { TaIdentity } from '../components/TaIdentity';
-import type { TimeEntry } from '../types/timeEntry';
+import type { TimeEntry, TimeEntryAudit } from '../types/timeEntry';
 
 /** Parse YYYY-MM-DD as LOCAL midnight (avoids UTC day-shift). */
 function parseIsoDate(iso: string): Date {
@@ -44,6 +45,30 @@ function weekBounds(workDate: string): { periodStart: string; periodEnd: string 
   const sunday = new Date(monday);
   sunday.setDate(sunday.getDate() + 6);
   return { periodStart: toIsoDate(monday), periodEnd: toIsoDate(sunday) };
+}
+
+/** Human labels for audit column names (snake_case from the DB snapshot). */
+const AUDIT_FIELD_LABEL: Record<string, string> = {
+  employee_email: 'employee',
+  work_date: 'date',
+  project_id: 'project id',
+  project_name: 'project',
+  hours: 'hours',
+  billable: 'billable',
+  notes: 'notes',
+  source: 'source',
+  status: 'status',
+  submitted_at: 'submitted at',
+  approved_by: 'approved by',
+  approved_at: 'approved at',
+  reject_reason: 'reject reason',
+};
+
+/** Render a raw JSONB snapshot value for display in the history modal. */
+function formatAuditValue(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'yes' : 'no';
+  return String(v);
 }
 
 type TabKey = 'pending' | 'approved' | 'rejected' | 'all';
@@ -81,6 +106,21 @@ export default function TeamTimePage() {
   const [editing, setEditing] = useState<EditState | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [docsTarget, setDocsTarget] = useState<DocsTarget | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<TimeEntry | null>(null);
+  const [historyRows, setHistoryRows] = useState<TimeEntryAudit[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Load the audit trail whenever a History modal opens.
+  useEffect(() => {
+    if (!historyTarget) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    setHistoryRows([]);
+    db.getTimeEntryAudit(historyTarget.id)
+      .then((rows) => { if (!cancelled) setHistoryRows(rows); })
+      .finally(() => { if (!cancelled) setHistoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [historyTarget]);
 
   if (loading) {
     return <div className="py-12 text-center text-sm text-slate-400">Checking permissions…</div>;
@@ -403,6 +443,12 @@ export default function TeamTimePage() {
                                     title="Manage this week's documents">
                               <Paperclip size={12} /> Docs
                             </button>
+                            <button type="button"
+                                    onClick={() => setHistoryTarget(e)}
+                                    className="text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded hover:bg-slate-50 inline-flex items-center gap-1"
+                                    title="View change history">
+                              <History size={12} /> History
+                            </button>
                           </>
                         )}
                       </div>
@@ -495,6 +541,70 @@ export default function TeamTimePage() {
               periodEnd={docsTarget.periodEnd}
               uploadedBy={myEmail}
             />
+          </div>
+        </div>
+      )}
+
+      {/* History modal (audit trail for one entry — who changed what, when) */}
+      {historyTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setHistoryTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900 truncate">Change history</h3>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {historyTarget.employeeEmail} · {historyTarget.workDate} · {historyTarget.projectName}
+                </p>
+              </div>
+              <button type="button" onClick={() => setHistoryTarget(null)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+            </div>
+
+            {historyLoading ? (
+              <div className="py-10 text-center text-sm text-slate-400 inline-flex items-center gap-2 justify-center w-full">
+                <Loader2 size={14} className="animate-spin" /> Loading…
+              </div>
+            ) : historyRows.length === 0 ? (
+              <div className="py-10 text-center text-sm text-slate-500">No changes recorded yet.</div>
+            ) : (
+              <ol className="space-y-3">
+                {historyRows.map((a) => (
+                  <li key={a.id} className="border border-slate-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                        a.operation === 'INSERT' ? 'bg-emerald-100 text-emerald-800'
+                        : a.operation === 'DELETE' ? 'bg-red-100 text-red-800'
+                        : 'bg-sky-100 text-sky-800'
+                      }`}>
+                        {a.operation === 'INSERT' ? 'Created' : a.operation === 'DELETE' ? 'Deleted' : 'Edited'}
+                      </span>
+                      <span className="text-[11px] tabular-nums text-slate-400">
+                        {new Date(a.changedAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 mt-1">
+                      by <span className="font-medium text-slate-800">{a.changedByEmail || 'unknown'}</span>
+                      {a.changedByRole && <span className="text-slate-400"> ({a.changedByRole})</span>}
+                    </div>
+                    {/* Field-level diff for edits */}
+                    {a.operation === 'UPDATE' && a.changedFields.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {a.changedFields.map((f) => (
+                          <li key={f} className="text-xs text-slate-700">
+                            <span className="text-slate-500">{AUDIT_FIELD_LABEL[f] ?? f}:</span>{' '}
+                            <span className="line-through text-slate-400">{formatAuditValue(a.oldData?.[f])}</span>
+                            {' → '}
+                            <span className="font-medium">{formatAuditValue(a.newData?.[f])}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {a.operation === 'UPDATE' && a.changedFields.length === 0 && (
+                      <div className="text-[11px] text-slate-400 italic mt-1">No tracked fields changed.</div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </div>
       )}

@@ -48,6 +48,24 @@ export interface TimesheetDocument {
   updatedAt: string;
 }
 
+/** One immutable audit row per change to a time entry, written by a DB trigger.
+ *  See supabase migration 019_time_entry_audit.sql. */
+export interface TimeEntryAudit {
+  id: string;
+  timeEntryId: string;
+  employeeEmail: string | null;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  changedByEmail: string | null;
+  changedByRole: string | null;
+  /** Columns that changed on UPDATE; empty/null for insert & delete. */
+  changedFields: string[];
+  /** Full row snapshot before the change (null on INSERT). */
+  oldData: Record<string, unknown> | null;
+  /** Full row snapshot after the change (null on DELETE). */
+  newData: Record<string, unknown> | null;
+  changedAt: string;
+}
+
 /** Common non-billable buckets surfaced as quick-pick projects. */
 export const INTERNAL_PROJECTS = [
   'Internal — Admin',

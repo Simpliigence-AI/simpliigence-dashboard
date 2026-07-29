@@ -28,6 +28,7 @@ import { fetchLeaveAudit } from '../../lib/supabaseSync';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, Button, Badge } from '../../components/ui';
+import { isTypeVisibleTo } from '../../types/leave';
 import type { LeaveType, LeaveAllocation, LeaveAuditEntry, AllocationSource } from '../../types/leave';
 
 const INPUT_CLS = 'w-full px-2 py-1 rounded border border-slate-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
@@ -119,14 +120,16 @@ function AllocationsTab({
   const { upsertAllocation } = useLeaveStore();
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
-  const [employees, setEmployees] = useState<Array<{ email: string; fullName: string | null }>>([]);
+  const [employees, setEmployees] = useState<Array<{ email: string; fullName: string | null; gender: string | null }>>([]);
 
   useEffect(() => {
     // Prefer the auth store's directory (already hydrated on init). Fall back
     // to a live fetch if empty (fresh session before loadDirectory ran).
+    // `gender` is carried so gendered leave types (MAT/PAT) only allocate to
+    // matching employees.
     const dirEmails = Object.keys(directory);
     if (dirEmails.length > 0) {
-      setEmployees(dirEmails.map((k) => ({ email: k, fullName: directory[k].fullName })).sort(
+      setEmployees(dirEmails.map((k) => ({ email: k, fullName: directory[k].fullName, gender: directory[k].gender })).sort(
         (a, b) => (a.fullName || a.email).localeCompare(b.fullName || b.email),
       ));
       return;
@@ -134,11 +137,11 @@ function AllocationsTab({
     void (async () => {
       const { data } = await supabase
         .from('authorized_users')
-        .select('email, full_name, active')
+        .select('email, full_name, gender, active')
         .order('full_name', { ascending: true });
-      if (data) setEmployees((data as { email: string; full_name: string | null; active: boolean }[])
+      if (data) setEmployees((data as { email: string; full_name: string | null; gender: string | null; active: boolean }[])
         .filter((r) => r.active !== false)
-        .map((r) => ({ email: r.email, fullName: r.full_name })));
+        .map((r) => ({ email: r.email, fullName: r.full_name, gender: r.gender })));
     })();
   }, [directory]);
 
@@ -227,6 +230,15 @@ function AllocationsTab({
                   <div className="text-[10px] text-slate-500">{emp.email}</div>
                 </td>
                 {activeTypes.map((t) => {
+                  // Gendered types (MAT/PAT) aren't allocatable to employees who
+                  // don't match — render a muted placeholder so columns stay aligned.
+                  if (!isTypeVisibleTo(t, emp.gender)) {
+                    return (
+                      <td key={t.id} className="p-1 align-top text-center">
+                        <span className="text-slate-300 text-xs" title={`Not applicable — ${t.name} is ${t.eligibility}-only`}>—</span>
+                      </td>
+                    );
+                  }
                   const key = `${emp.email.toLowerCase()}|${t.id}`;
                   const a = allocByKey.get(key);
                   const used = usedByKey.get(key) || 0;
@@ -575,6 +587,7 @@ function LeaveTypesTab({ types }: { types: LeaveType[] }) {
             <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Code</th>
             <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Default Quota</th>
             <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Color</th>
+            <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Eligibility</th>
             <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Active</th>
             <th className="p-2 w-16"></th>
           </tr>
@@ -605,6 +618,7 @@ function AddLeaveTypeForm({
     color: '#64748b',
     active: true,
     sortOrder: nextSort,
+    eligibility: 'all',
   });
   const [saving, setSaving] = useState(false);
 
@@ -628,7 +642,7 @@ function AddLeaveTypeForm({
 
   return (
     <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
         <label className="text-xs text-slate-600">
           <span className="block mb-1 font-medium">Name</span>
           <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Annual Leave" autoFocus />
@@ -648,6 +662,14 @@ function AddLeaveTypeForm({
         <label className="text-xs text-slate-600">
           <span className="block mb-1 font-medium">Color</span>
           <ColorField value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
+        </label>
+        <label className="text-xs text-slate-600">
+          <span className="block mb-1 font-medium">Eligibility</span>
+          <Select value={draft.eligibility} onChange={(e) => setDraft({ ...draft, eligibility: e.target.value as LeaveType['eligibility'] })}>
+            <option value="all">Everyone</option>
+            <option value="female">Female only</option>
+            <option value="male">Male only</option>
+          </Select>
         </label>
       </div>
       <div className="flex items-center gap-3 mt-3">
@@ -695,6 +717,13 @@ function LeaveTypeRow({
       </td>
       <td className="p-2 w-32">
         <ColorField value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
+      </td>
+      <td className="p-2 w-32">
+        <Select value={draft.eligibility} onChange={(e) => setDraft({ ...draft, eligibility: e.target.value as LeaveType['eligibility'] })}>
+          <option value="all">Everyone</option>
+          <option value="female">Female only</option>
+          <option value="male">Male only</option>
+        </Select>
       </td>
       <td className="p-2">
         <label className="inline-flex items-center gap-1.5 cursor-pointer">

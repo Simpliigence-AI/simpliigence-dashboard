@@ -22,6 +22,7 @@ interface AuthorizedUserRow {
   role: UserRole;
   manager_email: string | null;
   employee_code: string | null;
+  gender: string | null;
   added_by: string | null;
   added_at: string;
   notes: string | null;
@@ -64,6 +65,7 @@ export default function UsersPage() {
   const [draftAdmin, setDraftAdmin] = useState(false);
   const [draftRole, setDraftRole] = useState<UserRole>('employee');
   const [draftManager, setDraftManager] = useState('');
+  const [draftGender, setDraftGender] = useState('');
   const [draftEmpCode, setDraftEmpCode] = useState('');
   const [draftNotes, setDraftNotes] = useState('');
   const [adding, setAdding] = useState(false);
@@ -74,7 +76,7 @@ export default function UsersPage() {
     try {
       const { data, error: e } = await supabase
         .from('authorized_users')
-        .select('email, full_name, is_admin, role, manager_email, employee_code, avatar_url, added_by, added_at, notes')
+        .select('email, full_name, is_admin, role, manager_email, employee_code, gender, avatar_url, added_by, added_at, notes')
         .order('added_at', { ascending: false });
       if (e) throw e;
       setRows(data as AuthorizedUserRow[]);
@@ -104,12 +106,13 @@ export default function UsersPage() {
         role,
         manager_email: draftManager.trim().toLowerCase() || null,
         employee_code: draftEmpCode.trim() || null,
+        gender: draftGender || null,
         notes: draftNotes.trim() || null,
         added_by: 'admin-ui',
       });
       if (e) throw e;
       setDraftEmail(''); setDraftName(''); setDraftAdmin(false); setDraftRole('employee');
-      setDraftManager(''); setDraftEmpCode(''); setDraftNotes('');
+      setDraftManager(''); setDraftGender(''); setDraftEmpCode(''); setDraftNotes('');
       setShowAdd(false);
       setError(null);
       void refresh();
@@ -136,7 +139,7 @@ export default function UsersPage() {
   };
 
   /** Patch any subset of editable columns on a single user. */
-  const patchRow = async (email: string, patch: Partial<Pick<AuthorizedUserRow, 'role' | 'manager_email' | 'employee_code' | 'full_name' | 'notes'>>) => {
+  const patchRow = async (email: string, patch: Partial<Pick<AuthorizedUserRow, 'role' | 'manager_email' | 'employee_code' | 'gender' | 'full_name' | 'notes'>>) => {
     try {
       flashSaving(email);
       // If role changes to/from 'admin', keep is_admin in sync.
@@ -144,6 +147,7 @@ export default function UsersPage() {
       if (patch.role !== undefined) update.is_admin = patch.role === 'admin';
       if (patch.manager_email !== undefined) update.manager_email = patch.manager_email?.toLowerCase() || null;
       if (patch.employee_code !== undefined) update.employee_code = patch.employee_code || null;
+      if (patch.gender !== undefined) update.gender = patch.gender || null;
       if (patch.full_name !== undefined) update.full_name = patch.full_name?.trim() || null;
       if (patch.notes !== undefined) update.notes = patch.notes?.trim() || null;
       // `.select()` returns the updated rows; if RLS silently filtered the write
@@ -161,10 +165,11 @@ export default function UsersPage() {
       flashSaved(email);
       // Mirror name/role changes into the global directory so <TaIdentity>
       // re-renders everywhere without a full refetch.
-      if (patch.full_name !== undefined || patch.role !== undefined) {
+      if (patch.full_name !== undefined || patch.role !== undefined || patch.gender !== undefined) {
         patchDirectory(email, {
           fullName: patch.full_name ?? undefined,
           role: patch.role,
+          gender: patch.gender ?? undefined,
         });
       }
       void refresh();
@@ -268,6 +273,19 @@ export default function UsersPage() {
                 </select>
               </div>
               <div>
+                <label className="block text-xs text-slate-500 mb-1">Gender</label>
+                <select
+                  value={draftGender}
+                  onChange={(e) => setDraftGender(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white"
+                  title="Gates gender-specific leave types (Maternity / Paternity)"
+                >
+                  <option value="">—</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs text-slate-500 mb-1">Employee code (Zoho)</label>
                 <input
                   type="text"
@@ -311,6 +329,7 @@ export default function UsersPage() {
                 <th className="pb-3 pr-3 font-semibold text-slate-600">Name</th>
                 <th className="pb-3 pr-3 font-semibold text-slate-600">Role</th>
                 <th className="pb-3 pr-3 font-semibold text-slate-600">Manager</th>
+                <th className="pb-3 pr-3 font-semibold text-slate-600">Gender</th>
                 <th className="pb-3 pr-3 font-semibold text-slate-600">Zoho code</th>
                 <th className="pb-3 pr-3 font-semibold text-slate-600">Notes</th>
                 <th className="pb-3 pr-3 font-semibold text-slate-600">Added</th>
@@ -319,10 +338,10 @@ export default function UsersPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={8} className="py-8 text-center text-slate-400 text-sm">Loading…</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">Loading…</td></tr>
               )}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={8} className="py-8 text-center text-slate-400 text-sm">No authorized users.</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">No authorized users.</td></tr>
               )}
               {rows.map((r) => (
                 <tr key={r.email} className="border-b border-slate-100 hover:bg-slate-50 group">
@@ -410,6 +429,22 @@ export default function UsersPage() {
                         <span className="text-[10px] text-emerald-600 font-semibold">✓ Saved</span>
                       )}
                     </div>
+                  </td>
+                  <td className="py-2.5 pr-3">
+                    <select
+                      value={r.gender ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, gender: value || null } : x));
+                        patchRow(r.email, { gender: value });
+                      }}
+                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+                      title="Gates gender-specific leave types (Maternity / Paternity) — saves immediately"
+                    >
+                      <option value="">—</option>
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                    </select>
                   </td>
                   <td className="py-2.5 pr-3">
                     <input

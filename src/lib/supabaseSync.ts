@@ -2994,6 +2994,7 @@ function leaveTypeToRow(t: LeaveType) {
   return {
     id: t.id, name: t.name, code: t.code, annual_quota: t.annualQuota,
     color: t.color, active: t.active, sort_order: t.sortOrder,
+    eligibility: t.eligibility,
   };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -3006,6 +3007,7 @@ function rowToLeaveType(row: any): LeaveType {
     color: row.color ?? '#64748b',
     active: row.active !== false,
     sortOrder: Number(row.sort_order ?? 100),
+    eligibility: (row.eligibility as LeaveType['eligibility']) ?? 'all',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

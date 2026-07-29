@@ -18,6 +18,10 @@ export const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; cls: string
   cancelled: { label: 'Cancelled', cls: 'bg-slate-100 text-slate-500' },
 };
 
+/** Who a leave type is offered to. 'all' = everyone; 'female'/'male' gate the
+ *  type to employees whose `authorized_users.gender` matches. */
+export type LeaveEligibility = 'all' | 'female' | 'male';
+
 export interface LeaveType {
   id: string;
   name: string;
@@ -26,8 +30,17 @@ export interface LeaveType {
   color: string;
   active: boolean;
   sortOrder: number;
+  /** Gender gate — defaults to 'all'. */
+  eligibility: LeaveEligibility;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** Is `type` visible/allocatable to an employee of the given gender? A type
+ *  open to everyone always shows; a gendered type shows only on a match.
+ *  A NULL/undefined gender never sees gendered types. */
+export function isTypeVisibleTo(type: LeaveType, gender: string | null | undefined): boolean {
+  return type.eligibility === 'all' || type.eligibility === gender;
 }
 
 export interface LeaveRequest {
@@ -113,6 +126,7 @@ export function computeBalances(
   allocations: LeaveAllocation[],
   employeeEmail: string,
   year: number,
+  gender: string | null | undefined,
 ): LeaveBalance[] {
   const eLower = employeeEmail.toLowerCase();
   const allocByType = new Map<string, LeaveAllocation>();
@@ -121,7 +135,7 @@ export function computeBalances(
       allocByType.set(a.leaveTypeId, a);
     }
   }
-  return types.filter((t) => t.active).map((t) => {
+  return types.filter((t) => t.active && isTypeVisibleTo(t, gender)).map((t) => {
     const inYear = requests.filter(
       (r) => r.leaveTypeId === t.id
         && r.employeeEmail.toLowerCase() === eLower

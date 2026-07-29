@@ -27,7 +27,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, Badge, Button, EmptyState } from '../components/ui';
 import {
-  LEAVE_STATUS_META, computeBalances, countDaysInclusive,
+  LEAVE_STATUS_META, computeBalances, countDaysInclusive, isTypeVisibleTo,
   type LeaveRequest,
 } from '../types/leave';
 
@@ -84,8 +84,8 @@ export default function LeavePage() {
   const isManager = toApprove.length > 0;
 
   const balances = useMemo(
-    () => computeBalances(types, myRequests, allocations, email, year),
-    [types, myRequests, allocations, email, year],
+    () => computeBalances(types, myRequests, allocations, email, year, currentUser?.gender),
+    [types, myRequests, allocations, email, year, currentUser?.gender],
   );
   const typeById = useMemo(() => new Map(types.map((t) => [t.id, t])), [types]);
 
@@ -386,13 +386,14 @@ function NewRequestDialog({
   const [error, setError] = useState<string | null>(null);
 
   const days = countDaysInclusive(startDate, endDate);
-  const activeTypes = types.filter((t) => t.active);
+  // Gate hidden (gendered) types out of the dropdown so they can't be selected.
+  const activeTypes = types.filter((t) => t.active && isTypeVisibleTo(t, currentUser?.gender));
 
   const balances = useMemo(() => {
     const email = (currentUser?.email || '').toLowerCase();
     const mine = requests.filter((r) => r.employeeEmail.toLowerCase() === email);
-    return computeBalances(activeTypes, mine, allocations, email, new Date().getFullYear());
-  }, [activeTypes, requests, allocations, currentUser?.email]);
+    return computeBalances(activeTypes, mine, allocations, email, new Date().getFullYear(), currentUser?.gender);
+  }, [activeTypes, requests, allocations, currentUser?.email, currentUser?.gender]);
   const currentBalance = balances.find((b) => b.typeId === leaveTypeId);
 
   const submit = async () => {

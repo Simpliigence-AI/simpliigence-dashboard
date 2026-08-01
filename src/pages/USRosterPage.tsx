@@ -374,9 +374,12 @@ export default function USRosterPage() {
     a.click();
   };
 
-  const SortHeader = ({ field, label, align = 'left' }: { field: string; label: string; align?: 'left' | 'right' | 'center' }) => (
+  const SortHeader = ({ field, label, align = 'left', sticky = false, leftOffset = 0 }: { field: string; label: string; align?: 'left' | 'right' | 'center'; sticky?: boolean; leftOffset?: number }) => (
     <th
-      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px]`}
+      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px] ${
+        sticky ? 'sticky bg-slate-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+      }`}
+      style={sticky ? { left: leftOffset } : undefined}
       onClick={() => handleSort(field)}
     >
       {label} {sortField === field && (sortAsc ? '↑' : '↓')}
@@ -592,8 +595,11 @@ export default function USRosterPage() {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 text-slate-500">
-                <th className="px-2 py-2 text-left font-semibold uppercase tracking-wide text-[10px] w-8" title="Serial number within the current filter">#</th>
-                <SortHeader field="name" label="Name" />
+                <th
+                  className="px-2 py-2 text-left font-semibold uppercase tracking-wide text-[10px] w-8 sticky left-0 bg-slate-50 z-10"
+                  title="Serial number within the current filter"
+                >#</th>
+                <SortHeader field="name" label="Name" sticky leftOffset={32} />
                 <SortHeader field="role" label="Role" />
                 <SortHeader field="project" label="Project" />
                 <SortHeader field="status" label="Status" />
@@ -613,9 +619,9 @@ export default function USRosterPage() {
                 const marginAbs = calcUSMarginAbsolute(m);
                 const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
                 return (
-                  <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30">
-                    <td className="px-2 py-2 text-slate-400 tabular-nums text-right pr-3">{idx + 1}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800">
+                  <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30 group">
+                    <td className="px-2 py-2 text-slate-400 tabular-nums text-right pr-3 sticky left-0 bg-white group-hover:bg-blue-50/60 w-8">{idx + 1}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800 sticky bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" style={{ left: 32 }}>
                       <EditableCell value={m.name} onSave={(v) => handleCellSave(m.id, 'name', v)} />
                     </td>
                     <td className="px-3 py-2">

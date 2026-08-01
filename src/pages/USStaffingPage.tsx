@@ -14,6 +14,7 @@ import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { USStaffingStage, AccountCategory } from '../types/usStaffing';
 import { US_STAGE_COLORS } from '../types/usStaffing';
 import { db } from '../lib/supabaseSync';
+import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 
 // Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
 const URGENT_UNSECURED = 250_000;
@@ -105,7 +106,9 @@ export default function USStaffingPage() {
   const [showAddReq, setShowAddReq] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [filterStage, setFilterStage] = useState<string>('All');
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  // Collapse-by-default per-account view. Uses the shared hook so state
+  // persists to localStorage and matches the roster pages' behaviour.
+  const accountCollapse = useCollapsedGroups('us-staffing-account', { defaultCollapsed: true });
 
   // ── JD generator state (US side; mirror of India Demand) ──
   const [jdReqId, setJdReqId] = useState<string | null>(null);
@@ -158,13 +161,7 @@ export default function USStaffingPage() {
   const [newAcctName, setNewAcctName] = useState('');
   const [newAcctCategory, setNewAcctCategory] = useState<AccountCategory>('MSP');
 
-  const toggleAccount = (id: string) => {
-    setExpandedAccounts(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  const toggleAccount = (id: string) => accountCollapse.toggle(id);
 
   // Sales-plan integration — load once on mount.
   const salesPlanLoad = useSalesPlanStore((s) => s.load);
@@ -354,12 +351,19 @@ export default function USStaffingPage() {
                     const acctLockedPct = acctInsight?.pctLocked ?? 0;
                     const acctUrgent = acctForecast > 0 && acctUnsecured >= URGENT_UNSECURED && acctLockedPct < URGENT_PCT_LOCKED;
 
+                    const acctCollapsed = accountCollapse.isCollapsed(req.account_id);
                     return (
                       <React.Fragment key={req.id}>
                         {showBanner && (
-                          <tr className={`border-y-2 ${acctUrgent ? 'border-rose-200' : 'border-blue-200'} ${acctUrgent ? 'bg-gradient-to-r from-rose-50 via-rose-50 to-amber-50' : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50'} group/banner`}>
+                          <tr
+                            onClick={() => toggleAccount(req.account_id)}
+                            className={`border-y-2 ${acctUrgent ? 'border-rose-200' : 'border-blue-200'} ${acctUrgent ? 'bg-gradient-to-r from-rose-50 via-rose-50 to-amber-50 hover:from-rose-100 hover:via-rose-100 hover:to-amber-100' : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 hover:from-blue-100 hover:via-indigo-100 hover:to-violet-100'} cursor-pointer group/banner`}
+                          >
                             <td colSpan={7} className="py-2.5 px-3">
                               <div className="flex items-baseline gap-3 flex-wrap">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 flex-shrink-0">
+                                  {acctCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                </span>
                                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${acctUrgent ? 'bg-rose-600 text-white' : 'bg-primary/15 text-primary'}`}>
                                   {acctUrgent ? <Flame size={14} /> : <Building2 size={14} />}
                                 </span>
@@ -427,7 +431,7 @@ export default function USStaffingPage() {
                             </td>
                           </tr>
                         )}
-                        <tr className="border-t border-slate-100 hover:bg-blue-50/30">
+                        {!acctCollapsed && <tr className="border-t border-slate-100 hover:bg-blue-50/30">
                           {/* Role — indented under the account banner with a ↳ guide */}
                           <td className="px-3 py-2 pl-10">
                             <div className="flex items-center gap-1.5">
@@ -482,7 +486,7 @@ export default function USStaffingPage() {
                               <Trash2 size={13} />
                             </button>
                           </td>
-                        </tr>
+                        </tr>}
                       </React.Fragment>
                     );
                   });

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { supabase } from '../lib/supabase';
+import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
@@ -98,6 +99,9 @@ export default function IndiaRosterPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [showInactive, setShowInactive] = useState(false);
   const [groupByAccount, setGroupByAccount] = useState(true);
+  // Per-project collapse state. Default: collapsed — user sees a
+  // one-line summary per project and clicks in only where relevant.
+  const groupState = useCollapsedGroups('india-roster-project', { defaultCollapsed: true });
 
   // New-member draft
   const [draft, setDraft] = useState({
@@ -238,9 +242,11 @@ export default function IndiaRosterPage() {
     a.click();
   };
 
-  const SortHeader = ({ field, label, align = 'left' }: { field: string; label: string; align?: 'left' | 'right' | 'center' }) => (
+  const SortHeader = ({ field, label, align = 'left', sticky = false }: { field: string; label: string; align?: 'left' | 'right' | 'center'; sticky?: boolean }) => (
     <th
-      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px]`}
+      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px] ${
+        sticky ? 'sticky left-0 bg-slate-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+      }`}
       onClick={() => handleSort(field)}
     >
       {label} {sortField === field && (sortAsc ? '↑' : '↓')}
@@ -326,6 +332,37 @@ export default function IndiaRosterPage() {
         >
           {groupByAccount ? '✓ Grouped by account' : 'Group by account'}
         </button>
+        {groupByAccount && (
+          <div className="flex items-center gap-1 text-[11px] text-slate-500">
+            <button
+              onClick={() => {
+                const keys = new Set<string>();
+                for (const m of [...activeRows, ...inactiveRows]) {
+                  keys.add(`active:${m.project || ''}`);
+                  keys.add(`inactive:${m.project || ''}`);
+                }
+                groupState.expandAll(Array.from(keys));
+              }}
+              className="underline-offset-2 hover:text-slate-700 hover:underline"
+            >
+              Expand all
+            </button>
+            <span className="text-slate-300">·</span>
+            <button
+              onClick={() => {
+                const keys = new Set<string>();
+                for (const m of [...activeRows, ...inactiveRows]) {
+                  keys.add(`active:${m.project || ''}`);
+                  keys.add(`inactive:${m.project || ''}`);
+                }
+                groupState.collapseAll(Array.from(keys));
+              }}
+              className="underline-offset-2 hover:text-slate-700 hover:underline"
+            >
+              Collapse all
+            </button>
+          </div>
+        )}
         <div className="flex-1" />
         <button onClick={exportCSV} className="flex items-center gap-1 text-xs border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50">
           <Download size={13} /> Export CSV
@@ -429,7 +466,7 @@ export default function IndiaRosterPage() {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 text-slate-500">
-                <SortHeader field="name" label="Name" />
+                <SortHeader field="name" label="Name" sticky />
                 <SortHeader field="role" label="Role" />
                 <SortHeader field="project" label="Project" />
                 <SortHeader field="status" label="Status" />
@@ -442,7 +479,7 @@ export default function IndiaRosterPage() {
               </tr>
             </thead>
             <tbody>
-              {renderRowsGrouped(activeRows, groupByAccount, handleCellSave, removeMember, 10)}
+              {renderRowsGrouped(activeRows, groupByAccount, handleCellSave, removeMember, 10, groupState, 'active')}
               {activeRows.length === 0 && (
                 <tr>
                   <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
@@ -481,7 +518,7 @@ export default function IndiaRosterPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 text-slate-500">
-                  <SortHeader field="name" label="Name" />
+                  <SortHeader field="name" label="Name" sticky />
                   <SortHeader field="role" label="Role" />
                   <SortHeader field="project" label="Last Project" />
                   <SortHeader field="status" label="Status" />
@@ -494,7 +531,7 @@ export default function IndiaRosterPage() {
                 </tr>
               </thead>
               <tbody>
-                {renderRowsGrouped(inactiveRows, groupByAccount, handleCellSave, removeMember, 10)}
+                {renderRowsGrouped(inactiveRows, groupByAccount, handleCellSave, removeMember, 10, groupState, 'inactive')}
                 {inactiveRows.length === 0 && (
                   <tr>
                     <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
@@ -562,64 +599,85 @@ function renderRowsGrouped(
   handleCellSave: (id: string, field: string, val: string | number) => void,
   removeMember: (id: string) => void,
   totalCols: number,
+  groupState: ReturnType<typeof useCollapsedGroups>,
+  tablePrefix: 'active' | 'inactive',
 ) {
   if (!grouped) {
     return rows.map((m) => renderMemberRow(m, handleCellSave, removeMember));
   }
 
-  let prevProject: string | null = null;
-  return rows.map((m, idx) => {
-    const showHeader = m.project !== prevProject;
-    prevProject = m.project;
-
-    let sectionCount = 0;
-    let sectionRevenue = 0;
-    let sectionAvgMargin = 0;
-    if (showHeader) {
-      const same = rows.filter((x) => x.project === m.project);
-      sectionCount = same.length;
-      sectionRevenue = same.reduce((s, x) => s + (Number(x.bill_rate) || 0) * 160, 0);
-      const withRate = same.filter((x) => x.bill_rate > 0);
-      sectionAvgMargin = withRate.length
-        ? Math.round(withRate.reduce((s, x) => s + calcMarginPercent(x), 0) / withRate.length)
-        : 0;
+  // Precompute per-project aggregates once so the sticky header renders
+  // even when the group is collapsed and no rows follow.
+  const projectOrder: string[] = [];
+  const stats = new Map<string, { count: number; revenue: number; avgMargin: number }>();
+  for (const m of rows) {
+    const key = m.project || '';
+    if (!stats.has(key)) {
+      projectOrder.push(key);
+      stats.set(key, { count: 0, revenue: 0, avgMargin: 0 });
     }
+  }
+  for (const key of projectOrder) {
+    const same = rows.filter((x) => (x.project || '') === key);
+    const withRate = same.filter((x) => x.bill_rate > 0);
+    stats.set(key, {
+      count: same.length,
+      revenue: same.reduce((s, x) => s + (Number(x.bill_rate) || 0) * 160, 0),
+      avgMargin: withRate.length
+        ? Math.round(withRate.reduce((s, x) => s + calcMarginPercent(x), 0) / withRate.length)
+        : 0,
+    });
+  }
 
-    return (
-      <Fragment key={`row-${m.id}-${idx}`}>
-        {showHeader && (
-          <tr className="border-y-2 border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50">
-            <td colSpan={totalCols} className="py-2.5 px-3">
-              <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/15 text-primary flex-shrink-0">
-                  <Building2 size={14} />
-                </span>
-                <span className="text-base font-extrabold text-slate-900 tracking-tight">
-                  {m.project || '— Unassigned —'}
-                </span>
-                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
-                  {sectionCount} {sectionCount === 1 ? 'resource' : 'resources'}
-                  {sectionRevenue > 0 && (
-                    <>
-                      <span className="text-slate-300 mx-1">·</span>
-                      <span className="text-slate-700"><Sensitive>{`$${(sectionRevenue / 1000).toFixed(0)}k`}</Sensitive></span> /mo @160h
-                    </>
-                  )}
-                  {sectionAvgMargin > 0 && (
-                    <>
-                      <span className="text-slate-300 mx-1">·</span>
-                      avg margin <span className="text-slate-700"><Sensitive>{`${sectionAvgMargin}%`}</Sensitive></span>
-                    </>
-                  )}
-                </span>
-              </div>
-            </td>
-          </tr>
-        )}
-        {renderMemberRow(m, handleCellSave, removeMember)}
-      </Fragment>
+  const out: React.ReactNode[] = [];
+  for (const project of projectOrder) {
+    const groupKey = `${tablePrefix}:${project}`;
+    const collapsed = groupState.isCollapsed(groupKey);
+    const s = stats.get(project)!;
+    out.push(
+      <tr
+        key={`hdr-${groupKey}`}
+        onClick={() => groupState.toggle(groupKey)}
+        className="border-y-2 border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 cursor-pointer hover:from-blue-100 hover:via-indigo-100 hover:to-violet-100"
+      >
+        <td colSpan={totalCols} className="py-2 px-3">
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded text-primary flex-shrink-0">
+              {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+            </span>
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/15 text-primary flex-shrink-0">
+              <Building2 size={14} />
+            </span>
+            <span className="text-base font-extrabold text-slate-900 tracking-tight">
+              {project || '— Unassigned —'}
+            </span>
+            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
+              {s.count} {s.count === 1 ? 'resource' : 'resources'}
+              {s.revenue > 0 && (
+                <>
+                  <span className="text-slate-300 mx-1">·</span>
+                  <span className="text-slate-700"><Sensitive>{`$${(s.revenue / 1000).toFixed(0)}k`}</Sensitive></span> /mo @160h
+                </>
+              )}
+              {s.avgMargin > 0 && (
+                <>
+                  <span className="text-slate-300 mx-1">·</span>
+                  avg margin <span className="text-slate-700"><Sensitive>{`${s.avgMargin}%`}</Sensitive></span>
+                </>
+              )}
+            </span>
+          </div>
+        </td>
+      </tr>,
     );
-  });
+    if (!collapsed) {
+      const groupRows = rows.filter((x) => (x.project || '') === project);
+      for (const m of groupRows) {
+        out.push(<Fragment key={`row-${m.id}`}>{renderMemberRow(m, handleCellSave, removeMember)}</Fragment>);
+      }
+    }
+  }
+  return out;
 }
 
 /* —— Reusable row renderer (used by both Active + Inactive tables) —— */
@@ -632,8 +690,8 @@ function renderMemberRow(
   const marginAbs = calcMarginAbsolute(m);
   const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
   return (
-    <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30">
-      <td className="px-3 py-2 font-medium text-slate-800">
+    <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30 group">
+      <td className="px-3 py-2 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
         <EditableCell value={m.name} onSave={(v) => handleCellSave(m.id, 'name', v)} />
       </td>
       <td className="px-3 py-2">

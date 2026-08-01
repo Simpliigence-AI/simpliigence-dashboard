@@ -7,6 +7,7 @@ import {
   DollarSign, Lock, Unlock, Flame, Activity, MessageCircle, Briefcase,
 } from 'lucide-react';
 import { useStaffingStore } from '../store/useStaffingStore';
+import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
 import { Sensitive } from '../components/Sensitive';
 import { analyzeStaffingStatus } from '../lib/staffingAnalysis';
@@ -136,6 +137,11 @@ export default function IndiaStaffingPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'accounts' | 'forecast'>('overview');
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  // Per-account collapse for the requisitions table. Shared across the
+  // Tier 1 + Tier 2 blocks so an account collapsed in one stays that way
+  // in the other. Default: collapsed — user expands only the accounts
+  // they care about.
+  const accountCollapse = useCollapsedGroups('india-staffing-account', { defaultCollapsed: true });
   const [showArchive, setShowArchive] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -921,12 +927,19 @@ export default function IndiaStaffingPage() {
                       sectionPositions = same.reduce((s, x) => s + x.openPositions, 0);
                       sectionAvgAi = same.length ? Math.round(same.reduce((s, x) => s + x.aiProbability, 0) / same.length) : 0;
                     }
+                    const acctCollapsed = groupByAccount ? accountCollapse.isCollapsed(r.account) : false;
                     return (
                       <Fragment key={`tier${tier}-row-${r.id}`}>
                         {showHeader && (
-                          <tr className={`border-y-2 ${tier === 1 ? 'border-primary/30 bg-primary/5' : 'border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50'}`}>
+                          <tr
+                            onClick={() => accountCollapse.toggle(r.account)}
+                            className={`border-y-2 cursor-pointer ${tier === 1 ? 'border-primary/30 bg-primary/5 hover:bg-primary/10' : 'border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 hover:from-blue-100 hover:via-indigo-100 hover:to-violet-100'}`}
+                          >
                             <td colSpan={totalCols} className="py-2 px-3">
                               <div className="flex items-baseline gap-3 flex-wrap">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 flex-shrink-0">
+                                  {acctCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                </span>
                                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${tier === 1 ? 'bg-primary/20 text-primary' : 'bg-primary/15 text-primary'}`}>
                                   <Building2 size={14} />
                                 </span>
@@ -945,7 +958,7 @@ export default function IndiaStaffingPage() {
                             </td>
                           </tr>
                         )}
-                        {renderRow(r, { selectable: true, hideAccount: groupByAccount })}
+                        {!acctCollapsed && renderRow(r, { selectable: true, hideAccount: groupByAccount })}
                       </Fragment>
                     );
                   });

@@ -115,11 +115,14 @@ export default function USStaffingPage() {
   // is the compact left rail + right detail pane that kills horizontal
   // scroll. Persisted to localStorage so the user's pick sticks.
   const [viewMode, setViewMode] = useState<'table' | 'split'>(() => {
+    // Split is the default now — Table is opt-in for anyone who prefers
+    // the wide inline-edit grid. An explicit prior 'table' pick is
+    // respected; anything else (unset, or explicitly 'split') gives split.
     try {
       const stored = localStorage.getItem('us-staffing-view-mode');
-      return stored === 'split' ? 'split' : 'table';
+      return stored === 'table' ? 'table' : 'split';
     } catch {
-      return 'table';
+      return 'split';
     }
   });
   useEffect(() => {

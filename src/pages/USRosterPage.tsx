@@ -23,6 +23,8 @@ import {
 } from '../types/usRoster';
 import { ROSTER_ROLES } from '../types/indiaRoster';
 import type { VisaCategory } from '../types/openBench';
+import { USRosterCardGrid } from './us-roster/USRosterCardGrid';
+import { LayoutGrid, Rows3 } from 'lucide-react';
 
 /* —— Multi-project helpers ——
  * `project` is stored as a single TEXT column (comma-separated). One US
@@ -252,6 +254,18 @@ export default function USRosterPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [sortField, setSortField] = useState<string>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  // View mode: 'cards' is the rich new default, 'table' is opt-in for anyone
+  // who wants the spreadsheet layout back. Persisted per-page.
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    try {
+      const stored = localStorage.getItem('us-roster-view-mode');
+      return stored === 'table' ? 'table' : 'cards';
+    } catch { return 'cards'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('us-roster-view-mode', viewMode); } catch { /* private mode */ }
+  }, [viewMode]);
+
 
   const [draft, setDraft] = useState({
     name: '',
@@ -391,6 +405,28 @@ export default function USRosterPage() {
       <PageHeader
         title="Global Roster"
         subtitle="Full FTE roster — billable allocations, bench, visa, location, margin"
+        action={
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" title="Switch between the card grid and the wide inline-edit table">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'cards' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutGrid size={12} /> Cards
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Rows3 size={12} /> Table
+            </button>
+          </div>
+        }
       />
 
       {/* Stats */}
@@ -589,7 +625,15 @@ export default function USRosterPage() {
         </Card>
       )}
 
-      {/* Roster Table */}
+      {/* Roster — card grid (default) or table (opt-in) */}
+      {viewMode === 'cards' && (
+        <USRosterCardGrid
+          members={filtered}
+          onSave={(id, field, val) => handleCellSave(id, field as string, val)}
+          onDelete={(id) => removeMember(id)}
+        />
+      )}
+      {viewMode === 'table' && (
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -705,6 +749,7 @@ export default function USRosterPage() {
           </table>
         </div>
       </Card>
+      )}
     </>
   );
 }

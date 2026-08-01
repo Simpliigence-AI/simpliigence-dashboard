@@ -14,7 +14,7 @@ import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Users, UserCheck, UserPlus, UserCog,
+  Users, UserPlus, UserCog,
   Building2, Handshake, Target,
   Headset, Sparkles,
   ClipboardList, Globe,
@@ -84,7 +84,7 @@ const HUBS: Hub[] = [
       { to: '/vendors',             icon: Handshake,     label: 'Vendors',            desc: 'TA vendor directory — staffing + recruiting partners' },
       { to: '/profile-format',      icon: FileEdit,      label: 'Profile Format',     desc: 'Resume reformatter + parser' },
       { to: '/india-hiring-forecast', icon: UserPlus,    label: 'Hiring Forecast (India)', desc: 'India hiring plan vs demand' },
-      { to: '/hiring-forecast',     icon: UserPlus,      label: 'Hiring Forecast (US)',    desc: 'US hiring plan vs demand' },
+      { to: '/hiring-forecast',     icon: UserPlus,      label: 'Hiring Forecast (Global)', desc: 'Global hiring plan vs demand' },
     ],
   },
   {
@@ -101,14 +101,13 @@ const HUBS: Hub[] = [
   },
   {
     key: 'us_tm',
-    label: 'US T&M',
-    tagline: 'US staffing operations',
+    label: 'Global T&M',
+    tagline: 'Global staffing operations',
     accent: 'from-red-500 to-orange-500',
     icon: Globe,
     links: [
-      { to: '/us-staffing', icon: Globe,     label: 'US Demand',   desc: 'Open positions + demand pipeline (US)' },
-      { to: '/us-roster',   icon: Users,     label: 'US Roster',   desc: 'Every US billable + bench resource' },
-      { to: '/open-bench',  icon: UserCheck, label: 'Open Bench',  desc: 'Available consultants — searchable bench' },
+      { to: '/us-staffing', icon: Globe, label: 'Global Demand', desc: 'Open positions + demand pipeline' },
+      { to: '/us-roster',   icon: Users, label: 'Global Roster', desc: 'Every billable + bench resource' },
     ],
   },
   {

@@ -14,7 +14,6 @@ import {
   ClipboardList,
   PanelLeftOpen,
   Globe,
-  UserCheck,
   TrendingUp,
   Clock,
   Timer,
@@ -96,11 +95,10 @@ const sections: NavSection[] = [
     ],
   },
   {
-    label: 'US T&M',
+    label: 'Global T&M',
     items: [
-      { to: '/us-staffing', icon: Globe, label: 'US Demand' },
-      { to: '/us-roster', icon: Users, label: 'US Roster' },
-      { to: '/open-bench', icon: UserCheck, label: 'Open Bench' },
+      { to: '/us-staffing', icon: Globe, label: 'Global Demand' },
+      { to: '/us-roster', icon: Users, label: 'Global Roster' },
     ],
   },
   {

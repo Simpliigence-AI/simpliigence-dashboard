@@ -500,7 +500,7 @@ export default function USStaffingPage() {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Total Requisitions" value={totalReqs} icon={<Users size={20} />} subtitle="All US roles" />
+        <StatCard label="Total Requisitions" value={totalReqs} icon={<Users size={20} />} subtitle="All roles" />
         <StatCard label="Active" value={activeReqs} icon={<TrendingUp size={20} />} subtitle="In pipeline" />
         <StatCard label="Closed/Onboarding" value={closedReqs} icon={<CheckCircle size={20} />} subtitle="Filled roles" />
         <StatCard label="MSP Roles" value={mspReqs} icon={<Building2 size={20} />} subtitle="MSP accounts" />
@@ -761,8 +761,8 @@ export default function USStaffingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="US Staffing"
-        subtitle="Manage US staffing requisitions across MSP and SI accounts"
+        title="Global Staffing"
+        subtitle="Manage staffing requisitions across MSP and SI accounts"
       />
 
       {/* Tab Navigation */}

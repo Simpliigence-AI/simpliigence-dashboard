@@ -386,8 +386,8 @@ export default function USRosterPage() {
   return (
     <>
       <PageHeader
-        title="US Roster"
-        subtitle="Full US FTE roster — billable allocations, bench, visa, location, margin"
+        title="Global Roster"
+        subtitle="Full FTE roster — billable allocations, bench, visa, location, margin"
       />
 
       {/* Stats */}
@@ -503,7 +503,7 @@ export default function USRosterPage() {
       {showAdd && (
         <Card className="border-2 border-blue-200 bg-blue-50/30 mb-4">
           <div className="p-4 space-y-3">
-            <h4 className="text-sm font-bold text-slate-700">New US Roster Member</h4>
+            <h4 className="text-sm font-bold text-slate-700">New Global Roster Member</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="text-[10px] uppercase text-slate-500 font-semibold">Name *</label>

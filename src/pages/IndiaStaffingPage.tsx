@@ -147,10 +147,12 @@ export default function IndiaStaffingPage() {
   // View mode: 'table' (wide inline grid) vs 'split' (compact list + right
   // detail pane). Persisted per-page to localStorage.
   const [viewMode, setViewMode] = useState<'table' | 'split'>(() => {
+    // Split is the default now. Only respect an explicit prior 'table'
+    // pick; unset or 'split' both fall through to split.
     try {
       const stored = localStorage.getItem('india-staffing-view-mode');
-      return stored === 'split' ? 'split' : 'table';
-    } catch { return 'table'; }
+      return stored === 'table' ? 'table' : 'split';
+    } catch { return 'split'; }
   });
   useEffect(() => {
     try { localStorage.setItem('india-staffing-view-mode', viewMode); } catch { /* private mode */ }

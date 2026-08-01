@@ -15,6 +15,8 @@ import type { USStaffingStage, AccountCategory } from '../types/usStaffing';
 import { US_STAGE_COLORS } from '../types/usStaffing';
 import { db } from '../lib/supabaseSync';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
+import { USStaffingSplitView } from './us-staffing/USStaffingSplitView';
+import { Rows3, Columns3 } from 'lucide-react';
 
 // Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
 const URGENT_UNSECURED = 250_000;
@@ -109,6 +111,20 @@ export default function USStaffingPage() {
   // Collapse-by-default per-account view. Uses the shared hook so state
   // persists to localStorage and matches the roster pages' behaviour.
   const accountCollapse = useCollapsedGroups('us-staffing-account', { defaultCollapsed: true });
+  // View mode — 'table' is the wide inline-editable grid (default), 'split'
+  // is the compact left rail + right detail pane that kills horizontal
+  // scroll. Persisted to localStorage so the user's pick sticks.
+  const [viewMode, setViewMode] = useState<'table' | 'split'>(() => {
+    try {
+      const stored = localStorage.getItem('us-staffing-view-mode');
+      return stored === 'split' ? 'split' : 'table';
+    } catch {
+      return 'table';
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('us-staffing-view-mode', viewMode); } catch { /* private mode */ }
+  }, [viewMode]);
 
   // ── JD generator state (US side; mirror of India Demand) ──
   const [jdReqId, setJdReqId] = useState<string | null>(null);
@@ -755,9 +771,20 @@ export default function USStaffingPage() {
         );
       })()}
 
-      {/* Requisitions grouped by MSP / SI */}
-      {renderAccountGroup(mspAccounts, 'MSP Accounts')}
-      {renderAccountGroup(siAccounts, 'SI Accounts')}
+      {/* Requisitions — split view or grouped by MSP / SI */}
+      {viewMode === 'split' ? (
+        <USStaffingSplitView
+          reqs={scoredReqs}
+          accounts={accounts}
+          onSave={(id, field, val) => handleCellSave(id, field as string, val)}
+          onDelete={(id) => removeRequisition(id)}
+        />
+      ) : (
+        <>
+          {renderAccountGroup(mspAccounts, 'MSP Accounts')}
+          {renderAccountGroup(siAccounts, 'SI Accounts')}
+        </>
+      )}
     </div>
   );
 
@@ -769,22 +796,46 @@ export default function USStaffingPage() {
         subtitle="Manage staffing requisitions across MSP and SI accounts"
       />
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-        {[
-          { key: 'all', label: 'All Requisitions' },
-          { key: 'forecast', label: 'AI Forecast' },
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tab Navigation + View mode toggle */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+          {[
+            { key: 'all', label: 'All Requisitions' },
+            { key: 'forecast', label: 'AI Forecast' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activeTab === 'all' && (
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" title="Switch between the wide inline-edit table and the compact split view">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Rows3 size={12} /> Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Columns3 size={12} /> Split view
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tab Content */}

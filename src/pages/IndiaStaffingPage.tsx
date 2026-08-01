@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
+import { IndiaStaffingSplitView } from './india-staffing/IndiaStaffingSplitView';
+import { Rows3, Columns3 } from 'lucide-react';
 import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
 import { Sensitive } from '../components/Sensitive';
 import { analyzeStaffingStatus } from '../lib/staffingAnalysis';
@@ -142,6 +144,17 @@ export default function IndiaStaffingPage() {
   // in the other. Default: collapsed — user expands only the accounts
   // they care about.
   const accountCollapse = useCollapsedGroups('india-staffing-account', { defaultCollapsed: true });
+  // View mode: 'table' (wide inline grid) vs 'split' (compact list + right
+  // detail pane). Persisted per-page to localStorage.
+  const [viewMode, setViewMode] = useState<'table' | 'split'>(() => {
+    try {
+      const stored = localStorage.getItem('india-staffing-view-mode');
+      return stored === 'split' ? 'split' : 'table';
+    } catch { return 'table'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('india-staffing-view-mode', viewMode); } catch { /* private mode */ }
+  }, [viewMode]);
   const [showArchive, setShowArchive] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -1294,12 +1307,41 @@ export default function IndiaStaffingPage() {
             )}
           </Card>
 
-          {/* ── Tier 1 + Tier 2 rendering (extracted so it runs twice) ──
+          {/* View mode toggle */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mb-3" title="Switch between the wide inline-edit table and the compact split view">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Rows3 size={12} /> Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Columns3 size={12} /> Split view
+            </button>
+          </div>
+
+          {viewMode === 'split' ? (
+            <IndiaStaffingSplitView
+              rows={filtered}
+              onSave={(id, field, val) => handleCellSave(id, field, val)}
+              onDelete={(id) => removeRequisition(id)}
+            />
+          ) : (
+          /* ── Tier 1 + Tier 2 rendering (extracted so it runs twice) ──
            *  Splits `filtered` by the tier of its owning account, renders
            *  Tier 1 as a prominent, always-open card and Tier 2 as a
            *  collapsible one below. Each section only shows its own
-           *  bulk-action bar so selecting doesn't leak across tiers. */}
-          {(() => {
+           *  bulk-action bar so selecting doesn't leak across tiers. */
+          (() => {
             const accountTier = new Map<string, 1 | 2>(accounts.map((a) => [a.id, (a.tier === 1 ? 1 : 2)]));
             const tier1Rows = filtered.filter((r) => accountTier.get(r.account_id) === 1);
             const tier2Rows = filtered.filter((r) => accountTier.get(r.account_id) !== 1);
@@ -1322,7 +1364,7 @@ export default function IndiaStaffingPage() {
                 />
               </>
             );
-          })()}
+          })())}
 
           {/* -- OLD single-card Active Requisitions kept only as a fallback if
                 tier-split needs to be reverted; guarded by `false` so it stays

@@ -272,6 +272,59 @@ Deno.serve(async (req: Request) => {
       removed = staleIds.length;   // would-be count
     }
 
+    // 6.5. Reconcile leftover manual-source Billable rows on accounts that
+    //     planning-2026 now authoritatively manages. When we migrated from
+    //     the SharePoint cron to planning-2026, rows tagged source='manual'
+    //     that didn't match a planning-2026 role by name got orphaned —
+    //     still Billable, still on the account, but no longer backed by an
+    //     SOW position. Left alone they inflate the roster vs the Sales
+    //     Plan Tool. This pass flips them to Inactive with an explanatory
+    //     note so admins can review + restore if any turn out to be legit.
+    //
+    //     Safety: only touches rows on accounts the sync produced ≥1 row
+    //     for this run. If planning-2026 doesn't manage an account, its
+    //     manual rows are left alone.
+    let reconciled = 0;
+    const reconciledSample: Array<{ name: string; project: string | null; wasSource: string }> = [];
+    if (!dryRun) {
+      const managedAccounts = new Set<string>();
+      for (const p of active) {
+        const acct = typeof p.rankId === 'number' ? rankToAccount.get(p.rankId) : null;
+        if (acct) managedAccounts.add(acct);
+      }
+      if (managedAccounts.size > 0) {
+        const { data: stragglers } = await supabase
+          .from('india_roster')
+          .select('id, name, project, source, notes')
+          .eq('status', 'Billable')
+          .neq('source', SOURCE)
+          .in('project', Array.from(managedAccounts));
+        const noteStamp = now.slice(0, 10);
+        for (const s of (stragglers ?? [])) {
+          // Skip if the row's name matches a planning-2026 role we just
+          // placed — that's a legit ownership transfer, not a straggler.
+          // (In practice findMatch would have caught it earlier.)
+          if (touchedNames.has(normName(s.name as string))) continue;
+          const staleNote = `[Auto-inactivated ${noteStamp} by planning-2026-sync: was Billable on ${s.project} but not present in the Sales Plan Tool as of this run. Restore status if this is wrong.]`;
+          const mergedNotes = s.notes && String(s.notes).trim().length > 0
+            ? `${s.notes}\n${staleNote}`
+            : staleNote;
+          const { error } = await supabase.from('india_roster').update({
+            status: 'Inactive',
+            notes: mergedNotes,
+            updated_at: now,
+            updated_by: 'planning-2026-sync',
+          }).eq('id', s.id);
+          if (!error) {
+            reconciled += 1;
+            if (reconciledSample.length < 20) {
+              reconciledSample.push({ name: s.name as string, project: s.project as string | null, wasSource: s.source as string });
+            }
+          }
+        }
+      }
+    }
+
     // 7. Report
     return new Response(JSON.stringify({
       ok: true,
@@ -281,6 +334,8 @@ Deno.serve(async (req: Request) => {
       added,
       updated,
       removed,
+      reconciled,
+      reconciledSample,
       kept: (existingRows ?? []).length - removed,
     }), { headers: corsHeaders });
   } catch (e) {

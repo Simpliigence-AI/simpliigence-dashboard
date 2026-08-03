@@ -35,7 +35,11 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
       description: description.trim() || undefined,
       priority,
       account: acct?.name ?? null,
-      accountId: acct?.id ?? null,
+      // Do not persist concierge_accounts.id into tickets.account_id: the FK
+      // tickets_account_id_fkey points at a different parent table, so writing
+      // this id violates the constraint. Grouping uses the `account` name text,
+      // not account_id, so null is safe (inbound path also writes null on no-match).
+      accountId: null,
       assigneeEmail: assigneeEmail.trim() || null,
       senderEmail: senderEmail.trim() || null,
       senderName: senderName.trim() || null,

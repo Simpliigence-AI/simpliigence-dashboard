@@ -33,6 +33,7 @@ const GRAPH_CLIENT_SECRET = env('GRAPH_CLIENT_SECRET');
 const GRAPH_SENDER_MAILBOX = env('GRAPH_SENDER_MAILBOX');
 const GRAPH_SENDER_NAME = env('GRAPH_SENDER_NAME') || 'Simpliigence HR';
 const DASHBOARD_URL = env('DASHBOARD_URL') || 'https://simpliigence-ai.github.io/simpliigence-dashboard/leave';
+const LEAVE_NOTIFY_CC = env('LEAVE_NOTIFY_CC') || 'akanksha@simpliigence.com';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,13 +79,14 @@ async function getGraphToken(): Promise<string> {
   return data.access_token;
 }
 
-async function sendEmail(token: string, to: string, subject: string, html: string): Promise<void> {
+async function sendEmail(token: string, to: string, subject: string, html: string, cc: string[] = []): Promise<void> {
   const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(GRAPH_SENDER_MAILBOX!)}/sendMail`;
   const payload = {
     message: {
       subject,
       body: { contentType: 'HTML', content: html },
       toRecipients: [{ emailAddress: { address: to } }],
+      ccRecipients: cc.map((address) => ({ emailAddress: { address } })),
       from: { emailAddress: { address: GRAPH_SENDER_MAILBOX!, name: GRAPH_SENDER_NAME } },
       replyTo: [{ emailAddress: { address: GRAPH_SENDER_MAILBOX! } }],
     },
@@ -98,7 +100,7 @@ async function sendEmail(token: string, to: string, subject: string, html: strin
   if (!r.ok) throw new Error(`Graph sendMail rejected (${r.status}): ${(await r.text()).slice(0, 300)}`);
 }
 
-function renderEmail(event: Event, req: LeaveRequestRow, type: LeaveTypeRow, empName: string): { to: string; subject: string; html: string } {
+function renderEmail(event: Event, req: LeaveRequestRow, type: LeaveTypeRow, empName: string): { to: string; subject: string; html: string; cc?: string[] } {
   const range = req.start_date === req.end_date
     ? req.start_date
     : `${req.start_date} → ${req.end_date}`;
@@ -108,6 +110,7 @@ function renderEmail(event: Event, req: LeaveRequestRow, type: LeaveTypeRow, emp
   if (event === 'submitted') {
     return {
       to: req.manager_email || GRAPH_SENDER_MAILBOX!,
+      cc: [LEAVE_NOTIFY_CC],
       subject: `Leave request: ${empName} — ${range} (${days}d ${type.code})`,
       html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;max-width:640px;margin:0 auto;padding:24px">
         <div style="padding-bottom:12px;border-bottom:2px solid #F97316;margin-bottom:20px">
@@ -209,7 +212,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const token = await getGraphToken();
-    await sendEmail(token, email.to, email.subject, email.html);
+    await sendEmail(token, email.to, email.subject, email.html, email.cc);
 
     return new Response(JSON.stringify({ ok: true, sentTo: email.to, event }), { headers: corsHeaders });
   } catch (e) {

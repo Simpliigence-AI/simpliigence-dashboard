@@ -20,6 +20,7 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
   const [priority, setPriority] = useState('medium');
   const [accountId, setAccountId] = useState<string>(defaultAccountId ?? '');
   const [assigneeEmail, setAssigneeEmail] = useState('');
+  const [estimatedHours, setEstimatedHours] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
   const [senderName, setSenderName] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -41,13 +42,14 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
       // not account_id, so null is safe (inbound path also writes null on no-match).
       accountId: null,
       assigneeEmail: assigneeEmail.trim() || null,
+      estimatedHours: estimatedHours.trim() === '' ? null : Number(estimatedHours),
       senderEmail: senderEmail.trim() || null,
       senderName: senderName.trim() || null,
     });
     setSubmitting(false);
     if (!res.ok) { setError(res.message || 'Failed to create ticket'); return; }
     setSubject(''); setDescription(''); setPriority('medium'); setAccountId(defaultAccountId ?? '');
-    setAssigneeEmail(''); setSenderEmail(''); setSenderName('');
+    setAssigneeEmail(''); setEstimatedHours(''); setSenderEmail(''); setSenderName('');
     onClose();
   };
 
@@ -70,7 +72,10 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
             options={accounts.map((a) => ({ value: a.id, label: a.name }))}
           />
         </div>
-        <Input label="Assignee email" type="email" value={assigneeEmail} onChange={(e) => setAssigneeEmail(e.target.value)} placeholder="you@simpliigence.com" />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Assignee email" type="email" value={assigneeEmail} onChange={(e) => setAssigneeEmail(e.target.value)} placeholder="you@simpliigence.com" />
+          <Input label="Estimated hours" type="number" step="0.25" min="0" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} placeholder="e.g. 4" />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Reporter email" type="email" value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="client@example.com" />
           <Input label="Reporter name" value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="Jane Doe" />

@@ -42,6 +42,8 @@ export interface ConciergeTicket {
   resolution: string | null;
   resolvedAt: string | null;
   hoursLogged: number;
+  /** Planned/estimate value set by admins — distinct from logged hours. */
+  estimatedHours: number | null;
   source: 'email' | 'manual' | 'api' | 'zoho_desk_legacy';
   senderEmail: string | null;
   senderName: string | null;
@@ -108,9 +110,10 @@ interface ConciergeState {
     assigneeEmail?: string | null;
     senderEmail?: string | null;
     senderName?: string | null;
+    estimatedHours?: number | null;
   }) => Promise<{ ok: boolean; id?: string; message?: string }>;
   updateTicket: (id: string, patch: Partial<Pick<ConciergeTicket,
-    'assigneeEmail' | 'priority' | 'status' | 'account' | 'accountId' | 'dueDate' | 'subject' | 'description' | 'resolution'
+    'assigneeEmail' | 'priority' | 'status' | 'account' | 'accountId' | 'dueDate' | 'subject' | 'description' | 'resolution' | 'estimatedHours'
   >>) => Promise<void>;
   addInternalNote: (ticketId: string, body: string, author: string) => Promise<void>;
   logHours: (ticketId: string, hours: number, notes: string, userEmail: string) => Promise<void>;
@@ -143,6 +146,7 @@ function rowToTicket(row: any): ConciergeTicket {
     resolution: row.resolution ?? null,
     resolvedAt: row.resolved_at ?? null,
     hoursLogged: Number(row.hours_logged ?? 0),
+    estimatedHours: row.estimated_hours == null ? null : Number(row.estimated_hours),
     source: (row.source ?? 'zoho_desk_legacy') as ConciergeTicket['source'],
     senderEmail: row.sender_email ?? null,
     senderName: row.sender_name ?? null,
@@ -285,6 +289,7 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
       assignee_email: input.assigneeEmail ?? null,
       sender_email: input.senderEmail ?? null,
       sender_name: input.senderName ?? null,
+      estimated_hours: input.estimatedHours ?? null,
       source: 'manual',
       created_time: nowIso,
       last_synced_at: nowIso,
@@ -305,6 +310,7 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     if ('subject' in patch) row.subject = patch.subject;
     if ('description' in patch) row.description = patch.description;
     if ('resolution' in patch) row.resolution = patch.resolution;
+    if ('estimatedHours' in patch) row.estimated_hours = patch.estimatedHours;
     const { error } = await supabase.from('tickets').update(row).eq('id', id);
     if (error) { console.warn('[concierge] updateTicket:', error.message); return; }
     set((s) => ({

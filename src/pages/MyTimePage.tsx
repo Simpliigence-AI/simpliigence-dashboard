@@ -960,8 +960,17 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [entries, extraRows]);
 
+  // Belt + suspenders: even though the parent already scoped `entries` to
+  // the current user's rows, filter on employeeEmail here too. This makes
+  // the grid render safe in the (in)correct future where the parent forgets
+  // to scope — and prevents the 2026-08-04 incident where a matches-based
+  // delete could wipe another user's row.
   const matchesFor = (name: string, iso: string) =>
-    entries.filter((e) => e.projectName === name && e.workDate === iso);
+    entries.filter((e) =>
+      e.employeeEmail.toLowerCase() === myEmail.toLowerCase()
+      && e.projectName === name
+      && e.workDate === iso,
+    );
   const baseHours = (name: string, iso: string) =>
     matchesFor(name, iso).reduce((s, e) => s + e.hours, 0);
   // A cell backed by >1 entries can't be faithfully edited as a single number
@@ -1018,7 +1027,12 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
       const name = key.slice(0, sep);
       const iso = key.slice(sep + 1);
       const hours = clampHours(Number(edits[key]) || 0);
-      const matches = matchesFor(name, iso);
+      // Only match the CURRENT USER's manually-entered rows for this cell.
+      // Zoho-sourced mirror rows and any other row live alongside — we never
+      // touch them from the grid. This is the fix for the 2026-08-04 incident
+      // where cell edits silently deleted parallel rows on the same day/project.
+      const allMatches = matchesFor(name, iso);
+      const matches = allMatches.filter((e) => e.source !== 'zoho_people');
       if (hours > 0) {
         if (matches.length === 0) {
           await addEntry({
@@ -1032,13 +1046,21 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
             status,
           });
         } else {
-          // Clear any stale approval/rejection metadata on resubmit (mirrors submitWeek).
+          // Update the FIRST manually-entered match with the new value. If
+          // duplicates snuck in earlier (before this fix), we leave them
+          // alone — a separate reconciliation report will surface them so
+          // admins can decide, but the edit path itself must never delete
+          // user data silently.
           await updateEntry(matches[0].id, { hours, status, submittedAt, approvedBy: null, approvedAt: null, rejectReason: null });
-          for (const extra of matches.slice(1)) await deleteEntry(extra.id);
         }
       } else {
-        // Cleared cell: delete any entries that existed.
-        for (const m of matches) await deleteEntry(m.id);
+        // Cleared cell: delete only the user's manually-entered rows for
+        // this cell, and only if there's exactly one. Ambiguous cases
+        // (multiple manual rows) are left intact — the user can go find
+        // the specific one and delete it via the list view.
+        if (matches.length === 1) {
+          await deleteEntry(matches[0].id);
+        }
       }
     }
   };

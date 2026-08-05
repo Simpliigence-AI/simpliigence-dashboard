@@ -14,7 +14,7 @@
  * approve checkbox column at the left for blasting through a backlog.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Check, X, Filter, CheckCheck, Download, Pencil, Paperclip, History, Loader2 } from 'lucide-react';
+import { Check, X, Filter, CheckCheck, Download, Pencil, Paperclip, History, Loader2, Upload, Search } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
@@ -93,6 +93,7 @@ const STATUS_PILL: Record<TimeEntry['status'], string> = {
 export default function TeamTimePage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const loading = useAuthStore((s) => s.loading);
+  const directory = useAuthStore((s) => s.directory);
   const role = currentUser?.role;
 
   const { entries, approveEntry, rejectEntry, updateEntryFields } = useTimeEntryStore();
@@ -109,6 +110,15 @@ export default function TeamTimePage() {
   const [historyTarget, setHistoryTarget] = useState<TimeEntry | null>(null);
   const [historyRows, setHistoryRows] = useState<TimeEntryAudit[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Standalone "Upload documents for any resource" modal — lets a manager/admin
+  // attach a week's timesheet docs to ANY resource, including contractors who
+  // have never submitted a time entry (so they have no row + no per-row Docs button).
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerEmail, setPickerEmail] = useState('');
+  // Any day inside the target week; weekBounds() snaps it to Monday–Sunday.
+  const [pickerWeekDay, setPickerWeekDay] = useState(() => toIsoDate(new Date()));
 
   // Load the audit trail whenever a History modal opens.
   useEffect(() => {
@@ -158,6 +168,22 @@ export default function TeamTimePage() {
     entries.filter((e) => e.status === 'submitted' && (isAdmin || e.employeeEmail.toLowerCase() !== myEmail)).length,
     [entries, isAdmin, myEmail],
   );
+
+  // Full resource directory (all authorized_users, loaded at app start and
+  // readable by managers + admins via RLS). Includes contractors with zero
+  // time entries — that's the whole point of the standalone uploader. Computed
+  // as plain derived values (not hooks) so they sit cleanly after the early
+  // returns above; the directory is small enough that memoising isn't needed.
+  const resources = Object.values(directory)
+    .map((p) => ({ email: p.email, name: p.fullName || p.email }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const pickerQuery = pickerSearch.trim().toLowerCase();
+  const filteredResources = pickerQuery
+    ? resources.filter((r) => r.email.toLowerCase().includes(pickerQuery) || r.name.toLowerCase().includes(pickerQuery))
+    : resources;
+
+  const pickerWeek = weekBounds(pickerWeekDay);
 
   const allSelected = visibleEntries.length > 0 && visibleEntries.every((e) => selected.has(e.id));
   const someSelected = selected.size > 0;
@@ -276,6 +302,14 @@ export default function TeamTimePage() {
               title={`Download ${visibleEntries.length} entries as CSV`}
             >
               <Download size={12} /> Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => setUploadOpen(true)}
+              className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 inline-flex items-center gap-1.5"
+              title="Upload timesheet documents for any resource — including those with no time entries"
+            >
+              <Upload size={12} /> Upload documents
             </button>
           </div>
         }
@@ -541,6 +575,85 @@ export default function TeamTimePage() {
               periodEnd={docsTarget.periodEnd}
               uploadedBy={myEmail}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Standalone upload modal — pick ANY resource + week, then manage its docs.
+          Covers contractors with no time entries (no row → no per-row Docs button). */}
+      {uploadOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setUploadOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900">Upload timesheet documents</h3>
+                <p className="text-[11px] text-slate-500">Pick any resource and a week — works even for resources with no time entries.</p>
+              </div>
+              <button type="button" onClick={() => setUploadOpen(false)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Resource picker */}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Resource</label>
+                <div className="relative">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={pickerSearch}
+                    onChange={(ev) => setPickerSearch(ev.target.value)}
+                    placeholder="Search by name or email…"
+                    className="w-full border border-slate-300 rounded-md pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+                <div className="mt-2 border border-slate-200 rounded-md max-h-52 overflow-y-auto divide-y divide-slate-100">
+                  {filteredResources.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400">No resources match.</div>
+                  ) : (
+                    filteredResources.map((r) => (
+                      <button
+                        key={r.email}
+                        type="button"
+                        onClick={() => setPickerEmail(r.email)}
+                        className={`w-full text-left px-3 py-2 flex items-center justify-between gap-2 hover:bg-slate-50 ${
+                          pickerEmail === r.email ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <TaIdentity email={r.email} avatarSize={26} nameSize="text-xs" />
+                        {pickerEmail === r.email && <Check size={14} className="text-primary flex-shrink-0" />}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Week picker */}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Week</label>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input
+                    type="date"
+                    value={pickerWeekDay}
+                    onChange={(ev) => ev.target.value && setPickerWeekDay(ev.target.value)}
+                    className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <span className="text-[11px] text-slate-500">Week of {pickerWeek.periodStart} – {pickerWeek.periodEnd} (Mon–Sun)</span>
+                </div>
+              </div>
+
+              {/* Documents for the chosen resource + week */}
+              {pickerEmail ? (
+                <DocumentsPanel
+                  employeeEmail={pickerEmail}
+                  periodStart={pickerWeek.periodStart}
+                  periodEnd={pickerWeek.periodEnd}
+                  uploadedBy={myEmail}
+                />
+              ) : (
+                <div className="border border-dashed border-slate-200 rounded-lg py-8 text-center text-sm text-slate-400">
+                  Select a resource above to manage its documents for this week.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

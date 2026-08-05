@@ -809,16 +809,41 @@ export async function fetchCallTemplates(): Promise<CallTemplate[] | null> {
 }
 
 export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
-  // RLS already restricts to (own + reports + admin/manager) so a plain select is fine.
-  const { data, error } = await supabase
-    .from('time_entries')
-    .select('*')
-    .order('work_date', { ascending: false });
-  if (error) {
-    console.warn('[supabase] fetch time_entries failed:', error);
-    return null;
+  // RLS already restricts to (own + reports + admin/manager). But PostgREST
+  // caps each response at 1000 rows regardless of Range header, so a manager's
+  // team-wide scope (>1000 rows) silently drops the oldest entries. Paginate
+  // client-side — keyset on `id` (TEXT PK, always unique), mirroring
+  // fetchAllCandidates — then sort by work_date DESC once assembled.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
+  const pageSize = 1000;
+  let lastId: string | null = null;
+  let page = 0;
+  while (true) {
+    page++;
+    let q = supabase
+      .from('time_entries')
+      .select('*')
+      .order('id', { ascending: true })
+      .limit(pageSize);
+    if (lastId) q = q.gt('id', lastId);
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await q;
+    if (error) {
+      console.warn('[supabase] fetch time_entries failed:', error, '— have', all.length, 'rows so far');
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []) as any[];
+    console.log(`[time_entries] page ${page}: ${rows.length} rows (after id=${lastId ?? 'START'}) — total so far ${all.length + rows.length}`);
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    lastId = rows[rows.length - 1].id as string;
+    if (all.length >= 100_000) { console.warn('[supabase] time_entries hit 100k safety cap'); break; }
   }
-  return (data || []).map(rowToTimeEntry);
+  return all
+    .map(rowToTimeEntry)
+    .sort((a, b) => b.workDate.localeCompare(a.workDate));
 }
 
 export async function fetchTaDailyLog(): Promise<TADailyLogEntry[] | null> {

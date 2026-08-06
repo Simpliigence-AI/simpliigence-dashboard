@@ -27,6 +27,7 @@ import DialerPage from '../pages/DialerPage';
 import HomePage from '../pages/HomePage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
+import TeamLeavePage from '../pages/TeamLeavePage';
 import LeavePage from '../pages/LeavePage';
 import UsersPage from '../pages/admin/UsersPage';
 import ActivityPage from '../pages/admin/ActivityPage';
@@ -51,6 +52,9 @@ export const router = createBrowserRouter(
         { path: 'my-team-time', element: <TeamTimePage /> },
         // Leave — everyone; approvals tab is auto-shown for anyone with reports
         { path: 'leave', element: <LeavePage /> },
+        // Team Leave — manager/admin view of ALL employees' leave requests
+        // (the page itself enforces the admin+manager role gate).
+        { path: 'team-leave', element: <TeamLeavePage /> },
 
         // Projects section — admin only. TA Managers (role='manager') see
         // these in neither the sidebar nor when typing the URL directly.

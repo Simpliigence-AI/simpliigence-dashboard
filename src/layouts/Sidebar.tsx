@@ -143,6 +143,8 @@ const employeeOnlySections: NavSection[] = [
 const myTimeItem: NavItem = { to: '/my-time', icon: Timer, label: 'My Time' };
 /** Manager approval queue, shown to admins/managers under the Projects group. */
 const teamTimeItem: NavItem = { to: '/my-team-time', icon: CheckSquare, label: 'Team Time' };
+/** Manager/admin view of all employees' leave requests, next to Team Time. */
+const teamLeaveItem: NavItem = { to: '/team-leave', icon: CalendarCheck, label: 'Team Leave' };
 
 /** Wraps NavLink (internal) or a plain <a target=_blank> (external) so we can
  *  render both shapes side-by-side in the sidebar. External items get a small
@@ -227,13 +229,13 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       ? sections
           .map((s) =>
             s.label === 'Projects'
-              ? { ...s, items: [myTimeItem, teamTimeItem, ...s.items] }
+              ? { ...s, items: [myTimeItem, teamTimeItem, teamLeaveItem, ...s.items] }
               : s,
           )
           .concat([adminSection])
       : // TA Manager
         [
-          { label: 'My Work', items: [myTimeItem, teamTimeItem] } as NavSection,
+          { label: 'My Work', items: [myTimeItem, teamTimeItem, teamLeaveItem] } as NavSection,
           ...sections.filter((s) => s.label !== 'Projects'),
         ];
 

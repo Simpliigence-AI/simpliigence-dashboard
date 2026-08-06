@@ -3171,20 +3171,61 @@ function rowToLeaveAudit(row: any): LeaveAuditEntry {
   };
 }
 
+/** PostgREST caps each response at 1000 rows regardless of the Range header.
+ *  A single `.select('*')` on leave_requests silently truncates once the row
+ *  count (or, after the manager-read RLS change, a manager's now-org-wide
+ *  visibility) crosses 1000. We keyset-paginate over `id` (TEXT PK, always
+ *  unique) — the same pattern as `fetchAllCandidates` / `fetchTimeEntries` —
+ *  so both the Leave page and the Team Leave page are safe past the cap.
+ *  Returns mapped `LeaveRequest[]`, newest-first (client-side sort by
+ *  created_at once assembled, since we page by id, not created_at). */
+export async function fetchAllLeaveRequests(): Promise<LeaveRequest[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
+  const pageSize = 1000;
+  let lastId: string | null = null;
+  let page = 0;
+  while (true) {
+    page++;
+    let q = supabase
+      .from('leave_requests')
+      .select('*')
+      .order('id', { ascending: true })
+      .limit(pageSize);
+    if (lastId) q = q.gt('id', lastId);
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await q;
+    if (error) {
+      console.warn('[leave_requests] page', page, 'failed:', error.message, '— have', all.length, 'rows so far');
+      break;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []) as any[];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    lastId = rows[rows.length - 1].id as string;
+    if (all.length >= 200_000) { console.warn('[leave_requests] hit 200k safety cap'); break; }
+  }
+  return all
+    .map(rowToLeaveRequest)
+    .sort((a, b) => (a.createdAt ?? '') < (b.createdAt ?? '') ? 1 : -1);
+}
+
 export async function fetchLeaveData(): Promise<{
   types: LeaveType[];
   requests: LeaveRequest[];
   allocations: LeaveAllocation[];
 } | null> {
-  const [tRes, rRes, aRes] = await Promise.all([
+  const [tRes, requests, aRes] = await Promise.all([
     supabase.from('leave_types').select('*').order('sort_order', { ascending: true }),
-    supabase.from('leave_requests').select('*').order('created_at', { ascending: false }),
+    // Keyset-paginated so it doesn't truncate at PostgREST's 1000-row cap.
+    fetchAllLeaveRequests(),
     supabase.from('leave_allocations').select('*'),
   ]);
   if (tRes.error) { console.warn('[supabase] fetch leave_types failed:', tRes.error); return null; }
   return {
     types: (tRes.data || []).map(rowToLeaveType),
-    requests: (rRes.data || []).map(rowToLeaveRequest),
+    requests,
     allocations: (aRes.data || []).map(rowToLeaveAllocation),
   };
 }

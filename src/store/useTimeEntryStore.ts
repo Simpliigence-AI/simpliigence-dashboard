@@ -114,8 +114,15 @@ export const useTimeEntryStore = create<TimeEntryState>()(
           ? { status: 'submitted' as const, approvedBy: null, approvedAt: null, rejectReason: null }
           : {};
         const merged: TimeEntry = { ...current, ...fields, ...statusPatch, updatedAt: new Date().toISOString() };
+        // Optimistic update; roll back and rethrow if the write is rejected
+        // (e.g. hours out of the DB CHECK range) so the caller can surface it.
+        const prev = current;
         set({ entries: get().entries.map((e) => (e.id === id ? merged : e)) });
-        await db.updateTimeEntry(id, { ...fields, ...statusPatch });
+        const { error } = await db.updateTimeEntry(id, { ...fields, ...statusPatch });
+        if (error) {
+          set({ entries: get().entries.map((e) => (e.id === id ? prev : e)) });
+          throw error;
+        }
       },
 
       approveEntry: async (id, approverEmail) => {

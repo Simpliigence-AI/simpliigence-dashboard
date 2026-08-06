@@ -8,6 +8,7 @@
  *  - localStorage persist middleware kept as offline fallback / instant page load cache
  */
 import { nanoid } from 'nanoid';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase, CLIENT_ID } from './supabase';
 import type { ForecastAssignment, Month, ZohoPipelineProject } from '../types/forecast';
 import type { FinancialSettings } from '../types/financial';
@@ -1669,7 +1670,7 @@ export const db = {
   /** Plain UPDATE of specific fields on an existing entry (no upsert/INSERT
    *  path). Used by the Team Time manager edit flow so it always takes the
    *  UPDATE-policy branch (which admins/managers are permitted). */
-  async updateTimeEntry(id: string, patch: Partial<TimeEntry>) {
+  async updateTimeEntry(id: string, patch: Partial<TimeEntry>): Promise<{ error: PostgrestError | null }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const row: Record<string, any> = { updated_by: CLIENT_ID, updated_at: new Date().toISOString() };
     if (patch.employeeEmail !== undefined) row.employee_email = patch.employeeEmail.toLowerCase();
@@ -1684,8 +1685,11 @@ export const db = {
     if (patch.approvedBy !== undefined) row.approved_by = patch.approvedBy;
     if (patch.approvedAt !== undefined) row.approved_at = patch.approvedAt;
     if (patch.rejectReason !== undefined) row.reject_reason = patch.rejectReason;
-    const { error } = await supabase.from('time_entries').update(row).eq('id', id);
+    // .select().single() surfaces a 0-row result (e.g. an RLS no-op or CHECK
+    // violation) as an error so callers can roll back and report the failure.
+    const { error } = await supabase.from('time_entries').update(row).eq('id', id).select().single();
     if (error) console.warn('[supabase] update time_entry failed:', error);
+    return { error };
   },
   async deleteTimeEntry(id: string) {
     const { error } = await supabase.from('time_entries').delete().eq('id', id);

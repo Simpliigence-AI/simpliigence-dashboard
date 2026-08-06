@@ -106,6 +106,7 @@ export default function TeamTimePage() {
   const [rejectReason, setRejectReason] = useState('');
   const [editing, setEditing] = useState<EditState | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [docsTarget, setDocsTarget] = useState<DocsTarget | null>(null);
   const [historyTarget, setHistoryTarget] = useState<TimeEntry | null>(null);
   const [historyRows, setHistoryRows] = useState<TimeEntryAudit[]>([]);
@@ -215,13 +216,19 @@ export default function TeamTimePage() {
   };
 
   const openEdit = (e: TimeEntry) => {
+    setEditError(null);
     setEditing({ id: e.id, hours: String(e.hours), billable: e.billable, projectName: e.projectName, notes: e.notes ?? '' });
   };
 
   const saveEdit = async () => {
     if (!editing) return;
     const hours = Number(editing.hours);
-    if (!Number.isFinite(hours) || hours < 0) return;
+    // Match the DB CHECK (hours > 0 AND hours <= 24) with a visible message.
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
+      setEditError('Hours must be between 0 and 24.');
+      return;
+    }
+    setEditError(null);
     setSavingEdit(true);
     try {
       await updateEntryFields(editing.id, {
@@ -231,6 +238,9 @@ export default function TeamTimePage() {
         notes: editing.notes,
       });
       setEditing(null);
+    } catch (err) {
+      // Save failed server-side — keep the modal open and show why.
+      setEditError(err instanceof Error ? err.message : 'Failed to save changes.');
     } finally {
       setSavingEdit(false);
     }
@@ -543,6 +553,9 @@ export default function TeamTimePage() {
                 />
               </div>
               <p className="text-[11px] text-slate-400">Editing hours, billable, or project on an approved entry re-opens it for approval.</p>
+              {editError && (
+                <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{editError}</p>
+              )}
             </div>
             <div className="flex items-center justify-end gap-2 mt-5">
               <button type="button" onClick={() => setEditing(null)} disabled={savingEdit}

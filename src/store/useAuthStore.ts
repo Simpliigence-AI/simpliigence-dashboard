@@ -67,8 +67,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .select('email, full_name, is_admin, role, employee_code, manager_email, avatar_url, gender')
         .eq('email', user.email)
         .maybeSingle();
-      const isAdmin = !!row?.is_admin;
-      const role: UserRole = (row?.role as UserRole | undefined) ?? (isAdmin ? 'admin' : 'employee');
+      const role: UserRole = (row?.role as UserRole | undefined) ?? (row?.is_admin ? 'admin' : 'employee');
+      // Canonical admin flag: either the `is_admin` column OR role='admin'. This is
+      // the single source of truth for every admin gate (sidebar + AdminOnly), so
+      // they can never disagree over which field decides "is admin".
+      const isAdmin = !!row?.is_admin || role === 'admin';
       set({
         currentUser: {
           id: user.id,

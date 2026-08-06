@@ -203,7 +203,9 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const [email, setEmail] = useState<string | null>(null);
   const role = useAuthStore((s) => s.currentUser?.role);
-  const isAdmin = role === 'admin';
+  // Canonical admin flag from the store (is_admin || role==='admin') — same value
+  // AdminOnly gates the /admin/* routes with, so the nav and the routes agree.
+  const isAdmin = useAuthStore((s) => !!s.currentUser?.isAdmin);
   const isEmployee = role === 'employee';
   /**
    * "Effectively collapsed" — only applies on desktop. When the mobile drawer

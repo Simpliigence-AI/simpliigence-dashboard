@@ -5,7 +5,7 @@ import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Plus, X, Check } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -399,11 +399,158 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
 }
 
 /* ── Main page ──────────────────────────────── */
+/* ── New Current Project Form ──────────────── */
+const CURRENT_PROJECT_STATUSES = ['In Progress', 'On Track', 'Delayed', 'On Hold', 'Completed'];
+
+function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) => void; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [owner, setOwner] = useState('');
+  const [status, setStatus] = useState('In Progress');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [revenue, setRevenue] = useState('');
+  const [revCurrency, setRevCurrency] = useState<'USD' | 'CAD'>('USD');
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { nameRef.current?.focus(); }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    const project: ZohoPipelineProject = {
+      id: `manual-${Date.now()}`,
+      name: name.trim(),
+      status,
+      owner: owner.trim() || 'Unassigned',
+      startDate: startDate || null,
+      endDate: endDate || null,
+      // source: 'zoho' so it appears on the Current Projects page (filtered by source === 'zoho')
+      source: 'zoho',
+      revenue: parseFloat(revenue) > 0 ? parseFloat(revenue) : null,
+      revenueCurrency: revCurrency,
+      resources: [],
+    };
+    onAdd(project);
+  };
+
+  return (
+    <Card>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-slate-800 text-base">New Project</h3>
+          <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="col-span-2 md:col-span-1">
+            <label className="text-xs text-slate-500 block mb-1">Project Name *</label>
+            <input
+              ref={nameRef}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              placeholder="e.g. Acme Corp Phase 2"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 block mb-1">Owner</label>
+            <input
+              type="text"
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="Project owner"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 block mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              {CURRENT_PROJECT_STATUSES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 block mb-1">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 block mb-1">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 block mb-1">Revenue</label>
+            <div className="flex gap-1">
+              <select
+                value={revCurrency}
+                onChange={(e) => setRevCurrency(e.target.value as 'USD' | 'CAD')}
+                className="rounded border border-slate-300 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="USD">USD</option>
+                <option value="CAD">CAD</option>
+              </select>
+              <input
+                type="number"
+                value={revenue}
+                onChange={(e) => setRevenue(e.target.value)}
+                className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="0"
+                min="0"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button
+            type="submit"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Check size={16} />
+            Add Project
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
 export default function ProjectPipelinePage() {
   const assignments = useForecastStore((s) => s.assignments);
   const allProjects = usePipelineStore((s) => s.projects);
   const updateProject = usePipelineStore((s) => s.updateProject);
+  const addProject = usePipelineStore((s) => s.addProject);
   const cadToUsdRate = useFinancialStore((s) => s.settings.cadToUsdRate) || 0.73;
+  const [showForm, setShowForm] = useState(false);
+
+  const handleAdd = (project: ZohoPipelineProject) => {
+    addProject(project);
+    setShowForm(false);
+  };
 
   // Current projects = Zoho-sourced only
   const currentProjects = useMemo(() => allProjects.filter((p) => p.source === 'zoho'), [allProjects]);
@@ -425,7 +572,21 @@ export default function ProjectPipelinePage() {
       <PageHeader
         title="Current Projects"
         subtitle={`${currentProjects.length} current projects`}
+        action={
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-all"
+          >
+            <Plus size={14} />
+            New Project
+          </button>
+        }
       />
+      {showForm && (
+        <div className="mb-6">
+          <NewProjectForm onAdd={handleAdd} onCancel={() => setShowForm(false)} />
+        </div>
+      )}
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">

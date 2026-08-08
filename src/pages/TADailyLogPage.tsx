@@ -195,7 +195,7 @@ export default function TADailyLogPage() {
 
   if (!currentUser) {
     return (
-      <div className="max-w-7xl mx-auto py-12 text-center text-slate-500">
+      <div className="w-full py-12 text-center text-slate-500">
         Sign in to view your TA Daily Log.
       </div>
     );
@@ -211,7 +211,7 @@ export default function TADailyLogPage() {
   const eligibleActivities = (ACTIVITY_TYPES as readonly string[]).filter((a) => !myActivities.includes(a));
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <PageHeader
         title="TA Daily Log"
         subtitle={niceDate}

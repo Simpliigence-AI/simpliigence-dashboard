@@ -130,7 +130,7 @@ export default function TeamLeavePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <PageHeader
         title="Team Leave"
         subtitle={`${isAdmin ? 'All teams' : 'Your team'} · ${pendingCount} pending`}

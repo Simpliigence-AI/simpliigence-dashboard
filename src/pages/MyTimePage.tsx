@@ -265,7 +265,10 @@ export default function MyTimePage() {
   const niceWeek = `${parseIsoDate(days[0].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${parseIsoDate(days[6].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   return (
-    <div className="max-w-3xl mx-auto pb-24">
+    // Width is mode-aware: the list + calendar views are form-shaped and read
+    // better in a narrow measure, but the grid is a 7-column week table that
+    // needs every pixel it can get on a wide monitor.
+    <div className={`${viewMode === 'grid' ? 'w-full' : 'max-w-3xl mx-auto'} pb-24`}>
       <PageHeader
         title="My Time"
         subtitle={`${currentUser.email} · ${viewMode === 'calendar' ? calendarMonthLabel : niceWeek}`}

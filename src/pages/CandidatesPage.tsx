@@ -226,7 +226,7 @@ export default function CandidatesPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <PageHeader
         title="Candidates"
         subtitle="All candidates currently being worked across India Staffing requisitions"

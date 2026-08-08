@@ -291,7 +291,7 @@ export default function TeamTimePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <PageHeader
         title="Team Time"
         subtitle={`${isAdmin ? 'All teams' : 'Your direct reports'} · ${pendingCount} pending approval`}

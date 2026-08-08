@@ -300,7 +300,7 @@ export default function TAMetricsPage() {
   }).length;
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <PageHeader
         title="TA Metrics"
         subtitle="How the Talent Acquisition team is performing — KPIs, leaderboard, funnel, trend"

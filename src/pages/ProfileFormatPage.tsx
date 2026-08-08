@@ -195,7 +195,7 @@ export default function ProfileFormatPage() {
   const sourceReady = sourceMode !== 'none';
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       {/* Page chrome — hidden in print */}
       <div className="profile-format-chrome">
         <PageHeader

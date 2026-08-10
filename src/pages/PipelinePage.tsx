@@ -12,7 +12,7 @@ import sowWordmarkUrl from '../assets/simpliigence-wordmark.png';
 import sowIconUrl from '../assets/simpliigence-icon.png';
 import {
   Plus,
-  ArrowRightCircle,
+  Archive,
   Trash2,
   Calendar,
   DollarSign,
@@ -727,16 +727,16 @@ function PipelineProjectCard({
   project,
   onUpdate,
   onRemove,
-  onMoveToCurrent,
+  onArchive,
 }: {
   project: ZohoPipelineProject;
   onUpdate: (id: string, updates: Partial<ZohoPipelineProject>) => void;
   onRemove: (id: string) => void;
-  onMoveToCurrent: (id: string) => void;
+  onArchive: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmMove, setConfirmMove] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [sowOpen, setSowOpen] = useState(false);
   const [editSowId, setEditSowId] = useState<string | null>(null);
   const [sowReloadKey, setSowReloadKey] = useState(0);
@@ -784,26 +784,26 @@ function PipelineProjectCard({
             <FileText size={14} />
             Generate SOW
           </button>
-          {!confirmMove ? (
+          {!confirmArchive ? (
             <button
-              onClick={() => setConfirmMove(true)}
-              title="Move to Current Projects"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+              onClick={() => setConfirmArchive(true)}
+              title="Move to Archive — project stops appearing in the active pipeline list"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
             >
-              <ArrowRightCircle size={14} />
-              Move to Current
+              <Archive size={14} />
+              Move to Archive
             </button>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="text-xs text-slate-500">Sure?</span>
+              <span className="text-xs text-slate-500">Archive?</span>
               <button
-                onClick={() => { onMoveToCurrent(project.id); setConfirmMove(false); }}
-                className="px-2 py-1 text-xs text-white bg-blue-600 rounded hover:bg-blue-700"
+                onClick={() => { onArchive(project.id); setConfirmArchive(false); }}
+                className="px-2 py-1 text-xs text-white bg-amber-700 rounded hover:bg-amber-800"
               >
                 Yes
               </button>
               <button
-                onClick={() => setConfirmMove(false)}
+                onClick={() => setConfirmArchive(false)}
                 className="px-2 py-1 text-xs text-slate-600 bg-slate-100 rounded hover:bg-slate-200"
               >
                 No
@@ -1794,8 +1794,16 @@ export default function PipelinePage() {
     return p.revenueCurrency === 'CAD' ? p.revenue * cadToUsdRate : p.revenue;
   };
 
-  // Pipeline = manually created projects only
-  const pipelineProjects = useMemo(() => allProjects.filter((p) => p.source === 'manual'), [allProjects]);
+  // Pipeline = manually created projects only.
+  // Archived projects (status === 'Archived') are hidden from the default
+  // list — showArchived toggles them back in for review/restore.
+  const [showArchived, setShowArchived] = useState(false);
+  const pipelineProjectsAll = useMemo(() => allProjects.filter((p) => p.source === 'manual'), [allProjects]);
+  const pipelineProjects = useMemo(
+    () => showArchived ? pipelineProjectsAll : pipelineProjectsAll.filter((p) => p.status !== 'Archived'),
+    [pipelineProjectsAll, showArchived],
+  );
+  const archivedCount = pipelineProjectsAll.filter((p) => p.status === 'Archived').length;
 
   // Stats
   const proposed = pipelineProjects.filter((p) => p.status === 'Proposed').length;
@@ -1807,24 +1815,42 @@ export default function PipelinePage() {
     setShowForm(false);
   };
 
-  const handleMoveToCurrent = (id: string) => {
-    // Change source from 'manual' to 'zoho' to move to current projects
-    updateProject(id, { source: 'zoho', status: 'In Progress' });
+  const handleArchive = (id: string) => {
+    // Archive stays in the pipeline (source='manual'); status flips to
+    // 'Archived' so it drops off the default list. Restore by editing
+    // status back to Proposed/Negotiation/etc.
+    updateProject(id, { status: 'Archived' });
   };
 
   return (
     <>
       <PageHeader
         title="Pipeline"
-        subtitle={`${pipelineProjects.length} pipeline projects`}
+        subtitle={`${pipelineProjects.length} pipeline project${pipelineProjects.length === 1 ? '' : 's'}${showArchived ? ' (incl. archived)' : ''}`}
         action={
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Plus size={16} />
-            Add Pipeline Project
-          </button>
+          <div className="flex items-center gap-2">
+            {archivedCount > 0 && (
+              <button
+                onClick={() => setShowArchived((v) => !v)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                  showArchived
+                    ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                }`}
+                title={showArchived ? 'Hide archived projects' : `Show ${archivedCount} archived project${archivedCount === 1 ? '' : 's'}`}
+              >
+                <Archive size={13} />
+                {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+              </button>
+            )}
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={16} />
+              Add Pipeline Project
+            </button>
+          </div>
         }
       />
 
@@ -1885,7 +1911,7 @@ export default function PipelinePage() {
               project={project}
               onUpdate={updateProject}
               onRemove={removeProject}
-              onMoveToCurrent={handleMoveToCurrent}
+              onArchive={handleArchive}
             />
           ))}
         </div>

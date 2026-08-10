@@ -431,20 +431,23 @@ BEGIN
   IF TG_OP = 'UPDATE' THEN
     -- Meaningful business columns only (skip updated_at/updated_by/created_at
     -- bookkeeping noise). IS DISTINCT FROM is null-safe.
+    -- array_append (not `v_fields || 'literal'`): an untyped literal makes ||
+    -- resolve to array||array and throw 22P02 at runtime — see migration
+    -- 024_fix_time_entry_audit_field_append.sql.
     v_fields := ARRAY[]::TEXT[];
-    IF NEW.employee_email IS DISTINCT FROM OLD.employee_email THEN v_fields := v_fields || 'employee_email'; END IF;
-    IF NEW.work_date      IS DISTINCT FROM OLD.work_date      THEN v_fields := v_fields || 'work_date';      END IF;
-    IF NEW.project_id     IS DISTINCT FROM OLD.project_id     THEN v_fields := v_fields || 'project_id';     END IF;
-    IF NEW.project_name   IS DISTINCT FROM OLD.project_name   THEN v_fields := v_fields || 'project_name';   END IF;
-    IF NEW.hours          IS DISTINCT FROM OLD.hours          THEN v_fields := v_fields || 'hours';          END IF;
-    IF NEW.billable       IS DISTINCT FROM OLD.billable       THEN v_fields := v_fields || 'billable';       END IF;
-    IF NEW.notes          IS DISTINCT FROM OLD.notes          THEN v_fields := v_fields || 'notes';          END IF;
-    IF NEW.source         IS DISTINCT FROM OLD.source         THEN v_fields := v_fields || 'source';         END IF;
-    IF NEW.status         IS DISTINCT FROM OLD.status         THEN v_fields := v_fields || 'status';         END IF;
-    IF NEW.submitted_at   IS DISTINCT FROM OLD.submitted_at   THEN v_fields := v_fields || 'submitted_at';   END IF;
-    IF NEW.approved_by    IS DISTINCT FROM OLD.approved_by    THEN v_fields := v_fields || 'approved_by';    END IF;
-    IF NEW.approved_at    IS DISTINCT FROM OLD.approved_at    THEN v_fields := v_fields || 'approved_at';    END IF;
-    IF NEW.reject_reason  IS DISTINCT FROM OLD.reject_reason  THEN v_fields := v_fields || 'reject_reason';  END IF;
+    IF NEW.employee_email IS DISTINCT FROM OLD.employee_email THEN v_fields := array_append(v_fields, 'employee_email'); END IF;
+    IF NEW.work_date      IS DISTINCT FROM OLD.work_date      THEN v_fields := array_append(v_fields, 'work_date');      END IF;
+    IF NEW.project_id     IS DISTINCT FROM OLD.project_id     THEN v_fields := array_append(v_fields, 'project_id');     END IF;
+    IF NEW.project_name   IS DISTINCT FROM OLD.project_name   THEN v_fields := array_append(v_fields, 'project_name');   END IF;
+    IF NEW.hours          IS DISTINCT FROM OLD.hours          THEN v_fields := array_append(v_fields, 'hours');          END IF;
+    IF NEW.billable       IS DISTINCT FROM OLD.billable       THEN v_fields := array_append(v_fields, 'billable');       END IF;
+    IF NEW.notes          IS DISTINCT FROM OLD.notes          THEN v_fields := array_append(v_fields, 'notes');          END IF;
+    IF NEW.source         IS DISTINCT FROM OLD.source         THEN v_fields := array_append(v_fields, 'source');         END IF;
+    IF NEW.status         IS DISTINCT FROM OLD.status         THEN v_fields := array_append(v_fields, 'status');         END IF;
+    IF NEW.submitted_at   IS DISTINCT FROM OLD.submitted_at   THEN v_fields := array_append(v_fields, 'submitted_at');   END IF;
+    IF NEW.approved_by    IS DISTINCT FROM OLD.approved_by    THEN v_fields := array_append(v_fields, 'approved_by');    END IF;
+    IF NEW.approved_at    IS DISTINCT FROM OLD.approved_at    THEN v_fields := array_append(v_fields, 'approved_at');    END IF;
+    IF NEW.reject_reason  IS DISTINCT FROM OLD.reject_reason  THEN v_fields := array_append(v_fields, 'reject_reason');  END IF;
   END IF;
 
   INSERT INTO time_entry_audit (

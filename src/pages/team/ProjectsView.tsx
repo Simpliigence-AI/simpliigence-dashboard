@@ -13,6 +13,7 @@ import {
   type ProjectSource,
 } from './shared';
 import { AllocationStrip } from './AllocationStrip';
+import { useCollapsedGroups } from '../../lib/useCollapsedGroups';
 
 interface ProjectCard {
   name: string;
@@ -132,6 +133,22 @@ export default function ProjectsView() {
   /** Completed section starts collapsed — it's reference, not daily work. */
   const [showCompleted, setShowCompleted] = useState(false);
 
+  // Collapsed by default: the allocation grid is ~10 rows per project, so an
+  // all-expanded page is several screens of scrolling before you reach the
+  // project you came for. The collapsed header still carries the headline
+  // numbers and the names, so it stays useful without being opened.
+  const { isCollapsed, toggle, expand, expandAll, collapseAll } =
+    useCollapsedGroups('team-projects', { defaultCollapsed: true });
+  // Only cards actually on screen. Completed cards live inside their own
+  // collapsed section, so including them would let "Collapse all" report on —
+  // and act on — headers nobody can see: the button would read "Collapse all"
+  // with everything already collapsed, then appear to do nothing when clicked.
+  const visibleKeys = useMemo(
+    () => (showCompleted ? filtered : activeCards).map((c) => c.name),
+    [filtered, activeCards, showCompleted],
+  );
+  const anyExpanded = visibleKeys.some((k) => !isCollapsed(k));
+
   // Human-readable description of the rule, shown on the section header so
   // nobody has to guess why a project landed in here.
   const cutoffLabel = MONTHS[completionCutoffIndex()];
@@ -212,18 +229,31 @@ export default function ProjectsView() {
             const hue = colorHash(card.name);
             const assignedNames = new Set(card.assignments.map((a) => a.employeeName));
             const availablePeople = allPeople.filter((p) => !assignedNames.has(p.name));
+            // Assigning into a collapsed card force-expands it, otherwise the
+            // picker (and the person you just added) would be hidden.
+            const collapsed = isCollapsed(card.name) && assigningTo !== card.name;
 
             return (
               <div key={card.name} className={`bg-white rounded-xl border overflow-hidden ${muted ? 'border-slate-200 opacity-75 hover:opacity-100 transition-opacity' : 'border-slate-200'}`}>
                 <div
-                  className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100"
+                  className={`px-4 py-3 flex items-center justify-between gap-3 ${collapsed ? '' : 'border-b border-slate-100'}`}
                   style={{ backgroundColor: `hsl(${hue} 70% 97%)` }}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  {/* The whole left side is the toggle — a 2px chevron is a mean
+                   *  click target when you're collapsing a dozen of these. */}
+                  <button
+                    type="button"
+                    onClick={() => toggle(card.name)}
+                    aria-expanded={!collapsed}
+                    className="flex items-center gap-3 min-w-0 flex-1 text-left group"
+                  >
                     <div
-                      className="w-2 h-10 rounded-full"
+                      className="w-2 h-10 rounded-full shrink-0"
                       style={{ backgroundColor: `hsl(${hue} 60% 55%)` }}
                     />
+                    <span className="shrink-0 text-slate-400 group-hover:text-slate-600">
+                      {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                    </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-slate-800 truncate">{card.name}</h3>
@@ -232,16 +262,20 @@ export default function ProjectsView() {
                       <div className="text-xs text-slate-500 mt-0.5">
                         {card.assignments.length} {card.assignments.length === 1 ? 'person' : 'people'} ·{' '}
                         <span className="font-semibold text-slate-700 tabular-nums">{card.totalHours.toLocaleString()} hrs/yr</span>
+                        {collapsed && card.assignments.length > 0 && (
+                          <span className="text-slate-400"> · {card.assignments.map((a) => a.employeeName.split(' ')[0]).join(', ')}</span>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  </button>
                   <button
-                    onClick={() => setAssigningTo(card.name)}
+                    onClick={() => { expand(card.name); setAssigningTo(card.name); }}
                     className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-200 hover:bg-slate-50 hover:border-primary/40 text-slate-700 flex items-center gap-1"
                   >
                     <Plus size={12} /> Assign
                   </button>
                 </div>
+                {!collapsed && (<>
 
                 {assigningTo === card.name && (
                   <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
@@ -391,6 +425,7 @@ export default function ProjectsView() {
                     })
                   )}
                 </div>
+                </>)}
               </div>
             );
   };
@@ -419,6 +454,16 @@ export default function ProjectsView() {
           <option value="pipeline">Pipeline (Planned)</option>
           <option value="legacy">Other (legacy)</option>
         </select>
+        {/* One button rather than a pair: which action is useful is always
+         *  determined by the current state, so offering both wastes a slot. */}
+        <button
+          type="button"
+          onClick={() => (anyExpanded ? collapseAll(visibleKeys) : expandAll(visibleKeys))}
+          className="shrink-0 px-3 py-1.5 text-sm rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+        >
+          {anyExpanded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          {anyExpanded ? 'Collapse all' : 'Expand all'}
+        </button>
       </div>
 
       {filtered.length === 0 ? (

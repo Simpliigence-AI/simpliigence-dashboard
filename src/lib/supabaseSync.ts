@@ -653,6 +653,7 @@ function accountToRow(a: Account) {
     industry: a.industry,
     notes: a.notes ?? '',
     team_aliases: a.teamAliases ?? [],
+    email_domains: (a.emailDomains ?? []).map((d) => d.toLowerCase()),
     updated_by: CLIENT_ID,
     updated_at: new Date().toISOString(),
   };
@@ -667,6 +668,7 @@ function rowToAccount(row: any): Account {
     industry: row.industry ?? null,
     notes: row.notes ?? '',
     teamAliases: Array.isArray(row.team_aliases) ? row.team_aliases : [],
+    emailDomains: Array.isArray(row.email_domains) ? row.email_domains : [],
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }

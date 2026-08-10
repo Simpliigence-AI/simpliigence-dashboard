@@ -82,6 +82,7 @@ export const useAccountStore = create<AccountState>()(
           industry: industry || null,
           notes: notes || '',
           teamAliases: [],
+          emailDomains: [],
           createdAt: now,
           updatedAt: now,
         };

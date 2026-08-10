@@ -145,17 +145,38 @@ Deno.serve(async (req: Request) => {
       const bodyHtml: string = msg.body?.content || '';
       const receivedAt: string = msg.receivedDateTime || new Date().toISOString();
 
-      // Best-effort account match by sender domain vs account name / team_aliases
+      // Route the ticket to an account by matching the sender's email domain
+      // against accounts.email_domains (explicit list, admin-managed on the
+      // Accounts page). Two catch-alls handle the misses:
+      //   - Internal Simpliigence (id=acct_internal_simpliigence) — any
+      //     @simpliigence.com sender when no more-specific match wins.
+      //   - Others (id=acct_others) — everything else. Admins can promote
+      //     these later by adding a domain to the right account.
       let accountId: string | null = null;
       let accountName: string | null = null;
-      if (from.email) {
-        const domain = from.email.split('@')[1]?.toLowerCase();
-        if (domain) {
-          const domainWord = domain.split('.')[0];
-          const { data: acctMatch } = await supabase.from('accounts').select('id, name')
-            .or(`name.ilike.%${domainWord}%,team_aliases.cs.{${domainWord}}`).limit(1).maybeSingle();
-          if (acctMatch) { accountId = acctMatch.id; accountName = acctMatch.name; }
+      const senderDomain = from.email ? from.email.split('@')[1]?.toLowerCase() ?? null : null;
+      if (senderDomain) {
+        // 1. Explicit email_domains match. GIN index makes this fast.
+        const { data: exact } = await supabase.from('accounts')
+          .select('id, name')
+          .contains('email_domains', [senderDomain])
+          .limit(1)
+          .maybeSingle();
+        if (exact) {
+          accountId = exact.id;
+          accountName = exact.name;
+        } else if (senderDomain === 'simpliigence.com') {
+          // 2. Internal fallback
+          const { data: internal } = await supabase.from('accounts')
+            .select('id, name').eq('id', 'acct_internal_simpliigence').maybeSingle();
+          if (internal) { accountId = internal.id; accountName = internal.name; }
         }
+      }
+      if (!accountId) {
+        // 3. Everything else lands in Others
+        const { data: others } = await supabase.from('accounts')
+          .select('id, name').eq('id', 'acct_others').maybeSingle();
+        if (others) { accountId = others.id; accountName = others.name; }
       }
 
       // Existing ticket via conversation id?

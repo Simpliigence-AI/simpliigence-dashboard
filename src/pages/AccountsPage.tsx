@@ -1235,11 +1235,21 @@ function OverviewTab({ account, onPatch, onRemove }: {
 }) {
   const [draft, setDraft] = useState(account);
   const [aliasInput, setAliasInput] = useState((account.teamAliases ?? []).join(', '));
-  // Parse the comma-separated input back into a clean array
+  const [domainInput, setDomainInput] = useState((account.emailDomains ?? []).join(', '));
+  // Parse the comma-separated inputs back into clean arrays
   const parsedAliases = aliasInput.split(',').map((s) => s.trim()).filter(Boolean);
+  const parsedDomains = domainInput
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    // Strip a stray leading '@' if the user pasted "@acme.com"
+    .map((s) => s.replace(/^@/, ''))
+    .filter(Boolean);
   const aliasesChanged =
     parsedAliases.length !== (account.teamAliases ?? []).length ||
     parsedAliases.some((a, i) => a !== (account.teamAliases ?? [])[i]);
+  const domainsChanged =
+    parsedDomains.length !== (account.emailDomains ?? []).length ||
+    parsedDomains.some((d, i) => d !== (account.emailDomains ?? [])[i]);
   const dirty =
     draft.name !== account.name ||
     draft.salesOwnerEmail !== account.salesOwnerEmail ||
@@ -1247,7 +1257,8 @@ function OverviewTab({ account, onPatch, onRemove }: {
     draft.industry !== account.industry ||
     draft.status !== account.status ||
     draft.notes !== account.notes ||
-    aliasesChanged;
+    aliasesChanged ||
+    domainsChanged;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-3">
@@ -1303,13 +1314,29 @@ function OverviewTab({ account, onPatch, onRemove }: {
           </div>
         </Field>
       </div>
+      <div className="md:col-span-2">
+        <Field label="Ticket email domains (comma-separated)">
+          <input
+            value={domainInput}
+            onChange={(e) => setDomainInput(e.target.value)}
+            placeholder="e.g. acme.com, acme-inc.com"
+            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm font-mono"
+          />
+          <div className="text-[10px] text-slate-500 mt-1">
+            Incoming support emails whose sender domain matches any of these values route to this account.
+            Add one domain per client (with subsidiaries if they use different domains). Case-insensitive.
+            Unmatched senders on <strong>@simpliigence.com</strong> land under <strong>Internal Simpliigence</strong>;
+            everything else lands under <strong>Others</strong>.
+          </div>
+        </Field>
+      </div>
       <div className="md:col-span-2 flex items-center justify-end gap-2">
         <button type="button"
                 onClick={() => { if (confirm(`Delete account "${account.name}"? This also removes all connects and actions.`)) onRemove(); }}
                 className="text-xs text-red-600 hover:text-red-800 inline-flex items-center gap-1">
           <Trash2 size={12} /> Delete account
         </button>
-        <button type="button" onClick={() => onPatch({ ...draft, teamAliases: parsedAliases })} disabled={!dirty}
+        <button type="button" onClick={() => onPatch({ ...draft, teamAliases: parsedAliases, emailDomains: parsedDomains })} disabled={!dirty}
                 className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1">
           <Save size={12} /> Save changes
         </button>

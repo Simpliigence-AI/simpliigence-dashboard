@@ -21,8 +21,7 @@ import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { DocumentsPanel } from '../components/timesheet/DocumentsPanel';
 import { useAuthStore } from '../store/useAuthStore';
-import { useForecastStore } from '../store/useForecastStore';
-import { usePipelineStore } from '../store/usePipelineStore';
+import { useTimeProjectOptions } from '../lib/useTimeProjectOptions';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
 import { formatDbError } from '../lib/supabaseSync';
 import { INTERNAL_PROJECTS } from '../types/timeEntry';
@@ -103,48 +102,22 @@ function weekDays(weekStartIso: string): { iso: string; label: string; isToday: 
 export default function MyTimePage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const myEmail = (currentUser?.email || '').toLowerCase();
-  const myFullName = (currentUser?.fullName || '').toLowerCase();
 
   const { entries: allEntries, addEntry, updateEntry, deleteEntry } = useTimeEntryStore();
-  const { assignments } = useForecastStore();
-  const { projects: pipelineProjects } = usePipelineStore();
 
   const [weekStart, setWeekStart] = useState(toIsoDate(startOfWeek(toIsoDate(new Date()))));
   const [openDay, setOpenDay] = useState<string | null>(toIsoDate(new Date()));
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'grid'>('list');
   const [calendarAnchor, setCalendarAnchor] = useState(toIsoDate(new Date()));
 
-  // Project list relevant to this user:
-  //  - pipeline projects where their forecast assignment lives
-  //  - pipeline projects they've previously logged on
-  //  - all active pipeline projects (fallback so they can always find one)
-  const myProjects = useMemo(() => {
-    const set = new Map<string, { id: string | null; name: string; billable: boolean }>();
-
-    // Forecast-driven
-    assignments
-      .filter((a) =>
-        a.employeeName.toLowerCase() === myFullName ||
-        a.employeeName.toLowerCase().startsWith(myFullName.split(' ')[0])
-      )
-      .forEach((a) => {
-        if (!set.has(a.project)) set.set(a.project, { id: null, name: a.project, billable: true });
-      });
-
-    // Already-logged-on
-    allEntries
-      .filter((e) => e.employeeEmail.toLowerCase() === myEmail)
-      .forEach((e) => {
-        if (!set.has(e.projectName)) set.set(e.projectName, { id: e.projectId, name: e.projectName, billable: e.billable });
-      });
-
-    // All pipeline projects (so user can find a new one)
-    pipelineProjects.forEach((p) => {
-      if (!set.has(p.name)) set.set(p.name, { id: p.id, name: p.name, billable: true });
-    });
-
-    return Array.from(set.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [assignments, myEmail, myFullName, allEntries, pipelineProjects]);
+  // Grandfathered project names from existing entries so historic rows still
+  // render their project even if it's no longer a Current project or an
+  // active Concierge account.
+  const historicNames = useMemo(
+    () => allEntries.filter((e) => e.employeeEmail.toLowerCase() === myEmail).map((e) => e.projectName),
+    [allEntries, myEmail],
+  );
+  const myProjects = useTimeProjectOptions(historicNames);
 
   // My entries this week, grouped by day
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -820,37 +793,51 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   );
 }
 
-/* ── Project picker (datalist for searchability) ── */
+/* ── Project picker — strict <select>. Free-text is not allowed. Options
+ *   come from useTimeProjectOptions() which composes Current delivery
+ *   projects, active Concierge accounts (with " Concierge" suffix), and
+ *   Internal categories. ── */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ProjectPicker({ value, onChange, options, autoFocus = false, onEnter }: {
   value: string;
   onChange: (v: string) => void;
-  options: { id: string | null; name: string; billable: boolean }[];
+  options: { id: string | null; name: string; billable: boolean; source?: string }[];
   autoFocus?: boolean;
-  /** Called when the user presses Enter — used by NewEntryRow to jump focus to the hours field. */
+  /** Called when the user commits a choice — used by NewEntryRow to jump focus to the hours field. */
   onEnter?: () => void;
 }) {
-  const internalSet = new Set<string>(INTERNAL_PROJECTS);
-  const sorted = [
-    ...options.filter((p) => !internalSet.has(p.name)),
-    ...INTERNAL_PROJECTS.map((n) => ({ id: null as string | null, name: n, billable: false })),
-  ];
+  // Group by source for optgroup rendering
+  const grouped: Record<string, typeof options> = {
+    current: [], concierge: [], internal: [], other: [],
+  };
+  for (const o of options) {
+    const src = (o.source as keyof typeof grouped) || 'other';
+    (grouped[src] ||= []).push(o);
+  }
+  const groupLabel: Record<string, string> = {
+    current: 'Current projects',
+    concierge: 'Concierge active accounts',
+    internal: 'Internal',
+    other: 'Other / historic',
+  };
   return (
-    <>
-      <input
-        list="my-time-project-options"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') { e.preventDefault(); onEnter?.(); }
-        }}
-        placeholder="Pick a project…"
-        autoFocus={autoFocus}
-        className="border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-      />
-      <datalist id="my-time-project-options">
-        {sorted.map((p) => <option key={p.name} value={p.name} />)}
-      </datalist>
-    </>
+    <select
+      value={value}
+      onChange={(e) => { onChange(e.target.value); onEnter?.(); }}
+      autoFocus={autoFocus}
+      className="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+    >
+      <option value="" disabled>— pick a project —</option>
+      {(['current', 'concierge', 'internal', 'other'] as const).map((k) => {
+        const list = grouped[k];
+        if (!list?.length) return null;
+        return (
+          <optgroup key={k} label={groupLabel[k]}>
+            {list.map((p) => <option key={`${k}-${p.name}`} value={p.name}>{p.name}</option>)}
+          </optgroup>
+        );
+      })}
+    </select>
   );
 }
 

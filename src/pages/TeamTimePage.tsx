@@ -24,6 +24,7 @@ import { useTimeEntryStore } from '../store/useTimeEntryStore';
 import { db, formatDbError } from '../lib/supabaseSync';
 import { TaIdentity } from '../components/TaIdentity';
 import type { TimeEntry, TimeEntryAudit } from '../types/timeEntry';
+import { useTimeProjectOptions } from '../lib/useTimeProjectOptions';
 
 /** Parse YYYY-MM-DD as LOCAL midnight (avoids UTC day-shift). */
 function parseIsoDate(iso: string): Date {
@@ -519,10 +520,10 @@ export default function TeamTimePage() {
             <div className="space-y-3">
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Project</label>
-                <input
+                <ProjectSelect
                   value={editing.projectName}
-                  onChange={(ev) => setEditing({ ...editing, projectName: ev.target.value })}
-                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  onChange={(v) => setEditing({ ...editing, projectName: v })}
+                  historicName={editing.projectName}
                 />
               </div>
               <div className="flex items-center gap-4">
@@ -738,5 +739,42 @@ export default function TeamTimePage() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Project select for the TA Manager's edit modal.
+ *  Strict dropdown — free-text disallowed. Same option source as the
+ *  My Time picker (useTimeProjectOptions), plus the current entry's own
+ *  project name grandfathered in so historic values still render. ── */
+function ProjectSelect({ value, onChange, historicName }: { value: string; onChange: (v: string) => void; historicName?: string }) {
+  const options = useTimeProjectOptions(historicName ? [historicName] : []);
+  const grouped: Record<string, typeof options> = { current: [], concierge: [], internal: [], other: [] };
+  for (const o of options) {
+    const src = (o.source as keyof typeof grouped) || 'other';
+    (grouped[src] ||= []).push(o);
+  }
+  const groupLabel: Record<string, string> = {
+    current: 'Current projects',
+    concierge: 'Concierge active accounts',
+    internal: 'Internal',
+    other: 'Other / historic',
+  };
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+    >
+      <option value="" disabled>— pick a project —</option>
+      {(['current', 'concierge', 'internal', 'other'] as const).map((k) => {
+        const list = grouped[k];
+        if (!list?.length) return null;
+        return (
+          <optgroup key={k} label={groupLabel[k]}>
+            {list.map((p) => <option key={`${k}-${p.name}`} value={p.name}>{p.name}</option>)}
+          </optgroup>
+        );
+      })}
+    </select>
   );
 }

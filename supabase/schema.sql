@@ -352,10 +352,17 @@ CREATE POLICY "Insert: own" ON time_entries
   FOR INSERT TO authenticated
   WITH CHECK (LOWER(employee_email) = current_user_email());
 
+-- Owner branch has NO status condition: employees may edit their own entries
+-- in any status, including 'submitted' (pending approval). It was previously
+-- limited to status IN ('draft','rejected','approved'); on the live DB the
+-- widening is applied by the ADDITIVE permissive policy in migration
+-- 023_time_entries_owner_update_any_status.sql (permissive policies OR
+-- together), which also WITH CHECKs that the row still belongs to the editor.
+-- The policy name predates the change and is kept for live-DB parity.
 CREATE POLICY "Update: own (draft/rejected/approved) or admin" ON time_entries
   FOR UPDATE TO authenticated
   USING (
-    (LOWER(employee_email) = current_user_email() AND status IN ('draft','rejected','approved'))
+    LOWER(employee_email) = current_user_email()
     OR reports_to(employee_email)
     OR current_user_role() IN ('admin','manager')
   );
@@ -392,6 +399,92 @@ CREATE TRIGGER audit_time_entry_periods
   AFTER INSERT OR UPDATE OR DELETE ON time_entry_periods
   FOR EACH ROW EXECUTE FUNCTION record_audit();
 
+-- Full audit trail for time entries — one immutable row per change, captured by
+-- a DATABASE trigger so it can't be bypassed by any client write path (upsert,
+-- the plain UPDATE used by manager edits, or approve/reject). See migration
+-- 019_time_entry_audit.sql. time_entry_id matches time_entries.id (TEXT).
+CREATE TABLE time_entry_audit (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  time_entry_id    TEXT NOT NULL,                 -- affected time_entries.id
+  employee_email   TEXT,                          -- entry owner (for RLS + display)
+  operation        TEXT NOT NULL CHECK (operation IN ('INSERT','UPDATE','DELETE')),
+  changed_by_email TEXT,                          -- current_user_email() at write time
+  changed_by_role  TEXT,                          -- current_user_role() at write time
+  changed_fields   TEXT[],                        -- columns that changed on UPDATE; null/empty otherwise
+  old_data         JSONB,                         -- row before (null on INSERT)
+  new_data         JSONB,                         -- row after (null on DELETE)
+  changed_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_te_audit_entry ON time_entry_audit(time_entry_id, changed_at DESC);
+
+-- SECURITY DEFINER so it can always insert the audit row regardless of the
+-- caller's RLS — the write can't be blocked or forged by the client.
+CREATE OR REPLACE FUNCTION log_time_entry_audit()
+  RETURNS TRIGGER
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public
+AS $$
+DECLARE
+  v_fields TEXT[] := NULL;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- Meaningful business columns only (skip updated_at/updated_by/created_at
+    -- bookkeeping noise). IS DISTINCT FROM is null-safe.
+    -- array_append (not `v_fields || 'literal'`): an untyped literal makes ||
+    -- resolve to array||array and throw 22P02 at runtime — see migration
+    -- 024_fix_time_entry_audit_field_append.sql.
+    v_fields := ARRAY[]::TEXT[];
+    IF NEW.employee_email IS DISTINCT FROM OLD.employee_email THEN v_fields := array_append(v_fields, 'employee_email'); END IF;
+    IF NEW.work_date      IS DISTINCT FROM OLD.work_date      THEN v_fields := array_append(v_fields, 'work_date');      END IF;
+    IF NEW.project_id     IS DISTINCT FROM OLD.project_id     THEN v_fields := array_append(v_fields, 'project_id');     END IF;
+    IF NEW.project_name   IS DISTINCT FROM OLD.project_name   THEN v_fields := array_append(v_fields, 'project_name');   END IF;
+    IF NEW.hours          IS DISTINCT FROM OLD.hours          THEN v_fields := array_append(v_fields, 'hours');          END IF;
+    IF NEW.billable       IS DISTINCT FROM OLD.billable       THEN v_fields := array_append(v_fields, 'billable');       END IF;
+    IF NEW.notes          IS DISTINCT FROM OLD.notes          THEN v_fields := array_append(v_fields, 'notes');          END IF;
+    IF NEW.source         IS DISTINCT FROM OLD.source         THEN v_fields := array_append(v_fields, 'source');         END IF;
+    IF NEW.status         IS DISTINCT FROM OLD.status         THEN v_fields := array_append(v_fields, 'status');         END IF;
+    IF NEW.submitted_at   IS DISTINCT FROM OLD.submitted_at   THEN v_fields := array_append(v_fields, 'submitted_at');   END IF;
+    IF NEW.approved_by    IS DISTINCT FROM OLD.approved_by    THEN v_fields := array_append(v_fields, 'approved_by');    END IF;
+    IF NEW.approved_at    IS DISTINCT FROM OLD.approved_at    THEN v_fields := array_append(v_fields, 'approved_at');    END IF;
+    IF NEW.reject_reason  IS DISTINCT FROM OLD.reject_reason  THEN v_fields := array_append(v_fields, 'reject_reason');  END IF;
+  END IF;
+
+  INSERT INTO time_entry_audit (
+    time_entry_id, employee_email, operation,
+    changed_by_email, changed_by_role, changed_fields, old_data, new_data
+  ) VALUES (
+    COALESCE(NEW.id, OLD.id),
+    COALESCE(NEW.employee_email, OLD.employee_email),
+    TG_OP,
+    current_user_email(),
+    current_user_role(),
+    v_fields,
+    CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE to_jsonb(OLD) END,
+    CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE to_jsonb(NEW) END
+  );
+
+  RETURN NULL; -- AFTER trigger; return value ignored
+END;
+$$;
+
+CREATE TRIGGER log_time_entry_audit
+  AFTER INSERT OR UPDATE OR DELETE ON time_entries
+  FOR EACH ROW EXECUTE FUNCTION log_time_entry_audit();
+
+ALTER TABLE time_entry_audit ENABLE ROW LEVEL SECURITY;
+
+-- SELECT mirrors the time_entries read policy. No client INSERT/UPDATE/DELETE
+-- policies: the SECURITY DEFINER trigger is the only writer, so audit rows
+-- can't be forged or altered from the browser.
+CREATE POLICY "Read: own, team, or admin" ON time_entry_audit
+  FOR SELECT TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
 -- Unified view: Zoho-sourced actuals + Simpliigence-entered approved time
 -- Used by the future "ops cockpit" (forecast vs actual unified).
 CREATE OR REPLACE VIEW unified_actual_hours AS
@@ -415,6 +508,113 @@ SELECT
 FROM time_entries te
 LEFT JOIN authorized_users au ON LOWER(au.email) = LOWER(te.employee_email)
 WHERE te.status IN ('approved','submitted');
+
+-- Timesheet documents — client-approved timesheet attachments at the WEEK level
+-- (period_start = Monday, period_end = Sunday). See migration
+-- 016_timesheet_documents.sql. Files live in the PRIVATE Storage bucket
+-- 'timesheet-documents', created in the Supabase console/CLI (buckets aren't
+-- declarable in tracked SQL here, same as 'concierge-docs' / 'candidate-resumes').
+CREATE TABLE timesheet_documents (
+  id             TEXT PRIMARY KEY,
+  employee_email TEXT NOT NULL,
+  period_start   DATE NOT NULL,          -- Monday of the week
+  period_end     DATE NOT NULL,          -- Sunday of the week
+  filename       TEXT NOT NULL,
+  storage_path   TEXT NOT NULL,
+  mime_type      TEXT,
+  size_bytes     BIGINT,
+  uploaded_by    TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_tsdoc_emp_period ON timesheet_documents(employee_email, period_start);
+
+ALTER TABLE timesheet_documents ENABLE ROW LEVEL SECURITY;
+
+-- RLS mirrors time_entries (own; managers read reports'; admins read/manage all)
+CREATE POLICY "Read: own, team, or admin" ON timesheet_documents
+  FOR SELECT TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
+-- Insert: own row, a report's row, or (admin/manager) anyone's row. Mirrors the
+-- SELECT/UPDATE policies so managers can attach docs for their team from Team Time.
+CREATE POLICY "Insert: own" ON timesheet_documents
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
+CREATE POLICY "Update: own, team, or admin" ON timesheet_documents
+  FOR UPDATE TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR reports_to(employee_email)
+    OR current_user_role() IN ('admin','manager')
+  );
+
+CREATE POLICY "Delete: own or admin" ON timesheet_documents
+  FOR DELETE TO authenticated
+  USING (
+    LOWER(employee_email) = current_user_email()
+    OR current_user_role() = 'admin'
+  );
+
+-- Storage object RLS for the private 'timesheet-documents' bucket. Object paths
+-- are `${email}/${period_start}/...`, so the top folder ((storage.foldername(name))[1])
+-- is the owner's email. These policies mirror the timesheet_documents table RLS:
+-- a user reaches only their OWN folder, managers read their reports' folders, and
+-- admins reach everything. (The bucket itself is created in the console/CLI —
+-- buckets aren't declarable in tracked SQL here.) Idempotent (drop-if-exists then create).
+DROP POLICY IF EXISTS "timesheet-documents: read own, team, or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: read own, team, or admin" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
+  );
+
+-- Insert: own folder, a report's folder, or (admin/manager) any folder — mirrors
+-- the read/update object policies so managers can upload for their team.
+DROP POLICY IF EXISTS "timesheet-documents: insert own" ON storage.objects;
+CREATE POLICY "timesheet-documents: insert own" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: update own, team, or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: update own, team, or admin" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR reports_to((storage.foldername(name))[1])
+      OR current_user_role() IN ('admin','manager')
+    )
+  );
+
+DROP POLICY IF EXISTS "timesheet-documents: delete own or admin" ON storage.objects;
+CREATE POLICY "timesheet-documents: delete own or admin" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'timesheet-documents' AND (
+      (storage.foldername(name))[1] = current_user_email()
+      OR current_user_role() = 'admin'
+    )
+  );
 
 -- ============================================================
 -- 13. ta_daily_log — one row per (TA × day × requisition)

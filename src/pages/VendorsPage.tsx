@@ -93,7 +93,7 @@ export default function VendorsPage() {
   }, [vendors, q, filterSkill, showInactive, sortBy, statsByVendor]);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <PageHeader
         title="Vendors"
         subtitle={`${vendors.length} vendor${vendors.length === 1 ? '' : 's'} · ${outreach.length} outreach event${outreach.length === 1 ? '' : 's'}`}

@@ -229,7 +229,7 @@ export const useForecastStore = create<ForecastState>()(
     }),
     {
       name: 'simpliigence-forecast',
-      version: 5,
+      version: 6,
       migrate: (persisted: unknown, version: number) => {
         const old = persisted as Record<string, unknown> | null;
         const assignments = (old?.assignments as ForecastAssignment[]) ?? [];
@@ -258,6 +258,32 @@ export const useForecastStore = create<ForecastState>()(
           };
           for (const a of assignments) {
             const target = renames[a.project?.toLowerCase().trim()];
+            if (target && a.project !== target) {
+              a.project = target;
+              a._manuallyEdited = true;
+            }
+          }
+        }
+        // v6: adopt the canonical project names agreed 2026-08-10, so the
+        // Projects tab, the timesheets and the Delivery Governance tool all
+        // say the same thing. v5 had shortened these to spreadsheet aliases
+        // (CoolAir, QUData, LLI); we now go the other way, to the full
+        // client-facing name. The matching rows in Postgres were renamed in
+        // the same change — this only catches copies already persisted in a
+        // browser's localStorage.
+        if (version < 6) {
+          const canonical: Record<string, string> = {
+            'coolair': 'Cool Air Rentals',
+            'cool air': 'Cool Air Rentals',
+            'qudata': 'Qu Data - Phase 1',
+            'qudata centres': 'Qu Data - Phase 1',
+            'lli': 'Lloyds List Intelligence',
+            'llyods list intelligence': 'Lloyds List Intelligence',
+            'copeland': 'Copeland Support',
+            'dtr salesforce': 'DTR - SF Implementation',
+          };
+          for (const a of assignments) {
+            const target = canonical[a.project?.toLowerCase().trim()];
             if (target && a.project !== target) {
               a.project = target;
               a._manuallyEdited = true;

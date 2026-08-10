@@ -14,7 +14,6 @@ import {
   ClipboardList,
   PanelLeftOpen,
   Globe,
-  UserCheck,
   TrendingUp,
   Clock,
   Timer,
@@ -36,6 +35,7 @@ import {
   ExternalLink,
   ShieldCheck,
   BriefcaseBusiness,
+  PhoneCall,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -57,6 +57,7 @@ const sections: NavSection[] = [
     label: 'Portals',
     items: [
       { to: '/my-time',                                                icon: Timer,             label: 'Timesheets' },
+      { to: '/leave',                                                  icon: CalendarCheck,     label: 'Leave' },
       { to: '/home',                                                   icon: BriefcaseBusiness, label: 'Delivery Cockpit' },
       { href: 'https://simpliigence-governance.onrender.com/',         icon: ShieldCheck,       label: 'Delivery Governance' },
       { href: 'https://simpliigence-hr-portal.vercel.app/dossier',     icon: UserCog,           label: 'HR Portal' },
@@ -94,11 +95,10 @@ const sections: NavSection[] = [
     ],
   },
   {
-    label: 'US T&M',
+    label: 'Global T&M',
     items: [
-      { to: '/us-staffing', icon: Globe, label: 'US Demand' },
-      { to: '/us-roster', icon: Users, label: 'US Roster' },
-      { to: '/open-bench', icon: UserCheck, label: 'Open Bench' },
+      { to: '/us-staffing', icon: Globe, label: 'Global Demand' },
+      { to: '/us-roster', icon: Users, label: 'Global Roster' },
     ],
   },
   {
@@ -107,6 +107,7 @@ const sections: NavSection[] = [
       { to: '/accounts', icon: Building2, label: 'Accounts' },
       { to: '/vendors',  icon: Handshake, label: 'Vendors' },
       { to: '/gtm-list', icon: Target,    label: 'GTM List' },
+      { to: '/dialer',   icon: PhoneCall, label: 'Dialer' },
     ],
   },
   {
@@ -120,18 +121,20 @@ const sections: NavSection[] = [
 const adminSection: NavSection = {
   label: 'Admin',
   items: [
-    { to: '/admin/users',    icon: UserCog,  label: 'Users' },
-    { to: '/admin/activity', icon: Activity, label: 'Activity' },
-    { to: '/admin/audit',    icon: History,  label: 'Audit Log' },
+    { to: '/admin/users',    icon: UserCog,      label: 'Users' },
+    { to: '/admin/leave',    icon: CalendarCheck, label: 'Leave Admin' },
+    { to: '/admin/activity', icon: Activity,     label: 'Activity' },
+    { to: '/admin/audit',    icon: History,      label: 'Audit Log' },
   ],
 };
 
-/** Nav shown to role='employee' users — they only see "My Time". */
+/** Nav shown to role='employee' users — timesheet + leave request. */
 const employeeOnlySections: NavSection[] = [
   {
     label: 'My Work',
     items: [
-      { to: '/my-time', icon: Timer, label: 'My Time' },
+      { to: '/my-time', icon: Timer,        label: 'My Time' },
+      { to: '/leave',   icon: CalendarCheck, label: 'Leave' },
     ],
   },
 ];
@@ -140,6 +143,8 @@ const employeeOnlySections: NavSection[] = [
 const myTimeItem: NavItem = { to: '/my-time', icon: Timer, label: 'My Time' };
 /** Manager approval queue, shown to admins/managers under the Projects group. */
 const teamTimeItem: NavItem = { to: '/my-team-time', icon: CheckSquare, label: 'Team Time' };
+/** Manager/admin view of all employees' leave requests, next to Team Time. */
+const teamLeaveItem: NavItem = { to: '/team-leave', icon: CalendarCheck, label: 'Team Leave' };
 
 /** Wraps NavLink (internal) or a plain <a target=_blank> (external) so we can
  *  render both shapes side-by-side in the sidebar. External items get a small
@@ -200,7 +205,9 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const [email, setEmail] = useState<string | null>(null);
   const role = useAuthStore((s) => s.currentUser?.role);
-  const isAdmin = role === 'admin';
+  // Canonical admin flag from the store (is_admin || role==='admin') — same value
+  // AdminOnly gates the /admin/* routes with, so the nav and the routes agree.
+  const isAdmin = useAuthStore((s) => !!s.currentUser?.isAdmin);
   const isEmployee = role === 'employee';
   /**
    * "Effectively collapsed" — only applies on desktop. When the mobile drawer
@@ -222,13 +229,13 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       ? sections
           .map((s) =>
             s.label === 'Projects'
-              ? { ...s, items: [myTimeItem, teamTimeItem, ...s.items] }
+              ? { ...s, items: [myTimeItem, teamTimeItem, teamLeaveItem, ...s.items] }
               : s,
           )
           .concat([adminSection])
       : // TA Manager
         [
-          { label: 'My Work', items: [myTimeItem, teamTimeItem] } as NavSection,
+          { label: 'My Work', items: [myTimeItem, teamTimeItem, teamLeaveItem] } as NavSection,
           ...sections.filter((s) => s.label !== 'Projects'),
         ];
 

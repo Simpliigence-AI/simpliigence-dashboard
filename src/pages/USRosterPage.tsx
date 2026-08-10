@@ -23,6 +23,8 @@ import {
 } from '../types/usRoster';
 import { ROSTER_ROLES } from '../types/indiaRoster';
 import type { VisaCategory } from '../types/openBench';
+import { USRosterCardGrid } from './us-roster/USRosterCardGrid';
+import { LayoutGrid, Rows3 } from 'lucide-react';
 
 /* —— Multi-project helpers ——
  * `project` is stored as a single TEXT column (comma-separated). One US
@@ -252,6 +254,18 @@ export default function USRosterPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [sortField, setSortField] = useState<string>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  // View mode: 'cards' is the rich new default, 'table' is opt-in for anyone
+  // who wants the spreadsheet layout back. Persisted per-page.
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    try {
+      const stored = localStorage.getItem('us-roster-view-mode');
+      return stored === 'table' ? 'table' : 'cards';
+    } catch { return 'cards'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('us-roster-view-mode', viewMode); } catch { /* private mode */ }
+  }, [viewMode]);
+
 
   const [draft, setDraft] = useState({
     name: '',
@@ -374,9 +388,12 @@ export default function USRosterPage() {
     a.click();
   };
 
-  const SortHeader = ({ field, label, align = 'left' }: { field: string; label: string; align?: 'left' | 'right' | 'center' }) => (
+  const SortHeader = ({ field, label, align = 'left', sticky = false, leftOffset = 0 }: { field: string; label: string; align?: 'left' | 'right' | 'center'; sticky?: boolean; leftOffset?: number }) => (
     <th
-      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px]`}
+      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px] ${
+        sticky ? 'sticky bg-slate-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+      }`}
+      style={sticky ? { left: leftOffset } : undefined}
       onClick={() => handleSort(field)}
     >
       {label} {sortField === field && (sortAsc ? '↑' : '↓')}
@@ -386,8 +403,30 @@ export default function USRosterPage() {
   return (
     <>
       <PageHeader
-        title="US Roster"
-        subtitle="Full US FTE roster — billable allocations, bench, visa, location, margin"
+        title="Global Roster"
+        subtitle="Full FTE roster — billable allocations, bench, visa, location, margin"
+        action={
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" title="Switch between the card grid and the wide inline-edit table">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'cards' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutGrid size={12} /> Cards
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Rows3 size={12} /> Table
+            </button>
+          </div>
+        }
       />
 
       {/* Stats */}
@@ -420,6 +459,53 @@ export default function USRosterPage() {
           </div>
         </Card>
       )}
+
+      {/* Status count chips — click to filter, click active chip to clear.
+       *  Counts key off the FULL member list, not the filtered view, so the
+       *  chip row is a stable overview of the team. */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-3">
+        {(() => {
+          const total = members.length;
+          const counts: Record<string, number> = {};
+          for (const s of US_ROSTER_STATUSES) counts[s] = 0;
+          for (const m of members) counts[m.status] = (counts[m.status] || 0) + 1;
+          return (
+            <>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('All')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
+                  statusFilter === 'All'
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                }`}
+              >
+                All <span className={statusFilter === 'All' ? 'text-white/70' : 'text-slate-400'}>· {total}</span>
+              </button>
+              {US_ROSTER_STATUSES.map((s) => {
+                const active = statusFilter === s;
+                const color = US_ROSTER_STATUS_COLORS[s];
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatusFilter(active ? 'All' : s)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
+                      active
+                        ? 'text-white border-transparent shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                    }`}
+                    style={active ? { background: color } : undefined}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                    {s} <span className={active ? 'text-white/80' : 'text-slate-400'}>· {counts[s]}</span>
+                  </button>
+                );
+              })}
+            </>
+          );
+        })()}
+      </div>
 
       {/* Filters + Add */}
       <div className="flex items-center gap-3 flex-wrap mb-4">
@@ -456,7 +542,7 @@ export default function USRosterPage() {
       {showAdd && (
         <Card className="border-2 border-blue-200 bg-blue-50/30 mb-4">
           <div className="p-4 space-y-3">
-            <h4 className="text-sm font-bold text-slate-700">New US Roster Member</h4>
+            <h4 className="text-sm font-bold text-slate-700">New Global Roster Member</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="text-[10px] uppercase text-slate-500 font-semibold">Name *</label>
@@ -539,13 +625,25 @@ export default function USRosterPage() {
         </Card>
       )}
 
-      {/* Roster Table */}
+      {/* Roster — card grid (default) or table (opt-in) */}
+      {viewMode === 'cards' && (
+        <USRosterCardGrid
+          members={filtered}
+          onSave={(id, field, val) => handleCellSave(id, field as string, val)}
+          onDelete={(id) => removeMember(id)}
+        />
+      )}
+      {viewMode === 'table' && (
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 text-slate-500">
-                <SortHeader field="name" label="Name" />
+                <th
+                  className="px-2 py-2 text-left font-semibold uppercase tracking-wide text-[10px] w-8 sticky left-0 bg-slate-50 z-10"
+                  title="Serial number within the current filter"
+                >#</th>
+                <SortHeader field="name" label="Name" sticky leftOffset={32} />
                 <SortHeader field="role" label="Role" />
                 <SortHeader field="project" label="Project" />
                 <SortHeader field="status" label="Status" />
@@ -560,13 +658,14 @@ export default function USRosterPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((m) => {
+              {filtered.map((m, idx) => {
                 const marginPct = calcUSMarginPercent(m);
                 const marginAbs = calcUSMarginAbsolute(m);
                 const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
                 return (
-                  <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30">
-                    <td className="px-3 py-2 font-medium text-slate-800">
+                  <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30 group">
+                    <td className="px-2 py-2 text-slate-400 tabular-nums text-right pr-3 sticky left-0 bg-white group-hover:bg-blue-50/60 w-8">{idx + 1}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800 sticky bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" style={{ left: 32 }}>
                       <EditableCell value={m.name} onSave={(v) => handleCellSave(m.id, 'name', v)} />
                     </td>
                     <td className="px-3 py-2">
@@ -650,6 +749,7 @@ export default function USRosterPage() {
           </table>
         </div>
       </Card>
+      )}
     </>
   );
 }

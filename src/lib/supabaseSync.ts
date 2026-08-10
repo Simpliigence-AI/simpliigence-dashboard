@@ -8,6 +8,7 @@
  *  - localStorage persist middleware kept as offline fallback / instant page load cache
  */
 import { nanoid } from 'nanoid';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase, CLIENT_ID } from './supabase';
 import type { ForecastAssignment, Month, ZohoPipelineProject } from '../types/forecast';
 import type { FinancialSettings } from '../types/financial';
@@ -20,7 +21,7 @@ import type { IndiaRosterMember, IndiaRosterStatus } from '../types/indiaRoster'
 import type { USRosterMember, USRosterStatus } from '../types/usRoster';
 import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
-import type { TimeEntry } from '../types/timeEntry';
+import type { TimeEntry, TimesheetDocument, TimeEntryAudit } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import type { Vendor, VendorOutreach } from '../types/vendor';
 import type {
@@ -29,9 +30,40 @@ import type {
 import type {
   ConciergeAccount, ConciergeFeature, ConciergeBillingEntry,
 } from '../types/concierge';
+import type { LeaveType, LeaveRequest, LeaveAllocation, LeaveAuditEntry } from '../types/leave';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
+
+// ─── Error formatting ──────────────────────────────────────────────
+
+/**
+ * Compose a human-readable description of a thrown Supabase/PostgREST error.
+ *
+ * PostgrestError carries `.message`, `.code`, `.details` and `.hint` — the
+ * message alone is often too vague to diagnose (e.g. an RLS no-op or CHECK
+ * violation), so surface every non-empty field:
+ *
+ *   "[<code>] <message> — <details> (hint: <hint>)"
+ *
+ * Works on any thrown value (Error instance or plain error-shaped object).
+ * Returns '' when nothing useful is present so callers can apply their own
+ * last-resort fallback text.
+ */
+export function formatDbError(err: unknown): string {
+  if (err === null || err === undefined) return '';
+  const e = err as Partial<PostgrestError> & { message?: unknown };
+  const message = typeof e.message === 'string' ? e.message.trim() : '';
+  const code = typeof e.code === 'string' ? e.code.trim() : '';
+  const details = typeof e.details === 'string' ? e.details.trim() : '';
+  const hint = typeof e.hint === 'string' ? e.hint.trim() : '';
+  let out = code ? `[${code}] ${message}`.trim() : message;
+  if (details) out = out ? `${out} — ${details}` : details;
+  if (hint) out = out ? `${out} (hint: ${hint})` : `hint: ${hint}`;
+  // Last resort for non-Postgrest values (e.g. a thrown string).
+  if (!out && typeof err === 'string') out = err.trim();
+  return out;
+}
 
 // ─── Conversion helpers ────────────────────────────────────────────
 
@@ -360,6 +392,39 @@ function rowToTimeEntry(row: any): TimeEntry {
     approvedBy: row.approved_by ?? null,
     approvedAt: row.approved_at ?? null,
     rejectReason: row.reject_reason ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTimeEntryAudit(row: any): TimeEntryAudit {
+  return {
+    id: row.id,
+    timeEntryId: row.time_entry_id,
+    employeeEmail: row.employee_email ?? null,
+    operation: row.operation as TimeEntryAudit['operation'],
+    changedByEmail: row.changed_by_email ?? null,
+    changedByRole: row.changed_by_role ?? null,
+    changedFields: row.changed_fields ?? [],
+    oldData: row.old_data ?? null,
+    newData: row.new_data ?? null,
+    changedAt: row.changed_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTimesheetDoc(row: any): TimesheetDocument {
+  return {
+    id: row.id,
+    employeeEmail: row.employee_email,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    filename: row.filename,
+    storagePath: row.storage_path,
+    mimeType: row.mime_type ?? null,
+    sizeBytes: row.size_bytes ?? null,
+    uploadedBy: row.uploaded_by ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -775,16 +840,41 @@ export async function fetchCallTemplates(): Promise<CallTemplate[] | null> {
 }
 
 export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
-  // RLS already restricts to (own + reports + admin/manager) so a plain select is fine.
-  const { data, error } = await supabase
-    .from('time_entries')
-    .select('*')
-    .order('work_date', { ascending: false });
-  if (error) {
-    console.warn('[supabase] fetch time_entries failed:', error);
-    return null;
+  // RLS already restricts to (own + reports + admin/manager). But PostgREST
+  // caps each response at 1000 rows regardless of Range header, so a manager's
+  // team-wide scope (>1000 rows) silently drops the oldest entries. Paginate
+  // client-side — keyset on `id` (TEXT PK, always unique), mirroring
+  // fetchAllCandidates — then sort by work_date DESC once assembled.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
+  const pageSize = 1000;
+  let lastId: string | null = null;
+  let page = 0;
+  while (true) {
+    page++;
+    let q = supabase
+      .from('time_entries')
+      .select('*')
+      .order('id', { ascending: true })
+      .limit(pageSize);
+    if (lastId) q = q.gt('id', lastId);
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await q;
+    if (error) {
+      console.warn('[supabase] fetch time_entries failed:', error, '— have', all.length, 'rows so far');
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []) as any[];
+    console.log(`[time_entries] page ${page}: ${rows.length} rows (after id=${lastId ?? 'START'}) — total so far ${all.length + rows.length}`);
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    lastId = rows[rows.length - 1].id as string;
+    if (all.length >= 100_000) { console.warn('[supabase] time_entries hit 100k safety cap'); break; }
   }
-  return (data || []).map(rowToTimeEntry);
+  return all
+    .map(rowToTimeEntry)
+    .sort((a, b) => b.workDate.localeCompare(a.workDate));
 }
 
 export async function fetchTaDailyLog(): Promise<TADailyLogEntry[] | null> {
@@ -1607,9 +1697,120 @@ export const db = {
     const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert time_entry failed:', error);
   },
+  /** Plain UPDATE of specific fields on an existing entry (no upsert/INSERT
+   *  path). Used by the Team Time manager edit flow so it always takes the
+   *  UPDATE-policy branch (which admins/managers are permitted). */
+  async updateTimeEntry(id: string, patch: Partial<TimeEntry>): Promise<{ error: PostgrestError | null }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row: Record<string, any> = { updated_by: CLIENT_ID, updated_at: new Date().toISOString() };
+    if (patch.employeeEmail !== undefined) row.employee_email = patch.employeeEmail.toLowerCase();
+    if (patch.workDate !== undefined) row.work_date = patch.workDate;
+    if (patch.projectId !== undefined) row.project_id = patch.projectId;
+    if (patch.projectName !== undefined) row.project_name = patch.projectName;
+    if (patch.hours !== undefined) row.hours = patch.hours;
+    if (patch.billable !== undefined) row.billable = patch.billable;
+    if (patch.notes !== undefined) row.notes = patch.notes ?? '';
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.submittedAt !== undefined) row.submitted_at = patch.submittedAt;
+    if (patch.approvedBy !== undefined) row.approved_by = patch.approvedBy;
+    if (patch.approvedAt !== undefined) row.approved_at = patch.approvedAt;
+    if (patch.rejectReason !== undefined) row.reject_reason = patch.rejectReason;
+    // .select().single() surfaces a 0-row result (e.g. an RLS no-op or CHECK
+    // violation) as an error so callers can roll back and report the failure.
+    const { error } = await supabase.from('time_entries').update(row).eq('id', id).select().single();
+    if (error) console.warn('[supabase] update time_entry failed:', error);
+    return { error };
+  },
   async deleteTimeEntry(id: string) {
     const { error } = await supabase.from('time_entries').delete().eq('id', id);
     if (error) console.warn('[supabase] delete time_entry failed:', error);
+  },
+  /** Read the audit trail (who changed what) for one entry, newest first.
+   *  Rows are written by a DB trigger; RLS gates who can read them. */
+  async getTimeEntryAudit(timeEntryId: string): Promise<TimeEntryAudit[]> {
+    const { data, error } = await supabase
+      .from('time_entry_audit')
+      .select('*')
+      .eq('time_entry_id', timeEntryId)
+      .order('changed_at', { ascending: false });
+    if (error) {
+      console.warn('[supabase] fetch time_entry_audit failed:', error);
+      return [];
+    }
+    return (data || []).map(rowToTimeEntryAudit);
+  },
+
+  // --- Timesheet documents (Supabase Storage: timesheet-documents bucket) ---
+  /** Upload a client-approved timesheet file for a week and insert its metadata
+   *  row. Path: `${employeeEmail}/${periodStart}/${timestamp}-${sanitized}`. */
+  async uploadTimesheetDocument(params: {
+    employeeEmail: string;
+    periodStart: string;
+    periodEnd: string;
+    file: File;
+    uploadedBy?: string | null;
+  }): Promise<TimesheetDocument> {
+    const { employeeEmail, periodStart, periodEnd, file, uploadedBy } = params;
+    // Top folder must equal current_user_email() (the raw lowercased auth email)
+    // so the storage.objects RLS owner check on (storage.foldername(name))[1]
+    // matches. Only strip path-dangerous chars — keep '@' etc. intact.
+    const safeEmail = employeeEmail.trim().toLowerCase().replace(/[\s/\\]+/g, '_');
+    const safeName = (file.name || 'timesheet').replace(/[^\w.-]+/g, '_').slice(0, 120) || 'timesheet';
+    const path = `${safeEmail}/${periodStart}/${Date.now()}-${safeName}`;
+    const { error: upErr } = await supabase.storage
+      .from('timesheet-documents')
+      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    if (upErr) throw new Error(`Upload failed for ${file.name}: ${upErr.message}`);
+
+    const insertRow = {
+      id: nanoid(),
+      employee_email: employeeEmail.trim().toLowerCase(),
+      period_start: periodStart,
+      period_end: periodEnd,
+      filename: file.name,
+      storage_path: path,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      uploaded_by: uploadedBy ?? null,
+    };
+    const { data, error } = await supabase.from('timesheet_documents').insert(insertRow).select().single();
+    if (error || !data) {
+      // Roll back the orphaned storage object best-effort.
+      await supabase.storage.from('timesheet-documents').remove([path]);
+      throw new Error(`Insert row failed: ${error?.message}`);
+    }
+    return rowToTimesheetDoc(data);
+  },
+
+  /** List timesheet documents for a given employee + week (period_start). */
+  async listTimesheetDocuments(employeeEmail: string, periodStart: string): Promise<TimesheetDocument[]> {
+    const { data, error } = await supabase
+      .from('timesheet_documents')
+      .select('*')
+      .eq('employee_email', employeeEmail.trim().toLowerCase())
+      .eq('period_start', periodStart)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.warn('[supabase] list timesheet_documents failed:', error);
+      return [];
+    }
+    return (data || []).map(rowToTimesheetDoc);
+  },
+
+  /** Delete a timesheet document row and its underlying storage object. */
+  async deleteTimesheetDocument(id: string, storagePath: string) {
+    if (storagePath) {
+      await supabase.storage.from('timesheet-documents').remove([storagePath]);
+    }
+    const { error } = await supabase.from('timesheet_documents').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
+  /** Short-lived signed URL (1h) for downloading a timesheet document. */
+  async signedTimesheetDocumentUrl(storagePath: string): Promise<string | null> {
+    const { data, error } = await supabase.storage.from('timesheet-documents').createSignedUrl(storagePath, 3600);
+    if (error || !data) return null;
+    return data.signedUrl;
   },
 
   // --- User avatars (Supabase Storage: user-avatars bucket) ---
@@ -2896,3 +3097,236 @@ export function registerHiringConfigGetter(fn: typeof _getHiringConfig) {
 function getHiringConfigFromStore() {
   return _getHiringConfig();
 }
+
+// ─── Leave management ────────────────────────────────────────────
+
+function leaveTypeToRow(t: LeaveType) {
+  return {
+    id: t.id, name: t.name, code: t.code, annual_quota: t.annualQuota,
+    color: t.color, active: t.active, sort_order: t.sortOrder,
+    eligibility: t.eligibility,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveType(row: any): LeaveType {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    annualQuota: Number(row.annual_quota ?? 0),
+    color: row.color ?? '#64748b',
+    active: row.active !== false,
+    sortOrder: Number(row.sort_order ?? 100),
+    eligibility: (row.eligibility as LeaveType['eligibility']) ?? 'all',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function leaveRequestToRow(r: LeaveRequest) {
+  return {
+    id: r.id,
+    employee_email: r.employeeEmail.toLowerCase(),
+    leave_type_id: r.leaveTypeId,
+    start_date: r.startDate,
+    end_date: r.endDate,
+    days: r.days,
+    reason: r.reason,
+    status: r.status,
+    manager_email: r.managerEmail?.toLowerCase() ?? null,
+    decided_at: r.decidedAt,
+    decided_by: r.decidedBy?.toLowerCase() ?? null,
+    decision_comment: r.decisionComment,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveRequest(row: any): LeaveRequest {
+  return {
+    id: row.id,
+    employeeEmail: row.employee_email,
+    leaveTypeId: row.leave_type_id,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    days: Number(row.days),
+    reason: row.reason ?? null,
+    status: row.status,
+    managerEmail: row.manager_email ?? null,
+    decidedAt: row.decided_at ?? null,
+    decidedBy: row.decided_by ?? null,
+    decisionComment: row.decision_comment ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function leaveAllocationToRow(a: LeaveAllocation) {
+  return {
+    id: a.id,
+    employee_email: a.employeeEmail.toLowerCase(),
+    leave_type_id: a.leaveTypeId,
+    year: a.year,
+    quota: a.quota,
+    carried_forward: a.carriedForward,
+    source: a.source,
+    notes: a.notes,
+    created_by: a.createdBy?.toLowerCase() ?? null,
+    updated_by: a.updatedBy?.toLowerCase() ?? null,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveAllocation(row: any): LeaveAllocation {
+  return {
+    id: row.id,
+    employeeEmail: row.employee_email,
+    leaveTypeId: row.leave_type_id,
+    year: Number(row.year),
+    quota: Number(row.quota ?? 0),
+    carriedForward: Number(row.carried_forward ?? 0),
+    source: (row.source ?? 'admin') as LeaveAllocation['source'],
+    notes: row.notes ?? null,
+    createdBy: row.created_by ?? null,
+    updatedBy: row.updated_by ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLeaveAudit(row: any): LeaveAuditEntry {
+  return {
+    id: Number(row.id),
+    entity: row.entity,
+    entityId: row.entity_id,
+    action: row.action,
+    actorEmail: row.actor_email ?? null,
+    beforeData: row.before_data ?? null,
+    afterData: row.after_data ?? null,
+    changedAt: row.changed_at,
+  };
+}
+
+/** PostgREST caps each response at 1000 rows regardless of the Range header.
+ *  A single `.select('*')` on leave_requests silently truncates once the row
+ *  count (or, after the manager-read RLS change, a manager's now-org-wide
+ *  visibility) crosses 1000. We keyset-paginate over `id` (TEXT PK, always
+ *  unique) — the same pattern as `fetchAllCandidates` / `fetchTimeEntries` —
+ *  so both the Leave page and the Team Leave page are safe past the cap.
+ *  Returns mapped `LeaveRequest[]`, newest-first (client-side sort by
+ *  created_at once assembled, since we page by id, not created_at). */
+export async function fetchAllLeaveRequests(): Promise<LeaveRequest[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
+  const pageSize = 1000;
+  let lastId: string | null = null;
+  let page = 0;
+  while (true) {
+    page++;
+    let q = supabase
+      .from('leave_requests')
+      .select('*')
+      .order('id', { ascending: true })
+      .limit(pageSize);
+    if (lastId) q = q.gt('id', lastId);
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await q;
+    if (error) {
+      console.warn('[leave_requests] page', page, 'failed:', error.message, '— have', all.length, 'rows so far');
+      break;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []) as any[];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    lastId = rows[rows.length - 1].id as string;
+    if (all.length >= 200_000) { console.warn('[leave_requests] hit 200k safety cap'); break; }
+  }
+  return all
+    .map(rowToLeaveRequest)
+    .sort((a, b) => (a.createdAt ?? '') < (b.createdAt ?? '') ? 1 : -1);
+}
+
+export async function fetchLeaveData(): Promise<{
+  types: LeaveType[];
+  requests: LeaveRequest[];
+  allocations: LeaveAllocation[];
+} | null> {
+  const [tRes, requests, aRes] = await Promise.all([
+    supabase.from('leave_types').select('*').order('sort_order', { ascending: true }),
+    // Keyset-paginated so it doesn't truncate at PostgREST's 1000-row cap.
+    fetchAllLeaveRequests(),
+    supabase.from('leave_allocations').select('*'),
+  ]);
+  if (tRes.error) { console.warn('[supabase] fetch leave_types failed:', tRes.error); return null; }
+  return {
+    types: (tRes.data || []).map(rowToLeaveType),
+    requests,
+    allocations: (aRes.data || []).map(rowToLeaveAllocation),
+  };
+}
+
+/** Fetch the leave audit trail. RLS restricts non-admins to rows that touch
+ *  their own email. Newest first. Limit defaults to 500 — the admin page can
+ *  ask for more if needed. */
+export async function fetchLeaveAudit(opts: { limit?: number; entity?: string; entityId?: string } = {}): Promise<LeaveAuditEntry[]> {
+  let q = supabase.from('leave_audit').select('*').order('changed_at', { ascending: false }).limit(opts.limit ?? 500);
+  if (opts.entity) q = q.eq('entity', opts.entity);
+  if (opts.entityId) q = q.eq('entity_id', opts.entityId);
+  const { data, error } = await q;
+  if (error) { console.warn('[supabase] fetch leave_audit failed:', error); return []; }
+  return (data || []).map(rowToLeaveAudit);
+}
+
+/** Notify a manager that a new leave request is waiting. Fire-and-forget —
+ *  UI doesn't block on this. Uses the leave-notify edge function which
+ *  wraps the shared Graph client-credentials flow. */
+export async function notifyLeaveRequest(requestId: string, event: 'submitted' | 'approved' | 'rejected'): Promise<void> {
+  try {
+    await supabase.functions.invoke('leave-notify', { body: { requestId, event } });
+  } catch (e) {
+    console.warn('[supabase] leave-notify failed (non-blocking):', e);
+  }
+}
+
+/** Named leave-CRUD helpers — kept as top-level exports (rather than shoved
+ *  into the `db` object literal above) so their types are legible without
+ *  touching the 1500-line `db` definition. Callers: `import { leaveDb } ...` */
+export const leaveDb = {
+  async upsertType(t: LeaveType) {
+    const { error } = await supabase.from('leave_types').upsert(leaveTypeToRow(t), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert leave_type failed:', error); throw error; }
+  },
+  async deleteType(id: string) {
+    const { error } = await supabase.from('leave_types').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete leave_type failed:', error);
+  },
+  async upsertRequest(r: LeaveRequest) {
+    const { error } = await supabase.from('leave_requests').upsert(leaveRequestToRow(r), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert leave_request failed:', error); throw error; }
+  },
+  async deleteRequest(id: string) {
+    const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete leave_request failed:', error);
+  },
+  async upsertAllocation(a: LeaveAllocation) {
+    const { error } = await supabase.from('leave_allocations').upsert(leaveAllocationToRow(a), { onConflict: 'id' });
+    if (error) { console.error('[supabase] upsert leave_allocation failed:', error); throw error; }
+  },
+  async deleteAllocation(id: string) {
+    const { error } = await supabase.from('leave_allocations').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete leave_allocation failed:', error);
+  },
+  /** Bulk-insert allocations for a year. Uses onConflict on the unique
+   *  (employee, type, year) tuple so re-running with the same year is a
+   *  no-op-if-unchanged / update-in-place. */
+  async bulkUpsertAllocations(rows: LeaveAllocation[]): Promise<{ ok: number; failed: number; error?: string }> {
+    if (rows.length === 0) return { ok: 0, failed: 0 };
+    const { error } = await supabase
+      .from('leave_allocations')
+      .upsert(rows.map(leaveAllocationToRow), { onConflict: 'employee_email,leave_type_id,year' });
+    if (error) {
+      console.error('[supabase] bulk upsert leave_allocations failed:', error);
+      return { ok: 0, failed: rows.length, error: error.message };
+    }
+    return { ok: rows.length, failed: 0 };
+  },
+};

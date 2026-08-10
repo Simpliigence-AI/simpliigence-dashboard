@@ -26,8 +26,11 @@ import {
   Calendar, Briefcase, CheckCircle2, Circle, PauseCircle, XCircle, Clock,
   Sparkles, RefreshCw, Loader2, Mic, Square, Upload, Link as LinkIcon,
   DollarSign, Lock, Unlock, Flame, MessageSquare, Handshake,
+  Search, Lightbulb, PanelsTopLeft, Rows3, Building2, ArrowLeft,
 } from 'lucide-react';
 import { Card } from '../components/ui';
+import { QuickIdeaModal } from './accounts/QuickIdeaModal';
+import { supabase } from '../lib/supabase';
 import { Sensitive } from '../components/Sensitive';
 import { db } from '../lib/supabaseSync';
 import { runAccountBriefing, type AccountBriefing } from '../lib/claudeQuery';
@@ -109,6 +112,60 @@ export default function AccountsPage() {
   const [autoLog, setAutoLog] = useState<Record<string, ConnectType | null>>({});
   const [adding, setAdding] = useState(false);
 
+  // ── View mode ──
+  // 'split' is the default: a searchable account rail on the left, the full
+  // account detail on the right. 'list' is the legacy accordion, kept for
+  // anyone who prefers scanning every account's KPIs at once.
+  const [viewMode, setViewMode] = useState<'split' | 'list'>(() => {
+    try { return localStorage.getItem('accounts-view-mode') === 'list' ? 'list' : 'split'; }
+    catch { return 'split'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('accounts-view-mode', viewMode); } catch { /* private mode */ }
+  }, [viewMode]);
+
+  /** Which account the right pane is showing (split mode only). */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [quickIdeaOpen, setQuickIdeaOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // ── Client contacts, page-level, for search only ──
+  // Each account's ClientContactsTab fetches its own rows, but search needs
+  // them all up front so "which account is Jayesh at?" actually resolves.
+  // Small table; one query on mount.
+  const [contactIndex, setContactIndex] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('account_client_contacts')
+        .select('account_id, name, email, title');
+      if (cancelled || !data) return;
+      const idx: Record<string, string> = {};
+      for (const r of data as { account_id: string; name: string | null; email: string | null; title: string | null }[]) {
+        const bits = [r.name, r.email, r.title].filter(Boolean).join(' ');
+        idx[r.account_id] = `${idx[r.account_id] ?? ''} ${bits}`.toLowerCase();
+      }
+      setContactIndex(idx);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Keyboard: `i` opens the quick-idea capture from anywhere on the page
+  // (unless the user is typing in a field).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'i' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
+      e.preventDefault();
+      setQuickIdeaOpen(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // Sales-plan integration — load once on mount.
   const salesPlanLoad = useSalesPlanStore((s) => s.load);
   const salesPlanByName = useSalesPlanStore((s) => s.byName);
@@ -175,7 +232,19 @@ export default function AccountsPage() {
       if (filterStale && !d?.isStale) return false;
       if (filterUrgent && !d?.isUrgent) return false;
       if (needle) {
-        const hay = `${a.name} ${a.salesOwnerEmail ?? ''} ${a.deliveryOwnerEmail ?? ''} ${a.industry ?? ''}`.toLowerCase();
+        // Search spans the account itself, its aliases, its notes, AND the
+        // names/emails/titles of its client contacts — so "who do we know at
+        // X" and "which account is <person> at" both work from one box.
+        const hay = [
+          a.name,
+          a.salesOwnerEmail ?? '',
+          a.deliveryOwnerEmail ?? '',
+          a.industry ?? '',
+          a.notes ?? '',
+          a.status,
+          ...(a.teamAliases ?? []),
+          contactIndex[a.id] ?? '',
+        ].join(' ').toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
@@ -194,7 +263,7 @@ export default function AccountsPage() {
       if (fb !== fa) return fb - fa;
       return a.name.localeCompare(b.name);
     });
-  }, [accounts, q, filterStale, filterUrgent, derivedByAccount]);
+  }, [accounts, q, filterStale, filterUrgent, derivedByAccount, contactIndex]);
 
   const staleCount = useMemo(
     () => accounts.filter((a) => derivedByAccount.get(a.id)?.isStale).length,
@@ -213,19 +282,67 @@ export default function AccountsPage() {
     [accounts, derivedByAccount],
   );
 
+  // Keep the right pane pointed at something real: pick the first account
+  // when nothing is selected, and re-point if the current selection gets
+  // filtered out from under us.
+  useEffect(() => {
+    if (viewMode !== 'split' || filtered.length === 0) return;
+    if (!selectedId || !filtered.some((a) => a.id === selectedId)) {
+      setSelectedId(filtered[0].id);
+    }
+  }, [viewMode, filtered, selectedId]);
+
   const toggleExpand = (id: string) => {
     const next = new Set(expanded);
     if (next.has(id)) next.delete(id); else next.add(id);
     setExpanded(next);
   };
 
-  /** Open the row, switch to the requested connect tab, and tell the
-   *  ConnectsTab to open its "Add" form immediately. */
+  /** Jump straight into logging a connect: select/expand the account, switch
+   *  to the right tab, and tell ConnectsTab to open its "Add" form. Works in
+   *  both view modes. */
   const quickLogConnect = (accId: string, type: ConnectType) => {
-    setExpanded((prev) => new Set(prev).add(accId));
+    if (viewMode === 'split') setSelectedId(accId);
+    else setExpanded((prev) => new Set(prev).add(accId));
     setActiveTab((prev) => ({ ...prev, [accId]: type === 'sales' ? 'sales' : 'delivery' }));
     setAutoLog((prev) => ({ ...prev, [accId]: type }));
   };
+
+  /** Shared props for <AccountDetail> so split + list render identically. */
+  const detailPropsFor = (acc: Account) => ({
+    account: acc,
+    derived: derivedByAccount.get(acc.id)!,
+    connects: connects.filter((c) => c.accountId === acc.id),
+    actions: actions.filter((a) => a.accountId === acc.id),
+    team: [...indiaRoster, ...usRoster]
+      .filter((m) => rosterMatchesAccount(m.project, acc))
+      .map((m) => ({
+        name: m.name,
+        role: m.role,
+        project: m.project,
+        status: m.status,
+        email: m.email,
+        location: 'location' in m ? (m as { location?: string }).location ?? null : null,
+      })),
+    activeTab: activeTab[acc.id] ?? ('overview' as AccountTab),
+    onTab: (t: AccountTab) => setActiveTab((s) => ({ ...s, [acc.id]: t })),
+    autoLog: autoLog[acc.id] ?? null,
+    onAutoLogConsumed: () => setAutoLog((p) => ({ ...p, [acc.id]: null })),
+    myEmail,
+    onPatchAccount: (patch: Partial<Account>) => updateAccount(acc.id, patch),
+    onRemoveAccount: () => removeAccount(acc.id),
+    onAddConnect: (p: {
+      connectType: ConnectType; meetingDate: string; attendees?: string;
+      discussion?: string; outcome?: string;
+      recordingUrl?: string | null; recordingPath?: string | null; createdBy?: string;
+    }) => addConnect({ accountId: acc.id, ...p }),
+    onRemoveConnect: (id: string) => removeConnect(id),
+    onAddAction: (p: { connectId?: string; title: string; description?: string; ownerEmail?: string; dueDate?: string }) =>
+      addAction({ accountId: acc.id, ...p }),
+    onUpdateAction: (id: string, patch: Partial<AccountActionItem>) => updateAction(id, patch),
+    onRemoveAction: (id: string) => removeAction(id),
+    onSetActionStatus: (id: string, status: ActionStatus) => setActionStatus(id, status),
+  });
 
   // Quick KPIs for the hero strip
   const activeCount = accounts.filter((a) => a.status === 'active').length;
@@ -272,7 +389,7 @@ export default function AccountsPage() {
   }, [accounts, connects, actions]);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       {/* Hero header — gradient banner with stat strip */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 mb-6 text-white shadow-md">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_60%)] pointer-events-none" />
@@ -283,13 +400,46 @@ export default function AccountsPage() {
               Client relationships at a glance — owners, last connects, action items, team size.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="text-sm font-semibold bg-white text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 shadow-sm inline-flex items-center gap-1.5"
-          >
-            <Plus size={14} /> Add account
-          </button>
+          <div className="flex items-center gap-2">
+            {/* View toggle — split (default) vs the legacy full-width accordion */}
+            <div className="flex gap-0.5 bg-white/15 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('split')}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                  viewMode === 'split' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-100 hover:text-white'
+                }`}
+                title="Account rail + detail pane"
+              >
+                <PanelsTopLeft size={12} /> Split
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                  viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-100 hover:text-white'
+                }`}
+                title="Full-width accordion list"
+              >
+                <Rows3 size={12} /> List
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQuickIdeaOpen(true)}
+              className="text-sm font-semibold bg-amber-400 text-amber-950 px-3.5 py-2 rounded-lg hover:bg-amber-300 shadow-sm inline-flex items-center gap-1.5"
+              title="Capture an innovation idea (press i)"
+            >
+              <Lightbulb size={14} /> Idea
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="text-sm font-semibold bg-white text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 shadow-sm inline-flex items-center gap-1.5"
+            >
+              <Plus size={14} /> Add account
+            </button>
+          </div>
         </div>
         <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-5">
           <HeroStat label="Total" value={accounts.length} />
@@ -380,15 +530,28 @@ export default function AccountsPage() {
         )}
       </div>
 
-      {/* Filters */}
+      {/* Search + filters — one row, full width */}
       <Card className="mb-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <input
-            placeholder="Search by name / owner / industry…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="flex-1 min-w-[200px] border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
+          <div className="relative flex-1 min-w-[240px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              placeholder="Search accounts, owners, industry, notes, or client contacts…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="w-full border border-slate-300 rounded-md pl-9 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded"
+                title="Clear search"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setFilterUrgent((v) => !v)}
@@ -411,6 +574,9 @@ export default function AccountsPage() {
           >
             <AlertTriangle size={12} /> {filterStale ? 'Showing stale only' : `Stale only (${staleCount})`}
           </button>
+          <span className="text-xs text-slate-500 ml-auto">
+            {filtered.length} of {accounts.length}
+          </span>
         </div>
       </Card>
 
@@ -424,67 +590,290 @@ export default function AccountsPage() {
         />
       )}
 
-      <Card title={`${filtered.length} account${filtered.length === 1 ? '' : 's'}`}>
-        {filtered.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-500">
-            {accounts.length === 0
-              ? <>No accounts yet. Click <strong>+ Add account</strong> to create one.</>
-              : <>No accounts match.</>}
-          </div>
+      {/* ── SPLIT VIEW (default) ── */}
+      {viewMode === 'split' && (
+        filtered.length === 0 ? (
+          <Card>
+            <div className="py-12 text-center text-sm text-slate-500">
+              {accounts.length === 0
+                ? <>No accounts yet. Click <strong>+ Add account</strong> to create one.</>
+                : <>No accounts match “{q}”.</>}
+            </div>
+          </Card>
         ) : (
-          <div className="divide-y divide-slate-100 -mx-6">
-            {filtered.map((acc, idx) => {
-              const d = derivedByAccount.get(acc.id)!;
-              const isOpen = expanded.has(acc.id);
-              return (
-                <div key={acc.id}>
-                  <AccountRow
+          <div className="grid grid-cols-12 gap-4 items-start">
+            {/* LEFT RAIL — compact, scannable, sticky */}
+            <Card className="col-span-12 lg:col-span-4 xl:col-span-3 p-0 overflow-hidden lg:sticky lg:top-4">
+              <div className="max-h-[calc(100vh-9rem)] overflow-y-auto divide-y divide-slate-100">
+                {filtered.map((acc, idx) => (
+                  <AccountRailRow
+                    key={acc.id}
                     serialNo={idx + 1}
                     account={acc}
-                    derived={d}
-                    isOpen={isOpen}
-                    onToggle={() => toggleExpand(acc.id)}
-                    onQuickLog={(type) => quickLogConnect(acc.id, type)}
+                    derived={derivedByAccount.get(acc.id)!}
+                    selected={acc.id === selectedId}
+                    onSelect={() => setSelectedId(acc.id)}
                   />
-                  {isOpen && (
-                    <AccountDetail
+                ))}
+              </div>
+            </Card>
+
+            {/* RIGHT PANE — the selected account in full */}
+            <div className="col-span-12 lg:col-span-8 xl:col-span-9">
+              {(() => {
+                const acc = filtered.find((a) => a.id === selectedId) ?? filtered[0];
+                if (!acc) return null;
+                const d = derivedByAccount.get(acc.id)!;
+                return (
+                  <Card className="p-0 overflow-hidden">
+                    {/* Pane header — identity, KPIs, quick actions */}
+                    <div className={`px-5 py-4 border-b border-slate-100 ${
+                      d.isUrgent ? 'bg-gradient-to-r from-rose-50 to-white'
+                        : d.isStale ? 'bg-gradient-to-r from-red-50/60 to-white'
+                        : 'bg-slate-50/60'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        {/* Back arrow — mobile only, where the rail is stacked above */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(null)}
+                          className="lg:hidden text-slate-400 hover:text-slate-700 p-1 -ml-1 rounded hover:bg-slate-100 flex-shrink-0"
+                          title="Back to list"
+                        >
+                          <ArrowLeft size={16} />
+                        </button>
+                        <span className="w-10 h-10 rounded-lg bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
+                          <Building2 size={18} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">{acc.name}</h2>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_COLORS[acc.status]}`}>
+                              {acc.status}
+                            </span>
+                            {d.isUrgent && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-600 text-white inline-flex items-center gap-1">
+                                <Flame size={10} /> Urgent
+                              </span>
+                            )}
+                            {d.isStale && !d.isUrgent && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-800 inline-flex items-center gap-1 ring-1 ring-red-200">
+                                <AlertTriangle size={10} /> Stale
+                              </span>
+                            )}
+                            {acc.industry && (
+                              <span className="text-[11px] text-slate-500 inline-flex items-center gap-1">
+                                <Briefcase size={10} /> {acc.industry}
+                              </span>
+                            )}
+                          </div>
+                          {/* Owners + last connects */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-5 gap-y-2 mt-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Sales</span>
+                              {acc.salesOwnerEmail
+                                ? <TaIdentity email={acc.salesOwnerEmail} avatarSize={22} nameSize="text-xs" />
+                                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+                            </div>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Delivery</span>
+                              {acc.deliveryOwnerEmail
+                                ? <TaIdentity email={acc.deliveryOwnerEmail} avatarSize={22} nameSize="text-xs" />
+                                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+                            </div>
+                            <ConnectChip label="Last sales" connect={d.lastSales} />
+                            <ConnectChip label="Last delivery" connect={d.lastDelivery} />
+                          </div>
+                        </div>
+                        {/* KPI chips */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-1 rounded-md" title="Team members from roster">
+                            <Users size={11} /> {d.teamCount}
+                          </span>
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md ${
+                            d.openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
+                          }`} title="Open action items">
+                            <Clock size={11} /> {d.openActions}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick actions */}
+                      <div className="flex items-center gap-2 flex-wrap mt-3">
+                        <button
+                          type="button"
+                          onClick={() => quickLogConnect(acc.id, 'sales')}
+                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                        >
+                          <Handshake size={11} /> Log sales connect
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => quickLogConnect(acc.id, 'delivery')}
+                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 transition-colors"
+                        >
+                          <MessageSquare size={11} /> Log delivery connect
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQuickIdeaOpen(true)}
+                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
+                          title="Capture an idea for this account (press i)"
+                        >
+                          <Lightbulb size={11} /> Add idea
+                        </button>
+                        {d.forecast === 0 && (
+                          <a
+                            href="https://simpliigence-sales-planning-2026.vercel.app/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-slate-300 text-slate-500 hover:text-primary hover:border-primary/40 transition-colors"
+                          >
+                            <DollarSign size={11} /> Add to sales plan ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tabs + tab body — unchanged component, just more room.
+                     *
+                     * `key` is load-bearing, not decoration. The tab bodies
+                     * (OverviewTab, ConnectsTab, the account/* tabs) seed
+                     * local draft state from their props on FIRST mount only.
+                     * In the split view a single AccountDetail instance is
+                     * reused as you click between accounts, so without a key
+                     * React keeps that stale draft — the header would read
+                     * "Carrier" while the Overview form still held Acuity's
+                     * name, and saving would write one account's values onto
+                     * another. Keying on the id remounts the subtree per
+                     * account, which is exactly what we want here. */}
+                    <AccountDetail key={acc.id} {...detailPropsFor(acc)} />
+                  </Card>
+                );
+              })()}
+            </div>
+          </div>
+        )
+      )}
+
+      {/* ── LIST VIEW (legacy accordion) ── */}
+      {viewMode === 'list' && (
+        <Card title={`${filtered.length} account${filtered.length === 1 ? '' : 's'}`}>
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center text-sm text-slate-500">
+              {accounts.length === 0
+                ? <>No accounts yet. Click <strong>+ Add account</strong> to create one.</>
+                : <>No accounts match.</>}
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 -mx-6">
+              {filtered.map((acc, idx) => {
+                const d = derivedByAccount.get(acc.id)!;
+                const isOpen = expanded.has(acc.id);
+                return (
+                  <div key={acc.id}>
+                    <AccountRow
+                      serialNo={idx + 1}
                       account={acc}
                       derived={d}
-                      connects={connects.filter((c) => c.accountId === acc.id)}
-                      actions={actions.filter((a) => a.accountId === acc.id)}
-                      team={[...indiaRoster, ...usRoster]
-                        .filter((m) => rosterMatchesAccount(m.project, acc))
-                        .map((m) => ({
-                        name: m.name,
-                        role: m.role,
-                        project: m.project,
-                        status: m.status,
-                        email: m.email,
-                        // location only exists on US roster — TS narrows via cast
-                        location: 'location' in m ? (m as { location?: string }).location ?? null : null,
-                      }))}
-                      activeTab={activeTab[acc.id] ?? 'overview'}
-                      onTab={(t) => setActiveTab((s) => ({ ...s, [acc.id]: t }))}
-                      autoLog={autoLog[acc.id] ?? null}
-                      onAutoLogConsumed={() => setAutoLog((p) => ({ ...p, [acc.id]: null }))}
-                      myEmail={myEmail}
-                      onPatchAccount={(patch) => updateAccount(acc.id, patch)}
-                      onRemoveAccount={() => removeAccount(acc.id)}
-                      onAddConnect={(p) => addConnect({ accountId: acc.id, ...p })}
-                      onRemoveConnect={(id) => removeConnect(id)}
-                      onAddAction={(p) => addAction({ accountId: acc.id, ...p })}
-                      onUpdateAction={(id, patch) => updateAction(id, patch)}
-                      onRemoveAction={(id) => removeAction(id)}
-                      onSetActionStatus={(id, status) => setActionStatus(id, status)}
+                      isOpen={isOpen}
+                      onToggle={() => toggleExpand(acc.id)}
+                      onQuickLog={(type) => quickLogConnect(acc.id, type)}
                     />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
+                    {isOpen && <AccountDetail {...detailPropsFor(acc)} />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Quick-idea capture — reachable from the header, the pane, or `i` */}
+      {quickIdeaOpen && (
+        <QuickIdeaModal
+          accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+          defaultAccountId={selectedId}
+          onClose={() => setQuickIdeaOpen(false)}
+          onSaved={(accId, title) => {
+            const name = accountNameById[accId] ?? 'account';
+            setToast(`Idea saved to ${name}: “${title}”`);
+            setTimeout(() => setToast(null), 3200);
+          }}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-xl inline-flex items-center gap-2 max-w-sm">
+          <Lightbulb size={13} className="text-amber-400 flex-shrink-0" />
+          <span className="truncate">{toast}</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+/* ── Compact rail row used by the split view's left column ── */
+
+function AccountRailRow({ serialNo, account, derived, selected, onSelect }: {
+  serialNo: number;
+  account: Account;
+  derived: { openActions: number; teamCount: number; isStale: boolean; forecast: number; pctLocked: number; isUrgent: boolean };
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { openActions, teamCount, isStale, forecast, pctLocked, isUrgent } = derived;
+  const lockedPct = Math.round(pctLocked * 100);
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-label={`${account.name} — ${account.status}${openActions > 0 ? `, ${openActions} open action${openActions === 1 ? '' : 's'}` : ''}${isUrgent ? ', urgent' : isStale ? ', stale' : ''}`}
+      aria-current={selected ? 'true' : undefined}
+      className={`w-full text-left px-3 py-2.5 transition-colors border-l-[3px] ${
+        selected
+          ? 'bg-primary/10 border-l-primary'
+          : isUrgent
+            ? 'border-l-rose-500 bg-rose-50/40 hover:bg-rose-50'
+            : isStale
+              ? 'border-l-red-400 hover:bg-slate-50'
+              : 'border-l-transparent hover:bg-slate-50'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-mono tabular-nums text-slate-400 flex-shrink-0 w-5">
+          {String(serialNo).padStart(2, '0')}
+        </span>
+        <span className={`flex-1 min-w-0 truncate text-sm ${selected ? 'font-bold text-primary' : 'font-semibold text-slate-800'}`}>
+          {account.name}
+        </span>
+        {isUrgent && <Flame size={11} className="text-rose-500 flex-shrink-0" />}
+        {isStale && !isUrgent && <AlertTriangle size={11} className="text-red-400 flex-shrink-0" />}
+        {openActions > 0 && (
+          <span className="text-[9px] font-bold bg-amber-100 text-amber-800 rounded-full px-1.5 py-0.5 flex-shrink-0 tabular-nums">
+            {openActions}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 mt-1 pl-7 text-[10px] text-slate-500">
+        <span className={`px-1.5 py-0.5 rounded-full font-semibold ${STATUS_COLORS[account.status]}`}>
+          {account.status}
+        </span>
+        {teamCount > 0 && (
+          <span className="inline-flex items-center gap-0.5"><Users size={9} /> {teamCount}</span>
+        )}
+        {forecast > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-indigo-700 font-medium">
+            <Sensitive>{fmtMoney(forecast)}</Sensitive>
+            <span className="text-slate-400">·</span>
+            <span className={lockedPct >= 60 ? 'text-emerald-600' : lockedPct >= 30 ? 'text-amber-600' : 'text-rose-600'}>
+              {lockedPct}%
+            </span>
+          </span>
+        )}
+      </div>
+    </button>
   );
 }
 

@@ -32,6 +32,15 @@ interface TimeEntryState {
   /** Patch an existing entry. */
   updateEntry: (id: string, patch: Partial<TimeEntry>) => Promise<void>;
 
+  /** Manager/admin edit of an existing entry's editable fields (hours,
+   *  billable, project, notes). Uses a plain UPDATE (not upsert) so it always
+   *  takes the UPDATE-policy branch. Re-opens an approved entry to 'submitted'
+   *  when hours/billable/project change, mirroring updateEntry. */
+  updateEntryFields: (
+    id: string,
+    fields: Partial<Pick<TimeEntry, 'hours' | 'billable' | 'projectId' | 'projectName' | 'notes'>>,
+  ) => Promise<void>;
+
   /** Approve a submitted entry (manager/admin only — RLS enforces). */
   approveEntry: (id: string, approverEmail: string) => Promise<void>;
 
@@ -93,6 +102,27 @@ export const useTimeEntryStore = create<TimeEntryState>()(
         };
         set({ entries: get().entries.map((e) => (e.id === id ? merged : e)) });
         await db.upsertTimeEntry(merged);
+      },
+
+      updateEntryFields: async (id, fields) => {
+        const current = get().entries.find((e) => e.id === id);
+        if (!current) return;
+        const resetStatus = current.status === 'approved' && (
+          fields.hours !== undefined || fields.billable !== undefined || fields.projectName !== undefined
+        );
+        const statusPatch = resetStatus
+          ? { status: 'submitted' as const, approvedBy: null, approvedAt: null, rejectReason: null }
+          : {};
+        const merged: TimeEntry = { ...current, ...fields, ...statusPatch, updatedAt: new Date().toISOString() };
+        // Optimistic update; roll back and rethrow if the write is rejected
+        // (e.g. hours out of the DB CHECK range) so the caller can surface it.
+        const prev = current;
+        set({ entries: get().entries.map((e) => (e.id === id ? merged : e)) });
+        const { error } = await db.updateTimeEntry(id, { ...fields, ...statusPatch });
+        if (error) {
+          set({ entries: get().entries.map((e) => (e.id === id ? prev : e)) });
+          throw error;
+        }
       },
 
       approveEntry: async (id, approverEmail) => {

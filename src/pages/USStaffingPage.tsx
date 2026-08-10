@@ -14,6 +14,9 @@ import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { USStaffingStage, AccountCategory } from '../types/usStaffing';
 import { US_STAGE_COLORS } from '../types/usStaffing';
 import { db } from '../lib/supabaseSync';
+import { useCollapsedGroups } from '../lib/useCollapsedGroups';
+import { USStaffingSplitView } from './us-staffing/USStaffingSplitView';
+import { Rows3, Columns3 } from 'lucide-react';
 
 // Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
 const URGENT_UNSECURED = 250_000;
@@ -105,7 +108,26 @@ export default function USStaffingPage() {
   const [showAddReq, setShowAddReq] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [filterStage, setFilterStage] = useState<string>('All');
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  // Collapse-by-default per-account view. Uses the shared hook so state
+  // persists to localStorage and matches the roster pages' behaviour.
+  const accountCollapse = useCollapsedGroups('us-staffing-account', { defaultCollapsed: true });
+  // View mode — 'table' is the wide inline-editable grid (default), 'split'
+  // is the compact left rail + right detail pane that kills horizontal
+  // scroll. Persisted to localStorage so the user's pick sticks.
+  const [viewMode, setViewMode] = useState<'table' | 'split'>(() => {
+    // Split is the default now — Table is opt-in for anyone who prefers
+    // the wide inline-edit grid. An explicit prior 'table' pick is
+    // respected; anything else (unset, or explicitly 'split') gives split.
+    try {
+      const stored = localStorage.getItem('us-staffing-view-mode');
+      return stored === 'table' ? 'table' : 'split';
+    } catch {
+      return 'split';
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('us-staffing-view-mode', viewMode); } catch { /* private mode */ }
+  }, [viewMode]);
 
   // ── JD generator state (US side; mirror of India Demand) ──
   const [jdReqId, setJdReqId] = useState<string | null>(null);
@@ -158,13 +180,7 @@ export default function USStaffingPage() {
   const [newAcctName, setNewAcctName] = useState('');
   const [newAcctCategory, setNewAcctCategory] = useState<AccountCategory>('MSP');
 
-  const toggleAccount = (id: string) => {
-    setExpandedAccounts(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  const toggleAccount = (id: string) => accountCollapse.toggle(id);
 
   // Sales-plan integration — load once on mount.
   const salesPlanLoad = useSalesPlanStore((s) => s.load);
@@ -354,12 +370,19 @@ export default function USStaffingPage() {
                     const acctLockedPct = acctInsight?.pctLocked ?? 0;
                     const acctUrgent = acctForecast > 0 && acctUnsecured >= URGENT_UNSECURED && acctLockedPct < URGENT_PCT_LOCKED;
 
+                    const acctCollapsed = accountCollapse.isCollapsed(req.account_id);
                     return (
                       <React.Fragment key={req.id}>
                         {showBanner && (
-                          <tr className={`border-y-2 ${acctUrgent ? 'border-rose-200' : 'border-blue-200'} ${acctUrgent ? 'bg-gradient-to-r from-rose-50 via-rose-50 to-amber-50' : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50'} group/banner`}>
+                          <tr
+                            onClick={() => toggleAccount(req.account_id)}
+                            className={`border-y-2 ${acctUrgent ? 'border-rose-200' : 'border-blue-200'} ${acctUrgent ? 'bg-gradient-to-r from-rose-50 via-rose-50 to-amber-50 hover:from-rose-100 hover:via-rose-100 hover:to-amber-100' : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 hover:from-blue-100 hover:via-indigo-100 hover:to-violet-100'} cursor-pointer group/banner`}
+                          >
                             <td colSpan={7} className="py-2.5 px-3">
                               <div className="flex items-baseline gap-3 flex-wrap">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 flex-shrink-0">
+                                  {acctCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                </span>
                                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${acctUrgent ? 'bg-rose-600 text-white' : 'bg-primary/15 text-primary'}`}>
                                   {acctUrgent ? <Flame size={14} /> : <Building2 size={14} />}
                                 </span>
@@ -427,7 +450,7 @@ export default function USStaffingPage() {
                             </td>
                           </tr>
                         )}
-                        <tr className="border-t border-slate-100 hover:bg-blue-50/30">
+                        {!acctCollapsed && <tr className="border-t border-slate-100 hover:bg-blue-50/30">
                           {/* Role — indented under the account banner with a ↳ guide */}
                           <td className="px-3 py-2 pl-10">
                             <div className="flex items-center gap-1.5">
@@ -482,7 +505,7 @@ export default function USStaffingPage() {
                               <Trash2 size={13} />
                             </button>
                           </td>
-                        </tr>
+                        </tr>}
                       </React.Fragment>
                     );
                   });
@@ -500,7 +523,7 @@ export default function USStaffingPage() {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Total Requisitions" value={totalReqs} icon={<Users size={20} />} subtitle="All US roles" />
+        <StatCard label="Total Requisitions" value={totalReqs} icon={<Users size={20} />} subtitle="All roles" />
         <StatCard label="Active" value={activeReqs} icon={<TrendingUp size={20} />} subtitle="In pipeline" />
         <StatCard label="Closed/Onboarding" value={closedReqs} icon={<CheckCircle size={20} />} subtitle="Filled roles" />
         <StatCard label="MSP Roles" value={mspReqs} icon={<Building2 size={20} />} subtitle="MSP accounts" />
@@ -751,9 +774,20 @@ export default function USStaffingPage() {
         );
       })()}
 
-      {/* Requisitions grouped by MSP / SI */}
-      {renderAccountGroup(mspAccounts, 'MSP Accounts')}
-      {renderAccountGroup(siAccounts, 'SI Accounts')}
+      {/* Requisitions — split view or grouped by MSP / SI */}
+      {viewMode === 'split' ? (
+        <USStaffingSplitView
+          reqs={scoredReqs}
+          accounts={accounts}
+          onSave={(id, field, val) => handleCellSave(id, field as string, val)}
+          onDelete={(id) => removeRequisition(id)}
+        />
+      ) : (
+        <>
+          {renderAccountGroup(mspAccounts, 'MSP Accounts')}
+          {renderAccountGroup(siAccounts, 'SI Accounts')}
+        </>
+      )}
     </div>
   );
 
@@ -761,26 +795,50 @@ export default function USStaffingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="US Staffing"
-        subtitle="Manage US staffing requisitions across MSP and SI accounts"
+        title="Global Staffing"
+        subtitle="Manage staffing requisitions across MSP and SI accounts"
       />
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-        {[
-          { key: 'all', label: 'All Requisitions' },
-          { key: 'forecast', label: 'AI Forecast' },
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tab Navigation + View mode toggle */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+          {[
+            { key: 'all', label: 'All Requisitions' },
+            { key: 'forecast', label: 'AI Forecast' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activeTab === 'all' && (
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" title="Switch between the wide inline-edit table and the compact split view">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Rows3 size={12} /> Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Columns3 size={12} /> Split view
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tab Content */}

@@ -27,6 +27,10 @@ export function TicketDrawer({ ticket, onClose }: Props) {
     (a.fullName || a.email).localeCompare(b.fullName || b.email));
 
   const [notesDraft, setNotesDraft] = useState('');
+  // Informational fields admins fill in on any ticket; committed on blur.
+  const [estHoursDraft, setEstHoursDraft] = useState(
+    ticket.estimatedHours == null ? '' : String(ticket.estimatedHours));
+  const [resolutionEdit, setResolutionEdit] = useState(ticket.resolution ?? '');
   const [hoursInput, setHoursInput] = useState('');
   const [hoursNotes, setHoursNotes] = useState('');
   const [resolutionDraft, setResolutionDraft] = useState('');
@@ -100,6 +104,16 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             ]}
             onChange={(e) => store.updateTicket(ticket.id, { status: e.target.value })}
           />
+          <Input label="Estimated hours" type="number" step="0.25" min="0"
+            value={estHoursDraft}
+            onChange={(e) => setEstHoursDraft(e.target.value)}
+            onBlur={() => {
+              const next = estHoursDraft.trim() === '' ? null : Number(estHoursDraft);
+              if (next !== null && !Number.isFinite(next)) return;
+              if (next !== ticket.estimatedHours) store.updateTicket(ticket.id, { estimatedHours: next });
+            }}
+            placeholder="e.g. 4"
+          />
         </section>
 
         {ticket.description && (
@@ -110,6 +124,18 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             </div>
           </section>
         )}
+
+        {/* Resolution — free-text write-up, editable on any ticket and committed on blur */}
+        <section>
+          <Textarea label="Resolution" rows={4} value={resolutionEdit}
+            onChange={(e) => setResolutionEdit(e.target.value)}
+            onBlur={() => {
+              const next = resolutionEdit.trim() === '' ? null : resolutionEdit;
+              if (next !== (ticket.resolution ?? null)) store.updateTicket(ticket.id, { resolution: next });
+            }}
+            placeholder="Summary of how this ticket was resolved."
+          />
+        </section>
 
         {/* Time tracker */}
         <section className="rounded-lg border border-slate-200 bg-white p-4">

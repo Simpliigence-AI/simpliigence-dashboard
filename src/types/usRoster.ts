@@ -3,17 +3,30 @@
 
 import type { VisaCategory } from './openBench';
 
-export type USRosterStatus = 'Billable' | 'Bench' | 'On Leave' | 'Notice';
+/**
+ * A US roster member's current allocation state.
+ *   Billable         — on a paid project.
+ *   Bench            — full-time, currently unassigned but available.
+ *   Proactive Bench  — deliberately kept on bench to be ready for an
+ *                      imminent named opportunity or a strategic
+ *                      capability we're staffing ahead of demand.
+ *                      Distinct from regular Bench so leadership can see
+ *                      the "planned idle" vs "surprise idle" split.
+ *   On Leave         — temporarily out.
+ *   Notice           — resigned; working out notice.
+ */
+export type USRosterStatus = 'Billable' | 'Bench' | 'Proactive Bench' | 'On Leave' | 'Notice';
 
 export const US_ROSTER_STATUSES: USRosterStatus[] = [
-  'Billable', 'Bench', 'On Leave', 'Notice',
+  'Billable', 'Bench', 'Proactive Bench', 'On Leave', 'Notice',
 ];
 
 export const US_ROSTER_STATUS_COLORS: Record<USRosterStatus, string> = {
-  Billable:   '#10b981',
-  Bench:      '#f59e0b',
-  'On Leave': '#94a3b8',
-  Notice:     '#ef4444',
+  Billable:          '#10b981',
+  Bench:             '#f59e0b',
+  'Proactive Bench': '#8b5cf6',
+  'On Leave':        '#94a3b8',
+  Notice:            '#ef4444',
 };
 
 export interface USRosterMember {

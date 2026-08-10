@@ -16,15 +16,17 @@
  * Mini stat strip at the bottom: this-week logged vs forecast for awareness.
  */
 import { useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Save, Trash2, X, Copy, CalendarDays, List as ListIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Save, Trash2, X, Copy, CalendarDays, List as ListIcon, LayoutGrid, Loader2 } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
+import { DocumentsPanel } from '../components/timesheet/DocumentsPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useForecastStore } from '../store/useForecastStore';
 import { usePipelineStore } from '../store/usePipelineStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
+import { formatDbError } from '../lib/supabaseSync';
 import { INTERNAL_PROJECTS } from '../types/timeEntry';
-import type { TimeEntry } from '../types/timeEntry';
+import type { TimeEntry, TimeEntryStatus } from '../types/timeEntry';
 
 function toIsoDate(d: Date): string {
   const y = d.getFullYear();
@@ -109,7 +111,7 @@ export default function MyTimePage() {
 
   const [weekStart, setWeekStart] = useState(toIsoDate(startOfWeek(toIsoDate(new Date()))));
   const [openDay, setOpenDay] = useState<string | null>(toIsoDate(new Date()));
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'grid'>('list');
   const [calendarAnchor, setCalendarAnchor] = useState(toIsoDate(new Date()));
 
   // Project list relevant to this user:
@@ -155,6 +157,13 @@ export default function MyTimePage() {
     }
     return map;
   }, [allEntries, days, myEmail]);
+
+  // Flat list of this user's entries in the visible week (grid view + docs).
+  const weekEntries = useMemo(() => {
+    const out: TimeEntry[] = [];
+    for (const d of days) out.push(...(entriesByDay.get(d.iso) || []));
+    return out;
+  }, [days, entriesByDay]);
 
   const weekStats = useMemo(() => {
     let logged = 0, billable = 0;
@@ -257,7 +266,10 @@ export default function MyTimePage() {
   const niceWeek = `${parseIsoDate(days[0].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${parseIsoDate(days[6].iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   return (
-    <div className="max-w-3xl mx-auto pb-24">
+    // Width is mode-aware: the list + calendar views are form-shaped and read
+    // better in a narrow measure, but the grid is a 7-column week table that
+    // needs every pixel it can get on a wide monitor.
+    <div className={`${viewMode === 'grid' ? 'w-full' : 'max-w-3xl mx-auto'} pb-24`}>
       <PageHeader
         title="My Time"
         subtitle={`${currentUser.email} · ${viewMode === 'calendar' ? calendarMonthLabel : niceWeek}`}
@@ -332,6 +344,15 @@ export default function MyTimePage() {
           </button>
           <button
             type="button"
+            onClick={() => setViewMode('grid')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+              viewMode === 'grid' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <LayoutGrid size={12} /> Grid
+          </button>
+          <button
+            type="button"
             onClick={() => setViewMode('calendar')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
               viewMode === 'calendar' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
@@ -373,6 +394,18 @@ export default function MyTimePage() {
             setOpenDay(iso);
             setViewMode('list');
           }}
+        />
+      ) : viewMode === 'grid' ? (
+        <GridView
+          key={weekStart}
+          days={days}
+          projectOptions={myProjects}
+          entries={weekEntries}
+          myEmail={myEmail}
+          addEntry={addEntry}
+          updateEntry={updateEntry}
+          deleteEntry={deleteEntry}
+          submitWeek={submitWeek}
         />
       ) : (
       /* Day cards */
@@ -431,6 +464,7 @@ export default function MyTimePage() {
                       hours: params.hours,
                       billable: params.billable,
                       notes: params.notes,
+                      status: params.status,
                     })}
                   />
                   {/* Quick-copy actions */}
@@ -476,6 +510,16 @@ export default function MyTimePage() {
         })}
       </div>
       )}
+
+      {/* Per-week client-approved timesheet documents (all view modes) */}
+      <div className="mt-5">
+        <DocumentsPanel
+          employeeEmail={myEmail}
+          periodStart={days[0].iso}
+          periodEnd={days[6].iso}
+          uploadedBy={myEmail}
+        />
+      </div>
 
       {/* Sticky bottom mini stat */}
       <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-white border-t border-slate-200 shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
@@ -631,7 +675,7 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
 function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   workDate: string;
   projectOptions: { id: string | null; name: string; billable: boolean }[];
-  onAdd: (params: { projectId: string | null; projectName: string; hours: number; billable: boolean; notes: string }) => Promise<unknown>;
+  onAdd: (params: { projectId: string | null; projectName: string; hours: number; billable: boolean; notes: string; status?: TimeEntryStatus }) => Promise<unknown>;
 }) {
   const [projectName, setProjectName] = useState('');
   const [hours, setHours] = useState<number>(0);
@@ -653,7 +697,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   /** Save the current entry. If `keepOpen`, leave the row open with the
    *  same project selected so the user can queue up more entries — used
    *  when they hit Enter. Otherwise close the row (button click). */
-  const handleAdd = async (opts: { keepOpen?: boolean } = {}) => {
+  const handleAdd = async (opts: { keepOpen?: boolean; asDraft?: boolean } = {}) => {
     if (!projectName || hours <= 0) return;
     setSaving(true);
     try {
@@ -663,6 +707,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         hours,
         billable,
         notes,
+        status: opts.asDraft ? 'draft' : 'submitted',
       });
       if (opts.keepOpen) {
         // Rapid-entry: clear per-entry fields but keep the project sticky.
@@ -754,11 +799,20 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
           </button>
           <button
             type="button"
+            onClick={() => handleAdd({ keepOpen: false, asDraft: true })}
+            disabled={!projectName || hours <= 0 || saving}
+            className="text-[11px] font-semibold border border-slate-300 text-slate-700 bg-white px-3 py-1 rounded-md hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+            title="Save without submitting for approval"
+          >
+            <Save size={11} /> Save as draft
+          </button>
+          <button
+            type="button"
             onClick={() => handleAdd({ keepOpen: false })}
             disabled={!projectName || hours <= 0 || saving}
             className="text-[11px] font-semibold bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 disabled:opacity-40 flex items-center gap-1"
           >
-            <Save size={11} /> {saving ? 'Adding…' : 'Add & close'}
+            <Save size={11} /> {saving ? 'Adding…' : 'Add & submit'}
           </button>
         </div>
       </div>
@@ -853,6 +907,326 @@ function CalendarGrid({ cells, onPickDay }: {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-50 border border-emerald-200" /> 4–8h</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200" /> 8h+</span>
         <span className="ml-auto">Click a day to jump to the list view.</span>
+      </div>
+    </Card>
+  );
+}
+
+/* ── Weekly grid entry view ──
+ *
+ * Rows = projects, columns = the 7 days of the week, each cell a numeric hours
+ * input. Rows are seeded from the projects already logged this week; the user
+ * adds more via the ProjectPicker (which draws on the full myProjects list).
+ *
+ * Cell semantics (dirty-only writes to avoid clobbering untouched data):
+ *   - dirty cell, 0 matching entries + hours>0  → create
+ *   - dirty cell, 1 matching entry              → update its hours
+ *   - dirty cell cleared to 0/empty             → delete matching entry
+ *   - cell mapping to >1 entries                → LOCKED (read-only): the grid
+ *       can't faithfully represent the billable split / per-entry notes, so it
+ *       shows the summed hours but refuses edits (edit in list view instead).
+ * Untouched cells are never written. The component is remounted per-week
+ * (key={weekStart}) so edit state resets on navigation.
+ */
+const CELL_SEP = '\u0000';  // NUL — never present in a project name or ISO date
+function clampHours(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(24, n));
+}
+
+function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntry, deleteEntry, submitWeek }: {
+  days: { iso: string; label: string; isToday: boolean }[];
+  projectOptions: { id: string | null; name: string; billable: boolean }[];
+  entries: TimeEntry[];
+  myEmail: string;
+  addEntry: (input: {
+    employeeEmail: string; workDate: string; projectId?: string | null; projectName: string;
+    hours: number; billable: boolean; notes?: string; status?: TimeEntryStatus;
+  }) => Promise<TimeEntry>;
+  updateEntry: (id: string, patch: Partial<TimeEntry>) => Promise<void>;
+  deleteEntry: (id: string) => Promise<void>;
+  /** Promote every draft/rejected entry in the visible week to 'submitted'. */
+  submitWeek: () => Promise<void>;
+}) {
+  // Only dirty cells live here (key = `${projectName}\u0000${dayIso}` → raw string).
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [extraRows, setExtraRows] = useState<string[]>([]);
+  const [newRow, setNewRow] = useState('');
+  const [saving, setSaving] = useState<'draft' | 'submit' | null>(null);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  const internalSet = new Set<string>(INTERNAL_PROJECTS);
+
+  const rowNames = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of entries) s.add(e.projectName);
+    for (const r of extraRows) s.add(r);
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [entries, extraRows]);
+
+  // Belt + suspenders: even though the parent already scoped `entries` to
+  // the current user's rows, filter on employeeEmail here too. This makes
+  // the grid render safe in the (in)correct future where the parent forgets
+  // to scope — and prevents the 2026-08-04 incident where a matches-based
+  // delete could wipe another user's row.
+  const matchesFor = (name: string, iso: string) =>
+    entries.filter((e) =>
+      e.employeeEmail.toLowerCase() === myEmail.toLowerCase()
+      && e.projectName === name
+      && e.workDate === iso,
+    );
+  const baseHours = (name: string, iso: string) =>
+    matchesFor(name, iso).reduce((s, e) => s + e.hours, 0);
+  // A cell backed by >1 entries can't be faithfully edited as a single number
+  // (it would collapse the billable split / notes), so it's rendered read-only.
+  const isLocked = (name: string, iso: string) => matchesFor(name, iso).length > 1;
+
+  const cellValue = (name: string, iso: string): string => {
+    const key = `${name}${CELL_SEP}${iso}`;
+    if (key in edits) return edits[key];
+    const base = baseHours(name, iso);
+    return base > 0 ? String(base) : '';
+  };
+  const cellNumber = (name: string, iso: string): number => {
+    const key = `${name}${CELL_SEP}${iso}`;
+    if (key in edits) return clampHours(Number(edits[key]) || 0);
+    return baseHours(name, iso);
+  };
+
+  const setCell = (name: string, iso: string, v: string) => {
+    setEdits((prev) => ({ ...prev, [`${name}${CELL_SEP}${iso}`]: v }));
+  };
+
+  const billableFor = (name: string): boolean => {
+    if (internalSet.has(name)) return false;
+    return projectOptions.find((p) => p.name === name)?.billable ?? true;
+  };
+  const projectIdFor = (name: string): string | null =>
+    projectOptions.find((p) => p.name === name)?.id ?? null;
+
+  const dirtyCount = Object.keys(edits).length;
+  // Existing draft/rejected entries in the week that "Submit week" can promote.
+  const promotableCount = useMemo(
+    () => entries.filter((e) => e.status === 'draft' || e.status === 'rejected').length,
+    [entries],
+  );
+  const canSubmit = dirtyCount > 0 || promotableCount > 0;
+
+  const dayTotals = days.map((d) => rowNames.reduce((s, n) => s + cellNumber(n, d.iso), 0));
+  const rowTotals = rowNames.map((n) => days.reduce((s, d) => s + cellNumber(n, d.iso), 0));
+  const grandTotal = dayTotals.reduce((s, x) => s + x, 0);
+
+  const addRow = () => {
+    const name = newRow.trim();
+    if (!name || rowNames.includes(name)) { setNewRow(''); return; }
+    setExtraRows((prev) => [...prev, name]);
+    setNewRow('');
+  };
+
+  /** Persist every dirty cell with the given status. Locked (>1 match) cells
+   *  are read-only and never dirty, so each cell maps to 0 or 1 entry. */
+  const persistDirty = async (status: TimeEntryStatus, submittedAt: string | null) => {
+    for (const key of Object.keys(edits)) {
+      const sep = key.indexOf(CELL_SEP);
+      const name = key.slice(0, sep);
+      const iso = key.slice(sep + 1);
+      const hours = clampHours(Number(edits[key]) || 0);
+      // Only match the CURRENT USER's manually-entered rows for this cell.
+      // Zoho-sourced mirror rows and any other row live alongside — we never
+      // touch them from the grid. This is the fix for the 2026-08-04 incident
+      // where cell edits silently deleted parallel rows on the same day/project.
+      const allMatches = matchesFor(name, iso);
+      const matches = allMatches.filter((e) => e.source !== 'zoho_people');
+      if (hours > 0) {
+        if (matches.length === 0) {
+          await addEntry({
+            employeeEmail: myEmail,
+            workDate: iso,
+            projectId: projectIdFor(name),
+            projectName: name,
+            hours,
+            billable: billableFor(name),
+            notes: '',
+            status,
+          });
+        } else {
+          // Update the FIRST manually-entered match with the new value. If
+          // duplicates snuck in earlier (before this fix), we leave them
+          // alone — a separate reconciliation report will surface them so
+          // admins can decide, but the edit path itself must never delete
+          // user data silently.
+          await updateEntry(matches[0].id, { hours, status, submittedAt, approvedBy: null, approvedAt: null, rejectReason: null });
+        }
+      } else {
+        // Cleared cell: delete only the user's manually-entered rows for
+        // this cell, and only if there's exactly one. Ambiguous cases
+        // (multiple manual rows) are left intact — the user can go find
+        // the specific one and delete it via the list view.
+        if (matches.length === 1) {
+          await deleteEntry(matches[0].id);
+        }
+      }
+    }
+  };
+
+  const saveDraft = async () => {
+    if (dirtyCount === 0 || saving) return;
+    setSaving('draft');
+    setSavedMsg(null);
+    try {
+      await persistDirty('draft', null);
+      setEdits({});
+      setSavedMsg('Draft saved');
+      setTimeout(() => setSavedMsg(null), 2500);
+    } catch (e) {
+      setSavedMsg(`Save failed: ${formatDbError(e) || 'no error detail available'}`);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  /** Submit the whole week (like the list view): persist edited cells as
+   *  submitted, then promote every remaining draft/rejected entry via submitWeek. */
+  const submitWeekAll = async () => {
+    if (!canSubmit || saving) return;
+    setSaving('submit');
+    setSavedMsg(null);
+    try {
+      await persistDirty('submitted', new Date().toISOString());
+      await submitWeek();
+      setEdits({});
+      setSavedMsg('Week submitted');
+      setTimeout(() => setSavedMsg(null), 2500);
+    } catch (e) {
+      setSavedMsg(`Save failed: ${formatDbError(e) || 'no error detail available'}`);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="overflow-x-auto -mx-2 px-2">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-slate-400">
+              <th className="text-left font-bold py-2 pr-3 min-w-[10rem] sticky left-0 bg-white">Project</th>
+              {days.map((d) => {
+                const dt = parseIsoDate(d.iso);
+                return (
+                  <th key={d.iso} className={`text-center font-bold px-1 py-2 min-w-[3.75rem] ${d.isToday ? 'text-primary' : ''}`}>
+                    <div>{dt.toLocaleDateString(undefined, { weekday: 'short' })}</div>
+                    <div className="text-slate-500 font-semibold">{dt.getDate()}</div>
+                  </th>
+                );
+              })}
+              <th className="text-center font-bold px-2 py-2 min-w-[3.5rem]">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rowNames.length === 0 && (
+              <tr>
+                <td colSpan={days.length + 2} className="text-center text-slate-400 italic py-6 text-xs">
+                  No projects yet. Add a project row below to start filling in hours.
+                </td>
+              </tr>
+            )}
+            {rowNames.map((name, ri) => (
+              <tr key={name} className="border-t border-slate-100">
+                <td className="py-1.5 pr-3 text-slate-800 font-medium sticky left-0 bg-white">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate max-w-[12rem]" title={name}>{name}</span>
+                    {!billableFor(name) && <span className="text-[9px] uppercase tracking-wide text-slate-400">non-bill</span>}
+                  </div>
+                </td>
+                {days.map((d) => {
+                  if (isLocked(name, d.iso)) {
+                    return (
+                      <td key={d.iso} className="px-1 py-1 text-center">
+                        <input
+                          type="text"
+                          value={baseHours(name, d.iso).toFixed(2)}
+                          readOnly
+                          tabIndex={-1}
+                          title="Multiple entries this day — edit in list view"
+                          className="w-14 border border-slate-200 rounded-md px-1 py-1 text-sm tabular-nums text-right bg-slate-100 text-slate-400 cursor-not-allowed"
+                        />
+                      </td>
+                    );
+                  }
+                  return (
+                    <td key={d.iso} className="px-1 py-1 text-center">
+                      <input
+                        type="number" step={0.25} min={0} max={24}
+                        value={cellValue(name, d.iso)}
+                        onChange={(e) => setCell(name, d.iso, e.target.value)}
+                        placeholder="0"
+                        className={`w-14 border rounded-md px-1 py-1 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                          `${name}${CELL_SEP}${d.iso}` in edits ? 'border-primary/60 bg-primary/5' : 'border-slate-300'
+                        }`}
+                      />
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1 text-center font-bold tabular-nums text-slate-900">
+                  {rowTotals[ri].toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-slate-200 text-slate-900">
+              <td className="py-2 pr-3 text-[11px] uppercase tracking-wider font-bold text-slate-500 sticky left-0 bg-white">Day total</td>
+              {dayTotals.map((t, i) => (
+                <td key={days[i].iso} className={`px-1 py-2 text-center font-bold tabular-nums ${t >= 8 ? 'text-emerald-600' : t === 0 ? 'text-slate-300' : ''}`}>
+                  {t.toFixed(2)}
+                </td>
+              ))}
+              <td className="px-2 py-2 text-center font-extrabold tabular-nums">{grandTotal.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Add a project row */}
+      <div className="mt-4 flex items-center gap-2 flex-wrap border-t border-slate-100 pt-3">
+        <span className="text-[11px] text-slate-500">Add project row:</span>
+        <ProjectPicker value={newRow} onChange={setNewRow} options={projectOptions} onEnter={addRow} />
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={!newRow.trim()}
+          className="text-[11px] font-semibold px-2.5 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1"
+        >
+          <Plus size={11} /> Add row
+        </button>
+      </div>
+
+      {/* Save actions */}
+      <div className="mt-4 flex items-center justify-between gap-2 flex-wrap border-t border-slate-100 pt-3">
+        <span className="text-[11px] text-slate-500">
+          {dirtyCount > 0 ? `${dirtyCount} unsaved cell${dirtyCount === 1 ? '' : 's'}` : 'All changes saved'}
+          {savedMsg && <span className="ml-2 text-emerald-600 font-semibold">{savedMsg}</span>}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={saveDraft}
+            disabled={dirtyCount === 0 || saving !== null}
+            className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1.5"
+          >
+            {saving === 'draft' ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save draft
+          </button>
+          <button
+            type="button"
+            onClick={submitWeekAll}
+            disabled={!canSubmit || saving !== null}
+            className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1.5"
+            title="Submit edited cells and promote all draft/rejected entries this week"
+          >
+            {saving === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Submit week
+          </button>
+        </div>
       </div>
     </Card>
   );

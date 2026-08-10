@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ArrowRight, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronDown, ChevronRight, Plus, Search, Trash2 } from 'lucide-react';
 import { useForecastStore, usePipelineStore } from '../../store';
 import { MONTHS, emptyMonthRecord } from '../../types/forecast';
 import type { Month, ForecastAssignment } from '../../types/forecast';
@@ -19,6 +19,48 @@ interface ProjectCard {
   source: ProjectSource;
   assignments: ForecastAssignment[];
   totalHours: number;
+  /** No recent and no planned allocation — see isProjectCompleted(). */
+  completed: boolean;
+  /** Last month with any allocated hours; null if the project has none at all. */
+  lastActiveMonth: Month | null;
+}
+
+/**
+ * A project counts as completed when nobody is allocated to it in the
+ * previous month, the current month, or ANY month still to come this year.
+ *
+ * The "and nothing to come" half matters: a project that's quiet right now
+ * but has people booked from September is ramping up, not finished, and
+ * archiving it would hide live work. Checking from (currentMonth - 1)
+ * through December covers both halves in one sweep.
+ *
+ * This is derived, never stored — so a completed project reappears under
+ * Active by itself the moment someone allocates hours to it again. Nothing
+ * is deleted or hidden permanently.
+ */
+function completionCutoffIndex(now = new Date()): number {
+  return Math.max(0, now.getMonth() - 1);
+}
+
+function isProjectCompleted(list: ForecastAssignment[], cutoffIdx: number): boolean {
+  for (let i = cutoffIdx; i < MONTHS.length; i++) {
+    const m = MONTHS[i];
+    for (const a of list) {
+      if ((a.monthlyTotals[m] ?? 0) > 0) return false;
+    }
+  }
+  return true;
+}
+
+/** Latest month (across everyone on the project) that has hours on it. */
+function lastAllocatedMonth(list: ForecastAssignment[]): Month | null {
+  for (let i = MONTHS.length - 1; i >= 0; i--) {
+    const m = MONTHS[i];
+    for (const a of list) {
+      if ((a.monthlyTotals[m] ?? 0) > 0) return m;
+    }
+  }
+  return null;
 }
 
 export default function ProjectsView() {
@@ -51,6 +93,7 @@ export default function ProjectsView() {
       byProject.get(a.project)!.push(a);
     }
     const out: ProjectCard[] = [];
+    const cutoffIdx = completionCutoffIndex();
     for (const [name, list] of byProject.entries()) {
       const total = list.reduce(
         (s, a) => s + MONTHS.reduce((ss, m) => ss + (a.monthlyTotals[m] ?? 0), 0),
@@ -61,6 +104,8 @@ export default function ProjectsView() {
         source: sourceByValue.get(name) ?? 'legacy',
         assignments: list.sort((a, b) => a.employeeName.localeCompare(b.employeeName)),
         totalHours: total,
+        completed: isProjectCompleted(list, cutoffIdx),
+        lastActiveMonth: lastAllocatedMonth(list),
       });
     }
     return out.sort((a, b) => b.totalHours - a.totalHours);
@@ -80,6 +125,16 @@ export default function ProjectsView() {
       return true;
     });
   }, [cards, search, sourceFilter]);
+
+  const activeCards = useMemo(() => filtered.filter((c) => !c.completed), [filtered]);
+  const completedCards = useMemo(() => filtered.filter((c) => c.completed), [filtered]);
+
+  /** Completed section starts collapsed — it's reference, not daily work. */
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  // Human-readable description of the rule, shown on the section header so
+  // nobody has to guess why a project landed in here.
+  const cutoffLabel = MONTHS[completionCutoffIndex()];
 
   const handleApplyMonthly = useCallback(
     (empName: string, project: string) => (months: Month[], hours: number) => {
@@ -151,45 +206,15 @@ export default function ProjectsView() {
     [assignments, addAssignment, removeAssignment, updateMonthlyHours, updateWeeklyHours],
   );
 
-  return (
-    <div>
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="flex-1 min-w-[200px] relative">
-          <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search projects..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
-        </div>
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value as '' | ProjectSource)}
-          className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-        >
-          <option value="">All sources</option>
-          <option value="current">Current Projects (Zoho)</option>
-          <option value="pipeline">Pipeline (Planned)</option>
-          <option value="legacy">Other (legacy)</option>
-        </select>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
-          {cards.length === 0 ? 'No projects with allocations yet.' : 'No projects match the filter.'}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((card) => {
+  /** One project card. Shared by the Active and Completed sections so the
+   *  two render identically — `muted` only dials back the visual weight. */
+  const renderCard = (card: ProjectCard, muted = false) => {
             const hue = colorHash(card.name);
             const assignedNames = new Set(card.assignments.map((a) => a.employeeName));
             const availablePeople = allPeople.filter((p) => !assignedNames.has(p.name));
 
             return (
-              <div key={card.name} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div key={card.name} className={`bg-white rounded-xl border overflow-hidden ${muted ? 'border-slate-200 opacity-75 hover:opacity-100 transition-opacity' : 'border-slate-200'}`}>
                 <div
                   className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100"
                   style={{ backgroundColor: `hsl(${hue} 70% 97%)` }}
@@ -368,12 +393,102 @@ export default function ProjectsView() {
                 </div>
               </div>
             );
-          })}
+  };
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="flex-1 min-w-[200px] relative">
+          <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search projects..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
         </div>
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value as '' | ProjectSource)}
+          className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+        >
+          <option value="">All sources</option>
+          <option value="current">Current Projects (Zoho)</option>
+          <option value="pipeline">Pipeline (Planned)</option>
+          <option value="legacy">Other (legacy)</option>
+        </select>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+          {cards.length === 0 ? 'No projects with allocations yet.' : 'No projects match the filter.'}
+        </div>
+      ) : (
+        <>
+          {/* ── Active ── */}
+          {activeCards.length > 0 && (
+            <div className="space-y-4">
+              {activeCards.map((card) => renderCard(card))}
+            </div>
+          )}
+          {activeCards.length === 0 && completedCards.length > 0 && (
+            <div className="text-center py-10 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+              No active projects — everything matching this filter has wrapped up.
+            </div>
+          )}
+
+          {/* ── Completed ──
+              Auto-derived, collapsed by default. Nothing is deleted: a project
+              reappears above the moment someone allocates hours to it again. */}
+          {completedCards.length > 0 && (
+            <div className={activeCards.length > 0 ? 'mt-6' : 'mt-4'}>
+              <button
+                type="button"
+                onClick={() => setShowCompleted((v) => !v)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                aria-expanded={showCompleted}
+              >
+                {showCompleted
+                  ? <ChevronDown size={16} className="text-slate-400 shrink-0" />
+                  : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
+                <CheckCircle2 size={15} className="text-slate-400 shrink-0" />
+                <span className="text-sm font-bold text-slate-700">Completed projects</span>
+                <span className="text-[11px] font-semibold bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 tabular-nums">
+                  {completedCards.length}
+                </span>
+                <span className="text-[11px] text-slate-400 truncate">
+                  no allocation since {cutoffLabel} — and none booked ahead
+                </span>
+                <span className="ml-auto text-[11px] text-slate-400 shrink-0">
+                  {showCompleted ? 'Hide' : 'Show'}
+                </span>
+              </button>
+
+              {showCompleted && (
+                <div className="space-y-4 mt-3">
+                  {completedCards.map((card) => (
+                    <div key={card.name} className="relative">
+                      {/* Ribbon carrying the "why" — last month with hours */}
+                      <div className="absolute -top-2 left-4 z-10 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-slate-600 text-white px-2 py-0.5 rounded-full shadow-sm">
+                        <CheckCircle2 size={10} />
+                        {card.lastActiveMonth ? `Last allocated ${card.lastActiveMonth}` : 'Never allocated'}
+                      </div>
+                      {renderCard(card, true)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       <p className="mt-4 text-[11px] text-slate-400 leading-relaxed">
         Tip — click any month bar to set hours. Use the arrow icon to move a person to another project (their hours come with them).
+        A project moves to <span className="font-semibold text-slate-500">Completed</span> automatically when it has no hours
+        in {cutoffLabel}, this month, or any month ahead — and moves straight back once you allocate to it again.
       </p>
     </div>
   );

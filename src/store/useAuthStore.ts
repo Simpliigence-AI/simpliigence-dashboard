@@ -23,6 +23,8 @@ export interface CurrentUser {
   employeeCode: string | null;
   managerEmail: string | null;
   avatarUrl: string | null;
+  /** 'female' | 'male'; NULL → no gendered leave types shown. */
+  gender: string | null;
 }
 
 /** Minimal user-profile shape used for directory lookups (avatars + names). */
@@ -31,6 +33,7 @@ export interface UserProfile {
   fullName: string | null;
   role: UserRole;
   avatarUrl: string | null;
+  gender: string | null;
 }
 
 interface AuthState {
@@ -61,11 +64,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       const { data: row } = await supabase
         .from('authorized_users')
-        .select('email, full_name, is_admin, role, employee_code, manager_email, avatar_url')
+        .select('email, full_name, is_admin, role, employee_code, manager_email, avatar_url, gender')
         .eq('email', user.email)
         .maybeSingle();
-      const isAdmin = !!row?.is_admin;
-      const role: UserRole = (row?.role as UserRole | undefined) ?? (isAdmin ? 'admin' : 'employee');
+      const role: UserRole = (row?.role as UserRole | undefined) ?? (row?.is_admin ? 'admin' : 'employee');
+      // Canonical admin flag: either the `is_admin` column OR role='admin'. This is
+      // the single source of truth for every admin gate (sidebar + AdminOnly), so
+      // they can never disagree over which field decides "is admin".
+      const isAdmin = !!row?.is_admin || role === 'admin';
       set({
         currentUser: {
           id: user.id,
@@ -76,6 +82,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           employeeCode: row?.employee_code ?? null,
           managerEmail: row?.manager_email ?? null,
           avatarUrl: row?.avatar_url ?? null,
+          gender: row?.gender ?? null,
         },
         loading: false,
       });
@@ -89,13 +96,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('authorized_users')
-        .select('email, full_name, role, avatar_url');
+        .select('email, full_name, role, avatar_url, gender');
       if (error) {
         console.warn('[auth] loadDirectory failed:', error.message);
         return;
       }
       const dir: Record<string, UserProfile> = {};
-      for (const row of (data ?? []) as Array<{ email: string; full_name: string | null; role: string | null; avatar_url: string | null }>) {
+      for (const row of (data ?? []) as Array<{ email: string; full_name: string | null; role: string | null; avatar_url: string | null; gender: string | null }>) {
         const e = (row.email || '').toLowerCase();
         if (!e) continue;
         dir[e] = {
@@ -103,6 +110,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           fullName: row.full_name ?? null,
           role: ((row.role as UserRole | undefined) ?? 'employee'),
           avatarUrl: row.avatar_url ?? null,
+          gender: row.gender ?? null,
         };
       }
       set({ directory: dir });
@@ -119,6 +127,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       fullName: patch.fullName ?? cur?.fullName ?? null,
       role: (patch.role ?? cur?.role ?? 'employee') as UserRole,
       avatarUrl: patch.avatarUrl ?? cur?.avatarUrl ?? null,
+      gender: patch.gender ?? cur?.gender ?? null,
     };
     set({ directory: { ...get().directory, [k]: next } });
   },
@@ -137,6 +146,7 @@ export function lookupProfile(email: string | null | undefined, directory: Recor
     fullName: e ? prettyFromEmail(e) : null,
     role: 'employee',
     avatarUrl: null,
+    gender: null,
   };
 }
 

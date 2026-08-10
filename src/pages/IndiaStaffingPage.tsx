@@ -7,6 +7,9 @@ import {
   DollarSign, Lock, Unlock, Flame, Activity, MessageCircle, Briefcase,
 } from 'lucide-react';
 import { useStaffingStore } from '../store/useStaffingStore';
+import { useCollapsedGroups } from '../lib/useCollapsedGroups';
+import { IndiaStaffingSplitView } from './india-staffing/IndiaStaffingSplitView';
+import { Rows3, Columns3 } from 'lucide-react';
 import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
 import { Sensitive } from '../components/Sensitive';
 import { analyzeStaffingStatus } from '../lib/staffingAnalysis';
@@ -136,6 +139,24 @@ export default function IndiaStaffingPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'accounts' | 'forecast'>('overview');
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  // Per-account collapse for the requisitions table. Shared across the
+  // Tier 1 + Tier 2 blocks so an account collapsed in one stays that way
+  // in the other. Default: collapsed — user expands only the accounts
+  // they care about.
+  const accountCollapse = useCollapsedGroups('india-staffing-account', { defaultCollapsed: true });
+  // View mode: 'table' (wide inline grid) vs 'split' (compact list + right
+  // detail pane). Persisted per-page to localStorage.
+  const [viewMode, setViewMode] = useState<'table' | 'split'>(() => {
+    // Split is the default now. Only respect an explicit prior 'table'
+    // pick; unset or 'split' both fall through to split.
+    try {
+      const stored = localStorage.getItem('india-staffing-view-mode');
+      return stored === 'table' ? 'table' : 'split';
+    } catch { return 'split'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('india-staffing-view-mode', viewMode); } catch { /* private mode */ }
+  }, [viewMode]);
   const [showArchive, setShowArchive] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -921,12 +942,19 @@ export default function IndiaStaffingPage() {
                       sectionPositions = same.reduce((s, x) => s + x.openPositions, 0);
                       sectionAvgAi = same.length ? Math.round(same.reduce((s, x) => s + x.aiProbability, 0) / same.length) : 0;
                     }
+                    const acctCollapsed = groupByAccount ? accountCollapse.isCollapsed(r.account) : false;
                     return (
                       <Fragment key={`tier${tier}-row-${r.id}`}>
                         {showHeader && (
-                          <tr className={`border-y-2 ${tier === 1 ? 'border-primary/30 bg-primary/5' : 'border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50'}`}>
+                          <tr
+                            onClick={() => accountCollapse.toggle(r.account)}
+                            className={`border-y-2 cursor-pointer ${tier === 1 ? 'border-primary/30 bg-primary/5 hover:bg-primary/10' : 'border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 hover:from-blue-100 hover:via-indigo-100 hover:to-violet-100'}`}
+                          >
                             <td colSpan={totalCols} className="py-2 px-3">
                               <div className="flex items-baseline gap-3 flex-wrap">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 flex-shrink-0">
+                                  {acctCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                </span>
                                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${tier === 1 ? 'bg-primary/20 text-primary' : 'bg-primary/15 text-primary'}`}>
                                   <Building2 size={14} />
                                 </span>
@@ -945,7 +973,7 @@ export default function IndiaStaffingPage() {
                             </td>
                           </tr>
                         )}
-                        {renderRow(r, { selectable: true, hideAccount: groupByAccount })}
+                        {!acctCollapsed && renderRow(r, { selectable: true, hideAccount: groupByAccount })}
                       </Fragment>
                     );
                   });
@@ -1281,12 +1309,41 @@ export default function IndiaStaffingPage() {
             )}
           </Card>
 
-          {/* ── Tier 1 + Tier 2 rendering (extracted so it runs twice) ──
+          {/* View mode toggle */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mb-3" title="Switch between the wide inline-edit table and the compact split view">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Rows3 size={12} /> Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Columns3 size={12} /> Split view
+            </button>
+          </div>
+
+          {viewMode === 'split' ? (
+            <IndiaStaffingSplitView
+              rows={filtered}
+              onSave={(id, field, val) => handleCellSave(id, field, val)}
+              onDelete={(id) => removeRequisition(id)}
+            />
+          ) : (
+          /* ── Tier 1 + Tier 2 rendering (extracted so it runs twice) ──
            *  Splits `filtered` by the tier of its owning account, renders
            *  Tier 1 as a prominent, always-open card and Tier 2 as a
            *  collapsible one below. Each section only shows its own
-           *  bulk-action bar so selecting doesn't leak across tiers. */}
-          {(() => {
+           *  bulk-action bar so selecting doesn't leak across tiers. */
+          (() => {
             const accountTier = new Map<string, 1 | 2>(accounts.map((a) => [a.id, (a.tier === 1 ? 1 : 2)]));
             const tier1Rows = filtered.filter((r) => accountTier.get(r.account_id) === 1);
             const tier2Rows = filtered.filter((r) => accountTier.get(r.account_id) !== 1);
@@ -1309,7 +1366,7 @@ export default function IndiaStaffingPage() {
                 />
               </>
             );
-          })()}
+          })())}
 
           {/* -- OLD single-card Active Requisitions kept only as a fallback if
                 tier-split needs to be reverted; guarded by `false` so it stays

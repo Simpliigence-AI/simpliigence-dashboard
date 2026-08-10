@@ -123,6 +123,9 @@ function pipelineRowToProject(row: any): ZohoPipelineProject {
     revenueCurrency: row.revenue_currency || 'USD',
     resources: row.resources || [],
     phases: row.phases || [],
+    governanceProjectId: row.governance_project_id || null,
+    governanceProjectName: row.governance_project_name || null,
+    governanceSyncedAt: row.governance_synced_at || null,
   };
 }
 
@@ -142,6 +145,9 @@ function projectToRow(p: ZohoPipelineProject) {
     revenue_currency: p.revenueCurrency || 'USD',
     resources: p.resources || [],
     phases: p.phases || [],
+    governance_project_id: p.governanceProjectId || null,
+    governance_project_name: p.governanceProjectName || null,
+    governance_synced_at: p.governanceSyncedAt || null,
     updated_by: CLIENT_ID,
     updated_at: new Date().toISOString(),
   };

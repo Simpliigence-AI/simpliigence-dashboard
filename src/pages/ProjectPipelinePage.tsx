@@ -3,9 +3,10 @@ import { useForecastStore, usePipelineStore, useFinancialStore } from '../store'
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
+import { GovernanceSyncModal } from './projects/GovernanceSyncModal';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Plus, X, Check, Archive, ArchiveRestore } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Plus, X, Check, Archive, ArchiveRestore, Link2 } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -610,6 +611,13 @@ export default function ProjectPipelinePage() {
   const currentProjects = useMemo(() => zohoProjects.filter((p) => p.status !== 'Archived'), [zohoProjects]);
   const archivedProjects = useMemo(() => zohoProjects.filter((p) => p.status === 'Archived'), [zohoProjects]);
 
+  const [govSyncOpen, setGovSyncOpen] = useState(false);
+  /** Most recent Governance pull across all projects, for the button subtitle. */
+  const lastGovSync = useMemo(() => {
+    const stamps = zohoProjects.map((p) => p.governanceSyncedAt).filter((v): v is string => !!v).sort();
+    return stamps[stamps.length - 1] ?? null;
+  }, [zohoProjects]);
+
   const archive = (id: string) => updateProject(id, { status: 'Archived' });
   // 'In Progress' is the neutral re-entry status — the real one would have to
   // come back from Zoho, and that sync no longer runs.
@@ -633,19 +641,46 @@ export default function ProjectPipelinePage() {
         title="Current Projects"
         subtitle={`${currentProjects.length} current projects`}
         action={
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-all"
-          >
-            <Plus size={14} />
-            New Project
-          </button>
+          <div className="flex items-start gap-2">
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-all"
+            >
+              <Plus size={14} />
+              New Project
+            </button>
+            <div className="flex flex-col items-end gap-0.5">
+              <button
+                type="button"
+                onClick={() => setGovSyncOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <Link2 size={14} />
+                Sync with Delivery Governance
+              </button>
+              {lastGovSync && (
+                <span className="text-[10px] text-slate-400">
+                  Last synced {new Date(lastGovSync).toLocaleString(undefined, {
+                    day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+                  })}
+                </span>
+              )}
+            </div>
+          </div>
         }
       />
       {showForm && (
         <div className="mb-6">
           <NewProjectForm onAdd={handleAdd} onCancel={() => setShowForm(false)} />
         </div>
+      )}
+
+      {govSyncOpen && (
+        <GovernanceSyncModal
+          projects={currentProjects}
+          onClose={() => setGovSyncOpen(false)}
+          onApply={(updates) => updates.forEach((u) => updateProject(u.id, u.patch))}
+        />
       )}
 
       {/* Summary stats */}

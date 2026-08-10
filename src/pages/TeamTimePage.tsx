@@ -21,7 +21,7 @@ import { Card } from '../components/ui';
 import { DocumentsPanel } from '../components/timesheet/DocumentsPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
-import { db } from '../lib/supabaseSync';
+import { db, formatDbError } from '../lib/supabaseSync';
 import { TaIdentity } from '../components/TaIdentity';
 import type { TimeEntry, TimeEntryAudit } from '../types/timeEntry';
 
@@ -239,8 +239,11 @@ export default function TeamTimePage() {
       });
       setEditing(null);
     } catch (err) {
-      // Save failed server-side — keep the modal open and show why.
-      setEditError(err instanceof Error ? err.message : 'Failed to save changes.');
+      // Save failed server-side — keep the modal open and show why. Surface
+      // the underlying Supabase/PostgREST error (message + code + details +
+      // hint); fall back to generic text only when all of those are empty.
+      const detail = formatDbError(err);
+      setEditError(detail ? `Save failed: ${detail}` : 'Failed to save changes.');
     } finally {
       setSavingEdit(false);
     }

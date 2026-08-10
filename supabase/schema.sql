@@ -352,10 +352,17 @@ CREATE POLICY "Insert: own" ON time_entries
   FOR INSERT TO authenticated
   WITH CHECK (LOWER(employee_email) = current_user_email());
 
+-- Owner branch has NO status condition: employees may edit their own entries
+-- in any status, including 'submitted' (pending approval). It was previously
+-- limited to status IN ('draft','rejected','approved'); on the live DB the
+-- widening is applied by the ADDITIVE permissive policy in migration
+-- 023_time_entries_owner_update_any_status.sql (permissive policies OR
+-- together), which also WITH CHECKs that the row still belongs to the editor.
+-- The policy name predates the change and is kept for live-DB parity.
 CREATE POLICY "Update: own (draft/rejected/approved) or admin" ON time_entries
   FOR UPDATE TO authenticated
   USING (
-    (LOWER(employee_email) = current_user_email() AND status IN ('draft','rejected','approved'))
+    LOWER(employee_email) = current_user_email()
     OR reports_to(employee_email)
     OR current_user_role() IN ('admin','manager')
   );

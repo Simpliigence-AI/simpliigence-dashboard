@@ -128,13 +128,17 @@ const adminSection: NavSection = {
   ],
 };
 
-/** Nav shown to role='employee' users — timesheet + leave request. */
+/** Nav shown to role='employee' users — timesheet, leave, and the
+ *  Concierge Tickets pane (view/log hours on tickets they've been
+ *  assigned or care about; the Concierge page detects role='employee'
+ *  and strips down to just the Tickets tab). */
 const employeeOnlySections: NavSection[] = [
   {
     label: 'My Work',
     items: [
-      { to: '/my-time', icon: Timer,        label: 'My Time' },
-      { to: '/leave',   icon: CalendarCheck, label: 'Leave' },
+      { to: '/my-time',   icon: Timer,         label: 'My Time' },
+      { to: '/leave',     icon: CalendarCheck, label: 'Leave' },
+      { to: '/concierge', icon: Headset,       label: 'Concierge Tickets' },
     ],
   },
 ];

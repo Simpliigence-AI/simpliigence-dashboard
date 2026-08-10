@@ -131,11 +131,43 @@ export const usePipelineStore = create<PipelineState>()(
     }),
     {
       name: 'simpliigence-pipeline',
-      version: 2,
-      migrate: (persisted: unknown) => {
+      version: 3,
+      migrate: (persisted: unknown, version: number) => {
         const old = persisted as Record<string, unknown> | null;
+        const projects = (old?.projects as ZohoPipelineProject[]) ?? [];
+
+        // v3: adopt the canonical project names agreed 2026-08-10 so Current
+        // Projects, Pipeline Projects and the Projects tab all say the same
+        // thing as the Delivery Governance tool. These names came from Zoho
+        // originally — one of them misspelled ("Llyods") — and the matching
+        // rows in Postgres were renamed in the same change. This catches the
+        // copy already persisted in a browser's localStorage, which is what
+        // the page actually renders; without it the old names stay on screen
+        // indefinitely, because the Zoho Projects sync that used to refresh
+        // them has been removed.
+        if (version < 3) {
+          const canonical: Record<string, string> = {
+            'cool air': 'Cool Air Rentals',
+            'coolair': 'Cool Air Rentals',
+            'qudata centres': 'Qu Data - Phase 1',
+            'qudata': 'Qu Data - Phase 1',
+            'llyods list intelligence': 'Lloyds List Intelligence',
+            'lli': 'Lloyds List Intelligence',
+            'dtr salesforce': 'DTR - SF Implementation',
+          };
+          for (const p of projects) {
+            const target = canonical[p.name?.toLowerCase().trim()];
+            if (target && p.name !== target) {
+              p.name = target;
+              // forecastName is the cost-calculation join key — it has to move
+              // with the name or `hours × rate card` silently computes zero.
+              p.forecastName = target;
+            }
+          }
+        }
+
         return {
-          projects: (old?.projects as ZohoPipelineProject[]) ?? [],
+          projects,
           lastZohoSync: (old?.lastZohoSync as string) ?? null,
         };
       },

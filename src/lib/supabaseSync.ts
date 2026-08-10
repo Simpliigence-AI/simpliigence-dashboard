@@ -35,6 +35,36 @@ import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
 
+// ─── Error formatting ──────────────────────────────────────────────
+
+/**
+ * Compose a human-readable description of a thrown Supabase/PostgREST error.
+ *
+ * PostgrestError carries `.message`, `.code`, `.details` and `.hint` — the
+ * message alone is often too vague to diagnose (e.g. an RLS no-op or CHECK
+ * violation), so surface every non-empty field:
+ *
+ *   "[<code>] <message> — <details> (hint: <hint>)"
+ *
+ * Works on any thrown value (Error instance or plain error-shaped object).
+ * Returns '' when nothing useful is present so callers can apply their own
+ * last-resort fallback text.
+ */
+export function formatDbError(err: unknown): string {
+  if (err === null || err === undefined) return '';
+  const e = err as Partial<PostgrestError> & { message?: unknown };
+  const message = typeof e.message === 'string' ? e.message.trim() : '';
+  const code = typeof e.code === 'string' ? e.code.trim() : '';
+  const details = typeof e.details === 'string' ? e.details.trim() : '';
+  const hint = typeof e.hint === 'string' ? e.hint.trim() : '';
+  let out = code ? `[${code}] ${message}`.trim() : message;
+  if (details) out = out ? `${out} — ${details}` : details;
+  if (hint) out = out ? `${out} (hint: ${hint})` : `hint: ${hint}`;
+  // Last resort for non-Postgrest values (e.g. a thrown string).
+  if (!out && typeof err === 'string') out = err.trim();
+  return out;
+}
+
 // ─── Conversion helpers ────────────────────────────────────────────
 
 function assignmentToRow(a: ForecastAssignment) {

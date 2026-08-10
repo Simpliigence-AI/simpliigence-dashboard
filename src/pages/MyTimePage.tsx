@@ -24,6 +24,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useForecastStore } from '../store/useForecastStore';
 import { usePipelineStore } from '../store/usePipelineStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
+import { formatDbError } from '../lib/supabaseSync';
 import { INTERNAL_PROJECTS } from '../types/timeEntry';
 import type { TimeEntry, TimeEntryStatus } from '../types/timeEntry';
 
@@ -1078,7 +1079,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
       setSavedMsg('Draft saved');
       setTimeout(() => setSavedMsg(null), 2500);
     } catch (e) {
-      setSavedMsg(`Save failed: ${(e as Error).message}`);
+      setSavedMsg(`Save failed: ${formatDbError(e) || 'no error detail available'}`);
     } finally {
       setSaving(null);
     }
@@ -1097,7 +1098,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
       setSavedMsg('Week submitted');
       setTimeout(() => setSavedMsg(null), 2500);
     } catch (e) {
-      setSavedMsg(`Save failed: ${(e as Error).message}`);
+      setSavedMsg(`Save failed: ${formatDbError(e) || 'no error detail available'}`);
     } finally {
       setSaving(null);
     }

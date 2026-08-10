@@ -5,7 +5,7 @@ import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -159,14 +159,19 @@ function InlineEdit({ value, onSave, type = 'text', prefix = '', placeholder = '
 }
 
 /* ── Project card ──────────────────────────────── */
-function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, onUpdateProject }: {
+function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, onUpdateProject, onArchive, onRestore }: {
   project: ZohoPipelineProject;
   teamAllocation: { name: string; role: string; totalHours: number; rateCard: number | null }[] | undefined;
   loadedCost: number;
   cadToUsdRate: number;
   onUpdateProject: (id: string, updates: Partial<ZohoPipelineProject>) => void;
+  /** Present on active cards only. */
+  onArchive?: (id: string) => void;
+  /** Present on archived cards only. */
+  onRestore?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const phases = useMemo(
     () => [...(project.phases ?? [])].sort((a, b) => a.startDate.localeCompare(b.startDate)),
     [project.phases],
@@ -240,6 +245,47 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             )}
           </div>
         </div>
+
+        {/* Archive / restore — stopPropagation so the row doesn't expand under the click */}
+        <div className="shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {onRestore && (
+            <button
+              onClick={() => onRestore(project.id)}
+              title="Restore to the active project list"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <ArchiveRestore size={14} />
+              Restore
+            </button>
+          )}
+          {onArchive && (!confirmArchive ? (
+            <button
+              onClick={() => setConfirmArchive(true)}
+              title="Move to Archive — project stops appearing in the active project list"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <Archive size={14} />
+              Archive
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-slate-500">Archive?</span>
+              <button
+                onClick={() => { onArchive(project.id); setConfirmArchive(false); }}
+                className="px-2 py-1 text-xs text-white bg-amber-700 rounded hover:bg-amber-800"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setConfirmArchive(false)}
+                className="px-2 py-1 text-xs text-slate-600 bg-slate-100 rounded hover:bg-slate-200"
+              >
+                No
+              </button>
+            </div>
+          ))}
+        </div>
+
         {/* mini progress */}
         {phases.length > 0 && (
           <div className="shrink-0 w-24">
@@ -405,8 +451,22 @@ export default function ProjectPipelinePage() {
   const updateProject = usePipelineStore((s) => s.updateProject);
   const cadToUsdRate = useFinancialStore((s) => s.settings.cadToUsdRate) || 0.73;
 
-  // Current projects = Zoho-sourced only
-  const currentProjects = useMemo(() => allProjects.filter((p) => p.source === 'zoho'), [allProjects]);
+  // Current projects = Zoho-sourced only.
+  //
+  // Archived ones (status === 'Archived') drop out of the main list into their
+  // own collapsed section. Archiving is a status flip, not a delete — the row,
+  // its phases and its cost history all stay put, and Restore puts it back.
+  // Status is used rather than a separate flag so it survives a round-trip
+  // through Supabase without a schema change.
+  const [showArchived, setShowArchived] = useState(false);
+  const zohoProjects = useMemo(() => allProjects.filter((p) => p.source === 'zoho'), [allProjects]);
+  const currentProjects = useMemo(() => zohoProjects.filter((p) => p.status !== 'Archived'), [zohoProjects]);
+  const archivedProjects = useMemo(() => zohoProjects.filter((p) => p.status === 'Archived'), [zohoProjects]);
+
+  const archive = (id: string) => updateProject(id, { status: 'Archived' });
+  // 'In Progress' is the neutral re-entry status — the real one would have to
+  // come back from Zoho, and that sync no longer runs.
+  const restore = (id: string) => updateProject(id, { status: 'In Progress' });
 
   // Derive team allocation per project from forecast store
   const projectSummaries = useMemo(() => deriveProjectSummaries(assignments), [assignments]);
@@ -456,11 +516,55 @@ export default function ProjectPipelinePage() {
               loadedCost={ps?.loadedCost ?? 0}
               cadToUsdRate={cadToUsdRate}
               onUpdateProject={updateProject}
+              onArchive={archive}
             />
           );
         })}
       </div>
 
+      {/* Archived — collapsed by default; reference, not daily work */}
+      {archivedProjects.length > 0 && (
+        <div className="mb-8">
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="w-full flex items-center gap-2 text-left py-2 group"
+          >
+            {showArchived ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+            <Archive size={15} className="text-amber-600" />
+            <h2 className="text-lg font-semibold text-slate-800">Archived</h2>
+            <span className="text-xs font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5">
+              {archivedProjects.length}
+            </span>
+            <span className="text-xs text-slate-400 font-normal">
+              wrapped up — hidden from the active list, nothing deleted
+            </span>
+            <span className="ml-auto text-xs text-slate-500 group-hover:text-slate-700">
+              {showArchived ? 'Hide' : 'Show'}
+            </span>
+          </button>
+
+          {showArchived && (
+            <div className="grid grid-cols-1 gap-3 mt-2">
+              {archivedProjects.map((project) => {
+                const ps = teamByProject.get((project.forecastName ?? project.name).toLowerCase()) ?? teamByProject.get(project.name.toLowerCase());
+                return (
+                  <div key={project.id} className="opacity-75 hover:opacity-100 transition-opacity">
+                    <ZohoProjectCard
+                      project={project}
+                      teamAllocation={ps?.employees}
+                      loadedCost={ps?.loadedCost ?? 0}
+                      cadToUsdRate={cadToUsdRate}
+                      onUpdateProject={updateProject}
+                      onRestore={restore}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

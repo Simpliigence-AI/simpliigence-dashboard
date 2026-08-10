@@ -49,21 +49,29 @@ const corsHeaders = {
 const SKIP_STATUSES = new Set(['Completed', 'On Hold']);
 
 /**
- * Default forecastName overrides — short names used in the Forecast spreadsheet.
- * Keyed by Zoho project id (string form).
+ * forecastName overrides, keyed by Zoho project id (string form).
+ *
+ * These map Zoho's project name onto the CANONICAL name agreed 2026-08-10, so
+ * the Projects tab, the timesheets and the Delivery Governance tool all say
+ * the same thing. Zoho still holds the old (and in one case misspelled) names
+ * on its side — we don't control that system — so this table is what does the
+ * translating on every sync.
  *
  * These are DEFAULTS only. The client-side store preserves any user-set
  * forecastName across syncs, so if someone edits these in the UI that wins.
  *
- * Without these, cost = forecasted hours × rate card doesn't compute for
- * these projects, because Zoho's full name doesn't match the short name the
- * spreadsheet uses.
+ * Editing a name here without also updating forecast_assignments.project (and
+ * time_entries.project_name) silently breaks that project's cost calculation:
+ * cost = forecasted hours × rate card joins the forecast row to its pipeline
+ * project on exactly this value, and a miss computes as zero rather than
+ * erroring.
  */
 const FORECAST_NAME_ALIASES: Record<string, string> = {
-  '204610000003130003': 'QUData',    // QuData Centres
-  '204610000002779003': 'Matheson',  // Matheson Constructors
-  '204610000002746053': 'CoolAir',   // Cool Air
-  '204610000002290021': 'LLI',       // Llyods List Intelligence
+  '204610000003130003': 'Qu Data - Phase 1',        // Zoho: QuData Centres
+  '204610000002779003': 'Matheson',                 // Zoho: Matheson Constructors
+  '204610000002746053': 'Cool Air Rentals',         // Zoho: Cool Air
+  '204610000002290021': 'Lloyds List Intelligence', // Zoho: Llyods List Intelligence [sic]
+  '204610000003393014': 'Copeland Support',         // Zoho: Copeland Support
 };
 
 // ── Types minimally describing what we use from Zoho responses ──

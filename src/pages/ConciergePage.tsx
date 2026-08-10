@@ -13,6 +13,7 @@
  */
 import { useEffect, useState, useMemo } from 'react';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, JSX } from 'react';
+import { useAuthStore } from '../store/useAuthStore';
 import { useConciergeStore } from '../store/useConciergeStore';
 import type { ConciergeTicket } from '../store/useConciergeStore';
 import { useConciergeAccountsStore } from '../store/useConciergeAccountsStore';
@@ -1016,7 +1017,12 @@ export default function ConciergePage() {
     else if (typeof res.count === 'number') setRefreshMsg(`Synced ${res.count} tickets`);
     setTimeout(() => setRefreshMsg(null), 4000);
   };
-  const [tab, setTab] = useState<Tab>('overview');
+  // Employees see a stripped-down Concierge — Tickets tab only. Managers +
+  // admins get the full surface. This is the same signal AdminOnly / role
+  // gates use elsewhere.
+  const role = useAuthStore((s) => s.currentUser?.role);
+  const employeeMode = role === 'employee';
+  const [tab, setTab] = useState<Tab>(employeeMode ? 'tickets' : 'overview');
   const [includeDormantInCoverage, setIncludeDormantInCoverage] = useState(false);
   const [openAccountId, setOpenAccountId] = useState<string | null>(null);
   const [showNewAccount, setShowNewAccount] = useState(false);
@@ -1262,28 +1268,33 @@ export default function ConciergePage() {
               </button>
             )}
             {graphMsg && <span className="text-[11px] text-slate-500 italic">{graphMsg}</span>}
-            <button
-              type="button"
-              onClick={() => setShowIgnoredSenders(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-700 bg-white"
-              title="Manage ignored email senders — noise blocklist for auto-ticket creation"
-            >
-              <ShieldOff size={12} /> Ignored senders
-            </button>
+            {!employeeMode && (
+              <button
+                type="button"
+                onClick={() => setShowIgnoredSenders(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-700 bg-white"
+                title="Manage ignored email senders — noise blocklist for auto-ticket creation"
+              >
+                <ShieldOff size={12} /> Ignored senders
+              </button>
+            )}
             <Button variant="secondary" onClick={() => setShowNewTicket(true)}>
               <Plus size={14} /> New ticket
             </Button>
-            <Button onClick={() => { setSeedName(undefined); setShowNewAccount(true); }}>
-              <Plus size={14} /> New account
-            </Button>
+            {!employeeMode && (
+              <Button onClick={() => { setSeedName(undefined); setShowNewAccount(true); }}>
+                <Plus size={14} /> New account
+              </Button>
+            )}
           </div>
         }
       />
 
-      {/* AI query bar — natural-language questions across every Concierge signal */}
-      <ConciergeAskAI />
+      {/* AI query bar — hidden for employees (tickets-only view). */}
+      {!employeeMode && <ConciergeAskAI />}
 
-      {/* Stat cards */}
+      {/* Stat cards — hidden for employees. */}
+      {!employeeMode && (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <StatCard label="Accounts" value={stats.accountCount} icon={<Building2 size={20} />} />
         <StatCard label="MRR" value={fmtUSD(stats.mrr, { compact: true })} subtitle="Active retainers" icon={<DollarSign size={20} />} />
@@ -1292,16 +1303,19 @@ export default function ConciergePage() {
         <StatCard label="At Risk" value={stats.atRisk} subtitle={stats.atRisk > 0 ? 'Need attention' : 'All healthy'} icon={<AlertTriangle size={20} />} />
         <StatCard label="Dormant" value={stats.dormantCount} subtitle={stats.dormantCount > 0 ? 'Re-engage' : 'None'} icon={<AlertTriangle size={20} />} />
       </div>
+      )}
 
-      {/* Tab bar */}
+      {/* Tab bar — employees only see the Tickets tab. */}
       <div className="flex flex-wrap gap-1 bg-white border border-slate-200 rounded-lg p-1 mb-6 w-fit">
-        {([
+        {(([
           { key: 'overview', label: 'Overview', icon: <LayoutGrid size={14} /> },
           { key: 'tickets',  label: 'Tickets',  icon: <Ticket size={14} /> },
           { key: 'backlog',  label: 'Feature Coverage', icon: <Package size={14} /> },
           { key: 'billing',  label: 'Billing',  icon: <Receipt size={14} /> },
           { key: 'catalog',  label: 'Feature Catalog', icon: <Sparkles size={14} /> },
-        ] as Array<{ key: Tab; label: string; icon: JSX.Element }>).map((t) => (
+        ] as Array<{ key: Tab; label: string; icon: JSX.Element }>)
+          .filter((t) => !employeeMode || t.key === 'tickets')
+        ).map((t) => (
           <button
             key={t.key}
             type="button"

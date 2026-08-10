@@ -93,8 +93,18 @@ export interface ZohoPipelineProject {
   revenueCurrency?: 'USD' | 'CAD';
   /** Estimated resource needs (for forecast) */
   resources: PipelineResource[];
-  /** Phases/milestones from Zoho */
+  /** Phases/milestones — from Zoho originally, from Delivery Governance once linked. */
   phases?: ZohoPhase[];
+  /**
+   * Delivery Governance project id this is linked to, set by the "Sync with
+   * Delivery Governance" flow. The two tools name projects differently, so
+   * the link is stored explicitly rather than re-matched on names every time.
+   */
+  governanceProjectId?: string | null;
+  /** Governance's own name for this project, kept for display in the sync dialog. */
+  governanceProjectName?: string | null;
+  /** ISO timestamp of the last successful plan pull. */
+  governanceSyncedAt?: string | null;
 }
 
 export interface PipelineResource {

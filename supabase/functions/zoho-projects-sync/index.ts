@@ -49,29 +49,47 @@ const corsHeaders = {
 const SKIP_STATUSES = new Set(['Completed', 'On Hold']);
 
 /**
- * forecastName overrides, keyed by Zoho project id (string form).
+ * Canonical project names agreed 2026-08-10, keyed by Zoho project id.
  *
- * These map Zoho's project name onto the CANONICAL name agreed 2026-08-10, so
- * the Projects tab, the timesheets and the Delivery Governance tool all say
- * the same thing. Zoho still holds the old (and in one case misspelled) names
- * on its side — we don't control that system — so this table is what does the
- * translating on every sync.
+ * Zoho holds the old (and in one case misspelled) names on its side and we
+ * don't control that system, so this table is what translates Zoho →
+ * canonical on every sync. It rewrites BOTH:
  *
- * These are DEFAULTS only. The client-side store preserves any user-set
- * forecastName across syncs, so if someone edits these in the UI that wins.
+ *   name         — what every screen displays (Current Projects, Pipeline
+ *                  Projects, the Projects tab)
+ *   forecastName — the key the forecast joins on
  *
- * Editing a name here without also updating forecast_assignments.project (and
- * time_entries.project_name) silently breaks that project's cost calculation:
- * cost = forecasted hours × rate card joins the forecast row to its pipeline
- * project on exactly this value, and a miss computes as zero rather than
- * erroring.
+ * Both matter. Overriding only forecastName leaves the Zoho spelling on
+ * screen, which is exactly the bug this replaced.
+ *
+ * The Zoho project id is preserved as zohoId, so the link back to the source
+ * record survives the rename.
+ *
+ * These are DEFAULTS. The client-side store preserves a user-set forecastName
+ * across syncs, so a UI edit still wins.
+ *
+ * Changing a name here without also updating forecast_assignments.project and
+ * time_entries.project_name silently breaks that project's cost calculation:
+ * cost = forecasted hours × rate card joins on this value, and a miss
+ * computes as zero rather than erroring.
  */
-const FORECAST_NAME_ALIASES: Record<string, string> = {
+const CANONICAL_NAMES: Record<string, string> = {
   '204610000003130003': 'Qu Data - Phase 1',        // Zoho: QuData Centres
-  '204610000002779003': 'Matheson',                 // Zoho: Matheson Constructors
   '204610000002746053': 'Cool Air Rentals',         // Zoho: Cool Air
   '204610000002290021': 'Lloyds List Intelligence', // Zoho: Llyods List Intelligence [sic]
   '204610000003393014': 'Copeland Support',         // Zoho: Copeland Support
+};
+
+/**
+ * Forecast join key only — Zoho's own display name is left on screen.
+ *
+ * Matheson is here rather than in CANONICAL_NAMES because no canonical name
+ * has been agreed for it yet: Governance calls it "Matheson Constructors" and
+ * the forecast calls it "Matheson". Until that's settled, keep the join
+ * working without silently picking a winner for the display name.
+ */
+const FORECAST_NAME_ONLY: Record<string, string> = {
+  '204610000002779003': 'Matheson',                 // Zoho: Matheson Constructors
 };
 
 // ── Types minimally describing what we use from Zoho responses ──
@@ -196,11 +214,12 @@ Deno.serve(async (req: Request) => {
         // Swallow per-project phase errors so one bad project doesn't fail the whole sync.
         console.warn(`phases for project ${p.id} failed:`, (e as Error).message);
       }
-      const forecastAlias = FORECAST_NAME_ALIASES[String(p.id)];
+      const canonical = CANONICAL_NAMES[String(p.id)];
+      const forecastAlias = canonical ?? FORECAST_NAME_ONLY[String(p.id)];
       return {
         id: `zoho-${p.id}`,
         zohoId: String(p.id),
-        name: p.name,
+        name: canonical ?? p.name,
         status: statusName(p.status) || 'Active',
         owner: ownerName(p.owner),
         startDate: p.start_date ?? null,

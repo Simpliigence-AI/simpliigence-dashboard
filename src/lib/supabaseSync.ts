@@ -1332,9 +1332,11 @@ export const db = {
   },
 
   // --- Pipeline ---
-  async upsertPipelineProject(p: ZohoPipelineProject) {
+  /** Resolves with the error message on failure, null on success. */
+  async upsertPipelineProject(p: ZohoPipelineProject): Promise<string | null> {
     const { error } = await supabase.from('pipeline_projects').upsert(projectToRow(p), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert pipeline project failed:', error);
+    return error?.message ?? null;
   },
 
   async upsertPipelineProjects(projects: ZohoPipelineProject[]) {

@@ -30,8 +30,8 @@ interface PipelineState {
   /** Add a manually-created pipeline project. */
   addProject: (project: ZohoPipelineProject) => void;
 
-  /** Update an existing project. */
-  updateProject: (id: string, updates: Partial<ZohoPipelineProject>) => void;
+  /** Update an existing project. Resolves with the DB save error message, or null. */
+  updateProject: (id: string, updates: Partial<ZohoPipelineProject>) => Promise<string | null>;
 
   /** Remove a project. */
   removeProject: (id: string) => void;
@@ -104,12 +104,12 @@ export const usePipelineStore = create<PipelineState>()(
         db.upsertPipelineProject(project);
       },
 
-      updateProject: (id, updates) => {
+      updateProject: async (id, updates) => {
         set((s) => ({
           projects: s.projects.map((p) => (p.id === id ? { ...p, ...updates } : p)),
         }));
         const updated = get().projects.find((p) => p.id === id);
-        if (updated) db.upsertPipelineProject(updated);
+        return updated ? db.upsertPipelineProject(updated) : null;
       },
 
       removeProject: (id) => {

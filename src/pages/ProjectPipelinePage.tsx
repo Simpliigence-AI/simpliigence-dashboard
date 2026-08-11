@@ -450,6 +450,7 @@ export default function ProjectPipelinePage() {
   const assignments = useForecastStore((s) => s.assignments);
   const allProjects = usePipelineStore((s) => s.projects);
   const updateProject = usePipelineStore((s) => s.updateProject);
+  const addProject = usePipelineStore((s) => s.addProject);
   const cadToUsdRate = useFinancialStore((s) => s.settings.cadToUsdRate) || 0.73;
 
   // Current projects = Zoho-sourced only.
@@ -517,9 +518,14 @@ export default function ProjectPipelinePage() {
       {govSyncOpen && (
         <GovernanceSyncModal
           projects={currentProjects}
+          allProjects={allProjects}
           onClose={() => setGovSyncOpen(false)}
           onApply={async (updates) => {
             const errors = await Promise.all(updates.map((u) => updateProject(u.id, u.patch)));
+            return errors.find((e) => e !== null) ?? null;
+          }}
+          onCreate={async (created) => {
+            const errors = await Promise.all(created.map((p) => addProject(p)));
             return errors.find((e) => e !== null) ?? null;
           }}
         />

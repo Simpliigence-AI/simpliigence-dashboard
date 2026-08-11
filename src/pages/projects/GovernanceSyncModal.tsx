@@ -82,8 +82,11 @@ interface Props {
   /** Active (non-archived) dashboard projects, the ones worth matching. */
   projects: ZohoPipelineProject[];
   onClose: () => void;
-  /** Called once per project that actually changed. */
-  onApply: (updates: { id: string; patch: Partial<ZohoPipelineProject> }[]) => void;
+  /**
+   * Called once per project that actually changed. Resolves with the first
+   * DB save error message, or null when everything persisted.
+   */
+  onApply: (updates: { id: string; patch: Partial<ZohoPipelineProject> }[]) => Promise<string | null>;
 }
 
 /**
@@ -130,6 +133,8 @@ export function GovernanceSyncModal({ projects, onClose, onApply }: Props) {
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<{ name: string; note: string; ok: boolean }[] | null>(null);
+  /** DB persistence failure — synced in-app, but the save didn't reach Supabase. */
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Load the Governance project list and pre-fill the matches.
   useEffect(() => {
@@ -234,7 +239,7 @@ export function GovernanceSyncModal({ projects, onClose, onApply }: Props) {
       }
     }
 
-    onApply(updates);
+    setSaveError(await onApply(updates));
     setResult(report);
     setSyncing(false);
   };
@@ -279,7 +284,14 @@ export function GovernanceSyncModal({ projects, onClose, onApply }: Props) {
 
           {result && (
             <div className="space-y-1.5">
-              <div className="text-sm font-semibold text-slate-800 mb-2">Sync complete</div>
+              {saveError ? (
+                <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-2">
+                  <div className="font-semibold mb-0.5">Synced, but saving to the database failed</div>
+                  Changes only apply in this browser and will not reach other users. {saveError}
+                </div>
+              ) : (
+                <div className="text-sm font-semibold text-slate-800 mb-2">Sync complete</div>
+              )}
               {result.map((r) => (
                 <div key={r.name} className="flex items-start gap-2 text-xs">
                   {r.ok

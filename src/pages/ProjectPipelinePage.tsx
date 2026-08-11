@@ -518,7 +518,10 @@ export default function ProjectPipelinePage() {
         <GovernanceSyncModal
           projects={currentProjects}
           onClose={() => setGovSyncOpen(false)}
-          onApply={(updates) => updates.forEach((u) => updateProject(u.id, u.patch))}
+          onApply={async (updates) => {
+            const errors = await Promise.all(updates.map((u) => updateProject(u.id, u.patch)));
+            return errors.find((e) => e !== null) ?? null;
+          }}
         />
       )}
 

@@ -13,7 +13,6 @@
  */
 import { useEffect, useState, useMemo } from 'react';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, JSX } from 'react';
-import { useAuthStore } from '../store/useAuthStore';
 import { useConciergeStore } from '../store/useConciergeStore';
 import type { ConciergeTicket } from '../store/useConciergeStore';
 import { useConciergeAccountsStore } from '../store/useConciergeAccountsStore';
@@ -1017,12 +1016,11 @@ export default function ConciergePage() {
     else if (typeof res.count === 'number') setRefreshMsg(`Synced ${res.count} tickets`);
     setTimeout(() => setRefreshMsg(null), 4000);
   };
-  // Employees see a stripped-down Concierge — Tickets tab only. Managers +
-  // admins get the full surface. This is the same signal AdminOnly / role
-  // gates use elsewhere.
-  const role = useAuthStore((s) => s.currentUser?.role);
-  const employeeMode = role === 'employee';
-  const [tab, setTab] = useState<Tab>(employeeMode ? 'tickets' : 'overview');
+  // Concierge is open to the whole team — no role gate. (An earlier iteration
+  // stripped this down for role='employee'; product decision was to give
+  // everyone the full surface so they can work tickets end-to-end.)
+  const employeeMode = false;
+  const [tab, setTab] = useState<Tab>('overview');
   const [includeDormantInCoverage, setIncludeDormantInCoverage] = useState(false);
   const [openAccountId, setOpenAccountId] = useState<string | null>(null);
   const [showNewAccount, setShowNewAccount] = useState(false);

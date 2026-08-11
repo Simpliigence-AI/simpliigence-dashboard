@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/useAuthStore';
 /** Paths that role='employee' is allowed to visit. Anything else redirects
  *  them to /my-time. Keeps the URL-typing escape hatch closed without having
  *  to wrap every route individually with RoleOnly. */
-const EMPLOYEE_ALLOWED_PATHS = new Set<string>(['/my-time', '/leave']);
+const EMPLOYEE_ALLOWED_PATHS = new Set<string>(['/my-time', '/leave', '/concierge']);
 
 const SIDEBAR_KEY = 'sidebar-collapsed';
 

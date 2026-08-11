@@ -27,8 +27,8 @@ interface PipelineState {
    */
   syncFromZoho: (fallback?: ZohoPipelineProject[]) => Promise<ZohoSyncResult>;
 
-  /** Add a manually-created pipeline project. */
-  addProject: (project: ZohoPipelineProject) => void;
+  /** Add a project. Resolves with the DB save error message, or null. */
+  addProject: (project: ZohoPipelineProject) => Promise<string | null>;
 
   /** Update an existing project. Resolves with the DB save error message, or null. */
   updateProject: (id: string, updates: Partial<ZohoPipelineProject>) => Promise<string | null>;
@@ -99,9 +99,12 @@ export const usePipelineStore = create<PipelineState>()(
         }
       },
 
-      addProject: (project) => {
+      addProject: async (project) => {
         set((s) => ({ projects: [...s.projects, project] }));
-        db.upsertPipelineProject(project);
+        // Awaited and returned so a failed save surfaces in the UI rather
+        // than leaving a project that exists on screen but not in Postgres —
+        // same contract as updateProject.
+        return db.upsertPipelineProject(project);
       },
 
       updateProject: async (id, updates) => {

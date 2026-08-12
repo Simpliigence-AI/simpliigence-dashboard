@@ -808,15 +808,16 @@ function ProjectPicker({ value, onChange, options, autoFocus = false, onEnter }:
 }) {
   // Group by source for optgroup rendering
   const grouped: Record<string, typeof options> = {
-    current: [], concierge: [], internal: [], other: [],
+    current: [], concierge: [], roster: [], internal: [], other: [],
   };
   for (const o of options) {
     const src = (o.source as keyof typeof grouped) || 'other';
     (grouped[src] ||= []).push(o);
   }
   const groupLabel: Record<string, string> = {
-    current: 'Current projects',
-    concierge: 'Concierge active accounts',
+    current: 'Projects',
+    concierge: 'Concierge',
+    roster: 'T&M projects',
     internal: 'Internal',
     other: 'Other / historic',
   };
@@ -828,7 +829,7 @@ function ProjectPicker({ value, onChange, options, autoFocus = false, onEnter }:
       className="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
     >
       <option value="" disabled>— pick a project —</option>
-      {(['current', 'concierge', 'internal', 'other'] as const).map((k) => {
+      {(['current', 'concierge', 'roster', 'internal', 'other'] as const).map((k) => {
         const list = grouped[k];
         if (!list?.length) return null;
         return (

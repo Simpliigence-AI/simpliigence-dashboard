@@ -10,7 +10,11 @@
  *      suffixed with " Concierge" so timesheet reviewers can distinguish
  *      concierge managed-services time from delivery time.
  *      e.g. "Balkan Plumbing" → "Balkan Plumbing Concierge".
- *   3. INTERNAL_PROJECTS — Leave, Holiday, Internal Admin, etc.
+ *   3. T&M projects — distinct non-empty `project` values from the India
+ *      Roster (india_roster.project). These are the client engagements
+ *      T&M team members are allocated to but which aren't yet in the
+ *      delivery pipeline (e.g. bench overflows, short-turnaround work).
+ *   4. INTERNAL_PROJECTS — Leave, Holiday, Internal Admin, etc.
  *
  * `extra` lets callers pass values already present on existing time entries
  * so a person editing a historic row whose project name no longer appears
@@ -19,6 +23,7 @@
 import { useMemo } from 'react';
 import { usePipelineStore } from '../store/usePipelineStore';
 import { useConciergeAccountsStore } from '../store/useConciergeAccountsStore';
+import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { INTERNAL_PROJECTS } from '../types/timeEntry';
 
 export interface TimeProjectOption {
@@ -26,7 +31,7 @@ export interface TimeProjectOption {
   name: string;
   billable: boolean;
   /** Which source bucket the option came from. Used by the UI to group. */
-  source: 'current' | 'concierge' | 'internal' | 'other';
+  source: 'current' | 'concierge' | 'roster' | 'internal' | 'other';
 }
 
 /** Historic entries may reference project names that no longer exist as
@@ -35,6 +40,7 @@ export interface TimeProjectOption {
 export function useTimeProjectOptions(extra: string[] = []): TimeProjectOption[] {
   const pipelineProjects = usePipelineStore((s) => s.projects);
   const conciergeAccounts = useConciergeAccountsStore((s) => s.accounts);
+  const rosterMembers = useIndiaRosterStore((s) => s.members);
 
   return useMemo(() => {
     const seen = new Set<string>();
@@ -59,14 +65,28 @@ export function useTimeProjectOptions(extra: string[] = []): TimeProjectOption[]
       options.push({ id: a.id, name: key, billable: true, source: 'concierge' });
     }
 
-    // 3. Internal categories
+    // 3. T&M projects — distinct non-empty `project` values from India roster.
+    //    Sorted alphabetically for a stable dropdown order.
+    const rosterProjectSet = new Set<string>();
+    for (const m of rosterMembers) {
+      const p = (m.project || '').trim();
+      if (p) rosterProjectSet.add(p);
+    }
+    const rosterProjects = [...rosterProjectSet].sort((a, b) => a.localeCompare(b));
+    for (const name of rosterProjects) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      options.push({ id: null, name, billable: true, source: 'roster' });
+    }
+
+    // 4. Internal categories
     for (const name of INTERNAL_PROJECTS) {
       if (seen.has(name)) continue;
       seen.add(name);
       options.push({ id: null, name, billable: false, source: 'internal' });
     }
 
-    // 4. Grandfathered (already-present values not in any of the above)
+    // 5. Grandfathered (already-present values not in any of the above)
     for (const name of extra) {
       const trimmed = (name || '').trim();
       if (!trimmed || seen.has(trimmed)) continue;
@@ -75,5 +95,5 @@ export function useTimeProjectOptions(extra: string[] = []): TimeProjectOption[]
     }
 
     return options;
-  }, [pipelineProjects, conciergeAccounts, extra]);
+  }, [pipelineProjects, conciergeAccounts, rosterMembers, extra]);
 }

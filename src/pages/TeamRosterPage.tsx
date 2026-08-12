@@ -5,15 +5,16 @@ import { Card } from '../components/ui';
 import PeopleView from './team/PeopleView';
 import ProjectsView from './team/ProjectsView';
 import TableView from './team/TableView';
+import AvailabilityView from './team/AvailabilityView';
 
-type TeamTab = 'people' | 'projects' | 'table';
+type TeamTab = 'people' | 'projects' | 'table' | 'availability';
 
 const TAB_KEY = 'team-view-tab';
 
 function loadTab(): TeamTab {
   if (typeof window === 'undefined') return 'people';
   const v = window.localStorage.getItem(TAB_KEY);
-  return v === 'projects' || v === 'table' ? v : 'people';
+  return v === 'projects' || v === 'table' || v === 'availability' ? v : 'people';
 }
 
 export default function TeamRosterPage() {
@@ -43,11 +44,13 @@ export default function TeamRosterPage() {
           <TabButton active={tab === 'people'} onClick={() => setTab('people')}>People</TabButton>
           <TabButton active={tab === 'projects'} onClick={() => setTab('projects')}>Projects</TabButton>
           <TabButton active={tab === 'table'} onClick={() => setTab('table')}>Table</TabButton>
+          <TabButton active={tab === 'availability'} onClick={() => setTab('availability')}>Availability</TabButton>
         </div>
 
         {tab === 'people' && <PeopleView />}
         {tab === 'projects' && <ProjectsView />}
         {tab === 'table' && <TableView />}
+        {tab === 'availability' && <AvailabilityView />}
       </Card>
     </>
   );

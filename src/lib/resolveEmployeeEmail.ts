@@ -96,7 +96,9 @@ export interface Resolver {
 
 export function buildEmailResolver(directory: DirectoryEntry[]): Resolver {
   const people = directory
-    .filter((d) => d.email && d.fullName)
+    // Type guard, not a plain filter — TS won't narrow `fullName` across a
+    // boolean predicate, and every helper below needs a definite string.
+    .filter((d): d is DirectoryEntry & { fullName: string } => !!d.email && !!d.fullName)
     .map((d) => ({
       email: d.email.toLowerCase(),
       norm: norm(d.fullName),

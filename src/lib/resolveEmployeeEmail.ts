@@ -27,7 +27,9 @@
  */
 
 export interface DirectoryEntry {
-  fullName: string;
+  /** Nullable: authorized_users.full_name is optional, so callers can pass
+   *  the directory straight through without pre-filtering. */
+  fullName: string | null;
   email: string;
 }
 

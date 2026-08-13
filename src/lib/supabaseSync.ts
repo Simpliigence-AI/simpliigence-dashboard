@@ -715,6 +715,19 @@ function rowToAccountAction(row: any): AccountActionItem {
   };
 }
 
+export async function fetchPodAssignments(): Promise<
+  Array<{ employeeName: string; pod: string; updatedAt?: string; updatedBy?: string | null }> | null
+> {
+  const { data, error } = await supabase.from('project_team_pods').select('*');
+  if (error) { console.warn('[supabase] fetch project_team_pods failed:', error.message); return null; }
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    employeeName: r.employee_name as string,
+    pod: r.pod as string,
+    updatedAt: r.updated_at as string | undefined,
+    updatedBy: (r.updated_by as string | null | undefined) ?? null,
+  }));
+}
+
 export async function fetchPresales(): Promise<{
   meetings: PresalesMeeting[]; activities: PresalesActivity[];
 } | null> {
@@ -1525,6 +1538,21 @@ export const db = {
   async upsertIndiaRosterMember(m: IndiaRosterMember) {
     const { error } = await supabase.from('india_roster').upsert(indiaRosterToRow(m), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert india_roster failed:', error);
+  },
+
+  // ─── Project-team pod assignments (see fetchPodAssignments) ────────
+  async upsertPodAssignment(row: { employeeName: string; pod: string }) {
+    const { error } = await supabase.from('project_team_pods').upsert({
+      employee_name: row.employeeName,
+      pod: row.pod,
+      updated_at: new Date().toISOString(),
+      updated_by: CLIENT_ID,
+    }, { onConflict: 'employee_name' });
+    if (error) console.warn('[supabase] upsert project_team_pods failed:', error);
+  },
+  async deletePodAssignment(employeeName: string) {
+    const { error } = await supabase.from('project_team_pods').delete().eq('employee_name', employeeName);
+    if (error) console.warn('[supabase] delete project_team_pods failed:', error);
   },
   async deleteIndiaRosterMember(id: string) {
     const { error } = await supabase.from('india_roster').delete().eq('id', id);

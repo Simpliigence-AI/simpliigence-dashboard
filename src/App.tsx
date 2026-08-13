@@ -11,6 +11,7 @@ import { useTimeEntryStore } from './store/useTimeEntryStore';
 import { useCallsStore } from './store/useCallsStore';
 import { useAccountStore } from './store/useAccountStore';
 import { usePresalesStore } from './store/usePresalesStore';
+import { usePodAssignmentsStore } from './store/usePodAssignmentsStore';
 import { useVendorStore } from './store/useVendorStore';
 import { useConciergeAccountsStore } from './store/useConciergeAccountsStore';
 import { useLeaveStore } from './store/useLeaveStore';
@@ -38,6 +39,7 @@ import {
   fetchVendors,
   fetchConcierge,
   fetchLeaveData,
+  fetchPodAssignments,
   setupRealtimeSubscriptions,
   db,
 } from './lib/supabaseSync';
@@ -93,6 +95,7 @@ function useSupabaseInit() {
           presalesRes,
           conciergeRes,
           leaveRes,
+          podAssignmentsRes,
         ] = await Promise.all([
           withTimeout(fetchAssignments()),
           withTimeout(fetchFinancialSettings()),
@@ -116,6 +119,7 @@ function useSupabaseInit() {
           withTimeout(fetchPresales()),
           withTimeout(fetchConcierge()),
           withTimeout(fetchLeaveData()),
+          withTimeout(fetchPodAssignments()),
         ]);
 
         // --- Forecast assignments ---
@@ -333,6 +337,17 @@ function useSupabaseInit() {
           }
         } else {
           console.warn('[supabase] Presales fetch timed out — using localStorage');
+        }
+
+        // --- Project Team pod assignments ---
+        if (!podAssignmentsRes.timedOut) {
+          const data = podAssignmentsRes.value;
+          if (data) {
+            usePodAssignmentsStore.getState().hydrate(data);
+            console.log('[supabase] Loaded pod assignments:', data.length);
+          }
+        } else {
+          console.warn('[supabase] Pod assignments fetch timed out');
         }
 
         // --- Vendors ---

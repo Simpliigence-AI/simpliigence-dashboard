@@ -12,7 +12,7 @@
  */
 import { useMemo } from 'react';
 import { useForecastStore } from '../../store';
-import { useIndiaRosterStore } from '../../store/useIndiaRosterStore';
+import { usePodAssignmentsStore } from '../../store/usePodAssignmentsStore';
 import { MONTHS } from '../../types/forecast';
 import type { Month } from '../../types/forecast';
 
@@ -24,31 +24,23 @@ interface PodCellSummary {
 
 export default function PodUtilizationView() {
   const assignments = useForecastStore((s) => s.assignments);
-  const rosterMembers = useIndiaRosterStore((s) => s.members);
+  const podAssignments = usePodAssignmentsStore((s) => s.assignments);
 
-  /** employeeName (lowercased+trimmed) → pod */
-  const podByEmployee = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of rosterMembers) {
-      const pod = (r.pod || '').trim();
-      const name = (r.name || '').toLowerCase().trim();
-      if (pod && name) m.set(name, pod);
-    }
-    return m;
-  }, [rosterMembers]);
+  /** employeeName (lowercased+trimmed) → pod. From project_team_pods. */
+  const podByEmployee = usePodAssignmentsStore((s) => s.byName);
 
-  /** pod → sorted array of member names */
+  /** pod → sorted array of member names (from project_team_pods) */
   const podRoster = useMemo(() => {
     const m = new Map<string, string[]>();
-    for (const r of rosterMembers) {
-      const pod = (r.pod || '').trim();
-      if (!pod || !r.name) continue;
+    for (const r of podAssignments) {
+      const pod = r.pod.trim();
+      if (!pod || !r.employeeName) continue;
       if (!m.has(pod)) m.set(pod, []);
-      m.get(pod)!.push(r.name);
+      m.get(pod)!.push(r.employeeName);
     }
     for (const list of m.values()) list.sort();
     return m;
-  }, [rosterMembers]);
+  }, [podAssignments]);
 
   const pods = useMemo(() => [...podRoster.keys()].sort(), [podRoster]);
 
@@ -93,19 +85,24 @@ export default function PodUtilizationView() {
     return out;
   }, [assignments, podByEmployee, pods]);
 
-  // Count how many members lack a pod so we can nudge admins to fix it.
-  const noPodCount = useMemo(
-    () => rosterMembers.filter((r) => !(r.pod || '').trim()).length,
-    [rosterMembers],
-  );
+  // Count team members without a pod so we can nudge admins to fix it.
+  // "Team members" here = distinct employee names on forecast_assignments.
+  const noPodCount = useMemo(() => {
+    const allNames = new Set(assignments.map((a) => a.employeeName));
+    let missing = 0;
+    for (const n of allNames) {
+      if (!podByEmployee.has(n.toLowerCase().trim())) missing++;
+    }
+    return missing;
+  }, [assignments, podByEmployee]);
 
   if (pods.length === 0) {
     return (
       <div className="py-12 text-center text-sm text-slate-500">
         <div className="text-base font-semibold text-slate-700 mb-1">No pods assigned yet</div>
         <p>
-          Go to <span className="font-medium text-slate-800">/india-roster</span> and set a{' '}
-          <span className="font-medium text-slate-800">Pod</span> value on each member
+          Open the <span className="font-medium text-slate-800">People</span> tab,
+          pick a resource, and set their <span className="font-medium text-slate-800">Pod</span>{' '}
           (e.g. <span className="font-medium">Pod 1</span>). Pods will start showing up here.
         </p>
       </div>
@@ -116,7 +113,7 @@ export default function PodUtilizationView() {
     <div>
       {noPodCount > 0 && (
         <div className="mb-3 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
-          {noPodCount} roster member{noPodCount === 1 ? '' : 's'} without a pod — they won't appear here until you set one on <span className="font-semibold">/india-roster</span>.
+          {noPodCount} team member{noPodCount === 1 ? '' : 's'} without a pod — set one on the <span className="font-semibold">People</span> tab so they show up here.
         </div>
       )}
       <div className="overflow-x-auto">
@@ -191,7 +188,7 @@ export default function PodUtilizationView() {
       <p className="mt-3 text-[10px] text-slate-500">
         Each cell lists the projects that have any forecast hours from members of that pod in that month.
         The badge shows <span className="font-mono">{'{project}'}</span>, hours, and distinct people count.
-        Pods come from the <span className="font-medium">Pod</span> field on <span className="font-medium">/india-roster</span>.
+        Pods come from the <span className="font-medium">Pod</span> field on the <span className="font-medium">People</span> tab.
       </p>
     </div>
   );

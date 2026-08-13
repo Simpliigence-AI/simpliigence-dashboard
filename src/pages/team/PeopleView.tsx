@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Plus, Search, Trash2, X } from 'lucide-react';
 import { Badge } from '../../components/ui';
 import { useForecastStore, usePipelineStore } from '../../store';
+import { usePodAssignmentsStore } from '../../store/usePodAssignmentsStore';
 import { MONTHS, emptyMonthRecord } from '../../types/forecast';
 import type { Month, ForecastAssignment } from '../../types/forecast';
 import {
@@ -22,6 +23,9 @@ import { Sensitive } from '../../components/Sensitive';
 export default function PeopleView() {
   const assignments = useForecastStore((s) => s.assignments);
   const pipelineProjects = usePipelineStore((s) => s.projects);
+  const podByName = usePodAssignmentsStore((s) => s.byName);
+  const setPod = usePodAssignmentsStore((s) => s.setPod);
+  const renamePodAssignment = usePodAssignmentsStore((s) => s.renameEmployee);
   const {
     addAssignment,
     removeEmployee,
@@ -33,6 +37,12 @@ export default function PeopleView() {
     updateEmployeeRate,
     updateEmployeeType,
   } = useForecastStore();
+
+  /** All distinct pod names — used to populate the datalist so admins get autocomplete. */
+  const knownPods = useMemo(
+    () => [...new Set([...podByName.values()])].sort(),
+    [podByName],
+  );
 
   const year = new Date().getFullYear();
 
@@ -268,7 +278,14 @@ export default function PeopleView() {
                 <div>
                   <EditableField
                     value={selected.name}
-                    onSave={(v) => v && v !== selected.name && (renameEmployee(selected.name, v), setSelectedName(v))}
+                    onSave={(v) => {
+                      if (!v || v === selected.name) return;
+                      const oldName = selected.name;
+                      renameEmployee(oldName, v);
+                      // Keep the pod row aligned with the new name.
+                      void renamePodAssignment(oldName, v);
+                      setSelectedName(v);
+                    }}
                     className="text-xl font-bold text-slate-900"
                   />
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
@@ -288,6 +305,13 @@ export default function PeopleView() {
                         }}
                       />
                     </Sensitive>
+                    <span>·</span>
+                    <PodInlineEditor
+                      key={selected.name}
+                      currentPod={podByName.get(selected.name.toLowerCase().trim()) ?? ''}
+                      onCommit={(v) => void setPod(selected.name, v)}
+                      knownPods={knownPods}
+                    />
                     <span>·</span>
                     <button
                       onClick={() => {
@@ -530,5 +554,41 @@ function EditableField({
     >
       {value || <span className="text-slate-300">{placeholder}</span>}
     </button>
+  );
+}
+
+/** Small controlled inline editor for a person's pod. Commits on Enter or
+ *  blur — no per-keystroke writes. Uses a shared datalist for autocomplete. */
+function PodInlineEditor({ currentPod, onCommit, knownPods }: {
+  currentPod: string;
+  onCommit: (v: string) => void;
+  knownPods: string[];
+}) {
+  // Parent remounts this via `key={selected.name}`, so draft starts fresh
+  // whenever the selected person changes.
+  const [draft, setDraft] = useState(currentPod);
+  return (
+    <div className="inline-flex items-center gap-1">
+      <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Pod</span>
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const next = draft.trim();
+          if (next !== currentPod.trim()) onCommit(next);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          if (e.key === 'Escape') { setDraft(currentPod); (e.target as HTMLInputElement).blur(); }
+        }}
+        placeholder="—"
+        list="team-people-pod-suggestions"
+        title="Press Enter or click away to save · Esc to cancel"
+        className="w-20 text-xs bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+      />
+      <datalist id="team-people-pod-suggestions">
+        {knownPods.map((p) => <option key={p} value={p} />)}
+      </datalist>
+    </div>
   );
 }

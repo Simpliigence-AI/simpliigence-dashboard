@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, ChevronDown, ChevronRight, Plus, Search, Trash2 } from 'lucide-react';
 import { useForecastStore, usePipelineStore } from '../../store';
-import { useIndiaRosterStore } from '../../store/useIndiaRosterStore';
+import { usePodAssignmentsStore } from '../../store/usePodAssignmentsStore';
 import { MONTHS, emptyMonthRecord } from '../../types/forecast';
 import type { Month, ForecastAssignment } from '../../types/forecast';
 import {
@@ -86,7 +86,9 @@ function lastAllocatedMonth(list: ForecastAssignment[]): Month | null {
 export default function ProjectsView() {
   const assignments = useForecastStore((s) => s.assignments);
   const pipelineProjects = usePipelineStore((s) => s.projects);
-  const rosterMembers = useIndiaRosterStore((s) => s.members);
+  /** Pod assignments live in project_team_pods, edited on the People tab.
+   *  DO NOT read from india_roster — that's the T&M team, different roster. */
+  const podByEmployee = usePodAssignmentsStore((s) => s.byName);
   const {
     addAssignment,
     removeAssignment,
@@ -95,17 +97,6 @@ export default function ProjectsView() {
   } = useForecastStore();
 
   const year = new Date().getFullYear();
-
-  /** name (lowercased + trimmed) → pod. Built from india_roster. */
-  const podByEmployee = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of rosterMembers) {
-      const pod = (r.pod || '').trim();
-      const name = (r.name || '').toLowerCase().trim();
-      if (pod && name) m.set(name, pod);
-    }
-    return m;
-  }, [rosterMembers]);
 
   const projectOptions = useMemo(
     () => buildProjectOptions(pipelineProjects, assignments),

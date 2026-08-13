@@ -6,15 +6,16 @@ import PeopleView from './team/PeopleView';
 import ProjectsView from './team/ProjectsView';
 import TableView from './team/TableView';
 import AvailabilityView from './team/AvailabilityView';
+import PodUtilizationView from './team/PodUtilizationView';
 
-type TeamTab = 'people' | 'projects' | 'table' | 'availability';
+type TeamTab = 'people' | 'projects' | 'pods' | 'table' | 'availability';
 
 const TAB_KEY = 'team-view-tab';
 
 function loadTab(): TeamTab {
   if (typeof window === 'undefined') return 'people';
   const v = window.localStorage.getItem(TAB_KEY);
-  return v === 'projects' || v === 'table' || v === 'availability' ? v : 'people';
+  return v === 'projects' || v === 'pods' || v === 'table' || v === 'availability' ? v : 'people';
 }
 
 export default function TeamRosterPage() {
@@ -43,12 +44,14 @@ export default function TeamRosterPage() {
         <div className="flex items-center gap-1 mb-4 border-b border-slate-200 -mx-5 px-5">
           <TabButton active={tab === 'people'} onClick={() => setTab('people')}>People</TabButton>
           <TabButton active={tab === 'projects'} onClick={() => setTab('projects')}>Projects</TabButton>
+          <TabButton active={tab === 'pods'} onClick={() => setTab('pods')}>Pod utilization</TabButton>
           <TabButton active={tab === 'table'} onClick={() => setTab('table')}>Table</TabButton>
           <TabButton active={tab === 'availability'} onClick={() => setTab('availability')}>Availability</TabButton>
         </div>
 
         {tab === 'people' && <PeopleView />}
         {tab === 'projects' && <ProjectsView />}
+        {tab === 'pods' && <PodUtilizationView />}
         {tab === 'table' && <TableView />}
         {tab === 'availability' && <AvailabilityView />}
       </Card>

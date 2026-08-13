@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, ChevronDown, ChevronRight, Plus, Search, Trash2 } from 'lucide-react';
 import { useForecastStore, usePipelineStore } from '../../store';
+import { useIndiaRosterStore } from '../../store/useIndiaRosterStore';
 import { MONTHS, emptyMonthRecord } from '../../types/forecast';
 import type { Month, ForecastAssignment } from '../../types/forecast';
 import {
@@ -24,6 +25,24 @@ interface ProjectCard {
   completed: boolean;
   /** Last month with any allocated hours; null if the project has none at all. */
   lastActiveMonth: Month | null;
+  /** Pod with the most assigned resources on this project (majority wins,
+   *  ties broken alphabetically). null if nobody on the project has a
+   *  pod assignment yet. */
+  primaryPod: string | null;
+}
+
+/** Compute the majority pod on a project. Returns null if no assigned
+ *  resource has a pod set. Ties break alphabetically. */
+function primaryPodFor(list: ForecastAssignment[], podByEmployee: Map<string, string>): string | null {
+  const counts = new Map<string, number>();
+  for (const a of list) {
+    const p = podByEmployee.get(a.employeeName.toLowerCase().trim());
+    if (!p) continue;
+    counts.set(p, (counts.get(p) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return sorted[0][0];
 }
 
 /**
@@ -67,6 +86,7 @@ function lastAllocatedMonth(list: ForecastAssignment[]): Month | null {
 export default function ProjectsView() {
   const assignments = useForecastStore((s) => s.assignments);
   const pipelineProjects = usePipelineStore((s) => s.projects);
+  const rosterMembers = useIndiaRosterStore((s) => s.members);
   const {
     addAssignment,
     removeAssignment,
@@ -75,6 +95,17 @@ export default function ProjectsView() {
   } = useForecastStore();
 
   const year = new Date().getFullYear();
+
+  /** name (lowercased + trimmed) → pod. Built from india_roster. */
+  const podByEmployee = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rosterMembers) {
+      const pod = (r.pod || '').trim();
+      const name = (r.name || '').toLowerCase().trim();
+      if (pod && name) m.set(name, pod);
+    }
+    return m;
+  }, [rosterMembers]);
 
   const projectOptions = useMemo(
     () => buildProjectOptions(pipelineProjects, assignments),
@@ -107,10 +138,11 @@ export default function ProjectsView() {
         totalHours: total,
         completed: isProjectCompleted(list, cutoffIdx),
         lastActiveMonth: lastAllocatedMonth(list),
+        primaryPod: primaryPodFor(list, podByEmployee),
       });
     }
     return out.sort((a, b) => b.totalHours - a.totalHours);
-  }, [assignments, sourceByValue]);
+  }, [assignments, sourceByValue, podByEmployee]);
 
   const allPeople = useMemo(() => groupAssignments(assignments), [assignments]);
 
@@ -258,6 +290,14 @@ export default function ProjectsView() {
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-slate-800 truncate">{card.name}</h3>
                         <SourceBadge source={card.source} />
+                        {card.primaryPod && (
+                          <span
+                            className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200"
+                            title={`Primary pod on this project — resources not from ${card.primaryPod} are marked with *`}
+                          >
+                            {card.primaryPod}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         {card.assignments.length} {card.assignments.length === 1 ? 'person' : 'people'} ·{' '}
@@ -332,7 +372,28 @@ export default function ProjectsView() {
                               {getInitials(a.employeeName)}
                             </div>
                             <div className="w-40 shrink-0 min-w-0">
-                              <div className="text-sm font-medium text-slate-800 truncate">{a.employeeName}</div>
+                              <div className="text-sm font-medium text-slate-800 truncate flex items-center gap-1">
+                                <span className="truncate">{a.employeeName}</span>
+                                {(() => {
+                                  const pod = podByEmployee.get(a.employeeName.toLowerCase().trim());
+                                  if (!pod) return null;
+                                  const isOutsider = card.primaryPod != null && pod !== card.primaryPod;
+                                  return (
+                                    <span
+                                      className={`shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                        isOutsider
+                                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                          : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                                      }`}
+                                      title={isOutsider
+                                        ? `${pod} — borrowed from another pod (primary here is ${card.primaryPod})`
+                                        : `${pod}${card.primaryPod ? ' — primary pod on this project' : ''}`}
+                                    >
+                                      {pod}{isOutsider ? '*' : ''}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                               <div className="text-[11px] text-slate-500 truncate">{a.role || '—'}</div>
                             </div>
                             <div className="flex-1 min-w-0">

@@ -52,6 +52,10 @@ export interface IndiaRosterMember {
   role: string;
   /** Current project allocation. Empty string = on bench / unallocated. */
   project: string;
+  /** Pod assignment (free text — "Pod 1", "Alpha", etc.). Drives the
+   *  primary-pod highlight on /team → Projects view and the rows on the
+   *  Pod Utilization tab. Empty string = not yet assigned to a pod. */
+  pod: string;
   /** Allocation status — drives stats and color coding */
   status: IndiaRosterStatus;
   /** Internal cost per hour (USD). Used to compute margin. */

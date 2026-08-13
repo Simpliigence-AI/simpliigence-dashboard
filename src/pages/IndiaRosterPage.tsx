@@ -108,6 +108,7 @@ export default function IndiaRosterPage() {
     name: '',
     role: 'Developer',
     project: '',
+    pod: '',
     status: 'Billable' as IndiaRosterStatus,
     cost_per_hour: 0,
     bill_rate: 0,
@@ -126,6 +127,7 @@ export default function IndiaRosterPage() {
         m.name.toLowerCase().includes(q) ||
         (m.skills || '').toLowerCase().includes(q) ||
         (m.project || '').toLowerCase().includes(q) ||
+        (m.pod || '').toLowerCase().includes(q) ||
         (m.role || '').toLowerCase().includes(q),
       );
     }
@@ -209,6 +211,7 @@ export default function IndiaRosterPage() {
       name: draft.name.trim(),
       role: draft.role,
       project: draft.project.trim(),
+      pod: draft.pod.trim(),
       status: draft.status,
       cost_per_hour: Number(draft.cost_per_hour) || 0,
       bill_rate: Number(draft.bill_rate) || 0,
@@ -217,7 +220,7 @@ export default function IndiaRosterPage() {
       email: draft.email.trim(),
       notes: draft.notes.trim(),
     });
-    setDraft({ ...draft, name: '', project: '', skills: '', email: '', notes: '', cost_per_hour: 0, bill_rate: 0 });
+    setDraft({ ...draft, name: '', project: '', pod: '', skills: '', email: '', notes: '', cost_per_hour: 0, bill_rate: 0 });
     setShowAdd(false);
   };
 
@@ -396,6 +399,17 @@ export default function IndiaRosterPage() {
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
+                <label className="text-[10px] uppercase text-slate-500 font-semibold">Pod</label>
+                <input value={draft.pod} onChange={(e) => setDraft({ ...draft, pod: e.target.value })} placeholder="e.g. Pod 1"
+                  list="roster-pod-suggestions"
+                  className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
+                <datalist id="roster-pod-suggestions">
+                  {[...new Set(members.map((m) => (m.pod || '').trim()).filter(Boolean))].sort().map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
                 <label className="text-[10px] uppercase text-slate-500 font-semibold">Status</label>
                 <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as IndiaRosterStatus })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
@@ -469,6 +483,7 @@ export default function IndiaRosterPage() {
                 <SortHeader field="name" label="Name" sticky />
                 <SortHeader field="role" label="Role" />
                 <SortHeader field="project" label="Project" />
+                <SortHeader field="pod" label="Pod" />
                 <SortHeader field="status" label="Status" />
                 <SortHeader field="cost_per_hour" label="Cost/hr" align="right" />
                 <SortHeader field="bill_rate" label="Bill Rate" align="right" />
@@ -479,10 +494,10 @@ export default function IndiaRosterPage() {
               </tr>
             </thead>
             <tbody>
-              {renderRowsGrouped(activeRows, groupByAccount, handleCellSave, removeMember, 10, groupState, 'active')}
+              {renderRowsGrouped(activeRows, groupByAccount, handleCellSave, removeMember, 11, groupState, 'active')}
               {activeRows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-3 py-8 text-center text-slate-400">
                     {members.length === 0
                       ? 'No roster members yet. Click "Add Member" to start populating the India team.'
                       : 'No active (billable) resources match the current filters.'}
@@ -521,6 +536,7 @@ export default function IndiaRosterPage() {
                   <SortHeader field="name" label="Name" sticky />
                   <SortHeader field="role" label="Role" />
                   <SortHeader field="project" label="Last Project" />
+                  <SortHeader field="pod" label="Pod" />
                   <SortHeader field="status" label="Status" />
                   <SortHeader field="cost_per_hour" label="Cost/hr" align="right" />
                   <SortHeader field="bill_rate" label="Bill Rate" align="right" />
@@ -531,10 +547,10 @@ export default function IndiaRosterPage() {
                 </tr>
               </thead>
               <tbody>
-                {renderRowsGrouped(inactiveRows, groupByAccount, handleCellSave, removeMember, 10, groupState, 'inactive')}
+                {renderRowsGrouped(inactiveRows, groupByAccount, handleCellSave, removeMember, 11, groupState, 'inactive')}
                 {inactiveRows.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
+                    <td colSpan={11} className="px-3 py-8 text-center text-slate-400">
                       No inactive positions.
                     </td>
                   </tr>
@@ -699,6 +715,15 @@ function renderMemberRow(
       </td>
       <td className="px-3 py-2">
         <EditableCell value={m.project} onSave={(v) => handleCellSave(m.id, 'project', v)} />
+      </td>
+      <td className="px-3 py-2">
+        <EditableCell
+          value={m.pod}
+          onSave={(v) => handleCellSave(m.id, 'pod', v)}
+          displayContent={m.pod
+            ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">{m.pod}</span>
+            : <span className="text-slate-300 italic">—</span>}
+        />
       </td>
       <td className="px-3 py-2">
         <EditableCell value={m.status} type="select" options={INDIA_ROSTER_STATUSES}

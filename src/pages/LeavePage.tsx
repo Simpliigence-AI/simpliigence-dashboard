@@ -4,9 +4,15 @@
  * Two tabs:
  *   1. My Requests — balance cards per leave type + a list of the user's
  *      own requests. Primary action is "Request Leave".
- *   2. Approvals   — visible to anyone with at least one request routed to
- *      them (i.e. anyone marked as manager_email on another user's row).
- *      Pending decisions surface first with Approve / Reject actions.
+ *   2. Approvals   — always visible to admins and managers (role-aware), and
+ *      to anyone else with at least one request routed to them (i.e. anyone
+ *      marked as manager_email on another user's row). Admins additionally
+ *      see every pending request — including ones routed to nobody
+ *      (manager_email NULL). Managers additionally see pending requests from
+ *      their CURRENT reportees (authorized_users.manager_email = them) even
+ *      when the routing snapshot is stale. Approve / Reject buttons only
+ *      render where the live RLS update policy permits the write: admins
+ *      anywhere, everyone else only on requests routed to them.
  *
  * Balances are computed on the fly from `leave_types.annual_quota` minus
  * the sum of approved-request days in the current calendar year. Pending
@@ -75,13 +81,37 @@ export default function LeavePage() {
     [requests, email],
   );
 
+  // `isAdmin` is the canonical flag (is_admin column OR role='admin').
+  const isAdminViewer = !!currentUser?.isAdmin;
+  const isManagerViewer = currentUser?.role === 'manager';
+
+  /** Requests surfaced on the Approvals tab:
+   *  - anyone: requests explicitly routed to them (full history), and
+   *  - admins: every pending request org-wide — including ones routed to
+   *    nobody (manager_email NULL), which no one else can decide, and
+   *  - managers: pending requests from their CURRENT reportees
+   *    (authorized_users.manager_email = them) even when the request's
+   *    routing snapshot is stale or NULL. */
   const toApprove = useMemo(
-    () => requests.filter((r) => (r.managerEmail || '').toLowerCase() === email),
-    [requests, email],
+    () => requests.filter((r) => {
+      const employee = r.employeeEmail.toLowerCase();
+      if (employee === email) return false; // own requests live on My Requests
+      if ((r.managerEmail || '').toLowerCase() === email) return true;
+      if (r.status !== 'pending') return false;
+      if (isAdminViewer) return true;
+      return isManagerViewer && (directory[employee]?.managerEmail || '') === email;
+    }),
+    [requests, email, isAdminViewer, isManagerViewer, directory],
   );
 
   const pendingApprovals = toApprove.filter((r) => r.status === 'pending');
-  const isManager = toApprove.length > 0;
+  // Admins and managers always get the tab (empty state when nothing to do);
+  // anyone else gets it once a request is routed to them.
+  const showApprovals = isAdminViewer || isManagerViewer || toApprove.length > 0;
+  /** Whether the live RLS update policy lets this viewer decide a request:
+   *  admins anywhere, everyone else only where they are the routed manager. */
+  const canDecide = (r: LeaveRequest) =>
+    isAdminViewer || (r.managerEmail || '').toLowerCase() === email;
 
   const balances = useMemo(
     () => computeBalances(types, myRequests, allocations, email, year, currentUser?.gender),
@@ -117,7 +147,7 @@ export default function LeavePage() {
             {myRequests.length}
           </span>
         </button>
-        {isManager && (
+        {showApprovals && (
           <button
             type="button"
             onClick={() => setTab('approvals')}
@@ -246,13 +276,17 @@ export default function LeavePage() {
       {/* ── APPROVALS ───────────────────────────── */}
       {tab === 'approvals' && (
         <Card
-          title={`Requests routed to you (${toApprove.length})`}
+          title={`Requests for your review (${toApprove.length})`}
           action={pendingApprovals.length > 0
             ? <span className="text-xs font-semibold text-rose-600">{pendingApprovals.length} awaiting decision</span>
             : <span className="text-xs text-slate-500">All caught up</span>}
         >
           {toApprove.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">No one has you set as their manager yet.</p>
+            <p className="text-center text-slate-500 py-8">
+              {isAdminViewer
+                ? 'Nothing to approve — no pending requests anywhere right now.'
+                : 'Nothing to approve yet — pending requests from your reportees (and any routed to you) will show up here.'}
+            </p>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -297,22 +331,35 @@ export default function LeavePage() {
                         </td>
                         <td className="py-2 text-right whitespace-nowrap">
                           {r.status === 'pending' ? (
-                            <div className="inline-flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setDecideOn({ req: r, decision: 'approved' })}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
+                            canDecide(r) ? (
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setDecideOn({ req: r, decision: 'approved' })}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
+                                >
+                                  <ThumbsUp size={11} /> Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDecideOn({ req: r, decision: 'rejected' })}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500"
+                                >
+                                  <ThumbsDown size={11} /> Reject
+                                </button>
+                              </div>
+                            ) : (
+                              /* Stale/NULL routing snapshot: RLS only lets the routed
+                               * manager or an admin write the decision. */
+                              <span
+                                className="text-[11px] text-slate-400"
+                                title="This request's approval is routed by its manager_email snapshot — only that person or an admin can decide it."
                               >
-                                <ThumbsUp size={11} /> Approve
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDecideOn({ req: r, decision: 'rejected' })}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500"
-                              >
-                                <ThumbsDown size={11} /> Reject
-                              </button>
-                            </div>
+                                Routed to {r.managerEmail
+                                  ? (directory[r.managerEmail.toLowerCase()]?.fullName || r.managerEmail)
+                                  : 'no one'} — ask an admin
+                              </span>
+                            )
                           ) : r.decidedAt ? (
                             <span className="text-[11px] text-slate-500">
                               {r.status === 'approved' ? <CheckCircle2 size={11} className="inline mr-1 text-emerald-500" /> :

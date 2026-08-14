@@ -544,7 +544,23 @@ function DecisionDialog({
 }) {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isApprove = decision === 'approved';
+
+  /** Surface a failed save instead of swallowing it — the dialog stays open
+   *  (the parent only closes it after a successful onConfirm), so the user
+   *  sees the message and can retry. Same idiom as NewRequestDialog. */
+  const confirm = async () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onConfirm(comment);
+    } catch (e) {
+      setError((e as Error).message || 'Saving the decision failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
@@ -570,10 +586,16 @@ function DecisionDialog({
           placeholder={isApprove ? 'Enjoy your time off…' : 'Reason for rejection…'}
           className="mt-1"
         />
+        {error && (
+          <div className="mt-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md p-2 flex items-start gap-1.5">
+            <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+            {error}
+          </div>
+        )}
         <div className="flex justify-end gap-2 mt-5">
           <Button variant="secondary" onClick={onCancel} disabled={submitting}>Cancel</Button>
           <Button
-            onClick={async () => { setSubmitting(true); try { await onConfirm(comment); } finally { setSubmitting(false); } }}
+            onClick={confirm}
             disabled={submitting}
             className={isApprove ? '' : 'bg-rose-600 hover:bg-rose-500'}
           >

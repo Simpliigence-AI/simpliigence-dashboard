@@ -125,6 +125,13 @@ interface ConciergeState {
   setTickets: (tickets: ConciergeTicket[]) => void;
 }
 
+/** True when a Postgres error is "column estimated_hours does not exist" —
+ * i.e. migration 026 hasn't been run on the live DB yet. Writes retry
+ * without the field so ticket create/update keeps working pre-migration. */
+function isMissingEstimatedHoursColumn(message: string): boolean {
+  return /estimated_hours/i.test(message) && /column|schema/i.test(message);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToTicket(row: any): ConciergeTicket {
   return {
@@ -277,7 +284,7 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     }
     const id = nanoid();
     const nowIso = new Date().toISOString();
-    const { error } = await supabase.from('tickets').insert({
+    const row: Record<string, unknown> = {
       id,
       ticket_number: String(nextNumber),
       subject: input.subject,
@@ -289,11 +296,19 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
       assignee_email: input.assigneeEmail ?? null,
       sender_email: input.senderEmail ?? null,
       sender_name: input.senderName ?? null,
-      estimated_hours: input.estimatedHours ?? null,
       source: 'manual',
       created_time: nowIso,
       last_synced_at: nowIso,
-    });
+    };
+    // Only send estimated_hours when the user actually set one, so inserts
+    // keep working on a live DB where migration 026 hasn't been applied yet.
+    if (input.estimatedHours != null) row.estimated_hours = input.estimatedHours;
+    let { error } = await supabase.from('tickets').insert(row);
+    if (error && 'estimated_hours' in row && isMissingEstimatedHoursColumn(error.message)) {
+      console.warn('[concierge] tickets.estimated_hours missing (run migration 026); retrying insert without it');
+      delete row.estimated_hours;
+      ({ error } = await supabase.from('tickets').insert(row));
+    }
     if (error) return { ok: false, message: error.message };
     await get().loadFromSupabase();
     return { ok: true, id };
@@ -311,10 +326,20 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     if ('description' in patch) row.description = patch.description;
     if ('resolution' in patch) row.resolution = patch.resolution;
     if ('estimatedHours' in patch) row.estimated_hours = patch.estimatedHours;
-    const { error } = await supabase.from('tickets').update(row).eq('id', id);
+    let applied = patch;
+    let { error } = await supabase.from('tickets').update(row).eq('id', id);
+    if (error && 'estimated_hours' in row && isMissingEstimatedHoursColumn(error.message)) {
+      console.warn('[concierge] tickets.estimated_hours missing (run migration 026); retrying update without it');
+      delete row.estimated_hours;
+      const rest = { ...applied }; // don't pretend the estimate persisted
+      delete rest.estimatedHours;
+      applied = rest;
+      if (Object.keys(row).length <= 1) return; // nothing left but updated_at
+      ({ error } = await supabase.from('tickets').update(row).eq('id', id));
+    }
     if (error) { console.warn('[concierge] updateTicket:', error.message); return; }
     set((s) => ({
-      tickets: s.tickets.map((t) => t.id === id ? { ...t, ...patch } as ConciergeTicket : t),
+      tickets: s.tickets.map((t) => t.id === id ? { ...t, ...applied } as ConciergeTicket : t),
     }));
   },
 

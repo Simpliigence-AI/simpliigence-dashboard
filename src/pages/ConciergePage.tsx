@@ -203,15 +203,10 @@ type Tab = 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog';
 
 /* ── Ticket group card (preserved from old page) ── */
 
-/** Hours cell: logged actuals alongside the admin-set estimate.
- * "3.5h / 5h est" when both exist; "5h est" with no time logged yet;
- * just "3.5h" with no estimate; em-dash when neither is set. */
-function fmtTicketHours(t: ConciergeTicket): string {
-  const logged = t.hoursLogged > 0 ? `${t.hoursLogged.toFixed(1)}h` : null;
-  const est = t.estimatedHours != null && Number.isFinite(t.estimatedHours)
-    ? `${t.estimatedHours}h est` : null;
-  if (logged && est) return `${logged} / ${est}`;
-  return est ?? logged ?? '—';
+/** Est. hours cell: the admin-set estimate, e.g. "5h"; em-dash when unset. */
+function fmtTicketEstimate(t: ConciergeTicket): string {
+  return t.estimatedHours != null && Number.isFinite(t.estimatedHours)
+    ? `${t.estimatedHours}h` : '—';
 }
 
 interface ClientGroup {
@@ -250,7 +245,7 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Status</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Priority</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Assignee</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Hours</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Est. hours</th>
                 <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Created</th>
               </tr>
             </thead>
@@ -271,7 +266,7 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                   <td className="py-2.5 pr-4"><Badge variant={ticketStatusVariant(t.status)}>{t.status}</Badge></td>
                   <td className="py-2.5 pr-4"><Badge variant={priorityVariant(t.priority)}>{t.priority ?? 'None'}</Badge></td>
                   <td className="py-2.5 pr-4 text-xs text-slate-600 truncate max-w-[10rem]">{t.assigneeEmail ?? <span className="text-slate-400">Unassigned</span>}</td>
-                  <td className="py-2.5 pr-4 text-slate-600 whitespace-nowrap tabular-nums">{fmtTicketHours(t)}</td>
+                  <td className="py-2.5 pr-4 text-slate-600 whitespace-nowrap tabular-nums">{fmtTicketEstimate(t)}</td>
                   <td className="py-2.5 whitespace-nowrap text-slate-600">{fmtDate(t.createdTime)}</td>
                 </tr>
               ))}

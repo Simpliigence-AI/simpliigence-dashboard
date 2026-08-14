@@ -3343,6 +3343,31 @@ export const leaveDb = {
     const { error } = await supabase.from('leave_requests').upsert(leaveRequestToRow(r), { onConflict: 'id' });
     if (error) { console.error('[supabase] upsert leave_request failed:', error); throw error; }
   },
+  /** Targeted decision write (approve/reject/cancel) that VERIFIES the row
+   *  actually changed. An UPDATE blocked by RLS doesn't error — PostgREST just
+   *  matches 0 rows — so `upsertRequest` could "succeed" while the request
+   *  stayed pending in the DB. `.select('id')` returns the updated rows; an
+   *  empty result means the write was silently blocked, and we throw so the
+   *  caller can roll back its optimistic state. */
+  async updateRequestDecision(
+    id: string,
+    patch: Pick<LeaveRequest, 'status' | 'decidedAt' | 'decidedBy' | 'decisionComment'>,
+  ) {
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .update({
+        status: patch.status,
+        decided_at: patch.decidedAt,
+        decided_by: patch.decidedBy?.toLowerCase() ?? null,
+        decision_comment: patch.decisionComment,
+      })
+      .eq('id', id)
+      .select('id');
+    if (error) { console.error('[supabase] update leave_request decision failed:', error); throw error; }
+    if (!data || data.length === 0) {
+      throw new Error('Leave request update was blocked (0 rows changed) — likely a database permission (RLS) issue.');
+    }
+  },
   async deleteRequest(id: string) {
     const { error } = await supabase.from('leave_requests').delete().eq('id', id);
     if (error) console.warn('[supabase] delete leave_request failed:', error);

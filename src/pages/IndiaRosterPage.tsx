@@ -257,6 +257,8 @@ export default function IndiaRosterPage() {
   return (
     <>
       <PageHeader
+        eyebrow="India T&M"
+        tone="gold"
         title="India Roster"
         subtitle="Full India FTE roster — billable allocations, bench, and margin"
       />

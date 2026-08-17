@@ -1221,6 +1221,8 @@ export default function ConciergePage() {
   return (
     <div>
       <PageHeader
+        eyebrow="Managed services"
+        tone="violet"
         title="Concierge"
         subtitle="360° view of managed-services accounts — contracts, functionality, tickets, billing"
         action={

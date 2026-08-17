@@ -36,6 +36,8 @@ export default function TeamRosterPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Delivery"
+        tone="brand"
         title="Project Team"
         subtitle={`${memberCount} team members · ${projectCount} projects · ${assignments.length} allocations`}
       />

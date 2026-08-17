@@ -532,14 +532,16 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Simpliigence · Live"
+        tone="brand"
         title="Operations Cockpit"
-        subtitle={`Live cross-section view — ${MONTHS[0]} to ${MONTHS[MONTHS.length - 1]} ${new Date().getFullYear()}`}
+        subtitle={`Cross-section of delivery, demand and hiring — ${MONTHS[0]} to ${MONTHS[MONTHS.length - 1]} ${new Date().getFullYear()}`}
       />
 
       {urgentAccounts.length > 0 && (
-        <div className="mb-4 rounded-xl border border-rose-300 bg-gradient-to-r from-rose-50 via-rose-50 to-amber-50 p-3.5 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-rose-600 text-white flex items-center justify-center flex-shrink-0">
-            <ArrowUpRight size={18} className="rotate-45" />
+        <div className="mb-5 rounded-2xl border border-rose/25 bg-rose/6 p-4 flex items-start gap-3.5 shadow-[0_16px_48px_#0f1b2d0f]">
+          <div className="w-11 h-11 rounded-xl bg-rose/12 text-rose flex items-center justify-center flex-shrink-0">
+            <ArrowUpRight size={22} className="rotate-45" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
@@ -611,7 +613,7 @@ export default function DashboardPage() {
                     return (
                       <div key={s.label}>
                         <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</div>
-                        <div className="text-xl font-extrabold text-slate-800 tabular-nums">
+                        <div className="text-2xl font-bold text-ink tabular-nums tracking-[-0.025em]">
                           {isSensitive ? <Sensitive>{s.value}</Sensitive> : s.value}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">{s.sub}</div>
@@ -645,7 +647,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <History size={14} className="text-slate-500" />
-              <h3 className="text-sm font-bold text-slate-800">Recent Activity</h3>
+              <h3 className="display-md text-ink">Recent Activity</h3>
               <span className="text-[10px] text-slate-400">last 14 days · {recentActivity.length} events</span>
             </div>
           </div>
@@ -677,10 +679,10 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard icon={<Users size={24} />} label="Team Size" value={totalEmployees} />
-        <StatCard icon={<FolderKanban size={24} />} label="Active Projects" value={totalProjects} />
-        <StatCard icon={<Clock size={24} />} label="Total Forecasted Hours" value={totalHours.toLocaleString()} />
-        <StatCard icon={<DollarSign size={24} />} label="Loaded Cost (USD)" value={<Sensitive>{`$${Math.round(totalCost).toLocaleString()}`}</Sensitive>} />
+        <StatCard icon={<Users size={26} />} label="Team Size" value={totalEmployees} tone="blue" />
+        <StatCard icon={<FolderKanban size={26} />} label="Active Projects" value={totalProjects} tone="teal" />
+        <StatCard icon={<Clock size={26} />} label="Total Forecasted Hours" value={Math.round(totalHours).toLocaleString()} tone="violet" />
+        <StatCard icon={<DollarSign size={26} />} label="Loaded Cost (USD)" value={<Sensitive>{`$${Math.round(totalCost).toLocaleString()}`}</Sensitive>} tone="green" />
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
@@ -788,7 +790,7 @@ function AccountHealthAndCandidatesWidget(props: {
           <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
             <Handshake size={15} />
           </div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-sky-700">Account Mgmt Health</h3>
+          <h3 className="eyebrow !text-brand">Account Mgmt Health</h3>
           <Link to="/accounts" className="ml-auto text-[10px] font-semibold text-sky-700 hover:underline inline-flex items-center gap-0.5">
             Accounts <ArrowUpRight size={10} />
           </Link>
@@ -816,7 +818,7 @@ function AccountHealthAndCandidatesWidget(props: {
           <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
             <UserCheck size={15} />
           </div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-700">India Candidates</h3>
+          <h3 className="eyebrow !text-violet">India Candidates</h3>
           <Link to="/candidates" className="ml-auto text-[10px] font-semibold text-indigo-700 hover:underline inline-flex items-center gap-0.5">
             Candidates <ArrowUpRight size={10} />
           </Link>
@@ -859,7 +861,7 @@ function Stat({ label, value, sub, tone = 'mute' }: {
   return (
     <div>
       <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{label}</div>
-      <div className={`text-xl font-extrabold tabular-nums ${toneCls[tone]}`}>{value}</div>
+      <div className={`text-2xl font-bold tabular-nums tracking-[-0.025em] ${toneCls[tone]}`}>{value}</div>
       {sub && <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>}
     </div>
   );

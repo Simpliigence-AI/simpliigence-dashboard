@@ -492,6 +492,8 @@ export default function ProjectPipelinePage() {
   return (
     <>
       <PageHeader
+        eyebrow="Delivery"
+        tone="brand"
         title="Current Projects"
         subtitle={`${currentProjects.length} current projects`}
         action={

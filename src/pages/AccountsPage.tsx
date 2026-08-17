@@ -391,12 +391,16 @@ export default function AccountsPage() {
   return (
     <div className="w-full">
       {/* Hero header — gradient banner with stat strip */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 mb-6 text-white shadow-md">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_60%)] pointer-events-none" />
+      {/* Hero — navy rather than the indigo→fuchsia gradient. The gradient read
+          as a different product to every other page; navy is the same block
+          used on Home and keeps the stat strip legible on top of it. */}
+      <div className="relative overflow-hidden rounded-2xl bg-navy px-6 py-6 mb-6 text-white shadow-[0_16px_48px_#0f1b2d29]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.22),_transparent_60%)] pointer-events-none" />
         <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight">Accounts</h1>
-            <p className="text-sm text-indigo-100 mt-1">
+            <p className="eyebrow !text-white/45 mb-1.5">Account management</p>
+            <h1 className="display-lg">Accounts</h1>
+            <p className="text-[0.9375rem] text-white/65 mt-2 max-w-xl leading-relaxed">
               Client relationships at a glance — owners, last connects, action items, team size.
             </p>
           </div>
@@ -1935,7 +1939,7 @@ function HeroStat({ label, value, valueStr, sensitive, subtitle, tone = 'mute' }
         {label}
       </div>
       <div className="flex items-baseline gap-2 mt-1">
-        <span className={`text-2xl font-extrabold tabular-nums ${valueTone}`}>
+        <span className={`text-2xl font-bold tabular-nums tracking-[-0.025em] ${valueTone}`}>
           {sensitive ? <Sensitive>{display}</Sensitive> : display}
         </span>
         {subtitle && <span className="text-[10px] text-indigo-100/80">{subtitle}</span>}

@@ -988,7 +988,7 @@ export default function IndiaStaffingPage() {
 
   return (
     <>
-      <PageHeader title="India Staffing" subtitle="Real-time staffing tracker with AI-powered closure forecasting" />
+      <PageHeader eyebrow="India T&M" tone="gold" title="India Demand" subtitle="Real-time staffing tracker with AI-powered closure forecasting" />
 
       {/* AI Daily Briefing — top-of-page summary of what changed + what needs attention. */}
       <div className="mb-5 rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 shadow-sm overflow-hidden">

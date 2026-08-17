@@ -795,7 +795,9 @@ export default function USStaffingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Global Staffing"
+        eyebrow="Global T&M"
+        tone="teal"
+        title="Global Demand"
         subtitle="Manage staffing requisitions across MSP and SI accounts"
       />
 

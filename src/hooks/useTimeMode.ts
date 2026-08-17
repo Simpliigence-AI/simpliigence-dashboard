@@ -1,37 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useThemeStore } from '../store/useThemeStore';
 
 /**
- * Time-of-day theme: light 06:00–18:00, dark otherwise.
+ * Theme mode used across the app.
  *
- * The hook writes the current mode onto `<html data-mode="light|dark">` so
- * CSS `:root[data-mode='…']` overrides in `index.css` can flip the whole
- * app's palette without any component-level plumbing.
+ * Delegates to `useThemeStore` (which owns the user preference and the
+ * clock-derived mode) and takes care of the two DOM side-effects the store
+ * shouldn't do itself:
  *
- * Re-checks once a minute so the swap lands live when the clock crosses
- * 06:00 or 18:00 — no page refresh required.
+ *  - Writes `<html data-mode="…">` so CSS `:root[data-mode='…']` selectors
+ *    in index.css can flip the whole palette without any per-component
+ *    plumbing.
+ *  - Runs a one-minute `tick` interval so the auto mode swap lands live
+ *    when the clock crosses 06:00 or 18:00 — no page refresh required.
+ *
+ * The hook returns the *effective* mode (`'light' | 'dark'`, never `'auto'`).
+ * Components that also need to read or set the user's preference should
+ * import `useThemeStore` directly.
  */
-export type TimeMode = 'light' | 'dark';
+export type { Mode as TimeMode } from '../store/useThemeStore';
 
-export function getTimeMode(): TimeMode {
-  const h = new Date().getHours();
-  return h >= 6 && h < 18 ? 'light' : 'dark';
-}
+export function useTimeMode(): 'light' | 'dark' {
+  const mode = useThemeStore((s) => s.mode);
+  const tick = useThemeStore((s) => s.tick);
 
-export function useTimeMode(): TimeMode {
-  const [mode, setMode] = useState<TimeMode>(getTimeMode);
-
-  // Push the current mode to <html> whenever it changes. CSS reads it
-  // via `:root[data-mode='…']` selectors.
   useEffect(() => {
     document.documentElement.dataset.mode = mode;
   }, [mode]);
 
-  // Poll for boundary crossings. One-minute cadence is plenty — the two
-  // boundaries are twelve hours apart.
   useEffect(() => {
-    const id = setInterval(() => setMode(getTimeMode()), 60_000);
+    const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [tick]);
 
   return mode;
 }

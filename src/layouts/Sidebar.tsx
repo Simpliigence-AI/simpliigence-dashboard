@@ -36,11 +36,15 @@ import {
   ShieldCheck,
   BriefcaseBusiness,
   PhoneCall,
+  Sun,
+  Moon,
+  SunMoon,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeStore, type ThemePreference } from '../store/useThemeStore';
 
 /** Nav entry. If `href` is set the item renders as an external <a> that opens
  *  a new tab. Otherwise `to` renders as an internal React Router NavLink. */
@@ -453,8 +457,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         </div>
       )}
 
-      {/* Bottom: Settings + Toggle */}
+      {/* Bottom: Theme + Settings + Toggle */}
       <div className={`${eff ? 'px-2' : 'px-3'} pb-3 pt-2 space-y-1`}>
+        <ThemeToggle collapsed={eff} />
+
         <NavLink
           to="/settings"
           title={eff ? 'Settings' : undefined}
@@ -482,5 +488,48 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         </button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Sidebar theme toggle. Three-state cycle: auto → light → dark → auto.
+ * The current selection is shown as its own icon (SunMoon for auto,
+ * Sun for forced-light, Moon for forced-dark). In auto mode the label also
+ * notes what the clock is resolving to right now.
+ */
+function ThemeToggle({ collapsed }: { collapsed: boolean }) {
+  const preference = useThemeStore((s) => s.preference);
+  const mode = useThemeStore((s) => s.mode);
+  const setPreference = useThemeStore((s) => s.setPreference);
+
+  const cycle: ThemePreference[] = ['auto', 'light', 'dark'];
+  const next = cycle[(cycle.indexOf(preference) + 1) % cycle.length];
+
+  const Icon =
+    preference === 'auto' ? SunMoon : preference === 'light' ? Sun : Moon;
+  const label =
+    preference === 'auto' ? `Theme: auto (${mode})`
+    : preference === 'light' ? 'Theme: light'
+    : 'Theme: dark';
+  const title = `${label} — click to switch to ${next}`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setPreference(next)}
+      title={title}
+      aria-label={title}
+      className={`flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-muted hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
+    >
+      <Icon size={18} className="flex-shrink-0" />
+      {!collapsed && (
+        <span className="flex-1 text-left">
+          {preference === 'auto' ? 'Auto' : preference === 'light' ? 'Light' : 'Dark'}
+          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted/60">
+            {preference === 'auto' ? `${mode}` : ''}
+          </span>
+        </span>
+      )}
+    </button>
   );
 }

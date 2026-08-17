@@ -150,7 +150,7 @@ function SubToggle({ active, onClick, children }: { active: boolean; onClick: ()
     <button
       onClick={onClick}
       className={`px-2.5 py-1 border-r last:border-r-0 border-line ${
-        active ? 'bg-primary text-white' : 'bg-white text-muted hover:bg-surface-2/70'
+        active ? 'bg-primary text-white' : 'bg-surface text-muted hover:bg-surface-2/70'
       }`}
     >
       {children}
@@ -318,7 +318,7 @@ function FCWeekView({ employees, assignments, lookupActual }: SubViewProps) {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-line text-left">
-            <th rowSpan={2} className="pb-2 pr-3 font-semibold text-muted align-bottom min-w-[180px] sticky left-0 bg-white">Employee</th>
+            <th rowSpan={2} className="pb-2 pr-3 font-semibold text-muted align-bottom min-w-[180px] sticky left-0 bg-surface">Employee</th>
             {weeks.map((w) => (
               <th key={w} colSpan={3} className="px-1 font-semibold text-muted text-center text-[10px] whitespace-nowrap border-l border-line/60">
                 {fmtWeek(w)}
@@ -342,7 +342,7 @@ function FCWeekView({ employees, assignments, lookupActual }: SubViewProps) {
             }
             return (
               <tr key={name} className="border-b border-line/40 hover:bg-surface-2/70">
-                <td className="py-1.5 pr-3 font-medium text-ink sticky left-0 bg-white">{name}</td>
+                <td className="py-1.5 pr-3 font-medium text-ink sticky left-0 bg-surface">{name}</td>
                 {weeks.map((w) => {
                   const f = fcast[w] ?? 0;
                   const a = actMap[w];

@@ -86,7 +86,7 @@ export function UserPicker({
         type="button"
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
-        className={`w-full inline-flex items-center justify-between gap-2 border border-line rounded-md px-3 ${triggerSize} bg-white hover:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 disabled:cursor-not-allowed`}
+        className={`w-full inline-flex items-center justify-between gap-2 border border-line rounded-md px-3 ${triggerSize} bg-surface hover:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 disabled:cursor-not-allowed`}
       >
         {selected ? (
           <span className="inline-flex items-center gap-2 min-w-0">
@@ -121,7 +121,7 @@ export function UserPicker({
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-1 w-full min-w-[280px] bg-white border border-line rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-30 mt-1 w-full min-w-[280px] bg-surface border border-line rounded-lg shadow-lg overflow-hidden">
           <div className="p-2 border-b border-line/60">
             <div className="relative">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />

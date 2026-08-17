@@ -169,7 +169,7 @@ export default function AvailabilityView() {
           <button
             type="button"
             onClick={() => setOffsetWeeks((v) => v - WEEKS_SHOWN)}
-            className="p-1.5 rounded-lg border border-line bg-white text-muted hover:bg-surface-2/70"
+            className="p-1.5 rounded-lg border border-line bg-surface text-muted hover:bg-surface-2/70"
             title="Earlier"
           >
             <ChevronLeft size={15} />
@@ -178,14 +178,14 @@ export default function AvailabilityView() {
             type="button"
             onClick={() => setOffsetWeeks(0)}
             disabled={offsetWeeks === 0}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-line bg-white text-ink/80 hover:bg-surface-2/70 disabled:opacity-40"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-line bg-surface text-ink/80 hover:bg-surface-2/70 disabled:opacity-40"
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setOffsetWeeks((v) => v + WEEKS_SHOWN)}
-            className="p-1.5 rounded-lg border border-line bg-white text-muted hover:bg-surface-2/70"
+            className="p-1.5 rounded-lg border border-line bg-surface text-muted hover:bg-surface-2/70"
             title="Later"
           >
             <ChevronRight size={15} />
@@ -200,7 +200,7 @@ export default function AvailabilityView() {
         {/* Legend */}
         <div className="ml-auto flex items-center gap-3 text-[11px] text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="w-4 h-3.5 rounded border border-line bg-white inline-block" /> Available
+            <span className="w-4 h-3.5 rounded border border-line bg-surface inline-block" /> Available
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-4 h-3.5 rounded bg-rose-200 inline-block" /> Leave — approved
@@ -228,7 +228,7 @@ export default function AvailabilityView() {
           No projects with allocations yet.
         </div>
       ) : (
-        <div className="overflow-x-auto border border-line rounded-xl bg-white">
+        <div className="overflow-x-auto border border-line rounded-xl bg-surface">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-surface-2/70">
@@ -271,7 +271,7 @@ export default function AvailabilityView() {
                       const personHue = colorHash(person.name);
                       return (
                         <tr key={`${proj.name}-${person.name}`} className="hover:bg-surface-2/60">
-                          <td className="sticky left-0 z-10 bg-white px-4 py-1.5 border-b border-line/40">
+                          <td className="sticky left-0 z-10 bg-surface px-4 py-1.5 border-b border-line/40">
                             <div className="flex items-center gap-2 min-w-0">
                               <span
                                 className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
@@ -313,7 +313,7 @@ export default function AvailabilityView() {
                                         ? approved
                                           ? 'border-rose-200 bg-rose-200 text-rose-900'
                                           : 'border-amber-300 bg-amber-300 text-amber-900'
-                                        : 'border-line bg-white'
+                                        : 'border-line bg-surface'
                                   }`}
                                 >
                                   {req ? 'L' : ''}

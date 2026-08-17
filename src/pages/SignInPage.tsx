@@ -60,7 +60,7 @@ export default function SignInPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        <div className="bg-surface rounded-2xl shadow-2xl p-8">
           <h1 className="text-xl font-bold text-ink mb-1">Sign in to continue</h1>
           <p className="text-sm text-muted mb-6">
             Use your Simpliigence Microsoft 365 account.

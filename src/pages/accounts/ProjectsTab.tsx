@@ -215,7 +215,7 @@ export function ProjectsTab({
                 key={s.project}
                 type="button"
                 onClick={() => promoteSuggestion(s.project, s.members)}
-                className="text-[11px] inline-flex items-center gap-1 bg-white border border-violet-200 hover:border-violet-400 text-ink/80 hover:text-violet-700 rounded px-2 py-1"
+                className="text-[11px] inline-flex items-center gap-1 bg-surface border border-violet-200 hover:border-violet-400 text-ink/80 hover:text-violet-700 rounded px-2 py-1"
                 title="Click to add this as a project with the matched team members"
               >
                 <Plus size={10} className="text-violet-500" /> {s.project}
@@ -236,7 +236,7 @@ export function ProjectsTab({
             const saving = savingIds.has(p.id);
             const blur = () => { if (p.name.trim()) void save(p); };
             return (
-              <div key={p.id} className="rounded-lg border border-line bg-white p-4 space-y-3">
+              <div key={p.id} className="rounded-lg border border-line bg-surface p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <FolderKanban size={16} className="text-indigo-500 flex-shrink-0 mt-1" />
                   <div className="flex-1 min-w-0">

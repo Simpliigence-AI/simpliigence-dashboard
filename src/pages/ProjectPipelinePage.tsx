@@ -144,7 +144,7 @@ function InlineEdit({ value, onSave, type = 'text', prefix = '', placeholder = '
       <input
         ref={ref}
         type={type}
-        className={`rounded border border-primary/40 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
+        className={`rounded border border-primary/40 bg-surface px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -253,7 +253,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             <button
               onClick={() => onRestore(project.id)}
               title="Restore to the active project list"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ink/80 bg-white border border-line rounded-lg hover:bg-surface-2/70 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ink/80 bg-surface border border-line rounded-lg hover:bg-surface-2/70 transition-colors"
             >
               <ArchiveRestore size={14} />
               Restore
@@ -387,7 +387,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
                   value={curr}
                   onChange={(e) => onUpdateProject(project.id, { revenueCurrency: e.target.value as 'USD' | 'CAD' })}
                   onClick={(e) => e.stopPropagation()}
-                  className="rounded border border-line bg-white px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="rounded border border-line bg-surface px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
                   <option value="USD">USD</option>
                   <option value="CAD">CAD</option>
@@ -535,15 +535,15 @@ export default function ProjectPipelinePage() {
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-line p-4">
+        <div className="bg-surface rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-ink">{currentProjects.length}</div>
           <div className="text-xs text-muted">Current Projects</div>
         </div>
-        <div className="bg-white rounded-lg border border-line p-4">
+        <div className="bg-surface rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-blue-600">{activeProjects}</div>
           <div className="text-xs text-muted">Active / In Progress</div>
         </div>
-        <div className="bg-white rounded-lg border border-line p-4">
+        <div className="bg-surface rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-emerald-600">{totalPhases}</div>
           <div className="text-xs text-muted">Total Phases</div>
         </div>

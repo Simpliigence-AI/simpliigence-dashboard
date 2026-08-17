@@ -104,7 +104,7 @@ export function DailyStatusMode({ requisitions, statuses, accounts, onAddStatus,
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-start justify-center pt-12 pb-8 px-4 overflow-y-auto"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-2xl max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-line/60 bg-gradient-to-r from-violet-50 to-blue-50">
           <div className="flex items-center justify-between">
@@ -112,7 +112,7 @@ export function DailyStatusMode({ requisitions, statuses, accounts, onAddStatus,
               <div className="flex items-center gap-2">
                 <ClipboardList size={16} className="text-violet-600" />
                 <h2 className="text-base font-bold text-ink">Daily status update</h2>
-                <span className="text-[10px] font-bold text-violet-700 bg-white border border-violet-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-violet-700 bg-surface border border-violet-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
                   {today}
                 </span>
               </div>
@@ -124,13 +124,13 @@ export function DailyStatusMode({ requisitions, statuses, accounts, onAddStatus,
               </p>
             </div>
             <button onClick={onClose}
-                    className="text-muted/70 hover:text-ink/80 p-1 rounded hover:bg-white/60">
+                    className="text-muted/70 hover:text-ink/80 p-1 rounded hover:bg-surface/60">
               <X size={18} />
             </button>
           </div>
           {total > 0 && (
             <div className="mt-3 flex items-center gap-3">
-              <div className="flex-1 h-1.5 bg-white/60 rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-surface/60 rounded-full overflow-hidden">
                 <div className="h-full bg-violet-500 transition-all" style={{ width: `${progressPct}%` }} />
               </div>
               <span className="text-[11px] font-semibold text-violet-700 tabular-nums">
@@ -198,7 +198,7 @@ export function DailyStatusMode({ requisitions, statuses, accounts, onAddStatus,
         {/* Footer */}
         <div className="px-6 py-3 border-t border-line/60 bg-surface-2/60 flex items-center justify-between">
           <span className="text-[11px] text-muted inline-flex items-center gap-1">
-            <ArrowDown size={11} className="-rotate-90" /> use <kbd className="text-[10px] bg-white border border-line px-1 rounded">Tab</kbd> to fly through the list
+            <ArrowDown size={11} className="-rotate-90" /> use <kbd className="text-[10px] bg-surface border border-line px-1 rounded">Tab</kbd> to fly through the list
           </span>
           <button onClick={onClose}
                   className="text-xs font-semibold bg-violet-600 text-white px-4 py-1.5 rounded-md hover:bg-violet-700">

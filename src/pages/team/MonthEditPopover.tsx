@@ -82,7 +82,7 @@ export function MonthEditPopover({
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 bg-white rounded-xl border border-line shadow-2xl"
+      className="fixed z-50 bg-surface rounded-xl border border-line shadow-2xl"
       style={{ left, top, width: POPOVER_W }}
     >
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-line/60">
@@ -140,7 +140,7 @@ export function MonthEditPopover({
                 className={`flex-1 py-1.5 text-[11px] rounded-lg border transition-colors ${
                   draft === p.value
                     ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-muted border-line hover:bg-surface-2/70'
+                    : 'bg-surface text-muted border-line hover:bg-surface-2/70'
                 }`}
               >
                 <div className="font-semibold">{p.label}</div>
@@ -163,7 +163,7 @@ export function MonthEditPopover({
                   className={`flex-1 py-1 text-[11px] rounded-md border transition-colors ${
                     scope === s.v
                       ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
-                      : 'bg-white text-muted border-line hover:bg-surface-2/70'
+                      : 'bg-surface text-muted border-line hover:bg-surface-2/70'
                   }`}
                 >
                   {s.label}

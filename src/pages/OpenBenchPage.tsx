@@ -305,15 +305,15 @@ export default function OpenBenchPage() {
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
           <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search name, skill, role..."
-            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-white w-56" />
+            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-surface w-56" />
         </div>
         <select value={filterVisa} onChange={e => setFilterVisa(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Visas</option>
           {VISA_CATEGORIES.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
         <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Priority</option>
           {JOB_PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
@@ -544,7 +544,7 @@ export default function OpenBenchPage() {
                         )}
                         <div className="space-y-1.5 max-h-72 overflow-y-auto">
                           {resourceUpdates.map((u) => (
-                            <div key={u.id} className="flex items-start gap-2 group bg-white border border-line rounded-lg px-2.5 py-1.5 hover:border-blue-300 transition-colors">
+                            <div key={u.id} className="flex items-start gap-2 group bg-surface border border-line rounded-lg px-2.5 py-1.5 hover:border-blue-300 transition-colors">
                               <span
                                 className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0 mt-0.5"
                                 style={{ background: BENCH_UPDATE_TYPE_COLORS[u.type] || '#94a3b8' }}
@@ -579,14 +579,14 @@ export default function OpenBenchPage() {
                         </div>
 
                         {/* Add form */}
-                        <div className="bg-white border border-line rounded-lg p-2.5">
+                        <div className="bg-surface border border-line rounded-lg p-2.5">
                           <div className="grid grid-cols-12 gap-2 mb-2">
                             <div className="col-span-2">
                               <label className="block text-[9px] uppercase text-muted/70 font-semibold mb-0.5">Type</label>
                               <select
                                 value={draft.type}
                                 onChange={(e) => setDraftField(r.id, 'type', e.target.value)}
-                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-white"
+                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-surface"
                               >
                                 {BENCH_UPDATE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                               </select>
@@ -597,7 +597,7 @@ export default function OpenBenchPage() {
                                 type="date"
                                 value={draft.update_date}
                                 onChange={(e) => setDraftField(r.id, 'update_date', e.target.value)}
-                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-white"
+                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-surface"
                               />
                             </div>
                             <div className="col-span-3">
@@ -606,7 +606,7 @@ export default function OpenBenchPage() {
                                 value={draft.client_or_role}
                                 onChange={(e) => setDraftField(r.id, 'client_or_role', e.target.value)}
                                 placeholder="e.g. TEKsystems Java"
-                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-white"
+                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-surface"
                               />
                             </div>
                             <div className="col-span-2">
@@ -615,7 +615,7 @@ export default function OpenBenchPage() {
                                 value={draft.recruiter}
                                 onChange={(e) => setDraftField(r.id, 'recruiter', e.target.value)}
                                 placeholder="Name"
-                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-white"
+                                className="w-full text-[11px] border border-line rounded px-1.5 py-1 bg-surface"
                               />
                             </div>
                           </div>
@@ -627,7 +627,7 @@ export default function OpenBenchPage() {
                                 onChange={(e) => setDraftField(r.id, 'update_text', e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') submitDraft(r.id); }}
                                 placeholder="e.g. Submitted to TEKsystems for SF Architect role at $80/hr"
-                                className="w-full text-[11px] border border-line rounded px-2 py-1.5 bg-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                className="w-full text-[11px] border border-line rounded px-2 py-1.5 bg-surface focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
                               />
                             </div>
                             <button

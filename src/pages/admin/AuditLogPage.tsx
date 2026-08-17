@@ -95,7 +95,7 @@ export default function AuditLogPage() {
               className={`px-3 py-1 text-xs rounded-lg border transition-colors ${
                 rangeHours === opt.hours
                   ? 'bg-primary/10 border-primary/40 text-primary font-semibold'
-                  : 'bg-white border-line text-muted hover:bg-surface-2/70'
+                  : 'bg-surface border-line text-muted hover:bg-surface-2/70'
               }`}
             >
               {opt.label}
@@ -134,7 +134,7 @@ export default function AuditLogPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-left sticky top-0 bg-white">
+              <tr className="border-b border-line text-left sticky top-0 bg-surface">
                 <th className="pb-2 pr-3 font-semibold text-muted">When</th>
                 <th className="pb-2 pr-3 font-semibold text-muted">Who</th>
                 <th className="pb-2 pr-3 font-semibold text-muted">Table</th>

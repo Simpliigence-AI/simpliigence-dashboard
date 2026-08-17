@@ -218,7 +218,7 @@ function DocRow({ doc, onProcess, onDownload, onRemove, onOpen }: {
   const isMeeting = doc.kind !== 'document';
   const Icon = isMeeting ? Mic : FileText;
   return (
-    <div className="rounded-lg border border-line bg-white p-3 hover:border-sky-300 transition-colors">
+    <div className="rounded-lg border border-line bg-surface p-3 hover:border-sky-300 transition-colors">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 text-muted/70"><Icon size={18} /></div>
         <div className="flex-1 min-w-0">
@@ -278,7 +278,7 @@ function StatusPill({ doc }: { doc: AccountDocument }) {
 function DocDetailModal({ doc, onClose }: { doc: AccountDocument; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">
           <div>
             <div className="text-sm font-bold text-ink">{doc.title}</div>

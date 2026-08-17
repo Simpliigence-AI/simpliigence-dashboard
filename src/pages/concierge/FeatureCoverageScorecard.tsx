@@ -163,7 +163,7 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
       {openDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpenCloud(null)}>
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+            className="bg-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">

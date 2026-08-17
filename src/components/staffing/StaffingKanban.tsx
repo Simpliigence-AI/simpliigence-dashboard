@@ -68,7 +68,7 @@ function KanbanCard({ req }: { req: KanbanReq }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`rounded-lg border bg-white p-2.5 shadow-sm cursor-grab active:cursor-grabbing select-none transition-all ${
+      className={`rounded-lg border bg-surface p-2.5 shadow-sm cursor-grab active:cursor-grabbing select-none transition-all ${
         isDragging ? 'opacity-40 ring-2 ring-blue-400' : 'hover:shadow-md hover:border-line'
       } ${req.isStuck ? 'border-red-200 bg-red-50/30' : 'border-line'}`}
       style={{ touchAction: 'none' }}

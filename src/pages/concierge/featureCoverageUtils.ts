@@ -54,5 +54,5 @@ export function coverageCellColor(pct: number): string {
   if (pct >= 40) return 'bg-sky-100 text-sky-800 border-sky-200';
   if (pct >= 15) return 'bg-amber-100 text-amber-800 border-amber-200';
   if (pct > 0)  return 'bg-surface-2 text-ink/80 border-line';
-  return 'bg-white text-muted/70 border-line';
+  return 'bg-surface text-muted/70 border-line';
 }

@@ -449,7 +449,7 @@ function ProjectFinancialsTable({
 
 function MonthlyBreakdown({ rows, hasRevenue }: { rows: ProjectMonth[]; hasRevenue: boolean }) {
   return (
-    <div className="bg-white rounded-lg border border-line overflow-hidden">
+    <div className="bg-surface rounded-lg border border-line overflow-hidden">
       <table className="w-full text-xs">
         <thead>
           <tr className="bg-surface-2/70 text-left">

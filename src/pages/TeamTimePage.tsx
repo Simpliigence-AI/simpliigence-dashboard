@@ -312,7 +312,7 @@ export default function TeamTimePage() {
               type="button"
               onClick={exportCsv}
               disabled={visibleEntries.length === 0}
-              className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-1.5 rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1.5"
+              className="text-xs font-semibold bg-surface border border-line text-ink/80 px-3 py-1.5 rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1.5"
               title={`Download ${visibleEntries.length} entries as CSV`}
             >
               <Download size={12} /> Export CSV
@@ -463,7 +463,7 @@ export default function TeamTimePage() {
                               </button>
                               <button type="button"
                                       onClick={() => setRejecting(e.id)}
-                                      className="text-xs bg-white border border-red-300 text-red-700 px-2 py-1 rounded hover:bg-red-50 inline-flex items-center gap-1"
+                                      className="text-xs bg-surface border border-red-300 text-red-700 px-2 py-1 rounded hover:bg-red-50 inline-flex items-center gap-1"
                                       title="Reject">
                                 <X size={12} /> Reject
                               </button>
@@ -481,19 +481,19 @@ export default function TeamTimePage() {
                           <>
                             <button type="button"
                                     onClick={() => openEdit(e)}
-                                    className="text-xs bg-white border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
+                                    className="text-xs bg-surface border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
                                     title="Edit entry">
                               <Pencil size={12} /> Edit
                             </button>
                             <button type="button"
                                     onClick={() => openDocs(e)}
-                                    className="text-xs bg-white border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
+                                    className="text-xs bg-surface border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
                                     title="Manage this week's documents">
                               <Paperclip size={12} /> Docs
                             </button>
                             <button type="button"
                                     onClick={() => setHistoryTarget(e)}
-                                    className="text-xs bg-white border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
+                                    className="text-xs bg-surface border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
                                     title="View change history">
                               <History size={12} /> History
                             </button>
@@ -512,7 +512,7 @@ export default function TeamTimePage() {
       {/* Edit-entry modal (manager/admin edits an existing employee entry) */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !savingEdit && setEditing(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={(ev) => ev.stopPropagation()}>
+          <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-5" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink">Edit time entry</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-muted/70 hover:text-ink/80"><X size={16} /></button>
@@ -578,7 +578,7 @@ export default function TeamTimePage() {
       {/* Documents modal (manager/admin manages an employee's weekly timesheet docs) */}
       {docsTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setDocsTarget(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
+          <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-ink truncate">Documents · {docsTarget.employeeEmail}</h3>
@@ -600,7 +600,7 @@ export default function TeamTimePage() {
           Covers contractors with no time entries (no row → no per-row Docs button). */}
       {uploadOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setUploadOpen(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
+          <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-ink">Upload timesheet documents</h3>
@@ -678,7 +678,7 @@ export default function TeamTimePage() {
       {/* History modal (audit trail for one entry — who changed what, when) */}
       {historyTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => setHistoryTarget(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
+          <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-ink truncate">Change history</h3>
@@ -763,7 +763,7 @@ function ProjectSelect({ value, onChange, historicName }: { value: string; onCha
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full border border-line rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+      className="w-full border border-line rounded-md px-3 py-1.5 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
     >
       <option value="" disabled>— pick a project —</option>
       {(['current', 'concierge', 'internal', 'other'] as const).map((k) => {

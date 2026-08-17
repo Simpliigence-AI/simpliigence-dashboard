@@ -47,7 +47,7 @@ const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm focus:
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
-  <select className={`${INPUT_CLS} bg-white ${className}`} {...p}>{children}</select>;
+  <select className={`${INPUT_CLS} bg-surface ${className}`} {...p}>{children}</select>;
 const Textarea = ({ className = '', ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) =>
   <textarea className={`${INPUT_CLS} ${className}`} {...p} />;
 
@@ -228,7 +228,7 @@ function MemberCard({ member: m, onOpen }: { member: USRosterMember; onOpen: () 
     <button
       type="button"
       onClick={onOpen}
-      className="text-left bg-white border border-line rounded-xl p-3.5 hover:shadow-md hover:border-primary/30 transition-all group"
+      className="text-left bg-surface border border-line rounded-xl p-3.5 hover:shadow-md hover:border-primary/30 transition-all group"
     >
       {/* Header row: avatar + name/role + status pill */}
       <div className="flex items-start gap-3">
@@ -309,9 +309,9 @@ function MemberDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-[1px]" onClick={onClose}>
-      <div className="w-full max-w-lg bg-white h-full overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg bg-surface h-full overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white border-b border-line/60 px-5 py-4 flex items-start gap-3">
+        <div className="sticky top-0 z-10 bg-surface border-b border-line/60 px-5 py-4 flex items-start gap-3">
           <div
             className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-sm"
             style={{ background: statusColor }}

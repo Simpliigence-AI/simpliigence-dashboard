@@ -120,7 +120,7 @@ function MultiProjectPicker({
       </div>
 
       {open && (
-        <div className="absolute z-30 mt-1 left-0 w-72 max-h-80 overflow-hidden bg-white border border-line rounded-lg shadow-xl flex flex-col">
+        <div className="absolute z-30 mt-1 left-0 w-72 max-h-80 overflow-hidden bg-surface border border-line rounded-lg shadow-xl flex flex-col">
           <div className="p-2 border-b border-line/60">
             <input
               autoFocus
@@ -413,7 +413,7 @@ export default function USRosterPage() {
               type="button"
               onClick={() => setViewMode('cards')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'cards' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+                viewMode === 'cards' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <LayoutGrid size={12} /> Cards
@@ -422,7 +422,7 @@ export default function USRosterPage() {
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+                viewMode === 'table' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Rows3 size={12} /> Table
@@ -479,7 +479,7 @@ export default function USRosterPage() {
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
                   statusFilter === 'All'
                     ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-white text-ink/80 border-line hover:border-slate-400'
+                    : 'bg-surface text-ink/80 border-line hover:border-line'
                 }`}
               >
                 All <span className={statusFilter === 'All' ? 'text-white/70' : 'text-muted/70'}>· {total}</span>
@@ -495,7 +495,7 @@ export default function USRosterPage() {
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
                       active
                         ? 'text-white border-transparent shadow-sm'
-                        : 'bg-white text-ink/80 border-line hover:border-slate-400'
+                        : 'bg-surface text-ink/80 border-line hover:border-line'
                     }`}
                     style={active ? { background: color } : undefined}
                   >
@@ -514,20 +514,20 @@ export default function USRosterPage() {
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, skill, project, location..."
-            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-white w-64" />
+            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-surface w-64" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Statuses</option>
           {US_ROSTER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Roles</option>
           {ROSTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={visaFilter} onChange={(e) => setVisaFilter(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Visas</option>
           {VISA_CATEGORIES.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
@@ -560,7 +560,7 @@ export default function USRosterPage() {
               </div>
               <div>
                 <label className="text-[10px] uppercase text-muted font-semibold">Project(s)</label>
-                <div className="mt-0.5 border rounded px-2 py-1 bg-white">
+                <div className="mt-0.5 border rounded px-2 py-1 bg-surface">
                   <MultiProjectPicker
                     value={draft.project}
                     options={projectOptions}
@@ -666,8 +666,8 @@ export default function USRosterPage() {
                 const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
                 return (
                   <tr key={m.id} className="border-t border-line/60 hover:bg-blue-50/30 group">
-                    <td className="px-2 py-2 text-muted/70 tabular-nums text-right pr-3 sticky left-0 bg-white group-hover:bg-blue-50/60 w-8">{idx + 1}</td>
-                    <td className="px-3 py-2 font-medium text-ink sticky bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" style={{ left: 32 }}>
+                    <td className="px-2 py-2 text-muted/70 tabular-nums text-right pr-3 sticky left-0 bg-surface group-hover:bg-blue-50/60 w-8">{idx + 1}</td>
+                    <td className="px-3 py-2 font-medium text-ink sticky bg-surface group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" style={{ left: 32 }}>
                       <EditableCell value={m.name} onSave={(v) => handleCellSave(m.id, 'name', v)} />
                     </td>
                     <td className="px-3 py-2">

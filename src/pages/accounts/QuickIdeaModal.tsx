@@ -98,7 +98,7 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[8vh]" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden"
+        className="bg-surface rounded-xl shadow-2xl w-full max-w-lg overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -140,7 +140,7 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
             <select
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-line bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-line bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               {filteredAccounts.length === 0 && <option value="">No account matches “{acctQuery}”</option>}
               {filteredAccounts.map((a) => (
@@ -222,15 +222,15 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
          *  squeezed at this modal width. */}
         <div className="px-5 py-3 border-t border-line/60 bg-surface-2/70">
           <div className="text-[10px] text-muted/70 mb-2">
-            <kbd className="px-1 py-0.5 bg-white border border-line rounded text-[9px]">Enter</kbd> save &amp; add another ·{' '}
-            <kbd className="px-1 py-0.5 bg-white border border-line rounded text-[9px]">⌘↵</kbd> save &amp; close ·{' '}
-            <kbd className="px-1 py-0.5 bg-white border border-line rounded text-[9px]">Esc</kbd> close
+            <kbd className="px-1 py-0.5 bg-surface border border-line rounded text-[9px]">Enter</kbd> save &amp; add another ·{' '}
+            <kbd className="px-1 py-0.5 bg-surface border border-line rounded text-[9px]">⌘↵</kbd> save &amp; close ·{' '}
+            <kbd className="px-1 py-0.5 bg-surface border border-line rounded text-[9px]">Esc</kbd> close
           </div>
           <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-semibold px-3 py-1.5 rounded-md border border-line bg-white text-ink/80 hover:bg-surface-2"
+            className="text-xs font-semibold px-3 py-1.5 rounded-md border border-line bg-surface text-ink/80 hover:bg-surface-2"
           >
             Cancel
           </button>
@@ -238,7 +238,7 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
             type="button"
             onClick={() => void save(true)}
             disabled={saving}
-            className="text-xs font-semibold px-3 py-1.5 rounded-md border border-amber-300 bg-white text-amber-800 hover:bg-amber-50 disabled:opacity-50"
+            className="text-xs font-semibold px-3 py-1.5 rounded-md border border-amber-300 bg-surface text-amber-800 hover:bg-amber-50 disabled:opacity-50"
           >
             Save &amp; add another
           </button>

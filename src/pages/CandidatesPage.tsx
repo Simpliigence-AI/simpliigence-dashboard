@@ -235,7 +235,7 @@ export default function CandidatesPage() {
             <button
               type="button"
               onClick={() => setReferralOpen(true)}
-              className="text-xs font-semibold bg-white border border-emerald-300 text-emerald-800 px-3 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-1"
+              className="text-xs font-semibold bg-surface border border-emerald-300 text-emerald-800 px-3 py-2 rounded-md hover:bg-emerald-50 flex items-center gap-1"
               title="Submit a candidate referral on behalf of an employee"
             >
               <UserPlus size={14} /> Add referral
@@ -243,7 +243,7 @@ export default function CandidatesPage() {
             <button
               type="button"
               onClick={() => setBulkOpen(true)}
-              className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2/70 flex items-center gap-1"
+              className="text-xs font-semibold bg-surface border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2/70 flex items-center gap-1"
               title="Drop multiple resumes; each one is auto-parsed and creates a candidate"
             >
               <UploadCloud size={14} /> Bulk import resumes
@@ -316,7 +316,7 @@ export default function CandidatesPage() {
             onChange={(e) => setAiQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') runAiSearch(); }}
             placeholder='Ask Claude: e.g. "all servicemax candidates" or "salesforce architects in bangalore"'
-            className="flex-1 min-w-[200px] bg-white/90 border border-amber-200 rounded-lg px-3 py-2 text-sm placeholder:text-amber-700/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+            className="flex-1 min-w-[200px] bg-surface/90 border border-amber-200 rounded-lg px-3 py-2 text-sm placeholder:text-amber-700/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
           />
           <button
             type="button"
@@ -362,7 +362,7 @@ export default function CandidatesPage() {
           <select
             value={filterReq}
             onChange={(e) => setFilterReq(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
           >
             <option value="">All requisitions</option>
             <option value="__unassigned__">— Unassigned —</option>
@@ -371,7 +371,7 @@ export default function CandidatesPage() {
           <select
             value={filterOwner}
             onChange={(e) => setFilterOwner(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
           >
             <option value="">All owners</option>
             {owners.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -379,7 +379,7 @@ export default function CandidatesPage() {
           <select
             value={filterStage}
             onChange={(e) => setFilterStage(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
           >
             <option value="">All stages</option>
             {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -409,12 +409,12 @@ export default function CandidatesPage() {
             <input placeholder="Phone" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
                    className="border border-line rounded-md px-3 py-2 text-sm md:col-span-1" />
             <select value={draft.requisition_id} onChange={(e) => setDraft({ ...draft, requisition_id: e.target.value })}
-                    className="border border-line rounded-md px-3 py-2 text-sm bg-white md:col-span-1">
+                    className="border border-line rounded-md px-3 py-2 text-sm bg-surface md:col-span-1">
               <option value="">No requisition (unassigned)</option>
               {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
             </select>
             <select value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value })}
-                    className="border border-line rounded-md px-3 py-2 text-sm bg-white">
+                    className="border border-line rounded-md px-3 py-2 text-sm bg-surface">
               {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
             <input placeholder="Owning TA email" value={draft.owning_ta_email}
@@ -453,7 +453,7 @@ export default function CandidatesPage() {
             <span className="ml-1 text-muted/70 font-normal">of {candidates.length}</span>
           )}
         </div>
-        <div className="inline-flex rounded-lg border border-line bg-white p-1 text-xs font-semibold">
+        <div className="inline-flex rounded-lg border border-line bg-surface p-1 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setViewMode('cards')}
@@ -577,8 +577,8 @@ function CandidateDetailModal({ candidate, requisitions, accountName, onChange, 
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl my-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-line sticky top-0 bg-white rounded-t-xl">
+      <div className="bg-surface rounded-xl shadow-2xl w-full max-w-5xl my-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line sticky top-0 bg-surface rounded-t-xl">
           <div className="text-sm font-bold text-ink">{candidate.name || '(unnamed)'}</div>
           <button type="button" onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xs font-semibold">
             ✕ Close
@@ -614,7 +614,7 @@ function LoadMoreFooter({ shown, total, onMore }: { shown: number; total: number
     <div className="mt-4 flex flex-col items-center gap-1.5 py-3 text-xs">
       <div className="text-muted">Showing <span className="font-semibold text-ink">{shown.toLocaleString()}</span> of <span className="font-semibold text-ink">{total.toLocaleString()}</span></div>
       <button type="button" onClick={onMore}
-              className="px-4 py-1.5 rounded-md bg-white border border-line text-ink/80 hover:bg-surface-2/70 font-semibold">
+              className="px-4 py-1.5 rounded-md bg-surface border border-line text-ink/80 hover:bg-surface-2/70 font-semibold">
         Load more
       </button>
     </div>
@@ -701,7 +701,7 @@ function CandidateCard({ c, onOpen }: {
     <button
       type="button"
       onClick={onOpen}
-      className="text-left bg-white rounded-lg border border-line shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-primary/40 hover:shadow-md transition-all duration-150 group h-full flex flex-col p-3 gap-2.5"
+      className="text-left bg-surface rounded-lg border border-line shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-primary/40 hover:shadow-md transition-all duration-150 group h-full flex flex-col p-3 gap-2.5"
     >
       {/* Header: avatar + name + years + assets */}
       <div className="flex items-start gap-2.5">
@@ -885,7 +885,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
             <input
               value={c.name}
               onChange={(e) => onChange({ name: e.target.value })}
-              className="flex-1 text-sm font-medium text-ink bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="flex-1 text-sm font-medium text-ink bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
             {c.source === 'Referral' && (
               <span
@@ -911,7 +911,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           <select
             value={c.requisition_id || ''}
             onChange={(e) => onChange({ requisition_id: e.target.value })}
-            className={`text-xs border border-line rounded px-2 py-1 bg-white max-w-[220px] ${!c.requisition_id ? 'italic text-muted' : ''}`}
+            className={`text-xs border border-line rounded px-2 py-1 bg-surface max-w-[220px] ${!c.requisition_id ? 'italic text-muted' : ''}`}
           >
             <option value="">Unassigned</option>
             {requisitions.map((r) => (
@@ -924,7 +924,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
             value={c.stage}
             onChange={(e) => onChange({ stage: e.target.value as CandidateStage })}
             style={{ borderLeft: `3px solid ${CANDIDATE_STAGE_COLORS[c.stage]}` }}
-            className="text-xs border border-line rounded px-2 py-1 bg-white"
+            className="text-xs border border-line rounded px-2 py-1 bg-surface"
           >
             {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -933,7 +933,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           <select
             value={c.source}
             onChange={(e) => onChange({ source: e.target.value })}
-            className="text-xs border border-line rounded px-2 py-1 bg-white"
+            className="text-xs border border-line rounded px-2 py-1 bg-surface"
           >
             {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
             {c.source && !SOURCE_OPTIONS.includes(c.source) && (
@@ -947,7 +947,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
             onChange={(e) => onChange({ location: e.target.value || undefined })}
             placeholder="—"
             list="candidate-location-options"
-            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-36"
+            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 w-36"
           />
         </td>
         <td className="py-2 pr-3 align-top">
@@ -958,13 +958,13 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
             value={c.email}
             onChange={(e) => onChange({ email: e.target.value })}
             placeholder="email"
-            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
           />
           <input
             value={c.phone}
             onChange={(e) => onChange({ phone: e.target.value })}
             placeholder="phone"
-            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-32 mt-0.5"
+            className="text-xs bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 w-32 mt-0.5"
           />
         </td>
         <td className="py-2 pr-3 align-top">
@@ -1019,7 +1019,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
       {expanded && (
         <tr className="bg-surface-2/60">
           <td colSpan={10} className="px-4 py-5">
-            <div className="bg-white rounded-xl border border-line shadow-sm p-5 space-y-5">
+            <div className="bg-surface rounded-xl border border-line shadow-sm p-5 space-y-5">
 
               {/* — Header strip: summary as quote-style or empty-state — */}
               {c.profile_summary ? (
@@ -1101,7 +1101,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                   <div>
                     <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted/70 mb-1.5">Resume / CV</label>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <label className="inline-flex items-center gap-1 text-xs bg-white border border-line rounded-md px-2.5 py-1.5 hover:bg-surface-2 cursor-pointer">
+                      <label className="inline-flex items-center gap-1 text-xs bg-surface border border-line rounded-md px-2.5 py-1.5 hover:bg-surface-2 cursor-pointer">
                         <Upload size={12} />
                         {c.resume_url ? 'Replace' : 'Upload PDF / .txt'}
                         <input
@@ -1159,7 +1159,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                             className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                               checked
                                 ? 'bg-primary text-white border-primary'
-                                : 'bg-white text-muted border-line hover:border-primary hover:text-primary'
+                                : 'bg-surface text-muted border-line hover:border-primary hover:text-primary'
                             }`}
                           >
                             <input
@@ -1198,7 +1198,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                         <UserPlus size={11} /> Referred by
                       </div>
                       {c.referrer_email && (
-                        <div className="mb-2 bg-white rounded-md border border-emerald-200 px-2.5 py-1.5">
+                        <div className="mb-2 bg-surface rounded-md border border-emerald-200 px-2.5 py-1.5">
                           <TaIdentity email={c.referrer_email} avatarSize={26} nameSize="text-xs" showEmail />
                         </div>
                       )}
@@ -1206,13 +1206,13 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                         value={c.referrer_email ?? ''}
                         onChange={(e) => onChange({ referrer_email: e.target.value.trim().toLowerCase() || undefined })}
                         placeholder="employee@simpliigence.com"
-                        className="w-full border border-emerald-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 mb-1 bg-white"
+                        className="w-full border border-emerald-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 mb-1 bg-surface"
                       />
                       <input
                         value={c.referrer_name ?? ''}
                         onChange={(e) => onChange({ referrer_name: e.target.value || undefined })}
                         placeholder="Referrer name (optional)"
-                        className="w-full border border-emerald-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+                        className="w-full border border-emerald-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-surface"
                       />
                       {c.referred_at && (
                         <p className="text-[10px] text-muted mt-1">
@@ -1387,7 +1387,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={running ? undefined : onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-ink">Bulk import resumes</div>
@@ -1405,7 +1405,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
                 value={requisitionId}
                 onChange={(e) => setRequisitionId(e.target.value)}
                 disabled={running}
-                className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white disabled:bg-surface-2/70"
+                className="w-full border border-line rounded-md px-3 py-2 text-sm bg-surface disabled:bg-surface-2/70"
               >
                 <option value="">Unassigned (attach later)</option>
                 {requisitions.map((r) => (
@@ -1429,7 +1429,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
                 disabled={running}
-                className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white disabled:bg-surface-2/70"
+                className="w-full border border-line rounded-md px-3 py-2 text-sm bg-surface disabled:bg-surface-2/70"
               >
                 {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -1611,7 +1611,7 @@ function OwnerCell({ email, onChange }: { email: string; onChange: (v: string) =
           if (e.key === 'Escape') { setDraft(email); setEditing(false); }
         }}
         placeholder="ta@simpliigence.com"
-        className="text-xs bg-white border border-line px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+        className="text-xs bg-surface border border-line px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
       />
     );
   }
@@ -1758,7 +1758,7 @@ function CallModal({ candidate, templates, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-ink">📞 Call {candidate.name || 'candidate'}</div>
@@ -1772,7 +1772,7 @@ function CallModal({ candidate, templates, onClose }: {
             <select
               value={templateId}
               onChange={(e) => setTemplateId(e.target.value)}
-              className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white"
+              className="w-full border border-line rounded-md px-3 py-2 text-sm bg-surface"
             >
               {templates.length === 0 && <option value="tmpl-india-v1">India · Candidate Screening v1</option>}
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -1873,7 +1873,7 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
             ['Notice', latest.extractedAnswers.notice_period_days != null ? `${latest.extractedAnswers.notice_period_days} days` : ''],
             ['Engagement', latest.extractedAnswers.engagement || ''],
           ].filter(([, v]) => v).map(([label, value]) => (
-            <div key={label as string} className="bg-white rounded border border-line px-2 py-1.5">
+            <div key={label as string} className="bg-surface rounded border border-line px-2 py-1.5">
               <div className="text-[9px] uppercase tracking-wider text-muted">{label}</div>
               <div className="text-xs font-medium text-ink mt-0.5">{value as string}</div>
             </div>
@@ -1890,7 +1890,7 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
           <summary className="text-[11px] text-muted cursor-pointer hover:text-ink">
             Show transcript ({latest.transcript.length.toLocaleString()} chars)
           </summary>
-          <pre className="mt-2 text-[11px] text-ink/80 bg-white border border-line rounded p-3 max-h-72 overflow-y-auto whitespace-pre-wrap font-mono">{latest.transcript}</pre>
+          <pre className="mt-2 text-[11px] text-ink/80 bg-surface border border-line rounded p-3 max-h-72 overflow-y-auto whitespace-pre-wrap font-mono">{latest.transcript}</pre>
         </details>
       )}
       {latest.recordingUrl && (
@@ -1962,7 +1962,7 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-ink flex items-center gap-2">
@@ -2051,7 +2051,7 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
                 <select
                   value={requisitionId}
                   onChange={(e) => setRequisitionId(e.target.value)}
-                  className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm bg-surface"
                 >
                   <option value="">Unassigned (attach later)</option>
                   {requisitions.map((r) => (
@@ -2079,7 +2079,7 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
                         className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                           checked
                             ? 'bg-primary text-white border-primary'
-                            : 'bg-white text-muted border-line hover:border-primary hover:text-primary'
+                            : 'bg-surface text-muted border-line hover:border-primary hover:text-primary'
                         }`}
                       >
                         <input

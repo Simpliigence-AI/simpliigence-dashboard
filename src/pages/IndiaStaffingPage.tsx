@@ -640,13 +640,13 @@ export default function IndiaStaffingPage() {
           {/* Start Date */}
           <td className="p-2">
             <input type="date" value={r.startDate}
-              className="px-2 py-1 text-[11px] leading-tight border border-line rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
+              className="px-2 py-1 text-[11px] leading-tight border border-line rounded bg-surface hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
               onChange={(e) => handleCellSave(r.id, 'start_date', e.target.value)} />
           </td>
           {/* Close Date */}
           <td className="p-2">
             <input type="date" value={r.closeByDate}
-              className="px-2 py-1 text-[11px] leading-tight border border-line rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
+              className="px-2 py-1 text-[11px] leading-tight border border-line rounded bg-surface hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
               onChange={(e) => handleCellSave(r.id, 'close_by_date', e.target.value)} />
             {r.expectedClosure && <div className="text-[9px] text-muted/70 italic mt-0.5">{r.expectedClosure}</div>}
           </td>
@@ -699,7 +699,7 @@ export default function IndiaStaffingPage() {
           <td className="p-2">
             <input
               placeholder="Quick status update..."
-              className="w-full h-7 px-2 text-[11px] leading-tight border border-line rounded bg-white hover:border-blue-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full h-7 px-2 text-[11px] leading-tight border border-line rounded bg-surface hover:border-blue-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const input = e.target as HTMLInputElement;
@@ -780,9 +780,9 @@ export default function IndiaStaffingPage() {
                   </div>
                   {/* Detailed add */}
                   <div className="mt-3 flex gap-2 items-end">
-                    <input type="date" className="px-2 py-1 text-[11px] border border-line rounded bg-white" defaultValue={new Date().toISOString().slice(0,10)} id={`date-${r.id}`} />
-                    <input placeholder="Status update..." className="flex-1 px-2 py-1 text-[11px] border border-line rounded bg-white" id={`text-${r.id}`} />
-                    <input placeholder="Anticipation..." className="w-40 px-2 py-1 text-[11px] border border-line rounded bg-white" id={`antic-${r.id}`} />
+                    <input type="date" className="px-2 py-1 text-[11px] border border-line rounded bg-surface" defaultValue={new Date().toISOString().slice(0,10)} id={`date-${r.id}`} />
+                    <input placeholder="Status update..." className="flex-1 px-2 py-1 text-[11px] border border-line rounded bg-surface" id={`text-${r.id}`} />
+                    <input placeholder="Anticipation..." className="w-40 px-2 py-1 text-[11px] border border-line rounded bg-surface" id={`antic-${r.id}`} />
                     <button onClick={() => {
                       const dateEl = document.getElementById(`date-${r.id}`) as HTMLInputElement;
                       const textEl = document.getElementById(`text-${r.id}`) as HTMLInputElement;
@@ -1073,15 +1073,15 @@ export default function IndiaStaffingPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
-        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-white" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
+        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-surface" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
           <option value="all">All Months</option>
           {months.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
-        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-white" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
+        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-surface" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
           <option value="all">All Accounts</option>
           {accounts.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
         </select>
-        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-white" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)}>
+        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-surface" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)}>
           <option value="all">All Risk Levels</option>
           <option value="high">High Risk</option>
           <option value="medium">Medium Risk</option>
@@ -1100,21 +1100,21 @@ export default function IndiaStaffingPage() {
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors ${
                       pendingCount > 0
                         ? 'bg-violet-600 text-white hover:bg-violet-700'
-                        : 'bg-white border border-line text-muted hover:bg-surface-2/70'
+                        : 'bg-surface border border-line text-muted hover:bg-surface-2/70'
                     }`}
                     title="Update today's statuses across all active requisitions in one focused flow">
               <ClipboardList size={14} /> Daily Status
               {pendingCount > 0 && (
-                <span className="bg-white/30 text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                <span className="bg-surface/30 text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full">{pendingCount}</span>
               )}
             </button>
           );
         })()}
         <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
-        <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-line text-sm font-medium hover:bg-surface-2/70">
+        <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-line text-sm font-medium hover:bg-surface-2/70">
           <Upload size={14} /> Import CSV
         </button>
-        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-line text-sm font-medium hover:bg-surface-2/70">
+        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-line text-sm font-medium hover:bg-surface-2/70">
           <Download size={14} /> Export
         </button>
         <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark shadow-sm">
@@ -1124,7 +1124,7 @@ export default function IndiaStaffingPage() {
 
       {/* Add Requisition Form */}
       {showAddForm && (
-        <div className="bg-white border border-blue-200 rounded-xl p-5 mb-6 shadow-sm">
+        <div className="bg-surface border border-blue-200 rounded-xl p-5 mb-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-ink">New Requisition</h3>
             <button onClick={() => setShowAddForm(false)} className="p-1 rounded hover:bg-surface-2 text-muted/70"><X size={16} /></button>
@@ -1136,7 +1136,7 @@ export default function IndiaStaffingPage() {
               <select
                 value={newReq.accountId}
                 onChange={(e) => setNewReq({ ...newReq, accountId: e.target.value, newAccountName: '' })}
-                className="w-full px-3 py-2 rounded-lg border border-line text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">Select account...</option>
                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -1168,7 +1168,7 @@ export default function IndiaStaffingPage() {
               <select
                 value={newReq.month}
                 onChange={(e) => setNewReq({ ...newReq, month: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-line text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {ALL_MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
@@ -1244,7 +1244,7 @@ export default function IndiaStaffingPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white p-1 rounded-lg shadow-sm mb-6 flex-wrap">
+      <div className="flex gap-1 bg-surface p-1 rounded-lg shadow-sm mb-6 flex-wrap">
         {tabs.map((t) => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors ${activeTab === t.key ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2/70'}`}>
@@ -1315,7 +1315,7 @@ export default function IndiaStaffingPage() {
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+                viewMode === 'table' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Rows3 size={12} /> Table
@@ -1324,7 +1324,7 @@ export default function IndiaStaffingPage() {
               type="button"
               onClick={() => setViewMode('split')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+                viewMode === 'split' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Columns3 size={12} /> Split view
@@ -1380,7 +1380,7 @@ export default function IndiaStaffingPage() {
                   className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${
                     groupByAccount
                       ? 'bg-primary/10 border-primary/40 text-primary font-semibold'
-                      : 'bg-white border-line text-muted hover:bg-surface-2/70'
+                      : 'bg-surface border-line text-muted hover:bg-surface-2/70'
                   }`}
                   title="Group rows under bold account-name banners"
                 >
@@ -1637,7 +1637,7 @@ export default function IndiaStaffingPage() {
                                         if (!val) return;
                                         updateRequisition(r.id, { onboarding_date: val });
                                       }}
-                                      className="px-2 py-1 text-xs border border-line rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                      className="px-2 py-1 text-xs border border-line rounded bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                                     />
                                   </td>
                                 </tr>
@@ -1737,12 +1737,12 @@ export default function IndiaStaffingPage() {
           <>
             {/* Portfolio summary strip — total forecast, secured, unsecured, urgent count */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div className="rounded-xl border border-line bg-white p-3">
+              <div className="rounded-xl border border-line bg-surface p-3">
                 <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
                 <div className="text-xl font-extrabold text-ink">{summaries.length}</div>
                 <div className="text-[10px] text-muted mt-0.5">{summaries.filter((s) => s.forecast > 0).length} in sales plan</div>
               </div>
-              <div className="rounded-xl border border-line bg-white p-3">
+              <div className="rounded-xl border border-line bg-surface p-3">
                 <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
                 <div className="text-xl font-extrabold text-ink"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
                 <div className="text-[10px] text-muted mt-0.5">across {summaries.length} accounts</div>
@@ -1799,7 +1799,7 @@ export default function IndiaStaffingPage() {
                     key={s.name}
                     onClick={() => { setSelectedAccount(isSelected ? null : s.name); setAccountDetailTab('reqs'); }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAccount(isSelected ? null : s.name); setAccountDetailTab('reqs'); } }}
-                    className={`text-left rounded-xl bg-white border transition-all relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                    className={`text-left rounded-xl bg-surface border transition-all relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                       s.urgent
                         ? 'border-rose-300 ring-1 ring-rose-200 hover:ring-rose-300 hover:shadow-lg'
                         : 'border-line hover:border-primary/40 hover:shadow-md'
@@ -2003,7 +2003,7 @@ export default function IndiaStaffingPage() {
                           const max = Math.max(...selectedSummary.insight!.monthly.map((x) => x.value), 1);
                           const pct = Math.round((m.value / max) * 100);
                           return (
-                            <div key={m.month} className="rounded-lg border border-line bg-white p-2">
+                            <div key={m.month} className="rounded-lg border border-line bg-surface p-2">
                               <div className="text-[9px] uppercase tracking-wider text-muted/70 font-bold mb-1">{m.month.toUpperCase()}</div>
                               <div className="text-sm font-bold text-ink"><Sensitive>{fmtMoney(m.value)}</Sensitive></div>
                               <div className="mt-1.5 h-1 bg-surface-2 rounded-full overflow-hidden">
@@ -2058,7 +2058,7 @@ export default function IndiaStaffingPage() {
                             negative: 'bg-rose-500',
                           };
                           return (
-                            <div key={sig.id} className="rounded-lg border border-line bg-white p-2.5 text-xs">
+                            <div key={sig.id} className="rounded-lg border border-line bg-surface p-2.5 text-xs">
                               <div className="flex items-center justify-between gap-2 mb-1">
                                 <span className="inline-flex items-center gap-1.5">
                                   <span className={`w-1.5 h-1.5 rounded-full ${sentimentDot[sig.sentiment || 'neutral'] || sentimentDot.neutral}`} />
@@ -2108,10 +2108,10 @@ export default function IndiaStaffingPage() {
                 { label: 'Conservative', val: conservative, color: '#f59e0b', conf: 90 },
                 { label: 'At Risk', val: filtered.filter((r) => r.risk === 'high').reduce((s, r) => s + r.openPositions, 0), color: '#ef4444', conf: 85 },
               ].map((s) => (
-                <div key={s.label} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <div key={s.label} className="bg-surface/5 border border-white/10 rounded-lg p-4">
                   <h4 className="text-blue-300 text-xs font-semibold mb-2">{s.label}</h4>
                   <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val} <span className="text-sm text-muted/70 font-normal">of {totalPos}</span></div>
-                  <div className="h-1 bg-white/10 rounded mt-3 overflow-hidden"><div className="h-full rounded" style={{ width: `${s.conf}%`, background: s.color }} /></div>
+                  <div className="h-1 bg-surface/10 rounded mt-3 overflow-hidden"><div className="h-full rounded" style={{ width: `${s.conf}%`, background: s.color }} /></div>
                   <p className="text-[10px] text-muted text-right mt-1">{s.conf}% confidence</p>
                 </div>
               ))}
@@ -2221,7 +2221,7 @@ export default function IndiaStaffingPage() {
             className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40"
             onClick={(e) => { if (e.target === e.currentTarget) closeJdDrawer(); }}
           >
-            <div className="bg-white w-full max-w-2xl h-full flex flex-col shadow-xl">
+            <div className="bg-surface w-full max-w-2xl h-full flex flex-col shadow-xl">
               <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-ink flex items-center gap-2">
@@ -2271,7 +2271,7 @@ export default function IndiaStaffingPage() {
                   <button
                     onClick={() => openJdDrawer(jdReqId, { regenerate: true })}
                     disabled={jdState === 'loading'}
-                    className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2 disabled:opacity-40 inline-flex items-center gap-1"
+                    className="text-xs font-semibold bg-surface border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2 disabled:opacity-40 inline-flex items-center gap-1"
                     title="Throw away current JD and ask Claude for a fresh draft"
                   >
                     <RefreshCw size={12} /> Regenerate
@@ -2353,7 +2353,7 @@ function SplitCloseDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+        className="bg-surface rounded-xl shadow-2xl max-w-md w-full p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-1">
@@ -2387,7 +2387,7 @@ function SplitCloseDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm font-semibold rounded-md border border-line bg-white hover:bg-surface-2/70"
+            className="px-3 py-1.5 text-sm font-semibold rounded-md border border-line bg-surface hover:bg-surface-2/70"
           >
             Cancel
           </button>

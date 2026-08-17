@@ -120,7 +120,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                 style={{ background: CANDIDATE_STAGE_COLORS[s] }}
                 title={`${count} candidate${count > 1 ? 's' : ''} at ${s}`}
               >
-                {s} <span className="bg-white/25 rounded px-1">{count}</span>
+                {s} <span className="bg-surface/25 rounded px-1">{count}</span>
               </span>
             );
           })}
@@ -147,7 +147,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
               value={pickerQuery}
               onChange={(e) => setPickerQuery(e.target.value)}
               placeholder="Search name / email / skill / location…"
-              className="w-full pl-7 pr-2 py-1.5 text-xs border border-line rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full pl-7 pr-2 py-1.5 text-xs border border-line rounded bg-surface focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
           {pickerCandidates.length === 0 ? (
@@ -167,7 +167,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                   <button
                     type="button"
                     onClick={() => associate(c)}
-                    className="w-full text-left px-2 py-1.5 hover:bg-white rounded transition-colors flex items-start gap-2"
+                    className="w-full text-left px-2 py-1.5 hover:bg-surface rounded transition-colors flex items-start gap-2"
                     title="Click to associate this candidate with the requisition"
                   >
                     <div className="flex-1 min-w-0">
@@ -231,7 +231,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
               <div
                 key={c.id}
                 className={`group flex items-start gap-2 p-2 rounded-lg border transition-all ${
-                  isArchived ? 'border-line bg-surface-2/50 opacity-70' : 'border-line bg-white hover:border-blue-200 hover:shadow-sm'
+                  isArchived ? 'border-line bg-surface-2/50 opacity-70' : 'border-line bg-surface hover:border-blue-200 hover:shadow-sm'
                 }`}
               >
                 {/* Stage pill */}

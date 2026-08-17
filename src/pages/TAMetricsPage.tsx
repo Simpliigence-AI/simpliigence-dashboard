@@ -443,7 +443,7 @@ export default function TAMetricsPage() {
         action={
           <div className="flex items-center gap-2 flex-wrap">
             <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}
-                    className="text-xs border border-line rounded-md px-2 py-1.5 bg-white">
+                    className="text-xs border border-line rounded-md px-2 py-1.5 bg-surface">
               {availableMonths.map((m) => {
                 const d = new Date(m + '-01T00:00:00');
                 const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -451,7 +451,7 @@ export default function TAMetricsPage() {
               })}
             </select>
             <select value={filterTa} onChange={(e) => setFilterTa(e.target.value)}
-                    className="text-xs border border-line rounded-md px-2 py-1.5 bg-white">
+                    className="text-xs border border-line rounded-md px-2 py-1.5 bg-surface">
               <option value="all">All recruiters</option>
               {availableTas.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>

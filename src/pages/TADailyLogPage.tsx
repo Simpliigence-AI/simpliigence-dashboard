@@ -224,7 +224,7 @@ export default function TADailyLogPage() {
                 <select
                   value={viewAsEmail}
                   onChange={(e) => setViewAsEmail(e.target.value)}
-                  className="border border-line rounded-md px-2 py-1.5 text-sm bg-white max-w-[220px]"
+                  className="border border-line rounded-md px-2 py-1.5 text-sm bg-surface max-w-[220px]"
                   title="Admin: inspect any TA's day (read-only)"
                 >
                   <option value="">Myself</option>
@@ -248,7 +248,7 @@ export default function TADailyLogPage() {
       />
 
       {/* Tab strip */}
-      <div className="mb-4 inline-flex rounded-lg border border-line bg-white p-1 text-xs font-semibold">
+      <div className="mb-4 inline-flex rounded-lg border border-line bg-surface p-1 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setActiveView('my-day')}
@@ -497,7 +497,7 @@ function TimeStepper({ value, onChange, disabled }: { value: number; onChange: (
       >
         <Minus size={14} />
       </button>
-      <div className="px-3 py-1.5 min-w-[88px] text-center bg-white border-x border-line">
+      <div className="px-3 py-1.5 min-w-[88px] text-center bg-surface border-x border-line">
         <div className="text-base font-bold tabular-nums text-ink">{fmtMinutes(value)}</div>
         <div className="text-[9px] uppercase tracking-wider text-muted/70 font-semibold -mt-0.5">Time</div>
       </div>
@@ -561,7 +561,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
     : 'Describe what happened — meeting outcome, blockers, decisions, follow-ups.';
 
   return (
-    <div className={`my-2 rounded-xl border ${cardBorder} ${isOpen ? 'bg-white shadow-sm' : 'bg-transparent'} transition-all`}>
+    <div className={`my-2 rounded-xl border ${cardBorder} ${isOpen ? 'bg-surface shadow-sm' : 'bg-transparent'} transition-all`}>
       {/* Accent bar on open state */}
       {isOpen && (
         <div className={`h-1 ${accentBar} rounded-t-xl`} />
@@ -797,7 +797,7 @@ function AddRequisitionDialog({ requisitions, accountName, onPick, onClose }: {
   });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div className="text-sm font-semibold text-ink">Add a requisition</div>
           <button onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xl leading-none">×</button>
@@ -845,7 +845,7 @@ function AddActivityDialog({ available, onPick, onClose }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-ink">Log non-requisition activity</div>

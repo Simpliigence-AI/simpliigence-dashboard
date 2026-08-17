@@ -51,7 +51,7 @@ function InlineInput({
     <input
       ref={ref}
       type={type}
-      className={`w-full rounded border border-primary/40 bg-white px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
+      className={`w-full rounded border border-primary/40 bg-surface px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -367,7 +367,7 @@ export default function TableView() {
           className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
             groupByRole
               ? 'bg-primary/10 border-primary/40 text-primary font-semibold'
-              : 'bg-white border-line text-muted hover:bg-surface-2/70'
+              : 'bg-surface border-line text-muted hover:bg-surface-2/70'
           }`}
           title="Group rows into sections by role"
         >

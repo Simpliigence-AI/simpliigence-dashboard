@@ -160,7 +160,7 @@ export default function TeamLeavePage() {
               type="button"
               onClick={exportCsv}
               disabled={visibleRequests.length === 0}
-              className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-1.5 rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1.5"
+              className="text-xs font-semibold bg-surface border border-line text-ink/80 px-3 py-1.5 rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1.5"
               title={`Download ${visibleRequests.length} requests as CSV`}
             >
               <Download size={12} /> Export CSV

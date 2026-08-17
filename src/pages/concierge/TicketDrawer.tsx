@@ -64,7 +64,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
         {/* Header meta */}
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
           <span className={priorityChip(ticket.priority)}>{ticket.priority ?? 'medium'}</span>
-          <span className="px-2 py-0.5 rounded border border-line bg-white font-medium">{ticket.status}</span>
+          <span className="px-2 py-0.5 rounded border border-line bg-surface font-medium">{ticket.status}</span>
           {ticket.source && <span className="text-muted/70">via {ticket.source}</span>}
           {ticket.senderEmail && <span>from {ticket.senderName ?? ticket.senderEmail}</span>}
           <span className="ml-auto">Created {fmt(ticket.createdTime)}</span>
@@ -138,7 +138,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
         </section>
 
         {/* Time tracker */}
-        <section className="rounded-lg border border-line bg-white p-4">
+        <section className="rounded-lg border border-line bg-surface p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-ink/80">
               <Clock size={16} /> Hours logged
@@ -187,7 +187,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                   : <Mail size={14} className="text-muted" />;
                 const bg = m.direction === 'internal_note' ? 'bg-amber-50 border-amber-200'
                   : m.direction === 'outbound' ? 'bg-primary/5 border-primary/20'
-                  : 'bg-white border-line';
+                  : 'bg-surface border-line';
                 return (
                   <li key={m.id} className={`rounded border p-3 ${bg}`}>
                     <div className="flex items-center gap-2 text-xs text-muted mb-1">

@@ -54,7 +54,7 @@ type BaseTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
 const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm text-ink placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: BaseInputProps) => <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: BaseSelectProps) => (
-  <select className={`${INPUT_CLS} bg-white ${className}`} {...p}>{children}</select>
+  <select className={`${INPUT_CLS} bg-surface ${className}`} {...p}>{children}</select>
 );
 const Textarea = ({ className = '', ...p }: BaseTextareaProps) => <textarea className={`${INPUT_CLS} ${className}`} {...p} />;
 import {
@@ -184,7 +184,7 @@ function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl:
         src={src}
         alt={`${account.name} logo`}
         onError={() => setSrcIdx((i) => i + 1)}
-        className="rounded-lg object-contain bg-white border border-line flex-shrink-0"
+        className="rounded-lg object-contain bg-surface border border-line flex-shrink-0"
         style={{ width: size, height: size }}
       />
     );
@@ -219,7 +219,7 @@ interface ClientGroup {
 function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicketClick: (id: string) => void }) {
   const [expanded, setExpanded] = useState(group.openCount > 0);
   return (
-    <div className="bg-white rounded-xl border border-line shadow-sm">
+    <div className="bg-surface rounded-xl border border-line shadow-sm">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -309,7 +309,7 @@ function AccountCard({ account, features, openTickets, monthAmount, onOpen }: Ac
       className={`text-left rounded-xl shadow-sm hover:shadow-md transition-all p-5 flex flex-col gap-4 ${
         dormant
           ? 'bg-rose-50 border-2 border-rose-300 hover:border-rose-500 ring-1 ring-rose-200'
-          : `bg-white border border-line hover:border-primary/40 ring-1 ${health.ring}`
+          : `bg-surface border border-line hover:border-primary/40 ring-1 ${health.ring}`
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -735,7 +735,7 @@ function AccountDrawer({
                     key={c.name}
                     type="button"
                     onClick={() => addFeatureFromCatalog(c)}
-                    className="text-[11px] px-2 py-1 rounded border border-line bg-white hover:bg-primary/5 hover:border-primary/40 text-ink/80"
+                    className="text-[11px] px-2 py-1 rounded border border-line bg-surface hover:bg-primary/5 hover:border-primary/40 text-ink/80"
                   >
                     + {c.name}
                   </button>
@@ -850,7 +850,7 @@ function FeatureRow({ feature }: { feature: ConciergeFeature }) {
   const store = useConciergeAccountsStore();
   const meta = FEATURE_STATUS_META[feature.status];
   return (
-    <div className="flex items-center gap-3 py-2 px-3 rounded-lg border border-line/60 hover:border-line bg-white">
+    <div className="flex items-center gap-3 py-2 px-3 rounded-lg border border-line/60 hover:border-line bg-surface">
       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.heat}`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-sm">
@@ -1243,7 +1243,7 @@ export default function ConciergePage() {
               type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-line bg-white hover:bg-surface-2/70 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-line bg-surface hover:bg-surface-2/70 disabled:opacity-50"
               title="Pull the latest open/on-hold/escalated tickets from Zoho Desk"
             >
               {refreshing
@@ -1278,7 +1278,7 @@ export default function ConciergePage() {
               <button
                 type="button"
                 onClick={() => setShowIgnoredSenders(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-line text-muted hover:border-rose-300 hover:text-rose-700 bg-white"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-line text-muted hover:border-rose-300 hover:text-rose-700 bg-surface"
                 title="Manage ignored email senders — noise blocklist for auto-ticket creation"
               >
                 <ShieldOff size={12} /> Ignored senders
@@ -1312,7 +1312,7 @@ export default function ConciergePage() {
       )}
 
       {/* Tab bar — employees only see the Tickets tab. */}
-      <div className="flex flex-wrap gap-1 bg-white border border-line rounded-lg p-1 mb-6 w-fit">
+      <div className="flex flex-wrap gap-1 bg-surface border border-line rounded-lg p-1 mb-6 w-fit">
         {(([
           { key: 'overview', label: 'Overview', icon: <LayoutGrid size={14} /> },
           { key: 'tickets',  label: 'Tickets',  icon: <Ticket size={14} /> },
@@ -1380,7 +1380,7 @@ export default function ConciergePage() {
                     key={n}
                     type="button"
                     onClick={() => { setSeedName(n); setShowNewAccount(true); }}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-white hover:bg-primary/5 hover:border-primary/40 text-sm text-ink/80"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-surface hover:bg-primary/5 hover:border-primary/40 text-sm text-ink/80"
                   >
                     <Plus size={12} /> {n}
                   </button>
@@ -1422,7 +1422,7 @@ export default function ConciergePage() {
                 <button
                   type="button"
                   onClick={() => setIncludeDormantInCoverage((v) => !v)}
-                  className="px-2 py-0.5 rounded-md border border-line bg-white hover:bg-surface-2/70 text-ink/80 font-medium"
+                  className="px-2 py-0.5 rounded-md border border-line bg-surface hover:bg-surface-2/70 text-ink/80 font-medium"
                 >
                   {includeDormantInCoverage ? 'Hide dormant' : `Include dormant (${dormantCount})`}
                 </button>
@@ -1461,7 +1461,7 @@ export default function ConciergePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-line/60">
-                    <th className="text-left py-2 pr-3 text-xs font-medium text-muted uppercase sticky left-0 bg-white">Account</th>
+                    <th className="text-left py-2 pr-3 text-xs font-medium text-muted uppercase sticky left-0 bg-surface">Account</th>
                     {billingMatrix.months.map((m, i) => {
                       // Header shows * only when the whole column is forecast for every account.
                       // A per-row cell may still be actual if that account has explicit data.
@@ -1487,7 +1487,7 @@ export default function ConciergePage() {
                     >
                       <td
                         onClick={() => setOpenAccountId(account.id)}
-                        className="py-2 pr-3 text-ink font-medium sticky left-0 bg-white cursor-pointer"
+                        className="py-2 pr-3 text-ink font-medium sticky left-0 bg-surface cursor-pointer"
                       >{account.name}</td>
                       {cells.map((c, i) => {
                         const prev = i > 0 ? cells[i - 1].amount : 0;
@@ -1529,7 +1529,7 @@ export default function ConciergePage() {
                                   else if (ev.key === 'Escape') { ev.preventDefault(); setOverrideCell(null); }
                                 }}
                                 onClick={(ev) => ev.stopPropagation()}
-                                className="w-20 px-1 py-0.5 text-right text-xs border border-primary rounded bg-white text-ink focus:outline-none"
+                                className="w-20 px-1 py-0.5 text-right text-xs border border-primary rounded bg-surface text-ink focus:outline-none"
                               />
                             ) : (
                               <span className={`relative ${c.forecast ? 'text-muted' : 'text-ink/80'}`}>

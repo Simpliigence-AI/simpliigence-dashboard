@@ -29,7 +29,7 @@ export function Select({ label, options, placeholder, className = '', ...props }
     <div className="space-y-1.5">
       {label && <label className="block text-xs font-semibold text-muted uppercase tracking-wider">{label}</label>}
       <select
-        className={`w-full px-3 py-2 rounded-lg border border-line text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary bg-white transition-colors ${className}`}
+        className={`w-full px-3 py-2 rounded-lg border border-line text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary bg-surface transition-colors ${className}`}
         {...props}
       >
         {placeholder && <option value="">{placeholder}</option>}
@@ -65,7 +65,7 @@ export function MultiSelect({ label, options, value, onChange }: MultiSelectProp
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150 ${
               value.includes(opt.value)
                 ? 'bg-primary text-white border-primary shadow-sm'
-                : 'bg-white text-muted border-line hover:border-primary hover:text-primary'
+                : 'bg-surface text-muted border-line hover:border-primary hover:text-primary'
             }`}
           >
             {opt.label}

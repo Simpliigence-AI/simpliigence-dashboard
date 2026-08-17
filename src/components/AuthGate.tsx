@@ -61,7 +61,7 @@ export function AuthGate({ children }: Props) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="flex items-center gap-3 text-slate-300">
+        <div className="flex items-center gap-3 text-muted/70">
           <Loader2 size={18} className="animate-spin" />
           <span className="text-sm">Loading…</span>
         </div>

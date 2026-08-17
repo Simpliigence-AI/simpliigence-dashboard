@@ -102,7 +102,7 @@ function SmartQueryPanel({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. Which BA has capacity in May?"
-              className="w-full pl-9 pr-8 py-2.5 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+              className="w-full pl-9 pr-8 py-2.5 text-sm border border-blue-200 rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
             />
             {query && (
               <button type="button" onClick={handleClear} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted/70 hover:text-muted">
@@ -125,7 +125,7 @@ function SmartQueryPanel({
               <button
                 key={sq}
                 onClick={() => { setQuery(sq); handleSubmit(sq); }}
-                className="text-xs px-3 py-1.5 bg-white border border-blue-200 rounded-full text-blue-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                className="text-xs px-3 py-1.5 bg-surface border border-blue-200 rounded-full text-blue-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
               >
                 {sq}
               </button>
@@ -135,7 +135,7 @@ function SmartQueryPanel({
 
         {/* Loading */}
         {loading && (
-          <div className="mt-4 bg-white rounded-lg border border-blue-100 p-6 flex items-center justify-center gap-3">
+          <div className="mt-4 bg-surface rounded-lg border border-blue-100 p-6 flex items-center justify-center gap-3">
             <Loader2 size={18} className="text-blue-500 animate-spin" />
             <span className="text-sm text-muted">Claude is thinking...</span>
           </div>
@@ -143,7 +143,7 @@ function SmartQueryPanel({
 
         {/* Result */}
         {result && !loading && (
-          <div className="mt-4 bg-white rounded-lg border border-blue-100 p-4">
+          <div className="mt-4 bg-surface rounded-lg border border-blue-100 p-4">
             <div className="prose prose-sm max-w-none text-ink/80 [&_strong]:text-ink">
               {result.answer.split('\n').map((line, i) => (
                 <p key={i} className={`${line.startsWith('-') ? 'ml-2' : ''} ${!line.trim() ? 'hidden' : ''} my-1`}>
@@ -594,7 +594,7 @@ export default function DashboardPage() {
           return (
             <div
               key={sec.key}
-              className={`relative rounded-xl border border-line bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow`}
+              className={`relative rounded-xl border border-line bg-surface shadow-sm overflow-hidden hover:shadow-md transition-shadow`}
             >
               {/* Accent bar */}
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${a.bar}`} />

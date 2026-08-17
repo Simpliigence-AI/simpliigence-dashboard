@@ -203,7 +203,7 @@ export function AccountInfoTab({ account }: { account: Account }) {
       {error && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700">{error}</div>}
 
       {/* Profile facts */}
-      <div className="rounded-lg border border-line bg-white p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">Company profile</div>
         {data.ziData.description && (
           <p className="text-xs text-ink/80 mb-3 leading-relaxed">{String(data.ziData.description)}</p>
@@ -219,7 +219,7 @@ export function AccountInfoTab({ account }: { account: Account }) {
 
       {/* Key people */}
       {data.keyPeople.length > 0 && (
-        <div className="rounded-lg border border-line bg-white p-4">
+        <div className="rounded-lg border border-line bg-surface p-4">
           <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 inline-flex items-center gap-1">
             <Users size={11} /> Key people ({data.keyPeople.length})
           </div>
@@ -248,7 +248,7 @@ export function AccountInfoTab({ account }: { account: Account }) {
 
       {/* Scoops */}
       {data.scoops.length > 0 && (
-        <div className="rounded-lg border border-line bg-white p-4">
+        <div className="rounded-lg border border-line bg-surface p-4">
           <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 inline-flex items-center gap-1">
             <Sparkles size={11} className="text-amber-500" /> Recent scoops ({data.scoops.length})
           </div>
@@ -266,7 +266,7 @@ export function AccountInfoTab({ account }: { account: Account }) {
 
       {/* News */}
       {data.news.length > 0 && (
-        <div className="rounded-lg border border-line bg-white p-4">
+        <div className="rounded-lg border border-line bg-surface p-4">
           <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 inline-flex items-center gap-1">
             <Newspaper size={11} className="text-sky-500" /> Recent news ({data.news.length})
           </div>

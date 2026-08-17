@@ -309,7 +309,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         <button
           type="button"
           onClick={onMobileClose}
-          className="md:hidden absolute top-3 right-3 z-10 inline-flex items-center justify-center w-8 h-8 rounded text-slate-400 hover:text-white hover:bg-sidebar-hover"
+          className="md:hidden absolute top-3 right-3 z-10 inline-flex items-center justify-center w-8 h-8 rounded text-muted hover:text-white hover:bg-sidebar-hover"
           aria-label="Close menu"
         >
           ×
@@ -346,7 +346,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                         `flex items-center justify-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-sidebar-active text-white'
-                            : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                            : 'text-muted hover:text-white hover:bg-sidebar-hover'
                         }`
                       }
                     />
@@ -365,14 +365,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                 onClick={() => toggleSection(section.label)}
                 aria-expanded={expanded}
                 className={`w-full flex items-center justify-between gap-2 px-3 pb-1 pt-1 rounded-md text-[9px] font-bold uppercase tracking-widest hover:bg-sidebar-hover transition-colors ${
-                  isActiveSection ? 'text-slate-300' : 'text-slate-500 hover:text-slate-300'
+                  isActiveSection ? 'text-muted/70' : 'text-muted hover:text-muted/70'
                 }`}
                 title={expanded ? 'Collapse section' : 'Expand section'}
               >
                 <span className="truncate">{section.label}</span>
                 <span className="flex items-center gap-1.5">
                   {!expanded && (
-                    <span className="text-[9px] font-normal tracking-normal text-slate-500 normal-case">
+                    <span className="text-[9px] font-normal tracking-normal text-muted normal-case">
                       {section.items.length}
                     </span>
                   )}
@@ -391,7 +391,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-sidebar-active text-white'
-                            : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                            : 'text-muted hover:text-white hover:bg-sidebar-hover'
                         }`
                       }
                     />
@@ -411,7 +411,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                 for (const s of visibleSections) next[s.label] = !allExpanded;
                 setExpandedSections(next);
               }}
-              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-[10px] text-muted hover:text-muted/70 transition-colors"
             >
               {visibleSections.every((s) => isSectionExpanded(s.label)) ? 'Collapse all' : 'Expand all'}
             </button>
@@ -427,7 +427,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
               type="button"
               onClick={() => signOut()}
               title={`Signed in as ${email} — click to sign out`}
-              className="flex items-center justify-center w-full py-2 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-hover transition-colors"
+              className="flex items-center justify-center w-full py-2 rounded-lg text-muted hover:text-white hover:bg-sidebar-hover transition-colors"
             >
               <span className="w-7 h-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center uppercase">
                 {email.charAt(0)}
@@ -439,11 +439,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                 {email.charAt(0)}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-slate-300 truncate" title={email}>{email}</div>
+                <div className="text-[11px] text-muted/70 truncate" title={email}>{email}</div>
                 <button
                   type="button"
                   onClick={() => signOut()}
-                  className="text-[10px] text-slate-500 hover:text-white inline-flex items-center gap-1 mt-0.5 transition-colors"
+                  className="text-[10px] text-muted hover:text-white inline-flex items-center gap-1 mt-0.5 transition-colors"
                 >
                   <LogOut size={10} /> Sign out
                 </button>
@@ -462,7 +462,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
             `flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isActive
                 ? 'bg-sidebar-active text-white'
-                : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                : 'text-muted hover:text-white hover:bg-sidebar-hover'
             }`
           }
         >
@@ -475,7 +475,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
           type="button"
           onClick={onToggle}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={`hidden md:flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
+          className={`hidden md:flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-muted hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           {!eff && <span>Collapse</span>}

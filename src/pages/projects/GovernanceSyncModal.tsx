@@ -447,7 +447,7 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[6vh]" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[86vh] flex flex-col overflow-hidden"
+        className="bg-surface rounded-xl shadow-2xl w-full max-w-4xl max-h-[86vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -533,7 +533,7 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                       <select
                         value={sel}
                         onChange={(e) => setChoice((c) => ({ ...c, [p.id]: e.target.value }))}
-                        className={`w-full px-2.5 py-1.5 text-sm rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                        className={`w-full px-2.5 py-1.5 text-sm rounded-lg border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                           sel === SKIP ? 'border-line text-muted/70'
                           : sel ? 'border-line text-ink'
                           : 'border-amber-300 bg-amber-50 text-amber-900'
@@ -601,7 +601,7 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                           <select
                             value={act}
                             onChange={(e) => setNewAction((s) => ({ ...s, [g.id]: e.target.value }))}
-                            className={`w-full px-2.5 py-1.5 text-sm rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                            className={`w-full px-2.5 py-1.5 text-sm rounded-lg border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                               isCreate ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
                               : isIgnore ? 'border-line text-muted/70'
                               : 'border-line text-ink'
@@ -655,7 +655,7 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
             <button
               type="button"
               onClick={onClose}
-              className="text-xs font-semibold px-3 py-1.5 rounded-md border border-line bg-white text-ink/80 hover:bg-surface-2"
+              className="text-xs font-semibold px-3 py-1.5 rounded-md border border-line bg-surface text-ink/80 hover:bg-surface-2"
             >
               {result ? 'Done' : 'Cancel'}
             </button>

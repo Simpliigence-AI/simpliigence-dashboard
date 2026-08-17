@@ -152,7 +152,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
             {aiOpps.map((o, i) => {
               const M = KIND_META[o.kind];
               return (
-                <li key={i} className="flex items-center gap-2 rounded bg-white border border-purple-100 px-2.5 py-1.5">
+                <li key={i} className="flex items-center gap-2 rounded bg-surface border border-purple-100 px-2.5 py-1.5">
                   <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${M.cls}`}>
                     <M.Icon size={9} /> {M.label}
                   </span>
@@ -194,7 +194,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
               type="button"
               onClick={() => setStatusFilter(s)}
               className={`px-1.5 py-0.5 rounded border text-[10px] font-medium transition-colors ${
-                statusFilter === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-line text-muted hover:border-slate-400'
+                statusFilter === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-surface border-line text-muted hover:border-line'
               }`}
             >
               {s === 'all' ? 'All' : UPSELL_STATUS_META[s].label}
@@ -218,7 +218,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
             <select
               value={addKind}
               onChange={(e) => setAddKind(e.target.value as UpsellKind)}
-              className="px-2 py-1.5 rounded border border-line text-xs bg-white"
+              className="px-2 py-1.5 rounded border border-line text-xs bg-surface"
             >
               <option value="upsell">Upsell</option>
               <option value="cross_sell">Cross-sell</option>
@@ -226,7 +226,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
             <select
               value={addServiceArea}
               onChange={(e) => setAddServiceArea(e.target.value)}
-              className="px-2 py-1.5 rounded border border-line text-xs bg-white"
+              className="px-2 py-1.5 rounded border border-line text-xs bg-surface"
               title="Service area"
             >
               <option value="">Service area…</option>
@@ -312,7 +312,7 @@ function OpportunityRow({
     : false;
 
   return (
-    <li className="rounded-lg border border-line bg-white p-2.5 hover:border-line transition-colors">
+    <li className="rounded-lg border border-line bg-surface p-2.5 hover:border-line transition-colors">
       <div className="flex items-center gap-2 flex-wrap">
         {/* Kind */}
         <select
@@ -328,7 +328,7 @@ function OpportunityRow({
         <select
           value={item.serviceArea ?? ''}
           onChange={(e) => onChange(item.id, { serviceArea: e.target.value || null })}
-          className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-line bg-white cursor-pointer flex-shrink-0"
+          className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-line bg-surface cursor-pointer flex-shrink-0"
           title="Service area"
         >
           <option value="">— area —</option>

@@ -129,7 +129,7 @@ export default function ActualPeopleView() {
             Sync from Zoho People, then pick someone to see their actuals.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-line p-5">
+          <div className="bg-surface rounded-xl border border-line p-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-center gap-3">

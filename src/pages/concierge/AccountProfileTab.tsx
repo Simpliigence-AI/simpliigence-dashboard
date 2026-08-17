@@ -207,7 +207,7 @@ export function AccountProfileTab({ accountId }: Props) {
         {profile?.refinementNotes && profile.refinementNotes.length > 0 && (
           <ul className="mt-2 space-y-1.5">
             {profile.refinementNotes.map((n) => (
-              <li key={n.id} className="rounded bg-white border border-purple-100 px-2.5 py-1.5 flex items-start gap-2">
+              <li key={n.id} className="rounded bg-surface border border-purple-100 px-2.5 py-1.5 flex items-start gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-ink whitespace-pre-wrap">{n.note}</div>
                   <div className="text-[10px] text-muted mt-0.5">
@@ -322,7 +322,7 @@ function ProfileList<T>({
   chips?: boolean;
 }) {
   return (
-    <section className="rounded-lg border border-line bg-white p-3">
+    <section className="rounded-lg border border-line bg-surface p-3">
       <h4 className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">{icon} {title}</h4>
       {items.length === 0 ? (
         <div className="text-[11px] text-muted/70 italic">None extracted yet.</div>
@@ -347,7 +347,7 @@ function OppSection({ title, subtitle, items, icon, badgeCls }: {
 }) {
   if (items.length === 0) return null;
   return (
-    <section className="rounded-lg border border-line bg-white p-3">
+    <section className="rounded-lg border border-line bg-surface p-3">
       <div className="flex items-center justify-between mb-1.5">
         <h4 className="text-[11px] font-bold text-muted uppercase tracking-wider flex items-center gap-1">{icon} {title}</h4>
         <span className="text-[10px] text-muted/70">{subtitle}</span>

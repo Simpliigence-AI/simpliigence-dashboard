@@ -35,7 +35,7 @@ const INPUT_CLS = 'w-full px-2 py-1 rounded border border-line text-sm focus:out
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
-  <select className={`${INPUT_CLS} bg-white ${className}`} {...p}>{children}</select>;
+  <select className={`${INPUT_CLS} bg-surface ${className}`} {...p}>{children}</select>;
 const Textarea = ({ className = '', ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) =>
   <textarea className={`${INPUT_CLS} font-mono text-xs ${className}`} {...p} />;
 
@@ -77,7 +77,7 @@ export default function LeaveAdminPage() {
         }
       />
 
-      <div className="flex gap-1 bg-white border border-line rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-surface border border-line rounded-lg p-1 mb-6 w-fit">
         {([
           { key: 'allocations', label: 'Allocations', icon: UsersIcon },
           { key: 'import',      label: 'Bulk Import', icon: Upload },
@@ -209,7 +209,7 @@ function AllocationsTab({
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-line/60">
-              <th className="text-left p-2 sticky left-0 bg-white text-muted/70 font-bold uppercase tracking-wide text-[10px]">Employee</th>
+              <th className="text-left p-2 sticky left-0 bg-surface text-muted/70 font-bold uppercase tracking-wide text-[10px]">Employee</th>
               {activeTypes.map((t) => (
                 <th key={t.id} className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px] whitespace-nowrap">
                   <span
@@ -225,7 +225,7 @@ function AllocationsTab({
           <tbody>
             {filtered.map((emp) => (
               <tr key={emp.email} className="border-b border-line/40 hover:bg-surface-2/50">
-                <td className="p-2 sticky left-0 bg-white">
+                <td className="p-2 sticky left-0 bg-surface">
                   <div className="font-medium text-ink">{emp.fullName || emp.email.split('@')[0]}</div>
                   <div className="text-[10px] text-muted">{emp.email}</div>
                 </td>
@@ -286,7 +286,7 @@ function AllocationCell({
   const hasAlloc = !!alloc;
 
   return (
-    <div className={`rounded border p-1 min-w-[130px] ${hasAlloc ? 'border-primary/30 bg-primary/5' : 'border-line bg-white'}`}>
+    <div className={`rounded border p-1 min-w-[130px] ${hasAlloc ? 'border-primary/30 bg-primary/5' : 'border-line bg-surface'}`}>
       <div className="flex items-center gap-1">
         <input
           type="number"

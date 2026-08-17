@@ -43,14 +43,14 @@ export function QuickAddSpeedDial({ accounts, onAddAccount, onAddRequisition }: 
             <button
               type="button"
               onClick={() => { setModal('req'); setOpen(false); }}
-              className="bg-white text-ink border border-line shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-violet-50 hover:border-violet-300"
+              className="bg-surface text-ink border border-line shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-violet-50 hover:border-violet-300"
             >
               <Briefcase size={12} className="text-violet-600" /> Quick requisition
             </button>
             <button
               type="button"
               onClick={() => { setModal('account'); setOpen(false); }}
-              className="bg-white text-ink border border-line shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-amber-50 hover:border-amber-300"
+              className="bg-surface text-ink border border-line shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-amber-50 hover:border-amber-300"
             >
               <Building2 size={12} className="text-amber-600" /> Quick account
             </button>
@@ -135,7 +135,7 @@ function QuickReqModal({
         <Field label="Account">
           <select value={accountId}
                   onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full h-9 px-3 text-sm border border-line rounded-md bg-white focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                  className="w-full h-9 px-3 text-sm border border-line rounded-md bg-surface focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             <option value="__new__">+ Add new account…</option>
           </select>
@@ -159,7 +159,7 @@ function QuickReqModal({
         <Field label="Month">
           <select value={month}
                   onChange={(e) => setMonth(e.target.value)}
-                  className="w-full h-9 px-3 text-sm border border-line rounded-md bg-white focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                  className="w-full h-9 px-3 text-sm border border-line rounded-md bg-surface focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
             {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </Field>
@@ -243,7 +243,7 @@ function Modal({ title, subtitle, onClose, children }: {
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
         <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">
           <div>
             <h2 className="text-sm font-bold text-ink">{title}</h2>

@@ -85,7 +85,7 @@ const TAB_LABELS: { key: TabKey; label: string; statuses: TimeEntry['status'][] 
 ];
 
 const STATUS_PILL: Record<TimeEntry['status'], string> = {
-  draft:     'bg-slate-100 text-slate-600',
+  draft:     'bg-surface-2 text-muted',
   submitted: 'bg-sky-100 text-sky-800',
   approved:  'bg-emerald-100 text-emerald-800',
   rejected:  'bg-red-100 text-red-800',
@@ -135,7 +135,7 @@ export default function TeamTimePage() {
   }, [historyTarget]);
 
   if (loading) {
-    return <div className="py-12 text-center text-sm text-slate-400">Checking permissions…</div>;
+    return <div className="py-12 text-center text-sm text-muted/70">Checking permissions…</div>;
   }
   if (role !== 'admin' && role !== 'manager') {
     return <Navigate to="/" replace />;
@@ -301,18 +301,18 @@ export default function TeamTimePage() {
         subtitle={`${isAdmin ? 'All teams' : 'Your direct reports'} · ${pendingCount} pending approval`}
         action={
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={14} className="text-slate-400" />
+            <Filter size={14} className="text-muted/70" />
             <input
               placeholder="Filter by employee email…"
               value={filterEmployee}
               onChange={(e) => setFilterEmployee(e.target.value)}
-              className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 w-56"
+              className="border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 w-56"
             />
             <button
               type="button"
               onClick={exportCsv}
               disabled={visibleEntries.length === 0}
-              className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1.5"
+              className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-1.5 rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1.5"
               title={`Download ${visibleEntries.length} entries as CSV`}
             >
               <Download size={12} /> Export CSV
@@ -330,7 +330,7 @@ export default function TeamTimePage() {
       />
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-4 border-b border-slate-200">
+      <div className="flex items-center gap-1 mb-4 border-b border-line">
         {TAB_LABELS.map((t) => (
           <button
             key={t.key}
@@ -339,7 +339,7 @@ export default function TeamTimePage() {
             className={`text-xs font-semibold px-3 py-2 border-b-2 -mb-px transition-colors ${
               tab === t.key
                 ? 'border-primary text-primary'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                : 'border-transparent text-muted hover:text-ink'
             }`}
           >
             {t.label}
@@ -372,14 +372,14 @@ export default function TeamTimePage() {
       {/* Table */}
       <Card title={`${visibleEntries.length} entr${visibleEntries.length === 1 ? 'y' : 'ies'}`}>
         {visibleEntries.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-500">
+          <div className="py-12 text-center text-sm text-muted">
             {tab === 'pending' ? 'No entries waiting for approval. ✓' : 'No entries match.'}
           </div>
         ) : (
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
                   {tab === 'pending' && (
                     <th className="py-2 pr-2 font-semibold w-6">
                       <input type="checkbox" checked={allSelected} onChange={toggleAll} />
@@ -395,9 +395,9 @@ export default function TeamTimePage() {
                   <th className="py-2 pr-3 font-semibold text-right w-40">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line/60">
                 {visibleEntries.map((e) => (
-                  <tr key={e.id} className="hover:bg-slate-50/60">
+                  <tr key={e.id} className="hover:bg-surface-2/60">
                     {tab === 'pending' && (
                       <td className="py-2 pr-2 align-top">
                         <input
@@ -411,16 +411,16 @@ export default function TeamTimePage() {
                         />
                       </td>
                     )}
-                    <td className="py-2 pr-3 align-top text-xs tabular-nums text-slate-700">{e.workDate}</td>
+                    <td className="py-2 pr-3 align-top text-xs tabular-nums text-ink/80">{e.workDate}</td>
                     <td className="py-2 pr-3 align-top"><TaIdentity email={e.employeeEmail} avatarSize={26} nameSize="text-xs" /></td>
                     <td className="py-2 pr-3 align-top text-xs">{e.projectName}</td>
                     <td className="py-2 pr-3 align-top text-xs tabular-nums text-right font-semibold">{e.hours.toFixed(2)}</td>
                     <td className="py-2 pr-3 align-top">
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${e.billable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${e.billable ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-2 text-muted'}`}>
                         {e.billable ? 'Billable' : 'Non'}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 align-top text-xs text-slate-600 max-w-xs truncate" title={e.notes}>
+                    <td className="py-2 pr-3 align-top text-xs text-muted max-w-xs truncate" title={e.notes}>
                       {e.notes || '—'}
                     </td>
                     <td className="py-2 pr-3 align-top">
@@ -442,14 +442,14 @@ export default function TeamTimePage() {
                                 onChange={(ev) => setRejectReason(ev.target.value)}
                                 placeholder="Reason…"
                                 onKeyDown={(ev) => { if (ev.key === 'Enter') handleReject(e.id); }}
-                                className="text-xs border border-slate-300 rounded px-2 py-1 w-32"
+                                className="text-xs border border-line rounded px-2 py-1 w-32"
                               />
                               <button type="button" onClick={() => handleReject(e.id)}
                                       className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">
                                 OK
                               </button>
                               <button type="button" onClick={() => { setRejecting(null); setRejectReason(''); }}
-                                      className="text-xs text-slate-400 hover:text-slate-700">
+                                      className="text-xs text-muted/70 hover:text-ink/80">
                                 <X size={12} />
                               </button>
                             </div>
@@ -472,7 +472,7 @@ export default function TeamTimePage() {
                         ) : e.status === 'approved' && isAdmin ? (
                           <button type="button"
                                   onClick={() => rejectEntry(e.id, myEmail, 'Unapproved by admin')}
-                                  className="text-[11px] text-slate-400 hover:text-red-700">
+                                  className="text-[11px] text-muted/70 hover:text-red-700">
                             Unapprove
                           </button>
                         ) : null}
@@ -481,19 +481,19 @@ export default function TeamTimePage() {
                           <>
                             <button type="button"
                                     onClick={() => openEdit(e)}
-                                    className="text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded hover:bg-slate-50 inline-flex items-center gap-1"
+                                    className="text-xs bg-white border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
                                     title="Edit entry">
                               <Pencil size={12} /> Edit
                             </button>
                             <button type="button"
                                     onClick={() => openDocs(e)}
-                                    className="text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded hover:bg-slate-50 inline-flex items-center gap-1"
+                                    className="text-xs bg-white border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
                                     title="Manage this week's documents">
                               <Paperclip size={12} /> Docs
                             </button>
                             <button type="button"
                                     onClick={() => setHistoryTarget(e)}
-                                    className="text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded hover:bg-slate-50 inline-flex items-center gap-1"
+                                    className="text-xs bg-white border border-line text-ink/80 px-2 py-1 rounded hover:bg-surface-2/70 inline-flex items-center gap-1"
                                     title="View change history">
                               <History size={12} /> History
                             </button>
@@ -514,12 +514,12 @@ export default function TeamTimePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !savingEdit && setEditing(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-slate-900">Edit time entry</h3>
-              <button type="button" onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+              <h3 className="text-sm font-semibold text-ink">Edit time entry</h3>
+              <button type="button" onClick={() => setEditing(null)} className="text-muted/70 hover:text-ink/80"><X size={16} /></button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Project</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Project</label>
                 <ProjectSelect
                   value={editing.projectName}
                   onChange={(v) => setEditing({ ...editing, projectName: v })}
@@ -528,17 +528,17 @@ export default function TeamTimePage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Hours</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Hours</label>
                   <input
                     type="number"
                     step="0.25"
                     min="0"
                     value={editing.hours}
                     onChange={(ev) => setEditing({ ...editing, hours: ev.target.value })}
-                    className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-slate-700 mt-5">
+                <label className="flex items-center gap-2 text-sm text-ink/80 mt-5">
                   <input
                     type="checkbox"
                     checked={editing.billable}
@@ -548,22 +548,22 @@ export default function TeamTimePage() {
                 </label>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Notes</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Notes</label>
                 <textarea
                   rows={3}
                   value={editing.notes}
                   onChange={(ev) => setEditing({ ...editing, notes: ev.target.value })}
-                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <p className="text-[11px] text-slate-400">Editing hours, billable, or project on an approved entry re-opens it for approval.</p>
+              <p className="text-[11px] text-muted/70">Editing hours, billable, or project on an approved entry re-opens it for approval.</p>
               {editError && (
                 <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{editError}</p>
               )}
             </div>
             <div className="flex items-center justify-end gap-2 mt-5">
               <button type="button" onClick={() => setEditing(null)} disabled={savingEdit}
-                      className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40">
+                      className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70 disabled:opacity-40">
                 Cancel
               </button>
               <button type="button" onClick={saveEdit} disabled={savingEdit}
@@ -581,10 +581,10 @@ export default function TeamTimePage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-slate-900 truncate">Documents · {docsTarget.employeeEmail}</h3>
-                <p className="text-[11px] text-slate-500">Week of {docsTarget.periodStart} – {docsTarget.periodEnd}</p>
+                <h3 className="text-sm font-semibold text-ink truncate">Documents · {docsTarget.employeeEmail}</h3>
+                <p className="text-[11px] text-muted">Week of {docsTarget.periodStart} – {docsTarget.periodEnd}</p>
               </div>
-              <button type="button" onClick={() => setDocsTarget(null)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+              <button type="button" onClick={() => setDocsTarget(null)} className="text-muted/70 hover:text-ink/80"><X size={16} /></button>
             </div>
             <DocumentsPanel
               employeeEmail={docsTarget.employeeEmail}
@@ -603,35 +603,35 @@ export default function TeamTimePage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-slate-900">Upload timesheet documents</h3>
-                <p className="text-[11px] text-slate-500">Pick any resource and a week — works even for resources with no time entries.</p>
+                <h3 className="text-sm font-semibold text-ink">Upload timesheet documents</h3>
+                <p className="text-[11px] text-muted">Pick any resource and a week — works even for resources with no time entries.</p>
               </div>
-              <button type="button" onClick={() => setUploadOpen(false)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+              <button type="button" onClick={() => setUploadOpen(false)} className="text-muted/70 hover:text-ink/80"><X size={16} /></button>
             </div>
 
             <div className="space-y-4">
               {/* Resource picker */}
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Resource</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Resource</label>
                 <div className="relative">
-                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
                   <input
                     value={pickerSearch}
                     onChange={(ev) => setPickerSearch(ev.target.value)}
                     placeholder="Search by name or email…"
-                    className="w-full border border-slate-300 rounded-md pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full border border-line rounded-md pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
-                <div className="mt-2 border border-slate-200 rounded-md max-h-52 overflow-y-auto divide-y divide-slate-100">
+                <div className="mt-2 border border-line rounded-md max-h-52 overflow-y-auto divide-y divide-line/60">
                   {filteredResources.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-slate-400">No resources match.</div>
+                    <div className="py-6 text-center text-xs text-muted/70">No resources match.</div>
                   ) : (
                     filteredResources.map((r) => (
                       <button
                         key={r.email}
                         type="button"
                         onClick={() => setPickerEmail(r.email)}
-                        className={`w-full text-left px-3 py-2 flex items-center justify-between gap-2 hover:bg-slate-50 ${
+                        className={`w-full text-left px-3 py-2 flex items-center justify-between gap-2 hover:bg-surface-2/70 ${
                           pickerEmail === r.email ? 'bg-primary/5' : ''
                         }`}
                       >
@@ -645,15 +645,15 @@ export default function TeamTimePage() {
 
               {/* Week picker */}
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Week</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Week</label>
                 <div className="flex items-center gap-3 flex-wrap">
                   <input
                     type="date"
                     value={pickerWeekDay}
                     onChange={(ev) => ev.target.value && setPickerWeekDay(ev.target.value)}
-                    className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
-                  <span className="text-[11px] text-slate-500">Week of {pickerWeek.periodStart} – {pickerWeek.periodEnd} (Mon–Sun)</span>
+                  <span className="text-[11px] text-muted">Week of {pickerWeek.periodStart} – {pickerWeek.periodEnd} (Mon–Sun)</span>
                 </div>
               </div>
 
@@ -666,7 +666,7 @@ export default function TeamTimePage() {
                   uploadedBy={myEmail}
                 />
               ) : (
-                <div className="border border-dashed border-slate-200 rounded-lg py-8 text-center text-sm text-slate-400">
+                <div className="border border-dashed border-line rounded-lg py-8 text-center text-sm text-muted/70">
                   Select a resource above to manage its documents for this week.
                 </div>
               )}
@@ -681,24 +681,24 @@ export default function TeamTimePage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[85vh] overflow-y-auto" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-slate-900 truncate">Change history</h3>
-                <p className="text-[11px] text-slate-500 truncate">
+                <h3 className="text-sm font-semibold text-ink truncate">Change history</h3>
+                <p className="text-[11px] text-muted truncate">
                   {historyTarget.employeeEmail} · {historyTarget.workDate} · {historyTarget.projectName}
                 </p>
               </div>
-              <button type="button" onClick={() => setHistoryTarget(null)} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+              <button type="button" onClick={() => setHistoryTarget(null)} className="text-muted/70 hover:text-ink/80"><X size={16} /></button>
             </div>
 
             {historyLoading ? (
-              <div className="py-10 text-center text-sm text-slate-400 inline-flex items-center gap-2 justify-center w-full">
+              <div className="py-10 text-center text-sm text-muted/70 inline-flex items-center gap-2 justify-center w-full">
                 <Loader2 size={14} className="animate-spin" /> Loading…
               </div>
             ) : historyRows.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-500">No changes recorded yet.</div>
+              <div className="py-10 text-center text-sm text-muted">No changes recorded yet.</div>
             ) : (
               <ol className="space-y-3">
                 {historyRows.map((a) => (
-                  <li key={a.id} className="border border-slate-200 rounded-lg p-3">
+                  <li key={a.id} className="border border-line rounded-lg p-3">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
                         a.operation === 'INSERT' ? 'bg-emerald-100 text-emerald-800'
@@ -707,21 +707,21 @@ export default function TeamTimePage() {
                       }`}>
                         {a.operation === 'INSERT' ? 'Created' : a.operation === 'DELETE' ? 'Deleted' : 'Edited'}
                       </span>
-                      <span className="text-[11px] tabular-nums text-slate-400">
+                      <span className="text-[11px] tabular-nums text-muted/70">
                         {new Date(a.changedAt).toLocaleString()}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-600 mt-1">
-                      by <span className="font-medium text-slate-800">{a.changedByEmail || 'unknown'}</span>
-                      {a.changedByRole && <span className="text-slate-400"> ({a.changedByRole})</span>}
+                    <div className="text-[11px] text-muted mt-1">
+                      by <span className="font-medium text-ink">{a.changedByEmail || 'unknown'}</span>
+                      {a.changedByRole && <span className="text-muted/70"> ({a.changedByRole})</span>}
                     </div>
                     {/* Field-level diff for edits */}
                     {a.operation === 'UPDATE' && a.changedFields.length > 0 && (
                       <ul className="mt-2 space-y-1">
                         {a.changedFields.map((f) => (
-                          <li key={f} className="text-xs text-slate-700">
-                            <span className="text-slate-500">{AUDIT_FIELD_LABEL[f] ?? f}:</span>{' '}
-                            <span className="line-through text-slate-400">{formatAuditValue(a.oldData?.[f])}</span>
+                          <li key={f} className="text-xs text-ink/80">
+                            <span className="text-muted">{AUDIT_FIELD_LABEL[f] ?? f}:</span>{' '}
+                            <span className="line-through text-muted/70">{formatAuditValue(a.oldData?.[f])}</span>
                             {' → '}
                             <span className="font-medium">{formatAuditValue(a.newData?.[f])}</span>
                           </li>
@@ -729,7 +729,7 @@ export default function TeamTimePage() {
                       </ul>
                     )}
                     {a.operation === 'UPDATE' && a.changedFields.length === 0 && (
-                      <div className="text-[11px] text-slate-400 italic mt-1">No tracked fields changed.</div>
+                      <div className="text-[11px] text-muted/70 italic mt-1">No tracked fields changed.</div>
                     )}
                   </li>
                 ))}
@@ -763,7 +763,7 @@ function ProjectSelect({ value, onChange, historicName }: { value: string; onCha
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+      className="w-full border border-line rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
     >
       <option value="" disabled>— pick a project —</option>
       {(['current', 'concierge', 'internal', 'other'] as const).map((k) => {

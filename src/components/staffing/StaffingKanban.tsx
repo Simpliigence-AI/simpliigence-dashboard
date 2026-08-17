@@ -69,24 +69,24 @@ function KanbanCard({ req }: { req: KanbanReq }) {
       {...listeners}
       {...attributes}
       className={`rounded-lg border bg-white p-2.5 shadow-sm cursor-grab active:cursor-grabbing select-none transition-all ${
-        isDragging ? 'opacity-40 ring-2 ring-blue-400' : 'hover:shadow-md hover:border-slate-300'
-      } ${req.isStuck ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}
+        isDragging ? 'opacity-40 ring-2 ring-blue-400' : 'hover:shadow-md hover:border-line'
+      } ${req.isStuck ? 'border-red-200 bg-red-50/30' : 'border-line'}`}
       style={{ touchAction: 'none' }}
     >
       <div className="flex items-start gap-1.5 mb-1">
-        <Building2 size={11} className="text-slate-400 mt-0.5 flex-shrink-0" />
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide truncate">{req.account}</span>
+        <Building2 size={11} className="text-muted/70 mt-0.5 flex-shrink-0" />
+        <span className="text-[10px] font-semibold text-muted uppercase tracking-wide truncate">{req.account}</span>
       </div>
-      <div className="text-[12px] font-semibold text-slate-800 leading-tight mb-2 line-clamp-2" title={req.title}>
+      <div className="text-[12px] font-semibold text-ink leading-tight mb-2 line-clamp-2" title={req.title}>
         {req.title}
       </div>
 
       <div className="flex items-center justify-between gap-1 text-[10px]">
-        <span className="inline-flex items-center gap-0.5 font-bold text-slate-600">
-          {req.positions}&nbsp;<span className="font-normal text-slate-400">pos</span>
+        <span className="inline-flex items-center gap-0.5 font-bold text-muted">
+          {req.positions}&nbsp;<span className="font-normal text-muted/70">pos</span>
         </span>
         <div className="flex items-center gap-1" title="AI probability">
-          <div className="w-8 h-1 rounded bg-slate-100 overflow-hidden">
+          <div className="w-8 h-1 rounded bg-surface-2 overflow-hidden">
             <div className="h-full" style={{ width: `${req.aiProbability}%`, background: probColor(req.aiProbability) }} />
           </div>
           <span className="font-bold tabular-nums" style={{ color: probColor(req.aiProbability) }}>
@@ -107,7 +107,7 @@ function KanbanCard({ req }: { req: KanbanReq }) {
           <Clock size={9} /> {req.daysInStage}d
         </span>
         {req.hasStartDate && (
-          <span className="text-slate-400" title={`${req.ageing} days since start date`}>· {req.ageing}d age</span>
+          <span className="text-muted/70" title={`${req.ageing} days since start date`}>· {req.ageing}d age</span>
         )}
       </div>
 
@@ -146,18 +146,18 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={`flex flex-col rounded-xl border transition-colors ${
-        isOver ? 'border-blue-400 bg-blue-50/40' : isActiveDrop ? 'border-slate-300 bg-slate-50/50' : 'border-slate-200 bg-slate-50/30'
+        isOver ? 'border-blue-400 bg-blue-50/40' : isActiveDrop ? 'border-line bg-surface-2/50' : 'border-line bg-surface-2/30'
       }`}
     >
       {/* Column header */}
-      <div className="px-3 pt-3 pb-2 border-b border-slate-100">
+      <div className="px-3 pt-3 pb-2 border-b border-line/60">
         <div className="flex items-center gap-2 mb-1">
           <span className="h-2 w-2 rounded-full" style={{ background: STAGE_COLORS[stage] }} />
-          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-700">{stage}</span>
+          <span className="text-[11px] font-bold uppercase tracking-wide text-ink/80">{stage}</span>
         </div>
-        <div className="flex items-center justify-between text-[10px] text-slate-400">
+        <div className="flex items-center justify-between text-[10px] text-muted/70">
           <span>
-            <span className="font-semibold text-slate-600">{reqs.length}</span> reqs · <span className="font-semibold text-slate-600">{totalPositions}</span> pos
+            <span className="font-semibold text-muted">{reqs.length}</span> reqs · <span className="font-semibold text-muted">{totalPositions}</span> pos
           </span>
           {stuckCount > 0 && (
             <span className="inline-flex items-center gap-0.5 font-semibold text-red-600">
@@ -170,7 +170,7 @@ function KanbanColumn({
       {/* Cards */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px]">
         {reqs.length === 0 && (
-          <div className="text-center text-[10px] text-slate-300 py-4 italic">Drop reqs here</div>
+          <div className="text-center text-[10px] text-line py-4 italic">Drop reqs here</div>
         )}
         {reqs.map((r) => (
           <KanbanCard key={r.id} req={r} />

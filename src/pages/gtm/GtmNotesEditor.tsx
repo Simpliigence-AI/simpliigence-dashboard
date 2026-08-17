@@ -125,7 +125,7 @@ export function GtmNotesEditor({ account, existingActions }: Props) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Notes</span>
+        <span className="text-[10px] font-medium text-muted uppercase tracking-wider">Notes</span>
         <div className="flex items-center gap-1.5">
           {voiceSupported && (
             <button
@@ -135,7 +135,7 @@ export function GtmNotesEditor({ account, existingActions }: Props) {
               className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded border transition-colors ${
                 voiceActive
                   ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                  : 'bg-white text-ink/80 border-line hover:border-slate-400'
               }`}
             >
               {voiceActive ? <MicOff size={11} /> : <Mic size={11} />}
@@ -161,10 +161,10 @@ export function GtmNotesEditor({ account, existingActions }: Props) {
         onBlur={saveNotes}
         rows={6}
         placeholder="Type or dictate notes about this account. Tap Organize with AI to structure them + get suggested action items."
-        className={`w-full px-3 py-2 rounded border text-sm resize-y ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-slate-300'}`}
+        className={`w-full px-3 py-2 rounded border text-sm resize-y ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-line'}`}
       />
       {voiceInterim && (
-        <div className="text-[11px] text-slate-500 italic px-1 flex items-center gap-1">
+        <div className="text-[11px] text-muted italic px-1 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
           {voiceInterim}
         </div>
@@ -254,24 +254,24 @@ function StructuredReviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+        <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <div className="text-sm font-bold text-ink flex items-center gap-1.5">
               <Sparkles size={14} className="text-purple-600" /> Organized notes
             </div>
-            {result.summary && <div className="text-[11px] text-slate-600 mt-0.5">{result.summary}</div>}
+            {result.summary && <div className="text-[11px] text-muted mt-0.5">{result.summary}</div>}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={16} /></button>
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 p-1"><X size={16} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Structured notes preview */}
           {result.structured_notes && (
             <section>
-              <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1 flex items-center gap-1">
                 <MessageSquare size={11} /> Notes rewrite (will replace current notes on apply)
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 whitespace-pre-wrap font-mono max-h-64 overflow-y-auto">
+              <div className="rounded-lg border border-line bg-surface-2/70 p-3 text-xs text-ink whitespace-pre-wrap font-mono max-h-64 overflow-y-auto">
                 {result.structured_notes}
               </div>
             </section>
@@ -280,12 +280,12 @@ function StructuredReviewModal({
           {/* Action items */}
           {actionItems.length > 0 && (
             <section>
-              <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1 flex items-center gap-1">
                 <ListChecks size={11} /> Suggested action items ({selectedActions.length}/{actionItems.length} selected)
               </div>
               <ul className="space-y-1.5">
                 {actionItems.map((a, i) => (
-                  <li key={i} className="rounded border border-slate-200 bg-white px-2.5 py-1.5 flex items-start gap-2">
+                  <li key={i} className="rounded border border-line bg-white px-2.5 py-1.5 flex items-start gap-2">
                     <input
                       type="checkbox"
                       checked={!!checked[i]}
@@ -293,9 +293,9 @@ function StructuredReviewModal({
                       className="mt-1 accent-purple-600"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-slate-900">{a.title}</div>
-                      {a.description && <div className="text-[11px] text-slate-600 mt-0.5">{a.description}</div>}
-                      {a.due_date_hint && <div className="text-[10px] text-slate-500 mt-0.5">due hint: {a.due_date_hint}</div>}
+                      <div className="text-sm font-medium text-ink">{a.title}</div>
+                      {a.description && <div className="text-[11px] text-muted mt-0.5">{a.description}</div>}
+                      {a.due_date_hint && <div className="text-[10px] text-muted mt-0.5">due hint: {a.due_date_hint}</div>}
                     </div>
                   </li>
                 ))}
@@ -306,26 +306,26 @@ function StructuredReviewModal({
           {/* Other extracted bits */}
           {(result.next_steps?.length || 0) > 0 && (
             <section>
-              <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Next steps</div>
-              <ul className="list-disc pl-5 space-y-0.5 text-xs text-slate-800">
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">Next steps</div>
+              <ul className="list-disc pl-5 space-y-0.5 text-xs text-ink">
                 {result.next_steps!.map((s, i) => <li key={i}>{s}</li>)}
               </ul>
             </section>
           )}
           {(result.open_questions?.length || 0) > 0 && (
             <section>
-              <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Open questions</div>
-              <ul className="list-disc pl-5 space-y-0.5 text-xs text-slate-800">
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">Open questions</div>
+              <ul className="list-disc pl-5 space-y-0.5 text-xs text-ink">
                 {result.open_questions!.map((s, i) => <li key={i}>{s}</li>)}
               </ul>
             </section>
           )}
           {(result.stakeholders_mentioned?.length || 0) > 0 && (
             <section>
-              <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">People mentioned</div>
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">People mentioned</div>
               <div className="flex flex-wrap gap-1">
                 {result.stakeholders_mentioned!.map((s, i) => (
-                  <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-surface-2 text-ink/80 border border-line">
                     {s.name}{s.role ? ` · ${s.role}` : ''}
                   </span>
                 ))}
@@ -334,7 +334,7 @@ function StructuredReviewModal({
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-5 py-3 border-t border-line/60 flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
           <Button variant="primary" size="sm" onClick={submit} disabled={applying}>
             {applying ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}

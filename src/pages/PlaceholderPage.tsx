@@ -28,17 +28,17 @@ export function PlaceholderPage({ title, subtitle, willContain, meanwhile }: Pla
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 mb-4">
             <Construction size={26} />
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Tab scaffolded — data source TBD</h3>
-          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+          <h3 className="text-lg font-bold text-ink mb-2">Tab scaffolded — data source TBD</h3>
+          <p className="text-sm text-muted mb-6 leading-relaxed">
             This tab is part of the new navigation. The exact data shape is still being decided —
             confirm with Raghu what fields/filters this view should show, and I'll wire it up.
           </p>
 
-          <div className="text-left bg-slate-50 rounded-lg p-5 mb-5 border border-slate-200">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+          <div className="text-left bg-surface-2/70 rounded-lg p-5 mb-5 border border-line">
+            <div className="text-[10px] font-bold text-muted/70 uppercase tracking-wider mb-2">
               Planned contents
             </div>
-            <ul className="space-y-1.5 text-sm text-slate-700">
+            <ul className="space-y-1.5 text-sm text-ink/80">
               {willContain.map((item, i) => (
                 <li key={i} className="flex gap-2">
                   <span className="text-blue-400 flex-shrink-0">•</span>

@@ -33,10 +33,10 @@ interface AccountProject {
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
   active:    'bg-emerald-100 text-emerald-800',
-  on_hold:   'bg-slate-100 text-slate-700',
+  on_hold:   'bg-surface-2 text-ink/80',
   completed: 'bg-sky-100 text-sky-700',
   at_risk:   'bg-red-100 text-red-800',
-  cancelled: 'bg-slate-100 text-slate-500',
+  cancelled: 'bg-surface-2 text-muted',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,7 +184,7 @@ export function ProjectsTab({
   };
 
   if (loading) return (
-    <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+    <div className="py-8 text-center text-xs text-muted/70 flex items-center justify-center gap-2">
       <Loader2 size={14} className="animate-spin" /> Loading projects…
     </div>
   );
@@ -194,7 +194,7 @@ export function ProjectsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-slate-500">
+        <div className="text-[11px] text-muted">
           Active engagements with this account — team, achievements, risks, blockers. Pulled-from-roster suggestions appear below.
         </div>
         <button type="button" onClick={() => addBlank()}
@@ -215,11 +215,11 @@ export function ProjectsTab({
                 key={s.project}
                 type="button"
                 onClick={() => promoteSuggestion(s.project, s.members)}
-                className="text-[11px] inline-flex items-center gap-1 bg-white border border-violet-200 hover:border-violet-400 text-slate-700 hover:text-violet-700 rounded px-2 py-1"
+                className="text-[11px] inline-flex items-center gap-1 bg-white border border-violet-200 hover:border-violet-400 text-ink/80 hover:text-violet-700 rounded px-2 py-1"
                 title="Click to add this as a project with the matched team members"
               >
                 <Plus size={10} className="text-violet-500" /> {s.project}
-                <span className="text-[10px] text-slate-500 ml-1">{s.members.length} member{s.members.length === 1 ? '' : 's'}</span>
+                <span className="text-[10px] text-muted ml-1">{s.members.length} member{s.members.length === 1 ? '' : 's'}</span>
               </button>
             ))}
           </div>
@@ -227,7 +227,7 @@ export function ProjectsTab({
       )}
 
       {rows.length === 0 ? (
-        <div className="py-10 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-lg">
+        <div className="py-10 text-center text-sm text-muted border border-dashed border-line rounded-lg">
           No projects yet. Click <strong>+ Add project</strong>, or promote one from the suggestions above.
         </div>
       ) : (
@@ -236,7 +236,7 @@ export function ProjectsTab({
             const saving = savingIds.has(p.id);
             const blur = () => { if (p.name.trim()) void save(p); };
             return (
-              <div key={p.id} className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <div key={p.id} className="rounded-lg border border-line bg-white p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <FolderKanban size={16} className="text-indigo-500 flex-shrink-0 mt-1" />
                   <div className="flex-1 min-w-0">
@@ -245,7 +245,7 @@ export function ProjectsTab({
                              onChange={(e) => patch(p.id, { name: e.target.value })}
                              onBlur={blur}
                              placeholder="Project name *"
-                             className="flex-1 text-sm font-semibold text-slate-900 border border-transparent hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1" />
+                             className="flex-1 text-sm font-semibold text-ink border border-transparent hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1" />
                       <select value={p.status}
                               onChange={(e) => { const s = e.target.value as ProjectStatus; patch(p.id, { status: s }); if (p.name.trim()) void save({ ...p, status: s }); }}
                               className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full border-0 cursor-pointer ${STATUS_STYLES[p.status]}`}>
@@ -256,16 +256,16 @@ export function ProjectsTab({
                         <option value="cancelled">Cancelled</option>
                       </select>
                     </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500">
-                      <span>Start <input type="date" value={p.startDate ?? ''} onChange={(e) => patch(p.id, { startDate: e.target.value || null })} onBlur={blur} className="ml-1 px-1 py-0.5 border border-slate-200 rounded text-[11px]" /></span>
-                      <span>Target end <input type="date" value={p.targetEndDate ?? ''} onChange={(e) => patch(p.id, { targetEndDate: e.target.value || null })} onBlur={blur} className="ml-1 px-1 py-0.5 border border-slate-200 rounded text-[11px]" /></span>
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted">
+                      <span>Start <input type="date" value={p.startDate ?? ''} onChange={(e) => patch(p.id, { startDate: e.target.value || null })} onBlur={blur} className="ml-1 px-1 py-0.5 border border-line rounded text-[11px]" /></span>
+                      <span>Target end <input type="date" value={p.targetEndDate ?? ''} onChange={(e) => patch(p.id, { targetEndDate: e.target.value || null })} onBlur={blur} className="ml-1 px-1 py-0.5 border border-line rounded text-[11px]" /></span>
                     </div>
                   </div>
                   <div className="flex-shrink-0">
-                    {saving ? <Loader2 size={12} className="animate-spin text-slate-400" /> : (
+                    {saving ? <Loader2 size={12} className="animate-spin text-muted/70" /> : (
                       <button type="button"
                               onClick={() => { if (confirm(`Remove project "${p.name || 'this project'}"?`)) void remove(p.id); }}
-                              className="text-slate-300 hover:text-red-600 p-1 rounded hover:bg-red-50">
+                              className="text-line hover:text-red-600 p-1 rounded hover:bg-red-50">
                         <Trash2 size={12} />
                       </button>
                     )}
@@ -273,7 +273,7 @@ export function ProjectsTab({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider inline-flex items-center gap-1 mb-1">
+                  <label className="text-[10px] font-semibold text-muted uppercase tracking-wider inline-flex items-center gap-1 mb-1">
                     <Users size={10} /> Team ({p.teamMembers.length})
                   </label>
                   <input
@@ -281,7 +281,7 @@ export function ProjectsTab({
                     onChange={(e) => patch(p.id, { teamMembers: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
                     onBlur={blur}
                     placeholder="Comma-separated names — Anupama, Manjunath, …"
-                    className="w-full text-xs text-slate-700 border border-slate-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1.5"
+                    className="w-full text-xs text-ink/80 border border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1.5"
                   />
                 </div>
 
@@ -293,7 +293,7 @@ export function ProjectsTab({
                     <textarea value={p.achievements} onChange={(e) => patch(p.id, { achievements: e.target.value })} onBlur={blur}
                               placeholder="Wins, milestones, customer compliments…"
                               rows={3}
-                              className="w-full text-[11px] text-slate-700 border border-slate-200 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 rounded px-2 py-1.5 resize-y" />
+                              className="w-full text-[11px] text-ink/80 border border-line focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 rounded px-2 py-1.5 resize-y" />
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider inline-flex items-center gap-1 mb-1">
@@ -302,7 +302,7 @@ export function ProjectsTab({
                     <textarea value={p.risks} onChange={(e) => patch(p.id, { risks: e.target.value })} onBlur={blur}
                               placeholder="Things that might go wrong if unaddressed…"
                               rows={3}
-                              className="w-full text-[11px] text-slate-700 border border-slate-200 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 rounded px-2 py-1.5 resize-y" />
+                              className="w-full text-[11px] text-ink/80 border border-line focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 rounded px-2 py-1.5 resize-y" />
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold text-red-700 uppercase tracking-wider inline-flex items-center gap-1 mb-1">
@@ -311,7 +311,7 @@ export function ProjectsTab({
                     <textarea value={p.blockers} onChange={(e) => patch(p.id, { blockers: e.target.value })} onBlur={blur}
                               placeholder="Things blocking progress NOW…"
                               rows={3}
-                              className="w-full text-[11px] text-slate-700 border border-slate-200 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100 rounded px-2 py-1.5 resize-y" />
+                              className="w-full text-[11px] text-ink/80 border border-line focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100 rounded px-2 py-1.5 resize-y" />
                   </div>
                 </div>
               </div>

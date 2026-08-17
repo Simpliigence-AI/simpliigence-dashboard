@@ -54,7 +54,7 @@ function bandFor(pct: number | null): Band {
 }
 
 const BAND_CELL: Record<Band, string> = {
-  none: 'bg-slate-50 text-slate-300 border-slate-100',
+  none: 'bg-surface-2/70 text-line border-line/60',
   low: 'bg-rose-100 text-rose-900 border-rose-200 hover:bg-rose-200/70',
   mid: 'bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-200/70',
   high: 'bg-emerald-100 text-emerald-900 border-emerald-200 hover:bg-emerald-200/70',
@@ -176,11 +176,11 @@ export default function PodUtilizationView() {
 
   if (pods.length === 0) {
     return (
-      <div className="py-12 text-center text-sm text-slate-500">
-        <div className="text-base font-semibold text-slate-700 mb-1">No pods assigned yet</div>
+      <div className="py-12 text-center text-sm text-muted">
+        <div className="text-base font-semibold text-ink/80 mb-1">No pods assigned yet</div>
         <p>
-          Open the <span className="font-medium text-slate-800">People</span> tab, pick a resource, and set their{' '}
-          <span className="font-medium text-slate-800">Pod</span> (e.g. <span className="font-medium">Pod 1</span>).
+          Open the <span className="font-medium text-ink">People</span> tab, pick a resource, and set their{' '}
+          <span className="font-medium text-ink">Pod</span> (e.g. <span className="font-medium">Pod 1</span>).
           Pods will start showing up here.
         </p>
       </div>
@@ -194,15 +194,15 @@ export default function PodUtilizationView() {
         <button
           type="button"
           onClick={() => setShowEarlier((v) => !v)}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-line bg-white text-ink/80 hover:bg-surface-2/70"
         >
           {showEarlier ? 'Hide earlier months' : 'Show earlier months'}
         </button>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-muted/70">
           {showEarlier ? 'Full year' : `${months[0]} – Dec`} · capacity = pod members × {HOURS_PER_PERSON_MONTH}h
         </span>
 
-        <div className="ml-auto flex items-center gap-2.5 text-[11px] text-slate-600">
+        <div className="ml-auto flex items-center gap-2.5 text-[11px] text-muted">
           <span className="flex items-center gap-1"><span className="w-4 h-3.5 rounded bg-rose-100 border border-rose-200 inline-block" /> under {LOW}%</span>
           <span className="flex items-center gap-1"><span className="w-4 h-3.5 rounded bg-amber-100 border border-amber-200 inline-block" /> {LOW}–{GOOD - 1}%</span>
           <span className="flex items-center gap-1"><span className="w-4 h-3.5 rounded bg-emerald-100 border border-emerald-200 inline-block" /> {GOOD}–100%</span>
@@ -217,18 +217,18 @@ export default function PodUtilizationView() {
         </div>
       )}
 
-      <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
+      <div className="overflow-x-auto border border-line rounded-xl bg-white">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-slate-50">
-              <th className="sticky left-0 z-20 bg-slate-50 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 min-w-[210px]">
+            <tr className="bg-surface-2/70">
+              <th className="sticky left-0 z-20 bg-surface-2/70 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted border-b border-line min-w-[210px]">
                 Pod
               </th>
               {months.map((m, i) => (
                 <th
                   key={m}
-                  className={`px-2 py-2.5 text-center text-[11px] font-semibold border-b border-slate-200 min-w-[84px] ${
-                    !showEarlier && i === 0 ? 'text-blue-700' : 'text-slate-600'
+                  className={`px-2 py-2.5 text-center text-[11px] font-semibold border-b border-line min-w-[84px] ${
+                    !showEarlier && i === 0 ? 'text-blue-700' : 'text-muted'
                   }`}
                 >
                   {m}
@@ -245,21 +245,21 @@ export default function PodUtilizationView() {
               const hue = colorHash(row.pod);
               return (
                 <Fragment key={row.pod}>
-                  <tr className="hover:bg-slate-50/70">
-                    <td className="sticky left-0 z-10 bg-white px-2 py-2 border-b border-slate-100">
+                  <tr className="hover:bg-surface-2/70">
+                    <td className="sticky left-0 z-10 bg-white px-2 py-2 border-b border-line/60">
                       <button
                         type="button"
                         onClick={() => toggle(row.pod)}
                         aria-expanded={open}
                         className="w-full flex items-center gap-2 text-left group"
                       >
-                        <span className="text-slate-400 group-hover:text-slate-600 shrink-0">
+                        <span className="text-muted/70 group-hover:text-muted shrink-0">
                           {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                         </span>
                         <span className="w-1.5 h-7 rounded-full shrink-0" style={{ backgroundColor: `hsl(${hue} 60% 55%)` }} />
                         <span className="min-w-0">
-                          <span className="block font-bold text-slate-800">{row.pod}</span>
-                          <span className="block text-[10px] text-slate-400 truncate max-w-[150px]" title={roster.join(', ')}>
+                          <span className="block font-bold text-ink">{row.pod}</span>
+                          <span className="block text-[10px] text-muted/70 truncate max-w-[150px]" title={roster.join(', ')}>
                             {roster.length} {roster.length === 1 ? 'member' : 'members'} · {row.capacity}h/mo
                           </span>
                         </span>
@@ -270,7 +270,7 @@ export default function PodUtilizationView() {
                       const hours = row.hoursByMonth[i];
                       const pct = row.capacity > 0 ? (hours / row.capacity) * 100 : null;
                       return (
-                        <td key={m} className="px-1.5 py-2 border-b border-slate-100">
+                        <td key={m} className="px-1.5 py-2 border-b border-line/60">
                           <button
                             type="button"
                             onClick={() => toggle(row.pod)}
@@ -290,8 +290,8 @@ export default function PodUtilizationView() {
                   </tr>
 
                   {open && row.members.map((mem) => (
-                    <tr key={`${row.pod}-${mem.name}`} className="bg-slate-50/40">
-                      <td className="sticky left-0 z-10 bg-slate-50/40 px-4 py-1.5 border-b border-slate-100">
+                    <tr key={`${row.pod}-${mem.name}`} className="bg-surface-2/40">
+                      <td className="sticky left-0 z-10 bg-surface-2/40 px-4 py-1.5 border-b border-line/60">
                         <div className="flex items-center gap-2 pl-5 min-w-0">
                           <span
                             className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold shrink-0"
@@ -302,7 +302,7 @@ export default function PodUtilizationView() {
                           >
                             {getInitials(mem.name)}
                           </span>
-                          <span className="text-xs text-slate-700 truncate">{mem.name}</span>
+                          <span className="text-xs text-ink/80 truncate">{mem.name}</span>
                         </div>
                       </td>
                       {months.map((m) => {
@@ -312,7 +312,7 @@ export default function PodUtilizationView() {
                           .slice()
                           .sort((a, b) => b.hours - a.hours);
                         return (
-                          <td key={m} className="px-1.5 py-1.5 border-b border-slate-100 text-center">
+                          <td key={m} className="px-1.5 py-1.5 border-b border-line/60 text-center">
                             {cell.hours > 0 ? (
                               <span
                                 title={`${mem.name} — ${m}: ${Math.round(cell.hours)}h (${Math.round(pct)}% of ${HOURS_PER_PERSON_MONTH}h)\n${projects.map((p) => `${p.name}: ${Math.round(p.hours)}h`).join('\n')}`}
@@ -321,7 +321,7 @@ export default function PodUtilizationView() {
                                 <span className={`font-semibold ${pct >= GOOD ? 'text-emerald-700' : pct >= LOW ? 'text-amber-700' : 'text-rose-700'}`}>
                                   {Math.round(pct)}%
                                 </span>
-                                <span className="block text-[9px] text-slate-400 truncate max-w-[80px]">
+                                <span className="block text-[9px] text-muted/70 truncate max-w-[80px]">
                                   {projects.length === 1
                                     ? projects[0].name
                                     : projects.length > 1
@@ -330,7 +330,7 @@ export default function PodUtilizationView() {
                                 </span>
                               </span>
                             ) : (
-                              <span className="text-[11px] text-slate-300">idle</span>
+                              <span className="text-[11px] text-line">idle</span>
                             )}
                           </td>
                         );
@@ -343,16 +343,16 @@ export default function PodUtilizationView() {
           </tbody>
 
           <tfoot>
-            <tr className="bg-slate-50">
-              <td className="sticky left-0 z-10 bg-slate-50 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-t border-slate-200">
+            <tr className="bg-surface-2/70">
+              <td className="sticky left-0 z-10 bg-surface-2/70 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted border-t border-line">
                 All pods
               </td>
               {totals.map((t, i) => (
-                <td key={months[i]} className="px-1.5 py-2 border-t border-slate-200 text-center">
-                  <span className="block text-sm font-bold tabular-nums text-slate-800">
+                <td key={months[i]} className="px-1.5 py-2 border-t border-line text-center">
+                  <span className="block text-sm font-bold tabular-nums text-ink">
                     {t.pct === null ? '—' : `${Math.round(t.pct)}%`}
                   </span>
-                  <span className="block text-[9px] text-slate-400 tabular-nums">
+                  <span className="block text-[9px] text-muted/70 tabular-nums">
                     {Math.round(t.hours)}/{t.capacity}
                   </span>
                 </td>
@@ -362,7 +362,7 @@ export default function PodUtilizationView() {
         </table>
       </div>
 
-      <p className="mt-3 text-[11px] text-slate-400 flex items-start gap-1.5">
+      <p className="mt-3 text-[11px] text-muted/70 flex items-start gap-1.5">
         <Info size={12} className="mt-0.5 shrink-0" />
         <span>
           Capacity is the pod&apos;s full roster, so members with no hours count as spare capacity rather than being

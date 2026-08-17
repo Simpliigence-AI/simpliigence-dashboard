@@ -95,7 +95,7 @@ function SmartQueryPanel({
           className="flex gap-2"
         >
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/70" />
             <input
               ref={inputRef}
               type="text"
@@ -105,7 +105,7 @@ function SmartQueryPanel({
               className="w-full pl-9 pr-8 py-2.5 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
             />
             {query && (
-              <button type="button" onClick={handleClear} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <button type="button" onClick={handleClear} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted/70 hover:text-muted">
                 <X size={14} />
               </button>
             )}
@@ -137,14 +137,14 @@ function SmartQueryPanel({
         {loading && (
           <div className="mt-4 bg-white rounded-lg border border-blue-100 p-6 flex items-center justify-center gap-3">
             <Loader2 size={18} className="text-blue-500 animate-spin" />
-            <span className="text-sm text-slate-500">Claude is thinking...</span>
+            <span className="text-sm text-muted">Claude is thinking...</span>
           </div>
         )}
 
         {/* Result */}
         {result && !loading && (
           <div className="mt-4 bg-white rounded-lg border border-blue-100 p-4">
-            <div className="prose prose-sm max-w-none text-slate-700 [&_strong]:text-slate-900">
+            <div className="prose prose-sm max-w-none text-ink/80 [&_strong]:text-ink">
               {result.answer.split('\n').map((line, i) => (
                 <p key={i} className={`${line.startsWith('-') ? 'ml-2' : ''} ${!line.trim() ? 'hidden' : ''} my-1`}>
                   {line.split(/(\*\*[^*]+\*\*)/).map((part, j) =>
@@ -160,18 +160,18 @@ function SmartQueryPanel({
             {result.data && result.columns && result.data.length > 0 && (
               <div className="mt-3 overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-slate-50">
-                    <tr className="border-b border-slate-200">
+                  <thead className="sticky top-0 bg-surface-2/70">
+                    <tr className="border-b border-line">
                       {result.columns.map((col) => (
-                        <th key={col} className="py-2 px-3 text-left font-semibold text-slate-600 text-xs">{col}</th>
+                        <th key={col} className="py-2 px-3 text-left font-semibold text-muted text-xs">{col}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {result.data.map((row, i) => (
-                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
+                      <tr key={i} className="border-b border-line/40 hover:bg-surface-2/70">
                         {result.columns!.map((col) => (
-                          <td key={col} className="py-1.5 px-3 text-slate-700 tabular-nums">{row[col] ?? '—'}</td>
+                          <td key={col} className="py-1.5 px-3 text-ink/80 tabular-nums">{row[col] ?? '—'}</td>
                         ))}
                       </tr>
                     ))}
@@ -181,13 +181,13 @@ function SmartQueryPanel({
             )}
 
             {/* Ask another */}
-            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-400">Try also:</span>
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line/60">
+              <span className="text-xs text-muted/70">Try also:</span>
               {SUGGESTED_QUERIES.filter((sq) => sq !== query).slice(0, 4).map((sq) => (
                 <button
                   key={sq}
                   onClick={() => { setQuery(sq); handleSubmit(sq); }}
-                  className="text-xs px-2 py-1 bg-slate-50 border border-slate-200 rounded-full text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="text-xs px-2 py-1 bg-surface-2/70 border border-line rounded-full text-muted hover:bg-surface-2 transition-colors"
                 >
                   {sq}
                 </button>
@@ -594,7 +594,7 @@ export default function DashboardPage() {
           return (
             <div
               key={sec.key}
-              className={`relative rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow`}
+              className={`relative rounded-xl border border-line bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow`}
             >
               {/* Accent bar */}
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${a.bar}`} />
@@ -612,18 +612,18 @@ export default function DashboardPage() {
                     const isSensitive = 'sensitive' in s && s.sensitive;
                     return (
                       <div key={s.label}>
-                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</div>
+                        <div className="text-[9px] font-bold text-muted/70 uppercase tracking-wider">{s.label}</div>
                         <div className="text-2xl font-bold text-ink tabular-nums tracking-[-0.025em]">
                           {isSensitive ? <Sensitive>{s.value}</Sensitive> : s.value}
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{s.sub}</div>
+                        <div className="text-[10px] text-muted mt-0.5">{s.sub}</div>
                       </div>
                     );
                   })}
                 </div>
 
                 {/* Quick-link rail */}
-                <div className="flex flex-wrap gap-1 pt-3 border-t border-slate-100">
+                <div className="flex flex-wrap gap-1 pt-3 border-t border-line/60">
                   {sec.links.map((l) => (
                     <Link
                       key={l.to}
@@ -646,9 +646,9 @@ export default function DashboardPage() {
         <Card className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <History size={14} className="text-slate-500" />
+              <History size={14} className="text-muted" />
               <h3 className="display-md text-ink">Recent Activity</h3>
-              <span className="text-[10px] text-slate-400">last 14 days · {recentActivity.length} events</span>
+              <span className="text-[10px] text-muted/70">last 14 days · {recentActivity.length} events</span>
             </div>
           </div>
           <div className="space-y-1.5 max-h-72 overflow-y-auto">
@@ -656,9 +656,9 @@ export default function DashboardPage() {
               <Link
                 key={i}
                 to={item.href}
-                className="flex items-start gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-50 group transition-colors"
+                className="flex items-start gap-3 px-2 py-1.5 rounded-lg hover:bg-surface-2/70 group transition-colors"
               >
-                <span className="text-[10px] text-slate-400 font-mono w-24 flex-shrink-0 mt-0.5">
+                <span className="text-[10px] text-muted/70 font-mono w-24 flex-shrink-0 mt-0.5">
                   {new Date(item.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
                   {new Date(item.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false })}
                 </span>
@@ -669,9 +669,9 @@ export default function DashboardPage() {
                 }`}>
                   {item.source}
                 </span>
-                <span className="text-xs font-semibold text-slate-700 w-48 truncate flex-shrink-0">{item.label}</span>
-                <span className="text-xs text-slate-500 flex-1 truncate">{item.detail}</span>
-                <ArrowUpRight size={11} className="text-slate-300 group-hover:text-slate-600 flex-shrink-0 mt-0.5" />
+                <span className="text-xs font-semibold text-ink/80 w-48 truncate flex-shrink-0">{item.label}</span>
+                <span className="text-xs text-muted flex-1 truncate">{item.detail}</span>
+                <ArrowUpRight size={11} className="text-line group-hover:text-muted flex-shrink-0 mt-0.5" />
               </Link>
             ))}
           </div>
@@ -852,7 +852,7 @@ function Stat({ label, value, sub, tone = 'mute' }: {
   tone?: 'mute' | 'red' | 'amber' | 'emerald' | 'sky';
 }) {
   const toneCls: Record<typeof tone, string> = {
-    mute:    'text-slate-800',
+    mute:    'text-ink',
     red:     'text-red-700',
     amber:   'text-amber-700',
     emerald: 'text-emerald-700',
@@ -860,9 +860,9 @@ function Stat({ label, value, sub, tone = 'mute' }: {
   };
   return (
     <div>
-      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className="text-[9px] font-bold text-muted/70 uppercase tracking-wider">{label}</div>
       <div className={`text-2xl font-bold tabular-nums tracking-[-0.025em] ${toneCls[tone]}`}>{value}</div>
-      {sub && <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>}
+      {sub && <div className="text-[10px] text-muted mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -934,19 +934,19 @@ function AutomationActivityWidget() {
       />
       <Card title="Latest vendor outreach">
         {recent5.length === 0 ? (
-          <div className="text-xs text-slate-500 italic py-2">No outreach yet.</div>
+          <div className="text-xs text-muted italic py-2">No outreach yet.</div>
         ) : (
           <ul className="space-y-1.5 text-xs">
             {recent5.map((o) => (
               <li key={o.id} className="flex items-baseline gap-2 truncate" title={`${o.subject} → ${o.sentBy ?? ''}`}>
-                <span className="text-[10px] tabular-nums text-slate-400 flex-shrink-0">
+                <span className="text-[10px] tabular-nums text-muted/70 flex-shrink-0">
                   {new Date(o.sentAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 </span>
-                <span className="font-medium text-slate-800 truncate">{vendorName(o.vendorId)}</span>
+                <span className="font-medium text-ink truncate">{vendorName(o.vendorId)}</span>
                 <span className={`text-[9px] uppercase tracking-wider font-semibold flex-shrink-0 ${
                   o.sendStatus === 'sent'    ? 'text-emerald-700' :
                   o.sendStatus === 'replied' ? 'text-sky-700'     :
-                  o.sendStatus === 'bounced' ? 'text-red-700'     : 'text-slate-500'
+                  o.sendStatus === 'bounced' ? 'text-red-700'     : 'text-muted'
                 }`}>{o.sendStatus}</span>
               </li>
             ))}

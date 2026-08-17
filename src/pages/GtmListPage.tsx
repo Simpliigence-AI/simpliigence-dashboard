@@ -154,46 +154,46 @@ export default function GtmListPage() {
       <Card className="mb-5">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted/70" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, industry, geo, partnership type…"
-              className="w-full pl-7 pr-2 py-1.5 rounded border border-slate-300 text-sm"
+              className="w-full pl-7 pr-2 py-1.5 rounded border border-line text-sm"
             />
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-slate-500">Status</span>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="px-2 py-1.5 rounded border border-slate-300 text-xs bg-white">
+            <span className="text-muted">Status</span>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="px-2 py-1.5 rounded border border-line text-xs bg-white">
               <option value="active">Active (excl. won/lost)</option>
               <option value="all">All</option>
               {Object.entries(GTM_STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-slate-500">Priority</span>
-            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)} className="px-2 py-1.5 rounded border border-slate-300 text-xs bg-white">
+            <span className="text-muted">Priority</span>
+            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)} className="px-2 py-1.5 rounded border border-line text-xs bg-white">
               <option value="all">All</option>
               {Object.entries(GTM_PRIORITY_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-slate-500">Assignee</span>
-            <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="px-2 py-1.5 rounded border border-slate-300 text-xs bg-white">
+            <span className="text-muted">Assignee</span>
+            <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="px-2 py-1.5 rounded border border-line text-xs bg-white">
               <option value="">All</option>
               {assigneeOptions.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
-          <span className="ml-auto text-slate-500">{filtered.length} of {accounts.length}</span>
+          <span className="ml-auto text-muted">{filtered.length} of {accounts.length}</span>
         </div>
       </Card>
 
       {/* List */}
       {loading && accounts.length === 0 ? (
-        <div className="text-center text-slate-500 py-10 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
+        <div className="text-center text-muted py-10 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center text-slate-400 py-10 text-sm italic">
+        <div className="text-center text-muted/70 py-10 text-sm italic">
           {accounts.length === 0 ? 'No strategic accounts yet. Click "Add strategic account" to start.' : 'No accounts match the current filters.'}
         </div>
       ) : (
@@ -201,7 +201,7 @@ export default function GtmListPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                <tr className="border-b border-line/60 text-[10px] font-semibold text-muted uppercase tracking-wider">
                   <th className="text-left px-3 py-2">Account</th>
                   <th className="text-left px-3 py-2">Assignee</th>
                   <th className="text-left px-3 py-2">Status</th>
@@ -224,21 +224,21 @@ export default function GtmListPage() {
         <Drawer open onClose={() => setAddOpen(false)} title="Add strategic account" width="max-w-md">
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium text-slate-600 uppercase tracking-wider">Account name</label>
-              <input type="text" value={addName} onChange={(e) => setAddName(e.target.value)} autoFocus placeholder="e.g. Slalom, Deloitte Digital, Publicis Sapient" className="mt-1 w-full px-3 py-2 rounded border border-slate-300 text-sm" />
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Account name</label>
+              <input type="text" value={addName} onChange={(e) => setAddName(e.target.value)} autoFocus placeholder="e.g. Slalom, Deloitte Digital, Publicis Sapient" className="mt-1 w-full px-3 py-2 rounded border border-line text-sm" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600 uppercase tracking-wider">Assignee (owner)</label>
-              <input type="email" value={addAssignee} onChange={(e) => setAddAssignee(e.target.value)} placeholder="owner@simpliigence.com" className="mt-1 w-full px-3 py-2 rounded border border-slate-300 text-sm" />
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Assignee (owner)</label>
+              <input type="email" value={addAssignee} onChange={(e) => setAddAssignee(e.target.value)} placeholder="owner@simpliigence.com" className="mt-1 w-full px-3 py-2 rounded border border-line text-sm" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600 uppercase tracking-wider">Priority</label>
-              <select value={addPriority} onChange={(e) => setAddPriority(e.target.value as GtmPriority)} className="mt-1 w-full px-3 py-2 rounded border border-slate-300 text-sm bg-white">
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Priority</label>
+              <select value={addPriority} onChange={(e) => setAddPriority(e.target.value as GtmPriority)} className="mt-1 w-full px-3 py-2 rounded border border-line text-sm bg-white">
                 {Object.entries(GTM_PRIORITY_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
             {err && <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1.5 flex items-center gap-1"><AlertTriangle size={11} /> {err}</div>}
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex justify-end gap-2 pt-2 border-t border-line/60">
               <Button variant="ghost" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button variant="primary" size="sm" onClick={submitAdd} disabled={!addName.trim() || busy}>
                 {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
@@ -259,22 +259,22 @@ function GtmRow({ account, onOpen }: { account: GtmAccount; onOpen: () => void }
   const statusMeta = GTM_STATUS_META[account.status];
   const prMeta = GTM_PRIORITY_META[account.priority];
   const dU = daysUntil(account.nextStepDate);
-  const dueCls = dU == null ? 'text-slate-500' : dU < 0 ? 'text-rose-700 font-semibold' : dU <= 3 ? 'text-amber-700' : 'text-slate-600';
+  const dueCls = dU == null ? 'text-muted' : dU < 0 ? 'text-rose-700 font-semibold' : dU <= 3 ? 'text-amber-700' : 'text-muted';
   return (
-    <tr className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={onOpen}>
+    <tr className="border-b border-line/60 hover:bg-surface-2/70 cursor-pointer" onClick={onOpen}>
       <td className="px-3 py-2">
-        <div className="font-semibold text-slate-900">{account.name}</div>
-        <div className="text-[11px] text-slate-500 truncate max-w-xs">{[account.industry, account.geo, account.segment].filter(Boolean).join(' · ') || '—'}</div>
+        <div className="font-semibold text-ink">{account.name}</div>
+        <div className="text-[11px] text-muted truncate max-w-xs">{[account.industry, account.geo, account.segment].filter(Boolean).join(' · ') || '—'}</div>
       </td>
-      <td className="px-3 py-2 text-xs text-slate-700">{account.assigneeEmail || <span className="text-slate-400 italic">unassigned</span>}</td>
+      <td className="px-3 py-2 text-xs text-ink/80">{account.assigneeEmail || <span className="text-muted/70 italic">unassigned</span>}</td>
       <td className="px-3 py-2"><Badge className={statusMeta.cls}>{statusMeta.label}</Badge></td>
       <td className="px-3 py-2"><span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded border ${prMeta.cls}`}><span className={`w-1.5 h-1.5 rounded-full ${prMeta.dot}`} /> {prMeta.label}</span></td>
       <td className="px-3 py-2">
         <div className={`text-xs ${dueCls}`}>{account.nextStepDate ? fmtDate(account.nextStepDate) : '—'}</div>
-        <div className="text-[11px] text-slate-600 truncate max-w-xs">{account.nextStep || <span className="text-slate-400 italic">no next step</span>}</div>
+        <div className="text-[11px] text-muted truncate max-w-xs">{account.nextStep || <span className="text-muted/70 italic">no next step</span>}</div>
       </td>
-      <td className="px-3 py-2 text-right text-xs font-semibold text-slate-800 tabular-nums">{fmtUsdCompact(account.estimatedAnnualValueUsd)}</td>
-      <td className="px-3 py-2 text-xs text-slate-700">{account.partnershipType || <span className="text-slate-400 italic">—</span>}</td>
+      <td className="px-3 py-2 text-right text-xs font-semibold text-ink tabular-nums">{fmtUsdCompact(account.estimatedAnnualValueUsd)}</td>
+      <td className="px-3 py-2 text-xs text-ink/80">{account.partnershipType || <span className="text-muted/70 italic">—</span>}</td>
     </tr>
   );
 }
@@ -298,7 +298,7 @@ function GtmAccountDrawer({ account, onClose }: { account: GtmAccount; onClose: 
 
   return (
     <Drawer open onClose={onClose} title={account.name} width="max-w-3xl">
-      <div className="flex items-center gap-1 border-b border-slate-200 mb-4 -mt-2 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-line mb-4 -mt-2 overflow-x-auto">
         {([
           { key: 'plan', label: 'Account plan' },
           { key: 'contacts', label: `Contacts (${contacts.length})` },
@@ -309,7 +309,7 @@ function GtmAccountDrawer({ account, onClose }: { account: GtmAccount; onClose: 
             type="button"
             onClick={() => setTab(t.key)}
             className={`px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
-              tab === t.key ? 'border-sky-600 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+              tab === t.key ? 'border-sky-600 text-sky-700' : 'border-transparent text-muted hover:text-ink'
             }`}
           >
             {t.label}
@@ -402,12 +402,12 @@ function ContactsEditor({ accountId, contacts, directoryEmails }: { accountId: s
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-        <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-1"><Users size={11} /> Add contact</div>
+      <div className="rounded-lg border border-line bg-surface-2/70 p-3 space-y-2">
+        <div className="text-[11px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1"><Users size={11} /> Add contact</div>
         <div className="grid grid-cols-3 gap-2">
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name *" className="px-2 py-1.5 rounded border border-slate-300 text-sm" />
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (e.g. VP Alliances)" className="px-2 py-1.5 rounded border border-slate-300 text-sm" />
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@company.com" className="px-2 py-1.5 rounded border border-slate-300 text-sm" />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name *" className="px-2 py-1.5 rounded border border-line text-sm" />
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (e.g. VP Alliances)" className="px-2 py-1.5 rounded border border-line text-sm" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@company.com" className="px-2 py-1.5 rounded border border-line text-sm" />
         </div>
         {err && <div className="text-[11px] text-rose-700 flex items-center gap-1"><AlertTriangle size={10} /> {err}</div>}
         <div className="flex justify-end">
@@ -419,7 +419,7 @@ function ContactsEditor({ accountId, contacts, directoryEmails }: { accountId: s
       </div>
 
       {contacts.length === 0 ? (
-        <div className="text-center text-slate-400 italic text-sm py-6">No contacts yet.</div>
+        <div className="text-center text-muted/70 italic text-sm py-6">No contacts yet.</div>
       ) : (
         <ul className="space-y-2">
           {contacts.map((c) => <ContactRow key={c.id} contact={c} onChange={update} onRemove={remove} directoryEmails={directoryEmails} />)}
@@ -437,37 +437,37 @@ function ContactRow({ contact, onChange, onRemove, directoryEmails }: {
 }) {
   const ownerProfile = contact.relationshipOwner ? lookupProfile(contact.relationshipOwner, useAuthStore.getState().directory) : null;
   return (
-    <li className="rounded-lg border border-slate-200 bg-white p-3">
+    <li className="rounded-lg border border-line bg-white p-3">
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-start">
-        <input type="text" value={contact.name} onChange={(e) => onChange(contact.id, { name: e.target.value })} className="md:col-span-2 text-sm font-semibold text-slate-900 px-1 py-1 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
-        <input type="text" value={contact.title ?? ''} onChange={(e) => onChange(contact.id, { title: e.target.value || null })} placeholder="Title" className="md:col-span-2 text-xs text-slate-700 px-1 py-1 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
-        <input type="date" value={contact.lastTouched ?? ''} onChange={(e) => onChange(contact.id, { lastTouched: e.target.value || null })} title="Last touched" className="text-xs text-slate-600 px-1 py-1 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
-        <button type="button" onClick={() => { if (confirm(`Remove ${contact.name}?`)) void onRemove(contact.id); }} className="text-slate-400 hover:text-rose-600 justify-self-end p-1" title="Remove"><Trash2 size={13} /></button>
+        <input type="text" value={contact.name} onChange={(e) => onChange(contact.id, { name: e.target.value })} className="md:col-span-2 text-sm font-semibold text-ink px-1 py-1 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
+        <input type="text" value={contact.title ?? ''} onChange={(e) => onChange(contact.id, { title: e.target.value || null })} placeholder="Title" className="md:col-span-2 text-xs text-ink/80 px-1 py-1 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
+        <input type="date" value={contact.lastTouched ?? ''} onChange={(e) => onChange(contact.id, { lastTouched: e.target.value || null })} title="Last touched" className="text-xs text-muted px-1 py-1 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
+        <button type="button" onClick={() => { if (confirm(`Remove ${contact.name}?`)) void onRemove(contact.id); }} className="text-muted/70 hover:text-rose-600 justify-self-end p-1" title="Remove"><Trash2 size={13} /></button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1.5">
-        <label className="flex items-center gap-1 text-[11px] text-slate-600">
-          <Mail size={10} className="text-slate-400" />
-          <input type="email" value={contact.email ?? ''} onChange={(e) => onChange(contact.id, { email: e.target.value || null })} placeholder="email@…" className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
+        <label className="flex items-center gap-1 text-[11px] text-muted">
+          <Mail size={10} className="text-muted/70" />
+          <input type="email" value={contact.email ?? ''} onChange={(e) => onChange(contact.id, { email: e.target.value || null })} placeholder="email@…" className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
         </label>
-        <label className="flex items-center gap-1 text-[11px] text-slate-600">
-          <Phone size={10} className="text-slate-400" />
-          <input type="tel" value={contact.phone ?? ''} onChange={(e) => onChange(contact.id, { phone: e.target.value || null })} placeholder="+1…" className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
+        <label className="flex items-center gap-1 text-[11px] text-muted">
+          <Phone size={10} className="text-muted/70" />
+          <input type="tel" value={contact.phone ?? ''} onChange={(e) => onChange(contact.id, { phone: e.target.value || null })} placeholder="+1…" className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
         </label>
-        <label className="flex items-center gap-1 text-[11px] text-slate-600">
-          <LinkIcon size={10} className="text-slate-400" />
-          <input type="url" value={contact.linkedinUrl ?? ''} onChange={(e) => onChange(contact.id, { linkedinUrl: e.target.value || null })} placeholder="linkedin.com/in/…" className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
-          {contact.linkedinUrl && <a href={contact.linkedinUrl} target="_blank" rel="noopener" className="text-slate-400 hover:text-sky-600"><ExternalLink size={10} /></a>}
+        <label className="flex items-center gap-1 text-[11px] text-muted">
+          <LinkIcon size={10} className="text-muted/70" />
+          <input type="url" value={contact.linkedinUrl ?? ''} onChange={(e) => onChange(contact.id, { linkedinUrl: e.target.value || null })} placeholder="linkedin.com/in/…" className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
+          {contact.linkedinUrl && <a href={contact.linkedinUrl} target="_blank" rel="noopener" className="text-muted/70 hover:text-sky-600"><ExternalLink size={10} /></a>}
         </label>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1.5">
-        <label className="flex items-center gap-1 text-[11px] text-slate-600 md:col-span-1">
-          <User size={10} className="text-slate-400" />
-          <input type="email" value={contact.relationshipOwner ?? ''} onChange={(e) => onChange(contact.id, { relationshipOwner: e.target.value || null })} placeholder="owner@simpliigence.com" list={`owners-${contact.id}`} className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
+        <label className="flex items-center gap-1 text-[11px] text-muted md:col-span-1">
+          <User size={10} className="text-muted/70" />
+          <input type="email" value={contact.relationshipOwner ?? ''} onChange={(e) => onChange(contact.id, { relationshipOwner: e.target.value || null })} placeholder="owner@simpliigence.com" list={`owners-${contact.id}`} className="flex-1 px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
           <datalist id={`owners-${contact.id}`}>{directoryEmails.map((e) => <option key={e} value={e} />)}</datalist>
         </label>
-        <input type="text" value={contact.notes ?? ''} onChange={(e) => onChange(contact.id, { notes: e.target.value || null })} placeholder="Notes / relationship context" className="md:col-span-2 text-[11px] text-slate-600 px-1 py-0.5 rounded border border-slate-200 focus:border-slate-300 focus:outline-none" />
+        <input type="text" value={contact.notes ?? ''} onChange={(e) => onChange(contact.id, { notes: e.target.value || null })} placeholder="Notes / relationship context" className="md:col-span-2 text-[11px] text-muted px-1 py-0.5 rounded border border-line focus:border-line focus:outline-none" />
       </div>
-      {ownerProfile?.fullName && <div className="text-[10px] text-slate-400 mt-1">Owned internally by {ownerProfile.fullName}</div>}
+      {ownerProfile?.fullName && <div className="text-[10px] text-muted/70 mt-1">Owned internally by {ownerProfile.fullName}</div>}
     </li>
   );
 }
@@ -495,12 +495,12 @@ function ActionsEditor({ accountId, actions, directoryEmails }: { accountId: str
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-        <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-1"><ClipboardCheck size={11} /> Add action</div>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Action title (e.g. Reach out to VP Alliances at Slalom)" className="w-full px-3 py-1.5 rounded border border-slate-300 text-sm" />
+      <div className="rounded-lg border border-line bg-surface-2/70 p-3 space-y-2">
+        <div className="text-[11px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1"><ClipboardCheck size={11} /> Add action</div>
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Action title (e.g. Reach out to VP Alliances at Slalom)" className="w-full px-3 py-1.5 rounded border border-line text-sm" />
         <div className="grid grid-cols-2 gap-2">
-          <input type="email" value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="assignee@simpliigence.com" list="assignees-add" className="px-2 py-1.5 rounded border border-slate-300 text-xs" />
-          <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="px-2 py-1.5 rounded border border-slate-300 text-xs" />
+          <input type="email" value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="assignee@simpliigence.com" list="assignees-add" className="px-2 py-1.5 rounded border border-line text-xs" />
+          <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="px-2 py-1.5 rounded border border-line text-xs" />
           <datalist id="assignees-add">{directoryEmails.map((e) => <option key={e} value={e} />)}</datalist>
         </div>
         {err && <div className="text-[11px] text-rose-700 flex items-center gap-1"><AlertTriangle size={10} /> {err}</div>}
@@ -513,7 +513,7 @@ function ActionsEditor({ accountId, actions, directoryEmails }: { accountId: str
       </div>
 
       {actions.length === 0 ? (
-        <div className="text-center text-slate-400 italic text-sm py-6">No actions yet.</div>
+        <div className="text-center text-muted/70 italic text-sm py-6">No actions yet.</div>
       ) : (
         <ul className="space-y-1.5">
           {actions.map((a) => <ActionRow key={a.id} action={a} onChange={update} onRemove={remove} directoryEmails={directoryEmails} />)}
@@ -533,27 +533,27 @@ function ActionRow({ action, onChange, onRemove, directoryEmails }: {
   const dU = daysUntil(action.dueDate);
   const isOverdue = dU != null && dU < 0 && action.status !== 'done' && action.status !== 'cancelled';
   return (
-    <li className="rounded-lg border border-slate-200 bg-white p-2.5">
+    <li className="rounded-lg border border-line bg-white p-2.5">
       <div className="flex items-center gap-2 flex-wrap">
         <select value={action.status} onChange={(e) => onChange(action.id, { status: e.target.value as GtmActionStatus })} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border cursor-pointer ${meta.cls}`}>
           {Object.entries(GTM_ACTION_STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
-        <input type="text" value={action.title} onChange={(e) => onChange(action.id, { title: e.target.value })} className={`text-sm font-semibold text-slate-900 flex-1 min-w-[200px] px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50 ${action.status === 'done' ? 'line-through text-slate-400' : ''}`} />
-        <div className="flex items-center gap-1 text-[11px] text-slate-600">
-          <User size={11} className="text-slate-400" />
-          <input type="email" value={action.assigneeEmail ?? ''} onChange={(e) => onChange(action.id, { assigneeEmail: e.target.value || null })} placeholder="unassigned" list={`aa-${action.id}`} className="px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50 w-40" />
+        <input type="text" value={action.title} onChange={(e) => onChange(action.id, { title: e.target.value })} className={`text-sm font-semibold text-ink flex-1 min-w-[200px] px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70 ${action.status === 'done' ? 'line-through text-muted/70' : ''}`} />
+        <div className="flex items-center gap-1 text-[11px] text-muted">
+          <User size={11} className="text-muted/70" />
+          <input type="email" value={action.assigneeEmail ?? ''} onChange={(e) => onChange(action.id, { assigneeEmail: e.target.value || null })} placeholder="unassigned" list={`aa-${action.id}`} className="px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70 w-40" />
           <datalist id={`aa-${action.id}`}>{directoryEmails.map((e) => <option key={e} value={e} />)}</datalist>
         </div>
-        <div className={`flex items-center gap-1 text-[11px] ${isOverdue ? 'text-rose-700 font-semibold' : 'text-slate-600'}`}>
-          <Calendar size={11} className={isOverdue ? 'text-rose-500' : 'text-slate-400'} />
-          <input type="date" value={action.dueDate ?? ''} onChange={(e) => onChange(action.id, { dueDate: e.target.value || null })} className="px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50" />
+        <div className={`flex items-center gap-1 text-[11px] ${isOverdue ? 'text-rose-700 font-semibold' : 'text-muted'}`}>
+          <Calendar size={11} className={isOverdue ? 'text-rose-500' : 'text-muted/70'} />
+          <input type="date" value={action.dueDate ?? ''} onChange={(e) => onChange(action.id, { dueDate: e.target.value || null })} className="px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70" />
         </div>
-        <button type="button" onClick={() => { if (confirm(`Delete "${action.title}"?`)) void onRemove(action.id); }} className="text-slate-400 hover:text-rose-600 p-1" title="Remove"><Trash2 size={13} /></button>
+        <button type="button" onClick={() => { if (confirm(`Delete "${action.title}"?`)) void onRemove(action.id); }} className="text-muted/70 hover:text-rose-600 p-1" title="Remove"><Trash2 size={13} /></button>
       </div>
       {(action.description || action.completedAt) && (
         <details className="mt-1 pl-1">
-          <summary className="text-[10px] text-slate-400 cursor-pointer inline-flex items-center gap-0.5 select-none"><ChevronDown size={9} /> details</summary>
-          {action.description && <div className="text-[11px] text-slate-600 mt-1 pl-3 whitespace-pre-wrap">{action.description}</div>}
+          <summary className="text-[10px] text-muted/70 cursor-pointer inline-flex items-center gap-0.5 select-none"><ChevronDown size={9} /> details</summary>
+          {action.description && <div className="text-[11px] text-muted mt-1 pl-3 whitespace-pre-wrap">{action.description}</div>}
           {action.completedAt && <div className="text-[10px] text-emerald-600 mt-0.5 pl-3">Completed {fmtDate(action.completedAt)}</div>}
         </details>
       )}
@@ -567,8 +567,8 @@ function FieldText({ label, value, onCommit, placeholder }: { label: string; val
   useEffect(() => { setV(value); }, [value]);
   return (
     <label className="block">
-      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</span>
-      <input type="text" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} placeholder={placeholder} className="mt-0.5 w-full px-2 py-1.5 rounded border border-slate-300 text-sm" />
+      <span className="text-[10px] font-medium text-muted uppercase tracking-wider">{label}</span>
+      <input type="text" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} placeholder={placeholder} className="mt-0.5 w-full px-2 py-1.5 rounded border border-line text-sm" />
     </label>
   );
 }
@@ -577,8 +577,8 @@ function FieldTextarea({ label, value, onCommit, rows = 3, placeholder }: { labe
   useEffect(() => { setV(value); }, [value]);
   return (
     <label className="block">
-      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</span>
-      <textarea value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} rows={rows} placeholder={placeholder} className="mt-0.5 w-full px-2 py-1.5 rounded border border-slate-300 text-sm" />
+      <span className="text-[10px] font-medium text-muted uppercase tracking-wider">{label}</span>
+      <textarea value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} rows={rows} placeholder={placeholder} className="mt-0.5 w-full px-2 py-1.5 rounded border border-line text-sm" />
     </label>
   );
 }
@@ -587,11 +587,11 @@ function FieldNumber({ label, value, onCommit }: { label: string; value: number 
   useEffect(() => { setV(value == null ? '' : String(value)); }, [value]);
   return (
     <label className="block">
-      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</span>
+      <span className="text-[10px] font-medium text-muted uppercase tracking-wider">{label}</span>
       <input type="number" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => {
         const parsed = v === '' ? null : Number(v);
         if (parsed !== value) onCommit(parsed);
-      }} className="mt-0.5 w-full px-2 py-1.5 rounded border border-slate-300 text-sm" />
+      }} className="mt-0.5 w-full px-2 py-1.5 rounded border border-line text-sm" />
     </label>
   );
 }
@@ -600,8 +600,8 @@ function FieldDate({ label, value, onCommit }: { label: string; value: string; o
   useEffect(() => { setV(value); }, [value]);
   return (
     <label className="block">
-      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</span>
-      <input type="date" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} className="mt-0.5 w-full px-2 py-1.5 rounded border border-slate-300 text-sm" />
+      <span className="text-[10px] font-medium text-muted uppercase tracking-wider">{label}</span>
+      <input type="date" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} className="mt-0.5 w-full px-2 py-1.5 rounded border border-line text-sm" />
     </label>
   );
 }
@@ -611,8 +611,8 @@ function FieldEmail({ label, value, onCommit, suggestions }: { label: string; va
   useEffect(() => { setV(value); }, [value]);
   return (
     <label className="block">
-      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</span>
-      <input type="email" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} list={id} className="mt-0.5 w-full px-2 py-1.5 rounded border border-slate-300 text-sm" />
+      <span className="text-[10px] font-medium text-muted uppercase tracking-wider">{label}</span>
+      <input type="email" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onCommit(v)} list={id} className="mt-0.5 w-full px-2 py-1.5 rounded border border-line text-sm" />
       <datalist id={id}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
     </label>
   );
@@ -620,8 +620,8 @@ function FieldEmail({ label, value, onCommit, suggestions }: { label: string; va
 function FieldSelect<T extends string>({ label, value, options, renderOption, onCommit }: { label: string; value: T | ''; options: readonly (T | '')[]; renderOption?: (v: T) => string; onCommit: (v: string) => void }): JSX.Element {
   return (
     <label className="block">
-      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</span>
-      <select value={value} onChange={(e) => onCommit(e.target.value)} className="mt-0.5 w-full px-2 py-1.5 rounded border border-slate-300 text-sm bg-white">
+      <span className="text-[10px] font-medium text-muted uppercase tracking-wider">{label}</span>
+      <select value={value} onChange={(e) => onCommit(e.target.value)} className="mt-0.5 w-full px-2 py-1.5 rounded border border-line text-sm bg-white">
         {options.map((o) => <option key={o} value={o}>{o === '' ? '—' : (renderOption ? renderOption(o as T) : o)}</option>)}
       </select>
     </label>

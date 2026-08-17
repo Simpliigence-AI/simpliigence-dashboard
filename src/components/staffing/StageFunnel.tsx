@@ -28,8 +28,8 @@ export function StageFunnel({ summary }: Props) {
       {/* ── Funnel bars ─────────────────────────── */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h4 className="font-bold text-sm text-slate-800">Pipeline Funnel</h4>
-          <span className="text-[10px] text-slate-400">Counts include archived reqs · drop-off is between adjacent stages</span>
+          <h4 className="font-bold text-sm text-ink">Pipeline Funnel</h4>
+          <span className="text-[10px] text-muted/70">Counts include archived reqs · drop-off is between adjacent stages</span>
         </div>
         <div className="space-y-1">
           {rows.map((row, i) => {
@@ -61,9 +61,9 @@ export function StageFunnel({ summary }: Props) {
                       {row.everReached}
                     </span>
                   </div>
-                  <div className="flex-shrink-0 text-[10px] text-slate-500 w-40 flex flex-wrap gap-x-2">
+                  <div className="flex-shrink-0 text-[10px] text-muted w-40 flex flex-wrap gap-x-2">
                     <span>
-                      <span className="font-bold text-slate-700">{row.currentlyHere}</span> now
+                      <span className="font-bold text-ink/80">{row.currentlyHere}</span> now
                       {row.currentPositions > 0 && ` (${row.currentPositions} pos)`}
                     </span>
                     {row.stalledLost > 0 && (
@@ -71,7 +71,7 @@ export function StageFunnel({ summary }: Props) {
                         <span className="font-bold">{row.stalledLost}</span> lost here
                       </span>
                     )}
-                    <span className="text-slate-400">
+                    <span className="text-muted/70">
                       {row.conversionFromStart}% of start
                     </span>
                   </div>

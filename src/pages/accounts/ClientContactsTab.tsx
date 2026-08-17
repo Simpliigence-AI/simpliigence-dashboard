@@ -166,7 +166,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
 
   if (loading) {
     return (
-      <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+      <div className="py-8 text-center text-xs text-muted/70 flex items-center justify-center gap-2">
         <Loader2 size={14} className="animate-spin" /> Loading contacts…
       </div>
     );
@@ -176,7 +176,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
     <div className="space-y-3">
       <SalesforceIntegrationBar accountId={accountId} accountName={accountName} onSynced={refresh} />
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-slate-500">
+        <div className="text-[11px] text-muted">
           People at this client we keep in touch with. Track last call + gifts so we never go cold.
         </div>
         <button
@@ -195,14 +195,14 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
       )}
 
       {contacts.length === 0 ? (
-        <div className="py-10 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-lg">
+        <div className="py-10 text-center text-sm text-muted border border-dashed border-line rounded-lg">
           No client contacts yet. Click <strong>+ Add contact</strong> to add the first one.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="overflow-x-auto rounded-lg border border-line">
           <table className="min-w-full text-sm [&_td]:align-middle [&_th]:align-middle">
-            <thead className="bg-slate-50">
-              <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-surface-2/70">
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted">
                 <th className="px-3 py-2 font-semibold w-6"></th>
                 <th className="px-3 py-2 font-semibold">Name</th>
                 <th className="px-3 py-2 font-semibold">
@@ -225,7 +225,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                 <th className="px-3 py-2 font-semibold w-12"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line/60">
               {contacts.map((c) => {
                 const saving = savingIds.has(c.id);
                 const blur = () => { if (c.name.trim()) void saveContact(c); };
@@ -233,12 +233,12 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                 const hasNotes = !!c.notes && c.notes.trim().length > 0;
                 return (
                   <Fragment key={c.id}>
-                    <tr className="hover:bg-slate-50/60">
+                    <tr className="hover:bg-surface-2/60">
                       <td className="px-2 py-1.5">
                         <button
                           type="button"
                           onClick={() => toggleNotes(c.id)}
-                          className={`p-1 rounded ${hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-300 hover:bg-slate-100 hover:text-slate-600'}`}
+                          className={`p-1 rounded ${hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-line hover:bg-surface-2 hover:text-muted'}`}
                           title={isNotesOpen ? 'Hide notes' : (hasNotes ? 'Show notes' : 'Add notes')}
                         >
                           {isNotesOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -263,8 +263,8 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                             title={c.source === 'salesforce' ? 'Synced from Salesforce — edit in SF instead' : undefined}
                             className={`w-full h-7 px-2 text-xs leading-tight border border-transparent rounded ${
                               c.source === 'salesforce'
-                                ? 'bg-sky-50/40 text-slate-700 cursor-not-allowed'
-                                : 'hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30'
+                                ? 'bg-sky-50/40 text-ink/80 cursor-not-allowed'
+                                : 'hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30'
                             }`}
                           />
                         </div>
@@ -275,7 +275,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                           onChange={(e) => patchLocal(c.id, { title: e.target.value })}
                           onBlur={blur}
                           placeholder="VP Engineering"
-                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </td>
                       <td className="px-2 py-1.5">
@@ -291,7 +291,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                           onChange={(e) => patchLocal(c.id, { email: e.target.value })}
                           onBlur={blur}
                           placeholder="email@client.com"
-                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </td>
                       <td className="px-2 py-1.5">
@@ -300,7 +300,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                           onChange={(e) => patchLocal(c.id, { phone: e.target.value })}
                           onBlur={blur}
                           placeholder="+91 …"
-                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </td>
                       <td className="px-2 py-1.5">
@@ -310,7 +310,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                             value={c.lastContactAt ?? ''}
                             onChange={(e) => patchLocal(c.id, { lastContactAt: e.target.value || null })}
                             onBlur={blur}
-                            className="w-[130px] h-7 px-2 text-xs leading-tight border border-slate-200 rounded bg-white hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            className="w-[130px] h-7 px-2 text-xs leading-tight border border-line rounded bg-white hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                           {c.lastContactAt && (() => {
                             const days = Math.floor((Date.now() - new Date(c.lastContactAt).getTime()) / 86_400_000);
@@ -333,7 +333,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                           onChange={(e) => patchLocal(c.id, { gift: e.target.value })}
                           onBlur={blur}
                           placeholder="Diwali hamper, etc."
-                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-full h-7 px-2 text-xs leading-tight border border-transparent rounded hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </td>
                       <td className="px-2 py-1.5">
@@ -342,17 +342,17 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                           value={c.giftDate ?? ''}
                           onChange={(e) => patchLocal(c.id, { giftDate: e.target.value || null })}
                           onBlur={blur}
-                          className="w-[130px] h-7 px-2 text-xs leading-tight border border-slate-200 rounded bg-white hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-[130px] h-7 px-2 text-xs leading-tight border border-line rounded bg-white hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </td>
                       <td className="px-2 py-1.5 text-right">
                         {saving ? (
-                          <Loader2 size={12} className="animate-spin text-slate-400 inline" />
+                          <Loader2 size={12} className="animate-spin text-muted/70 inline" />
                         ) : (
                           <button
                             type="button"
                             onClick={() => { if (confirm(`Remove ${c.name || 'this contact'}?`)) void removeContact(c.id); }}
-                            className="text-slate-300 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                            className="text-line hover:text-red-600 p-1 rounded hover:bg-red-50"
                             title="Remove contact"
                           >
                             <Trash2 size={12} />
@@ -364,7 +364,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                       <tr className="bg-amber-50/30">
                         <td></td>
                         <td colSpan={9} className="px-3 py-2">
-                          <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 flex items-center gap-1 mb-1">
+                          <label className="text-[10px] uppercase tracking-wider font-semibold text-muted flex items-center gap-1 mb-1">
                             <StickyNote size={11} className="text-amber-500" /> Notes
                           </label>
                           <textarea
@@ -373,7 +373,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                             onBlur={blur}
                             placeholder="Anything worth remembering — preferences, family details, history, internal notes…"
                             rows={3}
-                            className="w-full text-xs leading-relaxed px-2 py-1.5 border border-slate-200 rounded bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            className="w-full text-xs leading-relaxed px-2 py-1.5 border border-line rounded bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </td>
                       </tr>
@@ -405,7 +405,7 @@ function RelationshipPicker({
         onChange={(e) => onChange((e.target.value || null) as ClientContactRelationship | null)}
         className={
           'h-7 pl-2.5 pr-7 text-[11px] font-semibold uppercase tracking-wider rounded-full border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 ' +
-          (style ? `${style.bg} ${style.text} ${style.border}` : 'bg-slate-50 text-slate-400 border-slate-200')
+          (style ? `${style.bg} ${style.text} ${style.border}` : 'bg-surface-2/70 text-muted/70 border-line')
         }
       >
         <option value="">— Set —</option>
@@ -413,7 +413,7 @@ function RelationshipPicker({
           <option key={r} value={r}>{CLIENT_CONTACT_RELATIONSHIP_STYLES[r].label}</option>
         ))}
       </select>
-      <ChevronDown size={11} className={`absolute right-2 pointer-events-none ${style ? style.text : 'text-slate-400'}`} />
+      <ChevronDown size={11} className={`absolute right-2 pointer-events-none ${style ? style.text : 'text-muted/70'}`} />
     </div>
   );
 }

@@ -89,11 +89,11 @@ export interface UpsellBacklogItem {
 }
 
 export const UPSELL_STATUS_META: Record<UpsellStatus, { label: string; cls: string }> = {
-  open:         { label: 'Open',        cls: 'bg-slate-100 text-slate-700 border-slate-200' },
+  open:         { label: 'Open',        cls: 'bg-surface-2 text-ink/80 border-line' },
   in_progress:  { label: 'In Progress', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
   won:          { label: 'Won',         cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
   lost:         { label: 'Lost',        cls: 'bg-rose-50 text-rose-800 border-rose-200' },
-  dropped:      { label: 'Dropped',     cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+  dropped:      { label: 'Dropped',     cls: 'bg-surface-2 text-muted border-line' },
 };
 
 export interface RefinementNote {
@@ -195,7 +195,7 @@ export interface ConciergeBillingEntry {
 export const BILLING_MODEL_META: Record<BillingModel, { label: string; cls: string }> = {
   monthly_retainer:  { label: 'Monthly Retainer',   cls: 'bg-sky-100 text-sky-800' },
   annual_unlimited:  { label: 'Annual Unlimited',   cls: 'bg-violet-100 text-violet-800' },
-  hourly:            { label: 'Hourly',             cls: 'bg-slate-100 text-slate-700' },
+  hourly:            { label: 'Hourly',             cls: 'bg-surface-2 text-ink/80' },
 };
 
 export const HEALTH_META: Record<AccountHealth, { label: string; cls: string; ring: string }> = {
@@ -208,13 +208,13 @@ export const FEATURE_STATUS_META: Record<FeatureStatus, { label: string; cls: st
   implemented:     { label: 'Implemented',      cls: 'bg-emerald-100 text-emerald-800', heat: 'bg-emerald-500' },
   in_progress:     { label: 'In Progress',      cls: 'bg-sky-100 text-sky-800',         heat: 'bg-sky-400' },
   planned:         { label: 'Planned',          cls: 'bg-amber-100 text-amber-800',     heat: 'bg-amber-400' },
-  not_implemented: { label: 'Not Implemented',  cls: 'bg-slate-100 text-slate-500',     heat: 'bg-slate-200' },
+  not_implemented: { label: 'Not Implemented',  cls: 'bg-surface-2 text-muted',     heat: 'bg-line/60' },
 };
 
 export const FEATURE_PRIORITY_META: Record<FeaturePriority, { label: string; cls: string; rank: number }> = {
   high:   { label: 'High',   cls: 'bg-rose-100 text-rose-800',   rank: 0 },
   medium: { label: 'Medium', cls: 'bg-amber-100 text-amber-800', rank: 1 },
-  low:    { label: 'Low',    cls: 'bg-slate-100 text-slate-600', rank: 2 },
+  low:    { label: 'Low',    cls: 'bg-surface-2 text-muted', rank: 2 },
 };
 
 /** Standard Salesforce/related capability catalog — seed suggestions for

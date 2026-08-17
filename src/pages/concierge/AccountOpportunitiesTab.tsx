@@ -146,7 +146,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
             <h4 className="text-[11px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1">
               <Sparkles size={11} /> AI-suggested — click to promote
             </h4>
-            <span className="text-[10px] text-slate-500">Details visible in AI Profile tab</span>
+            <span className="text-[10px] text-muted">Details visible in AI Profile tab</span>
           </div>
           <ul className="space-y-1.5">
             {aiOpps.map((o, i) => {
@@ -157,11 +157,11 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
                     <M.Icon size={9} /> {M.label}
                   </span>
                   {o.service_area && (
-                    <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+                    <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-ink/80 border border-line whitespace-nowrap">
                       {o.service_area}
                     </span>
                   )}
-                  <span className="text-xs text-slate-800 flex-1 min-w-0 truncate" title={o.rationale}>{o.title}</span>
+                  <span className="text-xs text-ink flex-1 min-w-0 truncate" title={o.rationale}>{o.title}</span>
                   {o.upsell_estimate_usd ? (
                     <span className="text-[10px] text-amber-700 font-medium">${o.upsell_estimate_usd.toLocaleString()}/yr</span>
                   ) : null}
@@ -187,14 +187,14 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
           <Plus className="w-3 h-3" /><span className="ml-1">Add opportunity</span>
         </Button>
         <div className="ml-auto flex items-center gap-1 text-[11px]">
-          <span className="text-slate-500 mr-1">Filter:</span>
+          <span className="text-muted mr-1">Filter:</span>
           {(['all', 'open', 'in_progress', 'won', 'lost', 'dropped'] as const).map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setStatusFilter(s)}
               className={`px-1.5 py-0.5 rounded border text-[10px] font-medium transition-colors ${
-                statusFilter === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                statusFilter === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-line text-muted hover:border-slate-400'
               }`}
             >
               {s === 'all' ? 'All' : UPSELL_STATUS_META[s].label}
@@ -205,20 +205,20 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
 
       {/* Add form */}
       {showAdd && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+        <div className="rounded-lg border border-line bg-surface-2/70 p-3 space-y-2">
           <input
             type="text"
             value={addTitle}
             onChange={(e) => setAddTitle(e.target.value)}
             placeholder="Opportunity title (one line) — e.g. Roll out Sales Cloud forecasting for the West region"
-            className="w-full px-3 py-1.5 rounded border border-slate-300 text-sm"
+            className="w-full px-3 py-1.5 rounded border border-line text-sm"
             autoFocus
           />
           <div className="grid grid-cols-4 gap-2">
             <select
               value={addKind}
               onChange={(e) => setAddKind(e.target.value as UpsellKind)}
-              className="px-2 py-1.5 rounded border border-slate-300 text-xs bg-white"
+              className="px-2 py-1.5 rounded border border-line text-xs bg-white"
             >
               <option value="upsell">Upsell</option>
               <option value="cross_sell">Cross-sell</option>
@@ -226,7 +226,7 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
             <select
               value={addServiceArea}
               onChange={(e) => setAddServiceArea(e.target.value)}
-              className="px-2 py-1.5 rounded border border-slate-300 text-xs bg-white"
+              className="px-2 py-1.5 rounded border border-line text-xs bg-white"
               title="Service area"
             >
               <option value="">Service area…</option>
@@ -239,14 +239,14 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
               value={addAssignee}
               onChange={(e) => setAddAssignee(e.target.value)}
               placeholder="assignee@simpliigence.com"
-              className="px-2 py-1.5 rounded border border-slate-300 text-xs"
+              className="px-2 py-1.5 rounded border border-line text-xs"
               list="assignee-suggestions"
             />
             <input
               type="date"
               value={addDue}
               onChange={(e) => setAddDue(e.target.value)}
-              className="px-2 py-1.5 rounded border border-slate-300 text-xs"
+              className="px-2 py-1.5 rounded border border-line text-xs"
             />
           </div>
           <datalist id="assignee-suggestions">
@@ -270,9 +270,9 @@ export function AccountOpportunitiesTab({ accountId }: Props) {
 
       {/* List */}
       {loading && filteredItems.length === 0 ? (
-        <div className="text-center text-slate-500 py-6 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
+        <div className="text-center text-muted py-6 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center text-slate-400 py-6 text-sm italic">
+        <div className="text-center text-muted/70 py-6 text-sm italic">
           {items.length === 0
             ? 'No opportunities in the backlog yet. Add one above or promote an AI suggestion.'
             : `No ${statusFilter === 'all' ? '' : UPSELL_STATUS_META[statusFilter as UpsellStatus].label + ' '}items.`}
@@ -312,7 +312,7 @@ function OpportunityRow({
     : false;
 
   return (
-    <li className="rounded-lg border border-slate-200 bg-white p-2.5 hover:border-slate-300 transition-colors">
+    <li className="rounded-lg border border-line bg-white p-2.5 hover:border-line transition-colors">
       <div className="flex items-center gap-2 flex-wrap">
         {/* Kind */}
         <select
@@ -328,7 +328,7 @@ function OpportunityRow({
         <select
           value={item.serviceArea ?? ''}
           onChange={(e) => onChange(item.id, { serviceArea: e.target.value || null })}
-          className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-200 bg-white cursor-pointer flex-shrink-0"
+          className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-line bg-white cursor-pointer flex-shrink-0"
           title="Service area"
         >
           <option value="">— area —</option>
@@ -340,7 +340,7 @@ function OpportunityRow({
           type="text"
           value={item.title}
           onChange={(e) => onChange(item.id, { title: e.target.value })}
-          className="text-sm font-semibold text-slate-900 flex-1 min-w-[200px] px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50"
+          className="text-sm font-semibold text-ink flex-1 min-w-[200px] px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70"
         />
 
         {/* AI badge */}
@@ -352,14 +352,14 @@ function OpportunityRow({
 
         {/* Assignee */}
         <div className="relative flex items-center gap-1 text-[11px]">
-          <User size={11} className="text-slate-400" />
+          <User size={11} className="text-muted/70" />
           <input
             type="email"
             value={item.assigneeEmail ?? ''}
             onChange={(e) => onChange(item.id, { assigneeEmail: e.target.value || null })}
             list={`assignees-${item.id}`}
             placeholder="unassigned"
-            className="px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50 w-40"
+            className="px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70 w-40"
           />
           <datalist id={`assignees-${item.id}`}>
             {directoryEmails.map((e) => <option key={e} value={e} />)}
@@ -367,13 +367,13 @@ function OpportunityRow({
         </div>
 
         {/* Due date */}
-        <div className={`flex items-center gap-1 text-[11px] ${isOverdue ? 'text-rose-700 font-semibold' : 'text-slate-600'}`}>
-          <Calendar size={11} className={isOverdue ? 'text-rose-500' : 'text-slate-400'} />
+        <div className={`flex items-center gap-1 text-[11px] ${isOverdue ? 'text-rose-700 font-semibold' : 'text-muted'}`}>
+          <Calendar size={11} className={isOverdue ? 'text-rose-500' : 'text-muted/70'} />
           <input
             type="date"
             value={item.dueDate ?? ''}
             onChange={(e) => onChange(item.id, { dueDate: e.target.value || null })}
-            className="px-1 py-0.5 rounded border-transparent hover:border-slate-200 focus:border-slate-300 focus:outline-none focus:bg-slate-50"
+            className="px-1 py-0.5 rounded border-transparent hover:border-line focus:border-line focus:outline-none focus:bg-surface-2/70"
           />
         </div>
 
@@ -392,7 +392,7 @@ function OpportunityRow({
         <button
           type="button"
           onClick={() => { if (confirm('Remove this opportunity?')) void onRemove(item.id); }}
-          className="text-slate-400 hover:text-rose-600 p-1 flex-shrink-0"
+          className="text-muted/70 hover:text-rose-600 p-1 flex-shrink-0"
           title="Remove"
         >
           <Trash2 size={13} />
@@ -402,11 +402,11 @@ function OpportunityRow({
       {/* Optional rationale line — hidden by default, expandable */}
       {(item.rationale || item.notes) && (
         <details className="mt-1 pl-1">
-          <summary className="text-[10px] text-slate-400 cursor-pointer inline-flex items-center gap-0.5 select-none">
+          <summary className="text-[10px] text-muted/70 cursor-pointer inline-flex items-center gap-0.5 select-none">
             <ChevronDown size={9} /> details
           </summary>
-          {item.rationale && <div className="text-[11px] text-slate-600 mt-1 pl-3">{item.rationale}</div>}
-          {item.notes && <div className="text-[11px] text-slate-500 italic mt-0.5 pl-3">{item.notes}</div>}
+          {item.rationale && <div className="text-[11px] text-muted mt-1 pl-3">{item.rationale}</div>}
+          {item.notes && <div className="text-[11px] text-muted italic mt-0.5 pl-3">{item.notes}</div>}
         </details>
       )}
     </li>

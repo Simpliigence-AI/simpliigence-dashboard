@@ -102,20 +102,20 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-white">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-line/60 bg-gradient-to-r from-amber-50 to-white">
           <span className="w-7 h-7 rounded-lg bg-amber-400 text-white flex items-center justify-center flex-shrink-0">
             <Lightbulb size={15} />
           </span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-slate-900">Capture an idea</div>
-            <div className="text-[11px] text-slate-500">
+            <div className="text-sm font-bold text-ink">Capture an idea</div>
+            <div className="text-[11px] text-muted">
               Goes to the account&apos;s Innovation tab. Title is all you need.
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-100"
+            className="text-muted/70 hover:text-ink/80 p-1 rounded hover:bg-surface-2"
             title="Close (Esc)"
           >
             <X size={16} />
@@ -125,22 +125,22 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
         <div className="p-5 space-y-3">
           {/* Account picker — searchable when the list is long */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Account</label>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted">Account</label>
             {accounts.length > 8 && (
               <div className="relative mt-1 mb-1.5">
-                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
                 <input
                   value={acctQuery}
                   onChange={(e) => setAcctQuery(e.target.value)}
                   placeholder="Filter accounts…"
-                  className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border border-line focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             )}
             <select
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-line bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               {filteredAccounts.length === 0 && <option value="">No account matches “{acctQuery}”</option>}
               {filteredAccounts.map((a) => (
@@ -151,7 +151,7 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
 
           {/* Title — the only required field */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted">
               Idea <span className="text-rose-500">*</span>
             </label>
             <input
@@ -164,43 +164,43 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
                 else if (e.key === 'Enter') { e.preventDefault(); void save(true); }
               }}
               placeholder="e.g. Auto-generate their monthly QBR deck from Salesforce data"
-              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-line focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
           {/* Optional detail — collapsed visually but always available */}
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Detail <span className="font-normal normal-case tracking-normal text-slate-400">(optional)</span>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                Detail <span className="font-normal normal-case tracking-normal text-muted/70">(optional)</span>
               </label>
               <textarea
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What's the thought? Any context worth keeping."
-                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-line focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Impact <span className="font-normal normal-case tracking-normal text-slate-400">(optional)</span>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                  Impact <span className="font-normal normal-case tracking-normal text-muted/70">(optional)</span>
                 </label>
                 <input
                   value={impact}
                   onChange={(e) => setImpact(e.target.value)}
                   placeholder="e.g. saves ~6 hrs/month"
-                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-line focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Date</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted">Date</label>
                 <input
                   type="date"
                   value={datedAt}
                   onChange={(e) => setDatedAt(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-line focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
@@ -220,17 +220,17 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
 
         {/* Footer — hint on its own row so the three buttons never get
          *  squeezed at this modal width. */}
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50">
-          <div className="text-[10px] text-slate-400 mb-2">
-            <kbd className="px-1 py-0.5 bg-white border border-slate-300 rounded text-[9px]">Enter</kbd> save &amp; add another ·{' '}
-            <kbd className="px-1 py-0.5 bg-white border border-slate-300 rounded text-[9px]">⌘↵</kbd> save &amp; close ·{' '}
-            <kbd className="px-1 py-0.5 bg-white border border-slate-300 rounded text-[9px]">Esc</kbd> close
+        <div className="px-5 py-3 border-t border-line/60 bg-surface-2/70">
+          <div className="text-[10px] text-muted/70 mb-2">
+            <kbd className="px-1 py-0.5 bg-white border border-line rounded text-[9px]">Enter</kbd> save &amp; add another ·{' '}
+            <kbd className="px-1 py-0.5 bg-white border border-line rounded text-[9px]">⌘↵</kbd> save &amp; close ·{' '}
+            <kbd className="px-1 py-0.5 bg-white border border-line rounded text-[9px]">Esc</kbd> close
           </div>
           <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-semibold px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+            className="text-xs font-semibold px-3 py-1.5 rounded-md border border-line bg-white text-ink/80 hover:bg-surface-2"
           >
             Cancel
           </button>

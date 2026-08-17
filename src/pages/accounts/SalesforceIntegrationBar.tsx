@@ -142,16 +142,16 @@ export function SalesforceIntegrationBar({ accountId, accountName, onSynced }: P
   }, [accountId]);
 
   if (loading) {
-    return <div className="text-[11px] text-slate-400 py-1">Checking Salesforce link…</div>;
+    return <div className="text-[11px] text-muted/70 py-1">Checking Salesforce link…</div>;
   }
 
   // ── State: not linked → offer to match ──
   if (!link) {
     return (
-      <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="mb-3 rounded-lg border border-line bg-surface-2/70 px-3 py-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <Link2Off size={14} className="text-slate-400" />
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <Link2Off size={14} className="text-muted/70" />
             <span>Not linked to Salesforce</span>
           </div>
           <button
@@ -173,7 +173,7 @@ export function SalesforceIntegrationBar({ accountId, accountName, onSynced }: P
                 <div className="text-amber-700 mt-0.5">{matchPreview.reasoning}</div>
                 {matchPreview.alternatives.length > 0 && (
                   <div className="mt-1.5 space-y-0.5">
-                    <div className="font-semibold text-slate-600">Possible candidates (click to force-link):</div>
+                    <div className="font-semibold text-muted">Possible candidates (click to force-link):</div>
                     {matchPreview.alternatives.map((a) => (
                       <button
                         key={a.id}
@@ -224,7 +224,7 @@ export function SalesforceIntegrationBar({ accountId, accountName, onSynced }: P
   return (
     <div className="mb-3 rounded-lg border border-sky-200 bg-gradient-to-r from-sky-50 to-blue-50 px-3 py-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2 text-xs text-slate-700 min-w-0">
+        <div className="flex items-center gap-2 text-xs text-ink/80 min-w-0">
           <Link2 size={14} className="text-sky-600 flex-shrink-0" />
           <span className="font-semibold truncate">
             SF: {link.sf_account_name}
@@ -232,8 +232,8 @@ export function SalesforceIntegrationBar({ accountId, accountName, onSynced }: P
           <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${confidenceColor}`}>
             {confidencePct}% {link.match_method === 'manual_override' ? 'manual' : link.match_method === 'exact' ? 'exact' : 'ai match'}
           </span>
-          <span className="text-slate-500 hidden sm:inline">·</span>
-          <span className="text-[11px] text-slate-500 hidden sm:inline">
+          <span className="text-muted hidden sm:inline">·</span>
+          <span className="text-[11px] text-muted hidden sm:inline">
             last synced {lastSynced}
           </span>
         </div>
@@ -250,7 +250,7 @@ export function SalesforceIntegrationBar({ accountId, accountName, onSynced }: P
           <button
             type="button"
             onClick={doUnlink}
-            className="text-xs text-slate-500 hover:text-red-600 inline-flex items-center gap-1"
+            className="text-xs text-muted hover:text-red-600 inline-flex items-center gap-1"
             title="Disconnect from Salesforce"
           >
             <Link2Off size={12} /> Unlink
@@ -258,7 +258,7 @@ export function SalesforceIntegrationBar({ accountId, accountName, onSynced }: P
         </div>
       </div>
       {link.match_reasoning && link.match_method !== 'manual_override' && (
-        <div className="mt-1 text-[10px] text-slate-500 italic pl-6">
+        <div className="mt-1 text-[10px] text-muted italic pl-6">
           <CheckCircle2 size={9} className="inline mr-1 text-emerald-500" />
           {link.match_reasoning}
         </div>

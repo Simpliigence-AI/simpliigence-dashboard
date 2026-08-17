@@ -52,15 +52,15 @@ export function StaffingSmartQuery({ input }: Props) {
       <div className="px-4 py-3">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles size={15} className="text-blue-600" />
-          <span className="text-sm font-bold text-slate-800">Smart Query</span>
+          <span className="text-sm font-bold text-ink">Smart Query</span>
           <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">AI</span>
-          <span className="text-[10px] text-slate-400 ml-1">
+          <span className="text-[10px] text-muted/70 ml-1">
             {hasKey ? 'Ask anything about your pipeline' : 'Add Claude API key in Settings to enable'}
           </span>
         </div>
 
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/70" />
           <input
             ref={inputRef}
             value={query}
@@ -68,10 +68,10 @@ export function StaffingSmartQuery({ input }: Props) {
             onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
             placeholder="e.g. Which reqs are stuck in Client Round? What moved this week?"
             disabled={!hasKey || loading}
-            className="w-full pl-9 pr-9 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-slate-100 disabled:text-slate-400"
+            className="w-full pl-9 pr-9 py-2 text-sm rounded-lg border border-line bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-surface-2 disabled:text-muted/70"
           />
           {query && !loading && (
-            <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" title="Clear">
+            <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/70 hover:text-muted" title="Clear">
               <X size={14} />
             </button>
           )}
@@ -85,7 +85,7 @@ export function StaffingSmartQuery({ input }: Props) {
                 key={sq}
                 onClick={() => submit(sq)}
                 disabled={!hasKey}
-                className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-blue-300 transition-colors disabled:opacity-50"
+                className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-line text-muted hover:bg-surface-2/70 hover:border-blue-300 transition-colors disabled:opacity-50"
               >
                 {sq}
               </button>
@@ -95,15 +95,15 @@ export function StaffingSmartQuery({ input }: Props) {
 
         {/* Loading state */}
         {loading && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted">
             <Loader2 size={13} className="animate-spin text-blue-500" /> Claude is analyzing your pipeline...
           </div>
         )}
 
         {/* Result */}
         {result && !loading && expanded && (
-          <div className="mt-3 bg-white rounded-lg border border-slate-200 p-3">
-            <div className="text-[12px] leading-relaxed text-slate-700 [&_strong]:text-slate-900">
+          <div className="mt-3 bg-white rounded-lg border border-line p-3">
+            <div className="text-[12px] leading-relaxed text-ink/80 [&_strong]:text-ink">
               {result.answer.split('\n').map((line, i) => {
                 const trimmed = line.trim();
                 if (!trimmed) return null;
@@ -125,18 +125,18 @@ export function StaffingSmartQuery({ input }: Props) {
             {result.data && result.columns && result.data.length > 0 && (
               <div className="mt-3 overflow-x-auto max-h-72 overflow-y-auto">
                 <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-slate-50">
-                    <tr className="border-b border-slate-200">
+                  <thead className="sticky top-0 bg-surface-2/70">
+                    <tr className="border-b border-line">
                       {result.columns.map((col) => (
-                        <th key={col} className="py-1.5 px-2.5 text-left font-semibold text-slate-600 text-[10px] uppercase tracking-wide">{col}</th>
+                        <th key={col} className="py-1.5 px-2.5 text-left font-semibold text-muted text-[10px] uppercase tracking-wide">{col}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {result.data.map((row, i) => (
-                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <tr key={i} className="border-b border-line/40 hover:bg-surface-2/50">
                         {result.columns!.map((col) => (
-                          <td key={col} className="py-1 px-2.5 text-slate-700 tabular-nums text-[11px]">
+                          <td key={col} className="py-1 px-2.5 text-ink/80 tabular-nums text-[11px]">
                             {row[col] ?? '—'}
                           </td>
                         ))}
@@ -147,13 +147,13 @@ export function StaffingSmartQuery({ input }: Props) {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100">
-              <span className="text-[10px] text-slate-400 mr-1">Try also:</span>
+            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-line/60">
+              <span className="text-[10px] text-muted/70 mr-1">Try also:</span>
               {STAFFING_SUGGESTED_QUERIES.filter((s) => s !== query).slice(0, 4).map((sq) => (
                 <button
                   key={sq}
                   onClick={() => submit(sq)}
-                  className="text-[10px] px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-surface-2/70 border border-line text-muted hover:bg-surface-2"
                 >
                   {sq}
                 </button>

@@ -162,7 +162,7 @@ export default function ActivityPage() {
       <PageHeader title="Activity" subtitle="Who's logging in and what they're doing." />
 
       <div className="flex items-center gap-2 mb-4 text-sm">
-        <span className="text-slate-500">Range:</span>
+        <span className="text-muted">Range:</span>
         {RANGE_OPTIONS.map((opt) => (
           <button
             key={opt.key}
@@ -170,13 +170,13 @@ export default function ActivityPage() {
             className={`px-3 py-1 rounded-lg border transition-colors ${
               rangeDays === opt.days
                 ? 'bg-primary/10 border-primary/40 text-primary font-semibold'
-                : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+                : 'bg-white border-line text-muted hover:bg-surface-2/70'
             }`}
           >
             {opt.label}
           </button>
         ))}
-        {loading && <span className="ml-2 text-xs text-slate-400">Loading…</span>}
+        {loading && <span className="ml-2 text-xs text-muted/70">Loading…</span>}
       </div>
 
       {error && (
@@ -207,33 +207,33 @@ export default function ActivityPage() {
       <Card title="By user">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left">
-              <th className="pb-3 pr-3 font-semibold text-slate-600">User</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Sessions</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Page views</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Time active</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600">Last seen</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600">Top pages</th>
+            <tr className="border-b border-line text-left">
+              <th className="pb-3 pr-3 font-semibold text-muted">User</th>
+              <th className="pb-3 pr-3 font-semibold text-muted text-right">Sessions</th>
+              <th className="pb-3 pr-3 font-semibold text-muted text-right">Page views</th>
+              <th className="pb-3 pr-3 font-semibold text-muted text-right">Time active</th>
+              <th className="pb-3 pr-3 font-semibold text-muted">Last seen</th>
+              <th className="pb-3 pr-3 font-semibold text-muted">Top pages</th>
             </tr>
           </thead>
           <tbody>
             {perUser.length === 0 && (
-              <tr><td colSpan={6} className="py-6 text-center text-sm text-slate-400">No sessions in this range.</td></tr>
+              <tr><td colSpan={6} className="py-6 text-center text-sm text-muted/70">No sessions in this range.</td></tr>
             )}
             {perUser.map((r) => (
               <tr
                 key={r.email}
                 onClick={() => setDrilldown(r.email)}
-                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                className="border-b border-line/60 hover:bg-surface-2/70 cursor-pointer"
               >
-                <td className="py-2.5 pr-3 font-medium text-slate-800">{r.email}</td>
-                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">{r.sessions}</td>
-                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">{r.pageViews}</td>
-                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700 font-semibold">
+                <td className="py-2.5 pr-3 font-medium text-ink">{r.email}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums text-muted">{r.sessions}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums text-muted">{r.pageViews}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums text-ink/80 font-semibold">
                   {r.totalMins >= 60 ? `${Math.floor(r.totalMins / 60)}h ${r.totalMins % 60}m` : `${r.totalMins}m`}
                 </td>
-                <td className="py-2.5 pr-3 text-xs text-slate-500">{new Date(r.lastSeen).toLocaleString()}</td>
-                <td className="py-2.5 pr-3 text-xs text-slate-500 truncate max-w-[280px]">
+                <td className="py-2.5 pr-3 text-xs text-muted">{new Date(r.lastSeen).toLocaleString()}</td>
+                <td className="py-2.5 pr-3 text-xs text-muted truncate max-w-[280px]">
                   {r.topPaths.length > 0 ? r.topPaths.join(', ') : '—'}
                 </td>
               </tr>
@@ -250,13 +250,13 @@ export default function ActivityPage() {
       >
         <div className="space-y-5">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Sessions</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-2">Sessions</h3>
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-left">
-                  <th className="py-2 pr-2 font-semibold text-slate-500">Started</th>
-                  <th className="py-2 pr-2 font-semibold text-slate-500">Duration</th>
-                  <th className="py-2 pr-2 font-semibold text-slate-500">Ended</th>
+                <tr className="border-b border-line text-left">
+                  <th className="py-2 pr-2 font-semibold text-muted">Started</th>
+                  <th className="py-2 pr-2 font-semibold text-muted">Duration</th>
+                  <th className="py-2 pr-2 font-semibold text-muted">Ended</th>
                 </tr>
               </thead>
               <tbody>
@@ -265,12 +265,12 @@ export default function ActivityPage() {
                   const endTs = s.ended_at ? new Date(s.ended_at) : new Date(s.last_active);
                   const mins = Math.round((endTs.getTime() - start.getTime()) / 60000);
                   return (
-                    <tr key={s.id} className="border-b border-slate-50">
-                      <td className="py-1.5 pr-2 text-slate-700">{start.toLocaleString()}</td>
-                      <td className="py-1.5 pr-2 tabular-nums text-slate-700">
+                    <tr key={s.id} className="border-b border-line/40">
+                      <td className="py-1.5 pr-2 text-ink/80">{start.toLocaleString()}</td>
+                      <td className="py-1.5 pr-2 tabular-nums text-ink/80">
                         {mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`}
                       </td>
-                      <td className="py-1.5 pr-2 text-xs text-slate-500">
+                      <td className="py-1.5 pr-2 text-xs text-muted">
                         {s.ended_at ? new Date(s.ended_at).toLocaleTimeString() : <em>open · last active {endTs.toLocaleTimeString()}</em>}
                       </td>
                     </tr>
@@ -281,21 +281,21 @@ export default function ActivityPage() {
           </div>
 
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Page-view timeline ({drilldownPageViews.length})</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-2">Page-view timeline ({drilldownPageViews.length})</h3>
             <div className="max-h-[460px] overflow-y-auto space-y-1 pr-1">
               {drilldownPageViews.map((p) => {
                 const dwellS = p.dwell_ms ? Math.round(p.dwell_ms / 1000) : null;
                 return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 text-xs border-b border-slate-50 py-1">
-                    <span className="text-slate-700 font-mono truncate flex-1">{p.path}</span>
-                    <span className="text-slate-500 shrink-0">{new Date(p.entered_at).toLocaleString()}</span>
-                    <span className="text-slate-400 shrink-0 w-14 text-right">
+                  <div key={p.id} className="flex items-center justify-between gap-3 text-xs border-b border-line/40 py-1">
+                    <span className="text-ink/80 font-mono truncate flex-1">{p.path}</span>
+                    <span className="text-muted shrink-0">{new Date(p.entered_at).toLocaleString()}</span>
+                    <span className="text-muted/70 shrink-0 w-14 text-right">
                       {dwellS == null ? '—' : dwellS >= 60 ? `${Math.floor(dwellS / 60)}m ${dwellS % 60}s` : `${dwellS}s`}
                     </span>
                   </div>
                 );
               })}
-              {drilldownPageViews.length === 0 && <div className="text-slate-400 text-xs italic">No page views in this range.</div>}
+              {drilldownPageViews.length === 0 && <div className="text-muted/70 text-xs italic">No page views in this range.</div>}
             </div>
           </div>
         </div>

@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/useAuthStore';
 /** Paths that role='employee' is allowed to visit. Anything else redirects
  *  them to /my-time. Keeps the URL-typing escape hatch closed without having
  *  to wrap every route individually with RoleOnly. */
-const EMPLOYEE_ALLOWED_PATHS = new Set<string>(['/my-time', '/leave']);
+const EMPLOYEE_ALLOWED_PATHS = new Set<string>(['/my-time', '/leave', '/concierge']);
 
 const SIDEBAR_KEY = 'sidebar-collapsed';
 
@@ -68,7 +68,7 @@ export default function AppLayout() {
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          className="md:hidden fixed top-3 left-3 z-20 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white shadow-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+          className="md:hidden fixed top-3 left-3 z-20 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white shadow-md border border-line text-ink/80 hover:bg-surface-2/70"
           aria-label="Open menu"
         >
           <Menu size={18} />
@@ -76,7 +76,7 @@ export default function AppLayout() {
 
         <div className="p-4 pt-16 md:p-6 md:pt-6 lg:p-8 bg-surface min-h-screen">
           {authLoading ? (
-            <div className="text-sm text-slate-400 text-center py-20">Checking permissions…</div>
+            <div className="text-sm text-muted/70 text-center py-20">Checking permissions…</div>
           ) : isEmployeeBlocked ? (
             <Navigate to="/my-time" replace />
           ) : (

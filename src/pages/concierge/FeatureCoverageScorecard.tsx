@@ -79,7 +79,7 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
 
   if (catalog.length === 0) {
     return (
-      <div className="text-[11px] text-slate-400 italic">
+      <div className="text-[11px] text-muted/70 italic">
         Master catalog not loaded yet — refresh to populate.
       </div>
     );
@@ -89,12 +89,12 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
     <div className={compact ? 'space-y-1' : 'space-y-2'}>
       {/* Overall header */}
       <div className="flex items-center justify-between text-[11px] font-semibold">
-        <span className="text-slate-700">
+        <span className="text-ink/80">
           Feature Coverage
-          {account.industry && <span className="ml-1.5 text-[10px] font-normal text-slate-500">· {account.industry} lens</span>}
+          {account.industry && <span className="ml-1.5 text-[10px] font-normal text-muted">· {account.industry} lens</span>}
           {!account.industry && <span className="ml-1.5 text-[10px] font-normal text-amber-600">· set industry for accurate score</span>}
         </span>
-        <span className={`tabular-nums ${overallPct >= 60 ? 'text-emerald-700' : overallPct >= 30 ? 'text-amber-700' : 'text-slate-500'}`}>
+        <span className={`tabular-nums ${overallPct >= 60 ? 'text-emerald-700' : overallPct >= 30 ? 'text-amber-700' : 'text-muted'}`}>
           {totalImplemented} / {totalRelevant} · {overallPct}%
         </span>
       </div>
@@ -102,24 +102,24 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
       {/* Per-cloud rows */}
       <div className="space-y-1">
         {scorecard.map((row) => {
-          const barColor = row.pct >= 70 ? 'bg-emerald-500' : row.pct >= 40 ? 'bg-sky-500' : row.pct >= 15 ? 'bg-amber-500' : 'bg-slate-300';
+          const barColor = row.pct >= 70 ? 'bg-emerald-500' : row.pct >= 40 ? 'bg-sky-500' : row.pct >= 15 ? 'bg-amber-500' : 'bg-line';
           return (
             <button
               key={row.cloud}
               type="button"
               onClick={() => setOpenCloud(row.cloud)}
-              className="w-full text-left group hover:bg-slate-50 rounded px-1.5 py-1 transition-colors"
+              className="w-full text-left group hover:bg-surface-2/70 rounded px-1.5 py-1 transition-colors"
               title={`Click to see the ${row.total - row.implemented} unimplemented features for ${row.cloud}`}
             >
               <div className="flex items-center gap-2 text-[11px]">
-                <span className="text-slate-700 font-medium w-32 truncate">{row.cloud}</span>
-                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <span className="text-ink/80 font-medium w-32 truncate">{row.cloud}</span>
+                <div className="flex-1 h-3 bg-surface-2 rounded-full overflow-hidden">
                   <div className={`${barColor} h-full rounded-full transition-all`} style={{ width: `${row.pct}%` }} />
                 </div>
-                <span className="text-slate-600 tabular-nums w-16 text-right">
-                  {row.implemented}<span className="text-slate-400">/{row.total}</span>
+                <span className="text-muted tabular-nums w-16 text-right">
+                  {row.implemented}<span className="text-muted/70">/{row.total}</span>
                 </span>
-                <ChevronRight size={11} className="text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+                <ChevronRight size={11} className="text-line group-hover:text-muted flex-shrink-0" />
               </div>
             </button>
           );
@@ -134,24 +134,24 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
           </div>
           <div className="space-y-1">
             {profile.upsellOpportunities.slice(0, 3).map((o, i) => (
-              <div key={`u${i}`} className="text-[11px] text-slate-800 flex items-start gap-1.5">
+              <div key={`u${i}`} className="text-[11px] text-ink flex items-start gap-1.5">
                 <TrendingUp size={10} className="text-emerald-600 mt-0.5 flex-shrink-0" />
                 <div className="min-w-0">
                   <span className="font-semibold">{o.title}</span>
-                  {o.cloud && <span className="text-slate-500"> · {o.cloud}</span>}
+                  {o.cloud && <span className="text-muted"> · {o.cloud}</span>}
                   {o.upsell_estimate_usd ? <span className="text-amber-700 ml-1">· ~${o.upsell_estimate_usd.toLocaleString()}/yr</span> : null}
-                  {o.rationale && <div className="text-slate-600 text-[10px] leading-snug">{o.rationale}</div>}
+                  {o.rationale && <div className="text-muted text-[10px] leading-snug">{o.rationale}</div>}
                 </div>
               </div>
             ))}
             {profile.crossSellOpportunities.slice(0, 3).map((o, i) => (
-              <div key={`x${i}`} className="text-[11px] text-slate-800 flex items-start gap-1.5">
+              <div key={`x${i}`} className="text-[11px] text-ink flex items-start gap-1.5">
                 <ArrowUpRight size={10} className="text-sky-600 mt-0.5 flex-shrink-0" />
                 <div className="min-w-0">
                   <span className="font-semibold">{o.title}</span>
-                  {o.cloud && <span className="text-slate-500"> · {o.cloud}</span>}
+                  {o.cloud && <span className="text-muted"> · {o.cloud}</span>}
                   {o.upsell_estimate_usd ? <span className="text-amber-700 ml-1">· ~${o.upsell_estimate_usd.toLocaleString()}/yr</span> : null}
-                  {o.rationale && <div className="text-slate-600 text-[10px] leading-snug">{o.rationale}</div>}
+                  {o.rationale && <div className="text-muted text-[10px] leading-snug">{o.rationale}</div>}
                 </div>
               </div>
             ))}
@@ -166,10 +166,10 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
             className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
+            <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-900">{openDetail.cloud} — gaps for {account.name}</div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
+                <div className="text-sm font-bold text-ink">{openDetail.cloud} — gaps for {account.name}</div>
+                <div className="text-[11px] text-muted mt-0.5">
                   {openDetail.implemented} implemented · {openGap.length} unimplemented
                   {account.industry && ` · filtered to ${account.industry} industry`}
                   {gapUpsell > 0 && (
@@ -179,29 +179,29 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
                   )}
                 </div>
               </div>
-              <button onClick={() => setOpenCloud(null)} className="text-slate-400 hover:text-slate-700 p-1" title="Close">
+              <button onClick={() => setOpenCloud(null)} className="text-muted/70 hover:text-ink/80 p-1" title="Close">
                 <X size={16} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {openGap.length === 0 ? (
-                <div className="text-sm text-slate-500 text-center py-8 flex flex-col items-center gap-2">
+                <div className="text-sm text-muted text-center py-8 flex flex-col items-center gap-2">
                   <Sparkles size={20} className="text-emerald-500" />
                   All relevant {openDetail.cloud} features are implemented for {account.name}.
                 </div>
               ) : (
                 <>
-                  <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Not implemented — potential upsell</div>
+                  <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">Not implemented — potential upsell</div>
                   <div className="space-y-2">
                     {openGap
                       .sort((a, b) => b.upsellHint - a.upsellHint)
                       .map((entry) => (
-                        <div key={entry.id} className="rounded-md border border-slate-200 px-3 py-2 hover:border-sky-300 transition-colors">
+                        <div key={entry.id} className="rounded-md border border-line px-3 py-2 hover:border-sky-300 transition-colors">
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="text-sm font-semibold text-slate-900 truncate">{entry.name}</div>
+                              <div className="text-sm font-semibold text-ink truncate">{entry.name}</div>
                               {entry.category && (
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">{entry.category}</div>
+                                <div className="text-[10px] text-muted/70 font-medium uppercase tracking-wider mt-0.5">{entry.category}</div>
                               )}
                             </div>
                             {entry.upsellHint > 0 && (
@@ -211,19 +211,19 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
                             )}
                           </div>
                           {entry.description && (
-                            <div className="text-[11px] text-slate-600 mt-1 leading-relaxed">{entry.description}</div>
+                            <div className="text-[11px] text-muted mt-1 leading-relaxed">{entry.description}</div>
                           )}
                           {entry.industriesRelevant.length > 0 && (
                             <div className="mt-1.5 flex flex-wrap gap-1">
                               {entry.industriesRelevant.map((i) => (
-                                <span key={i} className={`text-[9px] px-1.5 py-0.5 rounded ${i === account.industry ? 'bg-sky-100 text-sky-800 font-semibold' : 'bg-slate-100 text-slate-600'}`}>
+                                <span key={i} className={`text-[9px] px-1.5 py-0.5 rounded ${i === account.industry ? 'bg-sky-100 text-sky-800 font-semibold' : 'bg-surface-2 text-muted'}`}>
                                   {i}
                                 </span>
                               ))}
                             </div>
                           )}
                           {entry.licenseTier && (
-                            <div className="text-[10px] text-slate-400 mt-1">Requires: {entry.licenseTier}</div>
+                            <div className="text-[10px] text-muted/70 mt-1">Requires: {entry.licenseTier}</div>
                           )}
                         </div>
                       ))}
@@ -232,7 +232,7 @@ export function FeatureCoverageScorecard({ account, features, catalog, compact =
               )}
               {openDetail.implemented > 0 && (
                 <>
-                  <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider pt-3 border-t border-slate-100">Already implemented</div>
+                  <div className="text-[11px] font-semibold text-muted uppercase tracking-wider pt-3 border-t border-line/60">Already implemented</div>
                   <div className="flex flex-wrap gap-1.5">
                     {openDetail.entries.filter((e) => isImplemented(e, features)).map((entry) => (
                       <span key={entry.id} className="text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded">

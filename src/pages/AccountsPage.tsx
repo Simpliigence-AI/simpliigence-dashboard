@@ -64,7 +64,7 @@ import type {
 
 const STATUS_COLORS: Record<AccountStatus, string> = {
   active:   'bg-emerald-100 text-emerald-800',
-  inactive: 'bg-slate-100 text-slate-600',
+  inactive: 'bg-surface-2 text-muted',
   churned:  'bg-red-100 text-red-800',
 };
 
@@ -72,7 +72,7 @@ const ACTION_STATUS_META: Record<ActionStatus, { label: string; cls: string; Ico
   open:        { label: 'Open',        cls: 'bg-sky-100 text-sky-800',           Icon: Circle },
   in_progress: { label: 'In progress', cls: 'bg-amber-100 text-amber-800',       Icon: PauseCircle },
   done:        { label: 'Done',        cls: 'bg-emerald-100 text-emerald-800',   Icon: CheckCircle2 },
-  cancelled:   { label: 'Cancelled',   cls: 'bg-slate-100 text-slate-500',       Icon: XCircle },
+  cancelled:   { label: 'Cancelled',   cls: 'bg-surface-2 text-muted',       Icon: XCircle },
 };
 
 function daysSince(iso: string): number {
@@ -391,12 +391,16 @@ export default function AccountsPage() {
   return (
     <div className="w-full">
       {/* Hero header — gradient banner with stat strip */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 mb-6 text-white shadow-md">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_60%)] pointer-events-none" />
+      {/* Hero — navy rather than the indigo→fuchsia gradient. The gradient read
+          as a different product to every other page; navy is the same block
+          used on Home and keeps the stat strip legible on top of it. */}
+      <div className="relative overflow-hidden rounded-2xl bg-navy px-6 py-6 mb-6 text-white shadow-[0_16px_48px_#0f1b2d29]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.22),_transparent_60%)] pointer-events-none" />
         <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight">Accounts</h1>
-            <p className="text-sm text-indigo-100 mt-1">
+            <p className="eyebrow !text-white/45 mb-1.5">Account management</p>
+            <h1 className="display-lg">Accounts</h1>
+            <p className="text-[0.9375rem] text-white/65 mt-2 max-w-xl leading-relaxed">
               Client relationships at a glance — owners, last connects, action items, team size.
             </p>
           </div>
@@ -458,10 +462,10 @@ export default function AccountsPage() {
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-100">
           <div className="flex items-center gap-2 min-w-0">
             <Sparkles size={15} className="text-violet-600 flex-shrink-0" />
-            <span className="text-sm font-bold text-slate-800">Account Management Briefing</span>
+            <span className="text-sm font-bold text-ink">Account Management Briefing</span>
             <span className="bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">AI</span>
             {briefing?.generatedAt && (
-              <span className="text-[10px] text-slate-400 truncate">
+              <span className="text-[10px] text-muted/70 truncate">
                 · updated {new Date(briefing.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -478,7 +482,7 @@ export default function AccountsPage() {
             </button>
             <button
               onClick={() => setBriefingExpanded((v) => !v)}
-              className="p-1 rounded text-slate-400 hover:bg-slate-100"
+              className="p-1 rounded text-muted/70 hover:bg-surface-2"
               title={briefingExpanded ? 'Collapse' : 'Expand'}
             >
               {briefingExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -488,12 +492,12 @@ export default function AccountsPage() {
         {briefingExpanded && (
           <div className="px-4 py-3">
             {briefingLoading && !briefing && (
-              <div className="text-xs text-slate-400 italic flex items-center gap-2">
+              <div className="text-xs text-muted/70 italic flex items-center gap-2">
                 <Loader2 size={12} className="animate-spin" /> Claude is reviewing your accounts...
               </div>
             )}
             {briefing && (
-              <div className="text-[12px] leading-relaxed text-slate-700 [&_strong]:text-slate-900 [&_em]:text-slate-500">
+              <div className="text-[12px] leading-relaxed text-ink/80 [&_strong]:text-ink [&_em]:text-muted">
                 {briefing.markdown.split('\n').map((line, i) => {
                   const trimmed = line.trim();
                   if (!trimmed) return null;
@@ -534,18 +538,18 @@ export default function AccountsPage() {
       <Card className="mb-4">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[240px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/70" />
             <input
               placeholder="Search accounts, owners, industry, notes, or client contacts…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full border border-slate-300 rounded-md pl-9 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full border border-line rounded-md pl-9 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
             {q && (
               <button
                 type="button"
                 onClick={() => setQ('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted/70 hover:text-ink/80 p-0.5 rounded"
                 title="Clear search"
               >
                 <X size={13} />
@@ -558,7 +562,7 @@ export default function AccountsPage() {
             className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 transition-colors ${
               filterUrgent
                 ? 'bg-rose-600 border-rose-600 text-white'
-                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                : 'bg-white border-line text-ink/80 hover:bg-surface-2/70'
             }`}
           >
             <Flame size={12} /> {filterUrgent ? 'Showing urgent only' : `Urgent only (${urgentCount})`}
@@ -569,12 +573,12 @@ export default function AccountsPage() {
             className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 transition-colors ${
               filterStale
                 ? 'bg-red-50 border-red-300 text-red-800'
-                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                : 'bg-white border-line text-ink/80 hover:bg-surface-2/70'
             }`}
           >
             <AlertTriangle size={12} /> {filterStale ? 'Showing stale only' : `Stale only (${staleCount})`}
           </button>
-          <span className="text-xs text-slate-500 ml-auto">
+          <span className="text-xs text-muted ml-auto">
             {filtered.length} of {accounts.length}
           </span>
         </div>
@@ -594,7 +598,7 @@ export default function AccountsPage() {
       {viewMode === 'split' && (
         filtered.length === 0 ? (
           <Card>
-            <div className="py-12 text-center text-sm text-slate-500">
+            <div className="py-12 text-center text-sm text-muted">
               {accounts.length === 0
                 ? <>No accounts yet. Click <strong>+ Add account</strong> to create one.</>
                 : <>No accounts match “{q}”.</>}
@@ -604,7 +608,7 @@ export default function AccountsPage() {
           <div className="grid grid-cols-12 gap-4 items-start">
             {/* LEFT RAIL — compact, scannable, sticky */}
             <Card className="col-span-12 lg:col-span-4 xl:col-span-3 p-0 overflow-hidden lg:sticky lg:top-4">
-              <div className="max-h-[calc(100vh-9rem)] overflow-y-auto divide-y divide-slate-100">
+              <div className="max-h-[calc(100vh-9rem)] overflow-y-auto divide-y divide-line/60">
                 {filtered.map((acc, idx) => (
                   <AccountRailRow
                     key={acc.id}
@@ -627,17 +631,17 @@ export default function AccountsPage() {
                 return (
                   <Card className="p-0 overflow-hidden">
                     {/* Pane header — identity, KPIs, quick actions */}
-                    <div className={`px-5 py-4 border-b border-slate-100 ${
+                    <div className={`px-5 py-4 border-b border-line/60 ${
                       d.isUrgent ? 'bg-gradient-to-r from-rose-50 to-white'
                         : d.isStale ? 'bg-gradient-to-r from-red-50/60 to-white'
-                        : 'bg-slate-50/60'
+                        : 'bg-surface-2/60'
                     }`}>
                       <div className="flex items-start gap-3">
                         {/* Back arrow — mobile only, where the rail is stacked above */}
                         <button
                           type="button"
                           onClick={() => setSelectedId(null)}
-                          className="lg:hidden text-slate-400 hover:text-slate-700 p-1 -ml-1 rounded hover:bg-slate-100 flex-shrink-0"
+                          className="lg:hidden text-muted/70 hover:text-ink/80 p-1 -ml-1 rounded hover:bg-surface-2 flex-shrink-0"
                           title="Back to list"
                         >
                           <ArrowLeft size={16} />
@@ -647,7 +651,7 @@ export default function AccountsPage() {
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">{acc.name}</h2>
+                            <h2 className="text-lg font-extrabold text-ink tracking-tight">{acc.name}</h2>
                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_COLORS[acc.status]}`}>
                               {acc.status}
                             </span>
@@ -662,7 +666,7 @@ export default function AccountsPage() {
                               </span>
                             )}
                             {acc.industry && (
-                              <span className="text-[11px] text-slate-500 inline-flex items-center gap-1">
+                              <span className="text-[11px] text-muted inline-flex items-center gap-1">
                                 <Briefcase size={10} /> {acc.industry}
                               </span>
                             )}
@@ -670,16 +674,16 @@ export default function AccountsPage() {
                           {/* Owners + last connects */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-5 gap-y-2 mt-3">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Sales</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted/70 w-16 flex-shrink-0">Sales</span>
                               {acc.salesOwnerEmail
                                 ? <TaIdentity email={acc.salesOwnerEmail} avatarSize={22} nameSize="text-xs" />
-                                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+                                : <span className="text-xs text-line italic">— unassigned —</span>}
                             </div>
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Delivery</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted/70 w-16 flex-shrink-0">Delivery</span>
                               {acc.deliveryOwnerEmail
                                 ? <TaIdentity email={acc.deliveryOwnerEmail} avatarSize={22} nameSize="text-xs" />
-                                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+                                : <span className="text-xs text-line italic">— unassigned —</span>}
                             </div>
                             <ConnectChip label="Last sales" connect={d.lastSales} />
                             <ConnectChip label="Last delivery" connect={d.lastDelivery} />
@@ -687,11 +691,11 @@ export default function AccountsPage() {
                         </div>
                         {/* KPI chips */}
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-1 rounded-md" title="Team members from roster">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-surface-2 text-ink/80 px-2 py-1 rounded-md" title="Team members from roster">
                             <Users size={11} /> {d.teamCount}
                           </span>
                           <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md ${
-                            d.openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
+                            d.openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-surface-2 text-muted'
                           }`} title="Open action items">
                             <Clock size={11} /> {d.openActions}
                           </span>
@@ -727,7 +731,7 @@ export default function AccountsPage() {
                             href="https://simpliigence-sales-planning-2026.vercel.app/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-slate-300 text-slate-500 hover:text-primary hover:border-primary/40 transition-colors"
+                            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-line text-muted hover:text-primary hover:border-primary/40 transition-colors"
                           >
                             <DollarSign size={11} /> Add to sales plan ↗
                           </a>
@@ -760,13 +764,13 @@ export default function AccountsPage() {
       {viewMode === 'list' && (
         <Card title={`${filtered.length} account${filtered.length === 1 ? '' : 's'}`}>
           {filtered.length === 0 ? (
-            <div className="py-12 text-center text-sm text-slate-500">
+            <div className="py-12 text-center text-sm text-muted">
               {accounts.length === 0
                 ? <>No accounts yet. Click <strong>+ Add account</strong> to create one.</>
                 : <>No accounts match.</>}
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 -mx-6">
+            <div className="divide-y divide-line/60 -mx-6">
               {filtered.map((acc, idx) => {
                 const d = derivedByAccount.get(acc.id)!;
                 const isOpen = expanded.has(acc.id);
@@ -837,15 +841,15 @@ function AccountRailRow({ serialNo, account, derived, selected, onSelect }: {
           : isUrgent
             ? 'border-l-rose-500 bg-rose-50/40 hover:bg-rose-50'
             : isStale
-              ? 'border-l-red-400 hover:bg-slate-50'
-              : 'border-l-transparent hover:bg-slate-50'
+              ? 'border-l-red-400 hover:bg-surface-2/70'
+              : 'border-l-transparent hover:bg-surface-2/70'
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-mono tabular-nums text-slate-400 flex-shrink-0 w-5">
+        <span className="text-[10px] font-mono tabular-nums text-muted/70 flex-shrink-0 w-5">
           {String(serialNo).padStart(2, '0')}
         </span>
-        <span className={`flex-1 min-w-0 truncate text-sm ${selected ? 'font-bold text-primary' : 'font-semibold text-slate-800'}`}>
+        <span className={`flex-1 min-w-0 truncate text-sm ${selected ? 'font-bold text-primary' : 'font-semibold text-ink'}`}>
           {account.name}
         </span>
         {isUrgent && <Flame size={11} className="text-rose-500 flex-shrink-0" />}
@@ -856,7 +860,7 @@ function AccountRailRow({ serialNo, account, derived, selected, onSelect }: {
           </span>
         )}
       </div>
-      <div className="flex items-center gap-2 mt-1 pl-7 text-[10px] text-slate-500">
+      <div className="flex items-center gap-2 mt-1 pl-7 text-[10px] text-muted">
         <span className={`px-1.5 py-0.5 rounded-full font-semibold ${STATUS_COLORS[account.status]}`}>
           {account.status}
         </span>
@@ -866,7 +870,7 @@ function AccountRailRow({ serialNo, account, derived, selected, onSelect }: {
         {forecast > 0 && (
           <span className="inline-flex items-center gap-0.5 text-indigo-700 font-medium">
             <Sensitive>{fmtMoney(forecast)}</Sensitive>
-            <span className="text-slate-400">·</span>
+            <span className="text-muted/70">·</span>
             <span className={lockedPct >= 60 ? 'text-emerald-600' : lockedPct >= 30 ? 'text-amber-600' : 'text-rose-600'}>
               {lockedPct}%
             </span>
@@ -897,7 +901,7 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
           ? 'border-rose-500 bg-gradient-to-r from-rose-50/70 via-rose-50/30 to-transparent'
           : isStale
             ? 'border-red-500 bg-gradient-to-r from-red-50/60 to-transparent'
-            : 'border-transparent hover:bg-slate-50/80 hover:border-primary/30'
+            : 'border-transparent hover:bg-surface-2/80 hover:border-primary/30'
       }`}
     >
       {isUrgent && (
@@ -912,16 +916,16 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
       >
         {/* S. No. — zero-padded 2-digit serial number, monospace + slate so it doesn't fight the name */}
         <span
-          className="mt-0.5 flex-shrink-0 inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[11px] font-semibold tabular-nums"
+          className="mt-0.5 flex-shrink-0 inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md bg-surface-2 text-muted font-mono text-[11px] font-semibold tabular-nums"
           aria-label={`Serial number ${serialNo}`}
         >
           {String(serialNo).padStart(2, '0')}
         </span>
-        {isOpen ? <ChevronDown size={16} className="text-slate-500 mt-1 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 mt-1 flex-shrink-0" />}
+        {isOpen ? <ChevronDown size={16} className="text-muted mt-1 flex-shrink-0" /> : <ChevronRight size={16} className="text-muted/70 mt-1 flex-shrink-0" />}
         <div className="flex-1 min-w-0">
           {/* Top line: name + status + stale + industry + forecast */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-bold text-slate-900 tracking-tight">{account.name}</span>
+            <span className="text-base font-bold text-ink tracking-tight">{account.name}</span>
             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_COLORS[account.status]}`}>
               {account.status}
             </span>
@@ -931,7 +935,7 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
               </span>
             )}
             {account.industry && (
-              <span className="text-[10px] text-slate-500 inline-flex items-center gap-1">
+              <span className="text-[10px] text-muted inline-flex items-center gap-1">
                 <Briefcase size={10} /> {account.industry}
               </span>
             )}
@@ -951,16 +955,16 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
           {/* Owners + last-connect — clean 4-column grid with consistent label widths */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-2 mt-3">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Sales</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted/70 w-16 flex-shrink-0">Sales</span>
               {account.salesOwnerEmail
                 ? <TaIdentity email={account.salesOwnerEmail} avatarSize={22} nameSize="text-xs" />
-                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+                : <span className="text-xs text-line italic">— unassigned —</span>}
             </div>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-16 flex-shrink-0">Delivery</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted/70 w-16 flex-shrink-0">Delivery</span>
               {account.deliveryOwnerEmail
                 ? <TaIdentity email={account.deliveryOwnerEmail} avatarSize={22} nameSize="text-xs" />
-                : <span className="text-xs text-slate-300 italic">— unassigned —</span>}
+                : <span className="text-xs text-line italic">— unassigned —</span>}
             </div>
             <ConnectChip label="Last sales" connect={lastSales} />
             <ConnectChip label="Last delivery" connect={lastDelivery} />
@@ -969,7 +973,7 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
           {/* Secured / unsecured split bar — only when there's a plan */}
           {forecast > 0 && (
             <div className="mt-2.5 flex items-center gap-2 max-w-md">
-              <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-100 flex" title={`${lockedPct}% locked`}>
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-surface-2 flex" title={`${lockedPct}% locked`}>
                 <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, lockedPct)}%` }} />
                 <div className={`${isUrgent ? 'bg-rose-400' : 'bg-amber-400'} h-full`} style={{ width: `${100 - Math.min(100, lockedPct)}%` }} />
               </div>
@@ -986,11 +990,11 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
 
         {/* Right-side KPI chips */}
         <div className="flex items-center gap-2 flex-shrink-0 mt-1">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-1 rounded-md" title="Team members from roster">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-surface-2 text-ink/80 px-2 py-1 rounded-md" title="Team members from roster">
             <Users size={11} /> {teamCount}
           </span>
           <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md ${
-            openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
+            openActions > 0 ? 'bg-amber-100 text-amber-800' : 'bg-surface-2 text-muted'
           }`} title="Open action items">
             <Clock size={11} /> {openActions}
           </span>
@@ -1021,7 +1025,7 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-slate-300 text-slate-500 hover:text-primary hover:border-primary/40 transition-colors"
+            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-line text-muted hover:text-primary hover:border-primary/40 transition-colors"
             title="Open 2026 Sales Plan to add a forecast for this account"
           >
             <DollarSign size={11} /> Add to sales plan ↗
@@ -1037,7 +1041,7 @@ function ConnectChip({ label, connect }: { label: string; connect: AccountConnec
   if (!connect) {
     return (
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20 flex-shrink-0">{label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted/70 w-20 flex-shrink-0">{label}</span>
         <span className="text-[11px] text-red-700 font-medium">never</span>
       </div>
     );
@@ -1046,10 +1050,10 @@ function ConnectChip({ label, connect }: { label: string; connect: AccountConnec
   const isOver = days > STALE_CONNECT_DAYS;
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 w-20 flex-shrink-0">{label}</span>
-      <span className={`text-[11px] ${isOver ? 'text-red-700 font-semibold' : 'text-slate-600'}`}>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted/70 w-20 flex-shrink-0">{label}</span>
+      <span className={`text-[11px] ${isOver ? 'text-red-700 font-semibold' : 'text-muted'}`}>
         {connect.meetingDate}
-        <span className={`ml-1 text-[10px] ${isOver ? 'text-red-700' : 'text-slate-400'}`}>· {days}d ago</span>
+        <span className={`ml-1 text-[10px] ${isOver ? 'text-red-700' : 'text-muted/70'}`}>· {days}d ago</span>
       </span>
     </div>
   );
@@ -1109,13 +1113,13 @@ function AccountDetail(props: {
   ];
 
   return (
-    <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100">
+    <div className="px-6 py-4 bg-surface-2/50 border-t border-line/60">
       {/* Forecast / connects summary header — quick context above the tabs */}
       {derived.forecast > 0 && (
-        <div className={`mb-3 rounded-lg p-2.5 border ${derived.isUrgent ? 'bg-rose-50/60 border-rose-200' : 'bg-white border-slate-200'} grid grid-cols-2 md:grid-cols-4 gap-3 text-xs`}>
+        <div className={`mb-3 rounded-lg p-2.5 border ${derived.isUrgent ? 'bg-rose-50/60 border-rose-200' : 'bg-white border-line'} grid grid-cols-2 md:grid-cols-4 gap-3 text-xs`}>
           <div>
-            <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-0.5 flex items-center gap-1"><DollarSign size={10} /> Forecast '26</div>
-            <div className="font-bold text-slate-800"><Sensitive>{fmtMoney(derived.forecast)}</Sensitive></div>
+            <div className="text-[9px] uppercase tracking-wider text-muted/70 font-bold mb-0.5 flex items-center gap-1"><DollarSign size={10} /> Forecast '26</div>
+            <div className="font-bold text-ink"><Sensitive>{fmtMoney(derived.forecast)}</Sensitive></div>
           </div>
           <div>
             <div className="text-[9px] uppercase tracking-wider text-emerald-700 font-bold mb-0.5 flex items-center gap-1"><Lock size={10} /> Secured</div>
@@ -1133,26 +1137,26 @@ function AccountDetail(props: {
       )}
 
       {/* Tab nav — primary row */}
-      <div className="flex items-center gap-1 border-b border-slate-200 flex-wrap">
+      <div className="flex items-center gap-1 border-b border-line flex-wrap">
         {primaryTabs.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => onTab(t.key)}
             className={`text-xs font-semibold px-3 py-2 border-b-2 -mb-px transition-colors ${
-              activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'
+              activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink'
             }`}
           >
             {t.label}
             {t.count !== undefined && t.count > 0 && (
-              <span className="ml-1.5 text-[10px] bg-slate-200 text-slate-700 rounded-full px-1.5 py-0.5">{t.count}</span>
+              <span className="ml-1.5 text-[10px] bg-line/60 text-ink/80 rounded-full px-1.5 py-0.5">{t.count}</span>
             )}
           </button>
         ))}
       </div>
       {/* Tab nav — secondary row (account context / cross-sell / projects) */}
       <div className="flex items-center gap-1 mb-4 mt-1 flex-wrap">
-        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mr-1">More:</span>
+        <span className="text-[9px] font-bold uppercase tracking-wider text-muted/70 mr-1">More:</span>
         {secondaryTabs.map((t) => (
           <button
             key={t.key}
@@ -1161,12 +1165,12 @@ function AccountDetail(props: {
             className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
               activeTab === t.key
                 ? 'border-primary bg-primary/10 text-primary'
-                : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300'
+                : 'border-line text-muted hover:text-ink hover:border-line'
             }`}
           >
             {t.label}
             {t.count !== undefined && t.count > 0 && (
-              <span className="ml-1 text-[9px] bg-slate-200 text-slate-700 rounded-full px-1 py-0.5">{t.count}</span>
+              <span className="ml-1 text-[9px] bg-line/60 text-ink/80 rounded-full px-1 py-0.5">{t.count}</span>
             )}
           </button>
         ))}
@@ -1235,11 +1239,21 @@ function OverviewTab({ account, onPatch, onRemove }: {
 }) {
   const [draft, setDraft] = useState(account);
   const [aliasInput, setAliasInput] = useState((account.teamAliases ?? []).join(', '));
-  // Parse the comma-separated input back into a clean array
+  const [domainInput, setDomainInput] = useState((account.emailDomains ?? []).join(', '));
+  // Parse the comma-separated inputs back into clean arrays
   const parsedAliases = aliasInput.split(',').map((s) => s.trim()).filter(Boolean);
+  const parsedDomains = domainInput
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    // Strip a stray leading '@' if the user pasted "@acme.com"
+    .map((s) => s.replace(/^@/, ''))
+    .filter(Boolean);
   const aliasesChanged =
     parsedAliases.length !== (account.teamAliases ?? []).length ||
     parsedAliases.some((a, i) => a !== (account.teamAliases ?? [])[i]);
+  const domainsChanged =
+    parsedDomains.length !== (account.emailDomains ?? []).length ||
+    parsedDomains.some((d, i) => d !== (account.emailDomains ?? [])[i]);
   const dirty =
     draft.name !== account.name ||
     draft.salesOwnerEmail !== account.salesOwnerEmail ||
@@ -1247,13 +1261,14 @@ function OverviewTab({ account, onPatch, onRemove }: {
     draft.industry !== account.industry ||
     draft.status !== account.status ||
     draft.notes !== account.notes ||
-    aliasesChanged;
+    aliasesChanged ||
+    domainsChanged;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-3">
         <Field label="Name">
           <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+                 className="w-full border border-line rounded-md px-3 py-1.5 text-sm" />
         </Field>
         <Field label="Sales owner">
           <UserPicker
@@ -1273,7 +1288,7 @@ function OverviewTab({ account, onPatch, onRemove }: {
       <div className="space-y-3">
         <Field label="Status">
           <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as AccountStatus })}
-                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white">
+                  className="w-full border border-line rounded-md px-3 py-1.5 text-sm bg-white">
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="churned">Churned</option>
@@ -1282,12 +1297,12 @@ function OverviewTab({ account, onPatch, onRemove }: {
         <Field label="Industry">
           <input value={draft.industry ?? ''} onChange={(e) => setDraft({ ...draft, industry: e.target.value || null })}
                  placeholder="—"
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+                 className="w-full border border-line rounded-md px-3 py-1.5 text-sm" />
         </Field>
         <Field label="Notes">
           <textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
                     rows={3}
-                    className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm resize-y" />
+                    className="w-full border border-line rounded-md px-3 py-1.5 text-sm resize-y" />
         </Field>
       </div>
       <div className="md:col-span-2">
@@ -1296,10 +1311,26 @@ function OverviewTab({ account, onPatch, onRemove }: {
             value={aliasInput}
             onChange={(e) => setAliasInput(e.target.value)}
             placeholder="e.g. Prometteur, SA Technologies"
-            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+            className="w-full border border-line rounded-md px-3 py-1.5 text-sm"
           />
-          <div className="text-[10px] text-slate-500 mt-1">
+          <div className="text-[10px] text-muted mt-1">
             Match roster members whose <strong>project</strong> contains any of these tokens (case-insensitive). The account name is always matched too — only add aliases for cases where the roster uses a different name.
+          </div>
+        </Field>
+      </div>
+      <div className="md:col-span-2">
+        <Field label="Ticket email domains (comma-separated)">
+          <input
+            value={domainInput}
+            onChange={(e) => setDomainInput(e.target.value)}
+            placeholder="e.g. acme.com, acme-inc.com"
+            className="w-full border border-line rounded-md px-3 py-1.5 text-sm font-mono"
+          />
+          <div className="text-[10px] text-muted mt-1">
+            Incoming support emails whose sender domain matches any of these values route to this account.
+            Add one domain per client (with subsidiaries if they use different domains). Case-insensitive.
+            Unmatched senders on <strong>@simpliigence.com</strong> land under <strong>Internal Simpliigence</strong>;
+            everything else lands under <strong>Others</strong>.
           </div>
         </Field>
       </div>
@@ -1309,7 +1340,7 @@ function OverviewTab({ account, onPatch, onRemove }: {
                 className="text-xs text-red-600 hover:text-red-800 inline-flex items-center gap-1">
           <Trash2 size={12} /> Delete account
         </button>
-        <button type="button" onClick={() => onPatch({ ...draft, teamAliases: parsedAliases })} disabled={!dirty}
+        <button type="button" onClick={() => onPatch({ ...draft, teamAliases: parsedAliases, emailDomains: parsedDomains })} disabled={!dirty}
                 className="text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1">
           <Save size={12} /> Save changes
         </button>
@@ -1447,42 +1478,42 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
         </button>
       )}
       {adding && (
-        <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-3">
+        <div className="border border-line rounded-lg p-3 bg-white space-y-3">
           {/* Row 1: date + attendees */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <Field label="Date">
               <input type="date" value={d.meetingDate} onChange={(e) => setD({ ...d, meetingDate: e.target.value })}
-                     className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                     className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </Field>
             <div className="md:col-span-3">
               <Field label="Attendees">
                 <input value={d.attendees} onChange={(e) => setD({ ...d, attendees: e.target.value })}
                        placeholder="e.g. Raghu, Scott · Client: John, Jane"
-                       className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                       className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
               </Field>
             </div>
           </div>
 
           {/* Recording inputs */}
-          <div className="border border-dashed border-slate-300 rounded-md p-2 bg-slate-50/60">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Recording (optional)</div>
+          <div className="border border-dashed border-line rounded-md p-2 bg-surface-2/60">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1.5">Recording (optional)</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-[11px] font-semibold text-muted mb-1 flex items-center gap-1">
                   <LinkIcon size={11} /> Read.ai or other link
                 </label>
                 <input value={d.recordingUrl} onChange={(e) => setD({ ...d, recordingUrl: e.target.value })}
                        placeholder="https://app.read.ai/…"
-                       className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                       className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-[11px] font-semibold text-muted mb-1 flex items-center gap-1">
                   <Upload size={11} /> Upload audio file
                 </label>
                 <input type="file" accept="audio/*"
                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAudio(f); }}
                        className="w-full text-xs" />
-                {uploading && <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> Uploading…</div>}
+                {uploading && <div className="text-[11px] text-muted mt-1 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> Uploading…</div>}
                 {d.recordingPath && !uploading && <div className="text-[11px] text-emerald-700 mt-1">✓ Stored: {d.recordingPath.split('/').pop()}</div>}
               </div>
             </div>
@@ -1516,7 +1547,7 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
             <textarea value={d.rawNotes} onChange={(e) => setD({ ...d, rawNotes: e.target.value })}
                       rows={3}
                       placeholder="Dictate or type messy notes here. Click 'AI organize' to turn them into a clean discussion + outcome + action items."
-                      className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+                      className="w-full border border-line rounded-md px-2 py-1.5 text-xs resize-y" />
             {structureError && <div className="text-[11px] text-red-700 mt-1.5">{structureError}</div>}
           </div>
 
@@ -1524,13 +1555,13 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
           <Field label="What was discussed">
             <textarea value={d.discussion} onChange={(e) => setD({ ...d, discussion: e.target.value })}
                       rows={2}
-                      className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+                      className="w-full border border-line rounded-md px-2 py-1.5 text-xs resize-y" />
           </Field>
           <Field label="Outcome / what happened">
             <textarea value={d.outcome} onChange={(e) => setD({ ...d, outcome: e.target.value })}
                       rows={2}
                       placeholder="Decisions made, deliverables agreed, next steps."
-                      className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+                      className="w-full border border-line rounded-md px-2 py-1.5 text-xs resize-y" />
           </Field>
 
           {/* Suggested action items */}
@@ -1548,15 +1579,15 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
                     <div className="flex-1 min-w-0">
                       <input value={a.title}
                              onChange={(e) => setSuggestedActions((cur) => cur.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
-                             className="w-full border border-slate-200 rounded px-1.5 py-0.5 text-xs font-medium" />
+                             className="w-full border border-line rounded px-1.5 py-0.5 text-xs font-medium" />
                       <div className="flex items-center gap-2 mt-1">
                         <input value={a.owner_email || ''}
                                onChange={(e) => setSuggestedActions((cur) => cur.map((x, j) => j === i ? { ...x, owner_email: e.target.value || null } : x))}
                                placeholder="owner@…"
-                               className="flex-1 border border-slate-200 rounded px-1.5 py-0.5 text-[11px]" />
+                               className="flex-1 border border-line rounded px-1.5 py-0.5 text-[11px]" />
                         <input type="date" value={a.due_date || ''}
                                onChange={(e) => setSuggestedActions((cur) => cur.map((x, j) => j === i ? { ...x, due_date: e.target.value || null } : x))}
-                               className="border border-slate-200 rounded px-1.5 py-0.5 text-[11px]" />
+                               className="border border-line rounded px-1.5 py-0.5 text-[11px]" />
                       </div>
                     </div>
                   </li>
@@ -1567,7 +1598,7 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
 
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => { reset(); setAdding(false); }}
-                    className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+                    className="text-xs text-muted hover:text-ink inline-flex items-center gap-1">
               <X size={12} /> Cancel
             </button>
             <button type="button" onClick={submit}
@@ -1578,18 +1609,18 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
         </div>
       )}
       {connects.length === 0 ? (
-        <div className="text-sm text-slate-500 text-center py-6">No {connectType} connects logged yet.</div>
+        <div className="text-sm text-muted text-center py-6">No {connectType} connects logged yet.</div>
       ) : (
         <ul className="space-y-2">
           {connects.map((c) => (
-            <li key={c.id} className="border border-slate-200 rounded-lg p-3 bg-white">
+            <li key={c.id} className="border border-line rounded-lg p-3 bg-white">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 text-xs">
-                  <Calendar size={12} className="text-slate-400" />
-                  <span className="font-semibold text-slate-900">{c.meetingDate}</span>
-                  <span className="text-slate-400">·</span>
-                  <span className="text-slate-500">{daysSince(c.meetingDate)}d ago</span>
-                  {c.attendees && <><span className="text-slate-400">·</span><span className="text-slate-600 truncate max-w-md">{c.attendees}</span></>}
+                  <Calendar size={12} className="text-muted/70" />
+                  <span className="font-semibold text-ink">{c.meetingDate}</span>
+                  <span className="text-muted/70">·</span>
+                  <span className="text-muted">{daysSince(c.meetingDate)}d ago</span>
+                  {c.attendees && <><span className="text-muted/70">·</span><span className="text-muted truncate max-w-md">{c.attendees}</span></>}
                 </div>
                 <button type="button" onClick={() => { if (confirm('Delete this connect?')) onRemove(c.id); }}
                         className="text-red-400 hover:text-red-700" title="Delete">
@@ -1597,13 +1628,13 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
                 </button>
               </div>
               {c.discussion && (
-                <div className="text-xs text-slate-700 mt-1">
-                  <span className="font-semibold text-slate-500">Discussed:</span> {c.discussion}
+                <div className="text-xs text-ink/80 mt-1">
+                  <span className="font-semibold text-muted">Discussed:</span> {c.discussion}
                 </div>
               )}
               {c.outcome && (
-                <div className="text-xs text-slate-700 mt-1">
-                  <span className="font-semibold text-slate-500">Outcome:</span> {c.outcome}
+                <div className="text-xs text-ink/80 mt-1">
+                  <span className="font-semibold text-muted">Outcome:</span> {c.outcome}
                 </div>
               )}
               {(c.recordingUrl || c.recordingPath) && (
@@ -1615,7 +1646,7 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
                     </a>
                   )}
                   {c.recordingPath && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-2 border border-line text-muted">
                       <Upload size={10} /> {c.recordingPath.split('/').pop()}
                     </span>
                   )}
@@ -1675,12 +1706,12 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
         </button>
       )}
       {adding && (
-        <div className="border border-slate-200 rounded-lg p-3 bg-white">
+        <div className="border border-line rounded-lg p-3 bg-white">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
             <Field label="Title">
               <input value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })}
                      placeholder="e.g. Send updated SOW to client"
-                     className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                     className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </Field>
             <Field label="Owner">
               <UserPicker
@@ -1691,17 +1722,17 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
             </Field>
             <Field label="Due date">
               <input type="date" value={d.dueDate} onChange={(e) => setD({ ...d, dueDate: e.target.value })}
-                     className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                     className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </Field>
             <Field label="Description">
               <input value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })}
                      placeholder="Optional"
-                     className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                     className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </Field>
           </div>
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => setAdding(false)}
-                    className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+                    className="text-xs text-muted hover:text-ink inline-flex items-center gap-1">
               <X size={12} /> Cancel
             </button>
             <button type="button" onClick={submit} disabled={!d.title.trim()}
@@ -1712,19 +1743,19 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
         </div>
       )}
       {ordered.length === 0 ? (
-        <div className="text-sm text-slate-500 text-center py-6">No action items yet.</div>
+        <div className="text-sm text-muted text-center py-6">No action items yet.</div>
       ) : (
         <ul className="space-y-1.5">
           {ordered.map((a) => {
             const meta = ACTION_STATUS_META[a.status];
             const overdue = a.dueDate && a.status !== 'done' && a.status !== 'cancelled' && a.dueDate < new Date().toISOString().slice(0, 10);
             return (
-              <li key={a.id} className="border border-slate-200 rounded-lg p-2.5 bg-white flex items-start gap-3">
+              <li key={a.id} className="border border-line rounded-lg p-2.5 bg-white flex items-start gap-3">
                 <button type="button"
                         onClick={() => onSetStatus(a.id, a.status === 'done' ? 'open' : 'done')}
                         className="mt-0.5 flex-shrink-0"
                         title={a.status === 'done' ? 'Mark as open' : 'Mark as done'}>
-                  <meta.Icon size={16} className={a.status === 'done' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-700'} />
+                  <meta.Icon size={16} className={a.status === 'done' ? 'text-emerald-600' : 'text-muted/70 hover:text-ink/80'} />
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1732,7 +1763,7 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
                       value={a.title}
                       onChange={(e) => onUpdate(a.id, { title: e.target.value })}
                       className={`text-xs font-medium bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 flex-1 min-w-[200px] ${
-                        a.status === 'done' ? 'line-through text-slate-400' : 'text-slate-900'
+                        a.status === 'done' ? 'line-through text-muted/70' : 'text-ink'
                       }`}
                     />
                     <select
@@ -1745,7 +1776,7 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
                       ))}
                     </select>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1 flex-wrap">
+                  <div className="flex items-center gap-3 text-[11px] text-muted mt-1 flex-wrap">
                     <div className="w-52">
                       <UserPicker
                         value={a.ownerEmail}
@@ -1762,7 +1793,7 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
                     {overdue && <span className="text-[10px] text-red-700 font-semibold">overdue</span>}
                   </div>
                   {a.description && (
-                    <div className="text-[11px] text-slate-600 mt-1">{a.description}</div>
+                    <div className="text-[11px] text-muted mt-1">{a.description}</div>
                   )}
                 </div>
                 <button type="button" onClick={() => { if (confirm('Delete this action?')) onRemove(a.id); }}
@@ -1783,9 +1814,9 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
 function TeamTab({ account, team }: { account: Account; team: TeamMemberLite[] }) {
   if (team.length === 0) {
     return (
-      <div className="text-sm text-slate-500 text-center py-6">
+      <div className="text-sm text-muted text-center py-6">
         No one on the roster has <strong>{account.name}</strong> as their current project.<br />
-        <span className="text-[11px] text-slate-400">Update <em>project</em> on a roster member to "{account.name}" to surface them here.</span>
+        <span className="text-[11px] text-muted/70">Update <em>project</em> on a roster member to "{account.name}" to surface them here.</span>
       </div>
     );
   }
@@ -1793,7 +1824,7 @@ function TeamTab({ account, team }: { account: Account; team: TeamMemberLite[] }
     <div className="overflow-x-auto -mx-1">
       <table className="min-w-full text-xs">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+          <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line">
             <th className="py-2 pr-3 font-semibold">Name</th>
             <th className="py-2 pr-3 font-semibold">Role</th>
             <th className="py-2 pr-3 font-semibold">Project (roster)</th>
@@ -1802,15 +1833,15 @@ function TeamTab({ account, team }: { account: Account; team: TeamMemberLite[] }
             <th className="py-2 pr-3 font-semibold">Location</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-line/60">
           {team.map((m, idx) => (
             <tr key={`${m.name}-${idx}`} className="hover:bg-white">
-              <td className="py-1.5 pr-3 font-medium text-slate-900">{m.name}</td>
-              <td className="py-1.5 pr-3 text-slate-600">{m.role}</td>
-              <td className="py-1.5 pr-3 text-slate-600">{m.project}</td>
-              <td className="py-1.5 pr-3 text-slate-600">{m.status}</td>
-              <td className="py-1.5 pr-3 text-slate-500">{m.email || '—'}</td>
-              <td className="py-1.5 pr-3 text-slate-500">{m.location || '—'}</td>
+              <td className="py-1.5 pr-3 font-medium text-ink">{m.name}</td>
+              <td className="py-1.5 pr-3 text-muted">{m.role}</td>
+              <td className="py-1.5 pr-3 text-muted">{m.project}</td>
+              <td className="py-1.5 pr-3 text-muted">{m.status}</td>
+              <td className="py-1.5 pr-3 text-muted">{m.email || '—'}</td>
+              <td className="py-1.5 pr-3 text-muted">{m.location || '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -1842,7 +1873,7 @@ function AddAccountForm({ onCancel, onAdd }: {
         <Field label="Account name *">
           <input autoFocus value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })}
                  placeholder="e.g. Equity"
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+                 className="w-full border border-line rounded-md px-3 py-1.5 text-sm" />
         </Field>
         <Field label="Sales owner">
           <UserPicker
@@ -1861,12 +1892,12 @@ function AddAccountForm({ onCancel, onAdd }: {
         <Field label="Industry">
           <input value={d.industry} onChange={(e) => setD({ ...d, industry: e.target.value })}
                  placeholder="Optional"
-                 className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm" />
+                 className="w-full border border-line rounded-md px-3 py-1.5 text-sm" />
         </Field>
       </div>
       <div className="mt-3 flex items-center justify-end gap-2">
         <button type="button" onClick={onCancel}
-                className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+                className="text-xs text-muted hover:text-ink inline-flex items-center gap-1">
           <X size={12} /> Cancel
         </button>
         <button type="button" onClick={submit} disabled={!d.name.trim()}
@@ -1882,7 +1913,7 @@ function AddAccountForm({ onCancel, onAdd }: {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{label}</label>
+      <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">{label}</label>
       {children}
     </div>
   );
@@ -1908,7 +1939,7 @@ function HeroStat({ label, value, valueStr, sensitive, subtitle, tone = 'mute' }
         {label}
       </div>
       <div className="flex items-baseline gap-2 mt-1">
-        <span className={`text-2xl font-extrabold tabular-nums ${valueTone}`}>
+        <span className={`text-2xl font-bold tabular-nums tracking-[-0.025em] ${valueTone}`}>
           {sensitive ? <Sensitive>{display}</Sensitive> : display}
         </span>
         {subtitle && <span className="text-[10px] text-indigo-100/80">{subtitle}</span>}

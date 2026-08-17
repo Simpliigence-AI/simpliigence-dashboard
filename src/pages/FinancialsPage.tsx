@@ -211,8 +211,8 @@ export default function FinancialsPage() {
             <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 mb-4">
               <EyeOff size={28} />
             </div>
-            <h2 className="text-lg font-bold text-slate-800 mb-1">Financials hidden during demo</h2>
-            <p className="text-sm text-slate-500 max-w-md">
+            <h2 className="text-lg font-bold text-ink mb-1">Financials hidden during demo</h2>
+            <p className="text-sm text-muted max-w-md">
               Cost, revenue, and margin figures are masked across the app while demo mode is on. Re-enable
               from <strong>Settings → Demo mode</strong> to view this page.
             </p>
@@ -275,7 +275,7 @@ export default function FinancialsPage() {
 
       {/* Project financial summary — main view */}
       <Card title="Project Financial Summary" className="mb-6">
-        <p className="text-xs text-slate-400 mb-3">
+        <p className="text-xs text-muted/70 mb-3">
           Revenue, cost, and margin per project. Click a row to expand the month-by-month breakdown.
           Revenue is distributed evenly across the project's active forecast months.
         </p>
@@ -286,19 +286,19 @@ export default function FinancialsPage() {
       <Card title="Top Cost Contributors">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left">
-              <th className="pb-3 font-semibold text-slate-600">Employee</th>
-              <th className="pb-3 font-semibold text-slate-600">Role</th>
-              <th className="pb-3 font-semibold text-slate-600 text-right">Rate ($/hr)</th>
-              <th className="pb-3 font-semibold text-slate-600 text-right">Hours</th>
-              <th className="pb-3 font-semibold text-slate-600 text-right">Loaded Cost (USD)</th>
+            <tr className="border-b border-line text-left">
+              <th className="pb-3 font-semibold text-muted">Employee</th>
+              <th className="pb-3 font-semibold text-muted">Role</th>
+              <th className="pb-3 font-semibold text-muted text-right">Rate ($/hr)</th>
+              <th className="pb-3 font-semibold text-muted text-right">Hours</th>
+              <th className="pb-3 font-semibold text-muted text-right">Loaded Cost (USD)</th>
             </tr>
           </thead>
           <tbody>
             {employeeCost.map((e) => (
-              <tr key={e.name} className="border-b border-slate-100">
-                <td className="py-2.5 font-medium text-slate-800">{e.name}</td>
-                <td className="py-2.5 text-slate-500 text-xs">{e.role || '—'}</td>
+              <tr key={e.name} className="border-b border-line/60">
+                <td className="py-2.5 font-medium text-ink">{e.name}</td>
+                <td className="py-2.5 text-muted text-xs">{e.role || '—'}</td>
                 <td className="py-2.5 text-right tabular-nums">{e.rate ? `$${e.rate}` : '—'}</td>
                 <td className="py-2.5 text-right tabular-nums">{e.hours.toLocaleString()}</td>
                 <td className="py-2.5 text-right tabular-nums font-semibold">
@@ -345,56 +345,56 @@ function ProjectFinancialsTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-200 text-left">
+          <tr className="border-b border-line text-left">
             <th className="pb-3 pr-2 w-6" />
-            <th className="pb-3 pr-3 font-semibold text-slate-600">Project</th>
-            <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">People</th>
-            <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Hours (YTD)</th>
-            <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Revenue</th>
-            <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Cost</th>
-            <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Margin</th>
-            <th className="pb-3 pr-3 font-semibold text-slate-600 text-right">Margin %</th>
+            <th className="pb-3 pr-3 font-semibold text-muted">Project</th>
+            <th className="pb-3 pr-3 font-semibold text-muted text-right">People</th>
+            <th className="pb-3 pr-3 font-semibold text-muted text-right">Hours (YTD)</th>
+            <th className="pb-3 pr-3 font-semibold text-muted text-right">Revenue</th>
+            <th className="pb-3 pr-3 font-semibold text-muted text-right">Cost</th>
+            <th className="pb-3 pr-3 font-semibold text-muted text-right">Margin</th>
+            <th className="pb-3 pr-3 font-semibold text-muted text-right">Margin %</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
-            <tr><td colSpan={8} className="py-6 text-center text-slate-400 text-sm">No projects with forecasted hours yet.</td></tr>
+            <tr><td colSpan={8} className="py-6 text-center text-muted/70 text-sm">No projects with forecasted hours yet.</td></tr>
           )}
           {rows.map((p) => {
             const open = expanded.has(p.name);
             return (
               <Fragment key={p.name}>
-                <tr className="border-b border-slate-100 hover:bg-slate-50">
+                <tr className="border-b border-line/60 hover:bg-surface-2/70">
                   <td className="py-2.5 pr-2">
-                    <button onClick={() => toggle(p.name)} className="text-slate-400 hover:text-slate-600">
+                    <button onClick={() => toggle(p.name)} className="text-muted/70 hover:text-muted">
                       {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </button>
                   </td>
                   <td className="py-2.5 pr-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-800">{p.name}</span>
+                      <span className="font-medium text-ink">{p.name}</span>
                       <SourceBadge source={p.source} />
                     </div>
                     {p.pipeline?.revenue != null && (
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="text-[10px] text-muted/70 mt-0.5">
                         Pipeline revenue: {p.pipeline.revenueCurrency === 'CAD' ? 'CA$' : '$'}{p.pipeline.revenue.toLocaleString()} {p.pipeline.revenueCurrency ?? 'USD'}
                       </div>
                     )}
                   </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">{p.headcount}</td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">{p.ytdHours.toLocaleString()}</td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums text-muted">{p.headcount}</td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums text-muted">{p.ytdHours.toLocaleString()}</td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">
                     {p.ytdRevenue > 0 ? (
                       <span className="text-sky-700 font-semibold">${p.ytdRevenue.toLocaleString()}</span>
                     ) : (
-                      <span className="text-slate-300 italic">no revenue set</span>
+                      <span className="text-line italic">no revenue set</span>
                     )}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">
                     {p.ytdCost > 0 ? (
                       <span className="text-orange-700 font-semibold">${p.ytdCost.toLocaleString()}</span>
                     ) : (
-                      <span className="text-slate-300">—</span>
+                      <span className="text-line">—</span>
                     )}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">
@@ -407,7 +407,7 @@ function ProjectFinancialsTable({
 
                 {/* Expanded — monthly breakdown */}
                 {open && (
-                  <tr className="bg-slate-50/60">
+                  <tr className="bg-surface-2/60">
                     <td />
                     <td colSpan={7} className="px-3 py-3">
                       <MonthlyBreakdown rows={p.byMonth} hasRevenue={p.ytdRevenue > 0} />
@@ -419,7 +419,7 @@ function ProjectFinancialsTable({
           })}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-slate-300 font-bold">
+          <tr className="border-t-2 border-line font-bold">
             <td />
             <td className="pt-3 pr-3">Total ({rows.length})</td>
             <td className="pt-3 pr-3 text-right">{rows.reduce((s, p) => s + p.headcount, 0)}</td>
@@ -437,7 +437,7 @@ function ProjectFinancialsTable({
           </tr>
           <tr>
             <td colSpan={5} />
-            <td colSpan={3} className="pt-1 text-right text-[10px] text-slate-400">
+            <td colSpan={3} className="pt-1 text-right text-[10px] text-muted/70">
               ≈ ₹{Math.round(totalCost * exchangeRate).toLocaleString()} cost
             </td>
           </tr>
@@ -449,16 +449,16 @@ function ProjectFinancialsTable({
 
 function MonthlyBreakdown({ rows, hasRevenue }: { rows: ProjectMonth[]; hasRevenue: boolean }) {
   return (
-    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-lg border border-line overflow-hidden">
       <table className="w-full text-xs">
         <thead>
-          <tr className="bg-slate-50 text-left">
-            <th className="px-3 py-2 font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Month</th>
-            <th className="px-2 py-2 font-semibold text-slate-500 uppercase tracking-wider text-[10px] text-right">Hours</th>
-            {hasRevenue && <th className="px-2 py-2 font-semibold text-slate-500 uppercase tracking-wider text-[10px] text-right">Revenue</th>}
-            <th className="px-2 py-2 font-semibold text-slate-500 uppercase tracking-wider text-[10px] text-right">Cost</th>
-            {hasRevenue && <th className="px-2 py-2 font-semibold text-slate-500 uppercase tracking-wider text-[10px] text-right">Margin</th>}
-            {hasRevenue && <th className="px-3 py-2 font-semibold text-slate-500 uppercase tracking-wider text-[10px] text-right">Margin %</th>}
+          <tr className="bg-surface-2/70 text-left">
+            <th className="px-3 py-2 font-semibold text-muted uppercase tracking-wider text-[10px]">Month</th>
+            <th className="px-2 py-2 font-semibold text-muted uppercase tracking-wider text-[10px] text-right">Hours</th>
+            {hasRevenue && <th className="px-2 py-2 font-semibold text-muted uppercase tracking-wider text-[10px] text-right">Revenue</th>}
+            <th className="px-2 py-2 font-semibold text-muted uppercase tracking-wider text-[10px] text-right">Cost</th>
+            {hasRevenue && <th className="px-2 py-2 font-semibold text-muted uppercase tracking-wider text-[10px] text-right">Margin</th>}
+            {hasRevenue && <th className="px-3 py-2 font-semibold text-muted uppercase tracking-wider text-[10px] text-right">Margin %</th>}
           </tr>
         </thead>
         <tbody>
@@ -466,9 +466,9 @@ function MonthlyBreakdown({ rows, hasRevenue }: { rows: ProjectMonth[]; hasReven
             const pct = r.revenue > 0 ? Math.round((r.margin / r.revenue) * 100) : 0;
             const isEmpty = r.hours === 0 && r.cost === 0 && r.revenue === 0;
             return (
-              <tr key={r.month} className={`border-t border-slate-50 ${isEmpty ? 'opacity-50' : ''}`}>
-                <td className="px-3 py-1.5 font-medium text-slate-700">{r.month}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{r.hours > 0 ? r.hours.toLocaleString() : '—'}</td>
+              <tr key={r.month} className={`border-t border-line/40 ${isEmpty ? 'opacity-50' : ''}`}>
+                <td className="px-3 py-1.5 font-medium text-ink/80">{r.month}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-muted">{r.hours > 0 ? r.hours.toLocaleString() : '—'}</td>
                 {hasRevenue && (
                   <td className="px-2 py-1.5 text-right tabular-nums text-sky-700">
                     {r.revenue > 0 ? `$${r.revenue.toLocaleString()}` : '—'}
@@ -502,7 +502,7 @@ function SourceBadge({ source }: { source: 'zoho' | 'manual' | 'legacy' }) {
       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
       : source === 'manual'
         ? 'bg-sky-50 text-sky-700 border-sky-200'
-        : 'bg-slate-100 text-slate-500 border-slate-200';
+        : 'bg-surface-2 text-muted border-line';
   const label = source === 'zoho' ? 'Current' : source === 'manual' ? 'Pipeline' : 'Legacy';
   return (
     <span className={`inline-block px-1.5 py-0.5 text-[9px] font-medium rounded border ${cls}`}>
@@ -512,7 +512,7 @@ function SourceBadge({ source }: { source: 'zoho' | 'manual' | 'legacy' }) {
 }
 
 function MarginCell({ margin, hasRevenue, compact = false }: { margin: number; hasRevenue: boolean; compact?: boolean }) {
-  if (!hasRevenue) return <span className="text-slate-300">—</span>;
+  if (!hasRevenue) return <span className="text-line">—</span>;
   const positive = margin >= 0;
   const cls = positive ? 'text-emerald-700' : 'text-rose-600';
   return (
@@ -523,7 +523,7 @@ function MarginCell({ margin, hasRevenue, compact = false }: { margin: number; h
 }
 
 function MarginPctCell({ pct, hasRevenue, compact = false }: { pct: number; hasRevenue: boolean; compact?: boolean }) {
-  if (!hasRevenue) return <span className="text-slate-300">—</span>;
+  if (!hasRevenue) return <span className="text-line">—</span>;
   const positive = pct >= 0;
   const colour = pct >= 40 ? 'bg-emerald-50 text-emerald-700' :
                  pct >= 20 ? 'bg-sky-50 text-sky-700' :

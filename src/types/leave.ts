@@ -15,7 +15,7 @@ export const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; cls: string
   pending:   { label: 'Pending',   cls: 'bg-amber-100 text-amber-800' },
   approved:  { label: 'Approved',  cls: 'bg-emerald-100 text-emerald-800' },
   rejected:  { label: 'Rejected',  cls: 'bg-rose-100 text-rose-800' },
-  cancelled: { label: 'Cancelled', cls: 'bg-slate-100 text-slate-500' },
+  cancelled: { label: 'Cancelled', cls: 'bg-surface-2 text-muted' },
 };
 
 /** Who a leave type is offered to. 'all' = everyone; 'female'/'male' gate the

@@ -24,7 +24,7 @@ import type { USStaffingAccount, USStaffingRequisition, USStaffingStage } from '
 import { US_STAGE_COLORS } from '../../types/usStaffing';
 import { Card } from '../../components/ui';
 
-const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
+const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
@@ -106,9 +106,9 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
     <div className="grid grid-cols-12 gap-4">
       {/* LEFT RAIL */}
       <Card className="col-span-12 lg:col-span-5 xl:col-span-4 p-0 overflow-hidden">
-        <div className="p-3 border-b border-slate-100 flex items-center gap-2">
+        <div className="p-3 border-b border-line/60 flex items-center gap-2">
           <div className="relative flex-1">
-            <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
             <Input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -127,18 +127,18 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
         </div>
         <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
           {grouped.length === 0 ? (
-            <p className="text-center text-slate-400 text-xs py-8">No requisitions match your filter.</p>
+            <p className="text-center text-muted/70 text-xs py-8">No requisitions match your filter.</p>
           ) : grouped.map(({ account, reqs: acctReqs }) => (
-            <div key={account.id} className="border-b border-slate-100 last:border-0">
+            <div key={account.id} className="border-b border-line/60 last:border-0">
               <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border-b border-blue-100 px-3 py-1.5 flex items-center gap-2">
                 <Building2 size={12} className="text-primary flex-shrink-0" />
-                <span className="text-xs font-bold text-slate-900 flex-1 truncate">{account.name}</span>
+                <span className="text-xs font-bold text-ink flex-1 truncate">{account.name}</span>
                 <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
                   account.category === 'MSP' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'
                 }`}>
                   {account.category}
                 </span>
-                <span className="text-[9px] text-slate-500 font-semibold">{acctReqs.length}</span>
+                <span className="text-[9px] text-muted font-semibold">{acctReqs.length}</span>
               </div>
               {acctReqs.map((r) => {
                 const active = r.id === selectedId;
@@ -149,13 +149,13 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                     key={r.id}
                     type="button"
                     onClick={() => setSelectedId(r.id)}
-                    className={`w-full text-left px-3 py-2 border-b border-slate-50 last:border-0 transition-colors ${
-                      active ? 'bg-primary/10 border-l-[3px] border-l-primary' : 'hover:bg-slate-50'
+                    className={`w-full text-left px-3 py-2 border-b border-line/40 last:border-0 transition-colors ${
+                      active ? 'bg-primary/10 border-l-[3px] border-l-primary' : 'hover:bg-surface-2/70'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="flex-1 min-w-0 truncate text-xs font-semibold text-slate-800">
-                        {r.role || <span className="italic text-slate-400">Untitled role</span>}
+                      <span className="flex-1 min-w-0 truncate text-xs font-semibold text-ink">
+                        {r.role || <span className="italic text-muted/70">Untitled role</span>}
                       </span>
                       <span
                         className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full whitespace-nowrap"
@@ -164,22 +164,22 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                         {r.stage}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-muted">
                       <span className="inline-flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: ageingColor(age) }} />
                         {age}d old
                       </span>
                       {score > 0 && (
                         <>
-                          <span className="text-slate-300">·</span>
-                          <span className={score >= 65 ? 'text-emerald-600 font-semibold' : score >= 40 ? 'text-amber-600' : 'text-slate-500'}>
+                          <span className="text-line">·</span>
+                          <span className={score >= 65 ? 'text-emerald-600 font-semibold' : score >= 40 ? 'text-amber-600' : 'text-muted'}>
                             {score}% AI
                           </span>
                         </>
                       )}
                       {r.closure_date && (
                         <>
-                          <span className="text-slate-300">·</span>
+                          <span className="text-line">·</span>
                           <span>close {r.closure_date}</span>
                         </>
                       )}
@@ -196,22 +196,22 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
       <Card className="col-span-12 lg:col-span-7 xl:col-span-8">
         {!selected || !selectedAcct ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <ArrowRight size={28} className="text-slate-300 -rotate-180 mb-3" />
-            <h3 className="text-sm font-semibold text-slate-700">Pick a requisition</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-xs">
+            <ArrowRight size={28} className="text-line -rotate-180 mb-3" />
+            <h3 className="text-sm font-semibold text-ink/80">Pick a requisition</h3>
+            <p className="text-xs text-muted mt-1 max-w-xs">
               Select a role on the left to see and edit its full detail here.
               No more horizontal scrolling.
             </p>
           </div>
         ) : (
           <>
-            <header className="pb-3 mb-4 border-b border-slate-100 flex items-start gap-3">
+            <header className="pb-3 mb-4 border-b border-line/60 flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
                 <Building2 size={16} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-base font-extrabold text-slate-900 tracking-tight truncate">{selectedAcct.name}</div>
-                <div className="text-xs text-slate-500">
+                <div className="text-base font-extrabold text-ink tracking-tight truncate">{selectedAcct.name}</div>
+                <div className="text-xs text-muted">
                   {selected.role || <span className="italic">Untitled role</span>}
                   {' · '}
                   <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
@@ -229,7 +229,7 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                     setSelectedId(null);
                   }
                 }}
-                className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded"
+                className="text-muted/70 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded"
                 title="Delete requisition"
               >
                 <Trash2 size={14} />
@@ -238,7 +238,7 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</label>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Role</label>
                 <Input
                   value={selected.role}
                   onChange={(e) => onSave(selected.id, 'role', e.target.value)}
@@ -246,7 +246,7 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stage</label>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Stage</label>
                 <Select
                   value={selected.stage}
                   onChange={(e) => onSave(selected.id, 'stage', e.target.value)}
@@ -256,7 +256,7 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Initiation Date</label>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Initiation Date</label>
                 <Input
                   type="date"
                   value={selected.initiation_date || ''}
@@ -265,7 +265,7 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Closure Date</label>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Closure Date</label>
                 <Input
                   type="date"
                   value={selected.closure_date || ''}
@@ -274,7 +274,7 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Notes</label>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Notes</label>
                 <Textarea
                   rows={5}
                   value={selected.notes || ''}
@@ -283,15 +283,15 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                   className="mt-1"
                 />
               </div>
-              <div className="md:col-span-2 flex items-center gap-3 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-                <span>Ageing: <strong className="text-slate-700">{ageingDays(selected.initiation_date)} d</strong></span>
+              <div className="md:col-span-2 flex items-center gap-3 pt-2 border-t border-line/60 text-[11px] text-muted">
+                <span>Ageing: <strong className="text-ink/80">{ageingDays(selected.initiation_date)} d</strong></span>
                 {selected._score != null && (
                   <>
-                    <span className="text-slate-300">·</span>
-                    <span>AI Probability: <strong className="text-slate-700">{selected._score}%</strong></span>
+                    <span className="text-line">·</span>
+                    <span>AI Probability: <strong className="text-ink/80">{selected._score}%</strong></span>
                   </>
                 )}
-                <span className="text-slate-300">·</span>
+                <span className="text-line">·</span>
                 <span>Updated {new Date(selected.updated_at).toLocaleDateString()}</span>
               </div>
             </div>

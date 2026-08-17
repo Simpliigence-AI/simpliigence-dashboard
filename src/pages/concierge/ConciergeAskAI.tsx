@@ -120,15 +120,15 @@ export function ConciergeAskAI() {
             <Sparkles size={14} />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900">Ask the Concierge AI</div>
-            <div className="text-[11px] text-slate-500">Query across accounts, features, billing, tickets, AI profiles, and upsell backlog.</div>
+            <div className="text-sm font-bold text-ink">Ask the Concierge AI</div>
+            <div className="text-[11px] text-muted">Query across accounts, features, billing, tickets, AI profiles, and upsell backlog.</div>
           </div>
         </div>
         {history.length > 0 && (
           <button
             type="button"
             onClick={() => setHistory([])}
-            className="text-[11px] text-slate-500 hover:text-rose-600 flex items-center gap-1"
+            className="text-[11px] text-muted hover:text-rose-600 flex items-center gap-1"
             title="Clear history"
           >
             <X size={11} /> clear
@@ -145,7 +145,7 @@ export function ConciergeAskAI() {
             placeholder={voiceActive ? 'Listening…' : 'Ask anything — e.g. "Which accounts have Sales Cloud but not Marketing Cloud?"'}
             rows={2}
             disabled={busy}
-            className={`w-full px-3 py-2 pr-10 rounded-lg border text-sm resize-y bg-white ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-slate-300'} disabled:opacity-70`}
+            className={`w-full px-3 py-2 pr-10 rounded-lg border text-sm resize-y bg-white ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-line'} disabled:opacity-70`}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); void ask(); } }}
           />
           {voiceSupported && (
@@ -155,14 +155,14 @@ export function ConciergeAskAI() {
               disabled={busy}
               title={voiceActive ? 'Stop listening' : 'Dictate question'}
               className={`absolute top-1.5 right-1.5 p-1.5 rounded-full transition-colors ${
-                voiceActive ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                voiceActive ? 'bg-rose-600 text-white animate-pulse' : 'bg-surface-2 text-muted hover:bg-line/60'
               }`}
             >
               {voiceActive ? <MicOff size={14} /> : <Mic size={14} />}
             </button>
           )}
           {voiceInterim && (
-            <div className="text-[11px] text-slate-500 italic mt-1 px-1 flex items-center gap-1">
+            <div className="text-[11px] text-muted italic mt-1 px-1 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
               {voiceInterim}
             </div>
@@ -187,7 +187,7 @@ export function ConciergeAskAI() {
               key={p}
               type="button"
               onClick={() => ask(p)}
-              className="text-[11px] px-2 py-1 rounded-full border border-slate-200 bg-white text-slate-700 hover:border-purple-300 hover:text-purple-700 transition-colors"
+              className="text-[11px] px-2 py-1 rounded-full border border-line bg-white text-ink/80 hover:border-purple-300 hover:text-purple-700 transition-colors"
             >
               {p}
             </button>
@@ -201,26 +201,26 @@ export function ConciergeAskAI() {
           {history.map((entry, idx) => (
             <div
               key={entry.id}
-              className={`rounded-lg border ${idx === 0 ? 'border-purple-200 bg-white shadow-sm' : 'border-slate-200 bg-slate-50/50'} p-3`}
+              className={`rounded-lg border ${idx === 0 ? 'border-purple-200 bg-white shadow-sm' : 'border-line bg-surface-2/50'} p-3`}
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-start gap-2 min-w-0">
-                  <MessageSquare size={12} className="text-slate-400 mt-1 flex-shrink-0" />
-                  <div className="text-xs font-semibold text-slate-700 break-words">{entry.question}</div>
+                  <MessageSquare size={12} className="text-muted/70 mt-1 flex-shrink-0" />
+                  <div className="text-xs font-semibold text-ink/80 break-words">{entry.question}</div>
                 </div>
                 {entry.answer && (
                   <button
                     type="button"
                     onClick={() => copyAnswer(entry)}
                     title="Copy Q&A"
-                    className="text-slate-400 hover:text-slate-700 p-0.5 flex-shrink-0"
+                    className="text-muted/70 hover:text-ink/80 p-0.5 flex-shrink-0"
                   >
                     {copiedId === entry.id ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
                   </button>
                 )}
               </div>
               {entry === latest && busy && !entry.answer && !entry.error && (
-                <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-2">
+                <div className="text-xs text-muted flex items-center gap-1.5 mt-2">
                   <Loader2 size={12} className="animate-spin" /> Scanning accounts + features + billing + profiles…
                 </div>
               )}
@@ -261,7 +261,7 @@ function MarkdownAnswer({ text }: { text: string }) {
   const flushList = (key: string) => {
     if (listItems.length === 0) return;
     blocks.push(
-      <ul key={key} className="list-disc pl-5 space-y-0.5 text-sm text-slate-800">
+      <ul key={key} className="list-disc pl-5 space-y-0.5 text-sm text-ink">
         {listItems.map((it, i) => <li key={i} dangerouslySetInnerHTML={{ __html: inlineFmt(it) }} />)}
       </ul>,
     );
@@ -278,11 +278,11 @@ function MarkdownAnswer({ text }: { text: string }) {
     const h = line.match(/^(#{1,4})\s+(.*)$/);
     if (h) {
       const level = h[1].length;
-      const size = level <= 2 ? 'text-sm font-bold text-slate-900' : 'text-[13px] font-semibold text-slate-800';
+      const size = level <= 2 ? 'text-sm font-bold text-ink' : 'text-[13px] font-semibold text-ink';
       blocks.push(<div key={`h-${i}`} className={`${size} mt-1`}>{h[2]}</div>);
       return;
     }
-    blocks.push(<p key={`p-${i}`} className="text-sm text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{ __html: inlineFmt(line) }} />);
+    blocks.push(<p key={`p-${i}`} className="text-sm text-ink leading-relaxed" dangerouslySetInnerHTML={{ __html: inlineFmt(line) }} />);
   });
   flushList('ul-end');
   return <div className="space-y-1">{blocks}</div>;
@@ -295,6 +295,6 @@ function inlineFmt(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
   return esc
-    .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-slate-900">$1</strong>')
-    .replace(/`([^`]+)`/g, '<code class="text-[12px] bg-slate-100 border border-slate-200 rounded px-1 py-0.5">$1</code>');
+    .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-ink">$1</strong>')
+    .replace(/`([^`]+)`/g, '<code class="text-[12px] bg-surface-2 border border-line rounded px-1 py-0.5">$1</code>');
 }

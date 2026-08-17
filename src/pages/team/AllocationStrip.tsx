@@ -18,7 +18,7 @@ interface AllocationStripProps {
 }
 
 function barColor(hours: number, capacity: number): string {
-  if (hours <= 0) return 'bg-slate-100';
+  if (hours <= 0) return 'bg-surface-2';
   const util = hours / capacity;
   if (util >= 0.8) return 'bg-emerald-500';
   if (util >= 0.5) return 'bg-sky-500';
@@ -26,7 +26,7 @@ function barColor(hours: number, capacity: number): string {
 }
 
 function barTextColor(hours: number, capacity: number): string {
-  if (hours <= 0) return 'text-slate-300';
+  if (hours <= 0) return 'text-line';
   const util = hours / capacity;
   if (util >= 0.5) return 'text-white';
   return 'text-amber-900';
@@ -64,7 +64,7 @@ export function AllocationStrip({
                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                 setOpenMonth({ month: m, rect });
               }}
-              className={`group relative flex-1 rounded bg-slate-50 transition-shadow overflow-hidden ${
+              className={`group relative flex-1 rounded bg-surface-2/70 transition-shadow overflow-hidden ${
                 interactive ? 'hover:ring-2 hover:ring-primary/40 cursor-pointer' : 'cursor-default'
               }`}
               style={{ height: cellH }}
@@ -75,7 +75,7 @@ export function AllocationStrip({
                 className={`absolute bottom-0 left-0 right-0 ${barColor(hours, capacity)} transition-all`}
                 style={{ height: fillH }}
               />
-              <div className="absolute inset-x-0 top-0 text-[9px] text-slate-400 leading-none pt-0.5">
+              <div className="absolute inset-x-0 top-0 text-[9px] text-muted/70 leading-none pt-0.5">
                 {m.slice(0, compact ? 1 : 3)}
               </div>
               <div
@@ -132,7 +132,7 @@ export function AllocationStripRow({
         >
           {label}
         </span>
-        {sublabel && <span className="text-[10px] text-slate-400 truncate">{sublabel}</span>}
+        {sublabel && <span className="text-[10px] text-muted/70 truncate">{sublabel}</span>}
       </div>
       <div className="flex-1 min-w-0">{children}</div>
       {trailing && <div className="shrink-0">{trailing}</div>}

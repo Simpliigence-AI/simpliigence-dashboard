@@ -552,7 +552,7 @@ export default function IndiaStaffingPage() {
 
     return (
       <React.Fragment key={r.id}>
-        <tr className={`border-b border-slate-50 hover:bg-slate-50/50 [&>td]:align-middle ${opts.archived ? 'opacity-75' : ''} ${isChecked ? 'bg-blue-50/40' : ''}`}>
+        <tr className={`border-b border-line/40 hover:bg-surface-2/50 [&>td]:align-middle ${opts.archived ? 'opacity-75' : ''} ${isChecked ? 'bg-blue-50/40' : ''}`}>
           {opts.selectable && (
             <td className="p-2 text-center">
               <input
@@ -572,7 +572,7 @@ export default function IndiaStaffingPage() {
           )}
           {/* Expand */}
           <td className="p-2 text-center">
-            <button onClick={() => toggleRow(r.id)} className="p-0.5 rounded hover:bg-slate-100" title="Show status & audit history">
+            <button onClick={() => toggleRow(r.id)} className="p-0.5 rounded hover:bg-surface-2" title="Show status & audit history">
               {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </button>
           </td>
@@ -581,7 +581,7 @@ export default function IndiaStaffingPage() {
             <EditableCell value={r.account_id} type="select" options={accounts.map(a => a.id)}
               onSave={(val) => handleCellSave(r.id, 'account_id', val)}
               displayContent={
-                <span className={opts.hideAccount ? 'text-slate-300 text-[10px]' : 'font-bold'}>
+                <span className={opts.hideAccount ? 'text-line text-[10px]' : 'font-bold'}>
                   {opts.hideAccount ? '↳' : r.account}
                 </span>
               } />
@@ -609,9 +609,9 @@ export default function IndiaStaffingPage() {
                   >
                     {r.filledPositions > 0 ? (
                       <>
-                        <span className={r.openPositions === 0 ? 'text-emerald-600' : 'text-slate-900'}>{r.openPositions}</span>
-                        <span className="text-slate-400 mx-0.5">/</span>
-                        <span className="text-slate-500">{r.newPositions}</span>
+                        <span className={r.openPositions === 0 ? 'text-emerald-600' : 'text-ink'}>{r.openPositions}</span>
+                        <span className="text-muted/70 mx-0.5">/</span>
+                        <span className="text-muted">{r.newPositions}</span>
                       </>
                     ) : (
                       <span>{r.newPositions}</span>
@@ -640,15 +640,15 @@ export default function IndiaStaffingPage() {
           {/* Start Date */}
           <td className="p-2">
             <input type="date" value={r.startDate}
-              className="px-2 py-1 text-[11px] leading-tight border border-slate-200 rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
+              className="px-2 py-1 text-[11px] leading-tight border border-line rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
               onChange={(e) => handleCellSave(r.id, 'start_date', e.target.value)} />
           </td>
           {/* Close Date */}
           <td className="p-2">
             <input type="date" value={r.closeByDate}
-              className="px-2 py-1 text-[11px] leading-tight border border-slate-200 rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
+              className="px-2 py-1 text-[11px] leading-tight border border-line rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 w-[120px] align-middle"
               onChange={(e) => handleCellSave(r.id, 'close_by_date', e.target.value)} />
-            {r.expectedClosure && <div className="text-[9px] text-slate-400 italic mt-0.5">{r.expectedClosure}</div>}
+            {r.expectedClosure && <div className="text-[9px] text-muted/70 italic mt-0.5">{r.expectedClosure}</div>}
           </td>
           {/* Ageing */}
           <td className="p-2 text-center">
@@ -689,7 +689,7 @@ export default function IndiaStaffingPage() {
           {/* AI Prob */}
           <td className="p-2">
             <div className="flex items-center gap-1.5" title="AI-calculated from status history (read-only)">
-              <div className="w-10 h-1.5 rounded bg-slate-100 overflow-hidden">
+              <div className="w-10 h-1.5 rounded bg-surface-2 overflow-hidden">
                 <div className="h-full rounded" style={{ width: `${r.aiProbability}%`, background: probColor(r.aiProbability) }} />
               </div>
               <span className="font-bold text-[11px]">{r.aiProbability}%</span>
@@ -699,7 +699,7 @@ export default function IndiaStaffingPage() {
           <td className="p-2">
             <input
               placeholder="Quick status update..."
-              className="w-full h-7 px-2 text-[11px] leading-tight border border-slate-200 rounded bg-white hover:border-blue-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full h-7 px-2 text-[11px] leading-tight border border-line rounded bg-white hover:border-blue-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const input = e.target as HTMLInputElement;
@@ -709,7 +709,7 @@ export default function IndiaStaffingPage() {
               }}
             />
             {reqStatuses[0] && (
-              <div className="text-[9px] text-slate-400 mt-1 truncate max-w-[170px]" title={reqStatuses[0].status_text}>
+              <div className="text-[9px] text-muted/70 mt-1 truncate max-w-[170px]" title={reqStatuses[0].status_text}>
                 {reqStatuses[0].status_date.slice(5)}: {reqStatuses[0].status_text}
               </div>
             )}
@@ -734,7 +734,7 @@ export default function IndiaStaffingPage() {
               className={`p-1 rounded mr-0.5 align-middle transition-colors disabled:opacity-50 ${
                 r.job_description?.trim()
                   ? 'text-amber-600 hover:bg-amber-50'
-                  : 'text-slate-300 hover:bg-amber-50 hover:text-amber-600'
+                  : 'text-line hover:bg-amber-50 hover:text-amber-600'
               }`}
               title={r.job_description?.trim() ? 'View / edit JD' : 'Generate JD'}
             >
@@ -744,13 +744,13 @@ export default function IndiaStaffingPage() {
             </button>
             <button
               onClick={() => setSendVendorReqId(r.id)}
-              className="p-1 rounded mr-0.5 align-middle transition-colors text-slate-300 hover:bg-primary/10 hover:text-primary"
+              className="p-1 rounded mr-0.5 align-middle transition-colors text-line hover:bg-primary/10 hover:text-primary"
               title="Send to vendor — request candidates"
             >
               <Send size={12} />
             </button>
             <button onClick={() => { if (confirm(`Delete "${r.requisition}"?`)) removeRequisition(r.id); }}
-              className="p-1 rounded align-middle hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors" title="Delete requisition">
+              className="p-1 rounded align-middle hover:bg-red-50 text-line hover:text-red-500 transition-colors" title="Delete requisition">
               <Trash2 size={12} />
             </button>
           </td>
@@ -759,20 +759,20 @@ export default function IndiaStaffingPage() {
         {/* Expanded status + audit history */}
         {isExpanded && (
           <tr key={`${r.id}-exp`}>
-            <td colSpan={opts.selectable ? 18 : 17} className="bg-slate-50/80 p-0">
+            <td colSpan={opts.selectable ? 18 : 17} className="bg-surface-2/80 p-0">
               <div className="px-8 py-3 space-y-4">
                 {/* Status updates */}
                 <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">Status History</div>
-                  {reqStatuses.length === 0 && <p className="text-xs text-slate-400 italic">No status updates yet</p>}
+                  <div className="text-[10px] font-bold text-muted/70 uppercase mb-2">Status History</div>
+                  {reqStatuses.length === 0 && <p className="text-xs text-muted/70 italic">No status updates yet</p>}
                   <div className="space-y-1.5">
                     {reqStatuses.map(s => (
                       <div key={s.id} className="flex items-start gap-3 text-xs group">
-                        <span className="text-slate-400 font-mono text-[10px] w-20 flex-shrink-0 pt-0.5">{s.status_date}</span>
-                        <span className="flex-1 text-slate-600">{s.status_text}</span>
+                        <span className="text-muted/70 font-mono text-[10px] w-20 flex-shrink-0 pt-0.5">{s.status_date}</span>
+                        <span className="flex-1 text-muted">{s.status_text}</span>
                         {s.anticipation && <span className="text-blue-500 text-[10px] italic flex-shrink-0">{'→'} {s.anticipation}</span>}
                         <button onClick={() => { if (confirm('Delete this status?')) removeStatus(s.id); }}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition-all flex-shrink-0" title="Delete status">
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-50 text-line hover:text-red-500 transition-all flex-shrink-0" title="Delete status">
                           <Trash2 size={10} />
                         </button>
                       </div>
@@ -780,9 +780,9 @@ export default function IndiaStaffingPage() {
                   </div>
                   {/* Detailed add */}
                   <div className="mt-3 flex gap-2 items-end">
-                    <input type="date" className="px-2 py-1 text-[11px] border border-slate-200 rounded bg-white" defaultValue={new Date().toISOString().slice(0,10)} id={`date-${r.id}`} />
-                    <input placeholder="Status update..." className="flex-1 px-2 py-1 text-[11px] border border-slate-200 rounded bg-white" id={`text-${r.id}`} />
-                    <input placeholder="Anticipation..." className="w-40 px-2 py-1 text-[11px] border border-slate-200 rounded bg-white" id={`antic-${r.id}`} />
+                    <input type="date" className="px-2 py-1 text-[11px] border border-line rounded bg-white" defaultValue={new Date().toISOString().slice(0,10)} id={`date-${r.id}`} />
+                    <input placeholder="Status update..." className="flex-1 px-2 py-1 text-[11px] border border-line rounded bg-white" id={`text-${r.id}`} />
+                    <input placeholder="Anticipation..." className="w-40 px-2 py-1 text-[11px] border border-line rounded bg-white" id={`antic-${r.id}`} />
                     <button onClick={() => {
                       const dateEl = document.getElementById(`date-${r.id}`) as HTMLInputElement;
                       const textEl = document.getElementById(`text-${r.id}`) as HTMLInputElement;
@@ -798,7 +798,7 @@ export default function IndiaStaffingPage() {
                 </div>
 
                 {/* Candidate pipeline for this req */}
-                <div className="border-t border-slate-200 pt-3">
+                <div className="border-t border-line pt-3">
                   <CandidatePipeline
                     requisitionId={r.id}
                     candidates={candidatesFor(r.id)}
@@ -809,19 +809,19 @@ export default function IndiaStaffingPage() {
                 </div>
 
                 {/* Audit log */}
-                <div className="border-t border-slate-200 pt-3">
+                <div className="border-t border-line pt-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <History size={11} className="text-slate-400" />
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Field Audit Log ({rowHistory.length})</div>
+                    <History size={11} className="text-muted/70" />
+                    <div className="text-[10px] font-bold text-muted/70 uppercase">Field Audit Log ({rowHistory.length})</div>
                   </div>
-                  {rowHistory.length === 0 && <p className="text-xs text-slate-400 italic">No field changes recorded yet</p>}
+                  {rowHistory.length === 0 && <p className="text-xs text-muted/70 italic">No field changes recorded yet</p>}
                   <div className="space-y-1 max-h-60 overflow-y-auto">
                     {rowHistory.map(h => (
                       <div key={h.id} className="flex items-start gap-3 text-[11px] font-mono">
-                        <span className="text-slate-400 w-36 flex-shrink-0">{new Date(h.changed_at).toLocaleString()}</span>
-                        <span className="text-slate-700 font-semibold w-28 flex-shrink-0">{fieldLabel(h.field)}</span>
+                        <span className="text-muted/70 w-36 flex-shrink-0">{new Date(h.changed_at).toLocaleString()}</span>
+                        <span className="text-ink/80 font-semibold w-28 flex-shrink-0">{fieldLabel(h.field)}</span>
                         <span className="text-rose-500 line-through flex-shrink-0 max-w-[160px] truncate" title={h.old_value}>{h.old_value || '∅'}</span>
-                        <span className="text-slate-400">→</span>
+                        <span className="text-muted/70">→</span>
                         <span className="text-emerald-600 flex-1 truncate" title={h.new_value}>{h.new_value || '∅'}</span>
                       </div>
                     ))}
@@ -837,7 +837,7 @@ export default function IndiaStaffingPage() {
 
   const TableHeader = ({ selectable = false }: { selectable?: boolean } = {}) => (
     <thead>
-      <tr className="border-b-2 border-slate-100">
+      <tr className="border-b-2 border-line/60">
         {selectable && (
           <th className="w-6 p-2 text-center">
             <input
@@ -860,20 +860,20 @@ export default function IndiaStaffingPage() {
           </th>
         )}
         <th className="w-6 p-2"></th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Account</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Requisition</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Month</th>
-        <th className="text-center p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Pos</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Client SPOC</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Department</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Start Date</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Close Date</th>
-        <th className="text-center p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Days since Start Date">Ageing</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Status</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Risk</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Manually set probability. Blank = use AI.">Prob</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]" title="Auto-calculated from status updates">AI Prob</th>
-        <th className="text-left p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px] min-w-[180px]">Add Update</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Account</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Requisition</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Month</th>
+        <th className="text-center p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Pos</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Client SPOC</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Department</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Start Date</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Close Date</th>
+        <th className="text-center p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]" title="Days since Start Date">Ageing</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Status</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Risk</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]" title="Manually set probability. Blank = use AI.">Prob</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]" title="Auto-calculated from status updates">AI Prob</th>
+        <th className="text-left p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px] min-w-[180px]">Add Update</th>
         <th className="w-8 p-2"></th>
       </tr>
     </thead>
@@ -910,18 +910,18 @@ export default function IndiaStaffingPage() {
           className="w-full flex items-center justify-between mb-3 text-left"
         >
           <div className="flex items-center gap-3 flex-wrap">
-            <h3 className={`font-bold text-sm ${tier === 1 ? 'text-primary' : 'text-slate-700'}`}>{title}</h3>
-            <span className="text-[11px] text-slate-500">{subtitle}</span>
+            <h3 className={`font-bold text-sm ${tier === 1 ? 'text-primary' : 'text-ink/80'}`}>{title}</h3>
+            <span className="text-[11px] text-muted">{subtitle}</span>
             {rows.length > 0 && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                 {distinctAccounts} {distinctAccounts === 1 ? 'account' : 'accounts'} · {rows.length} reqs · {totalPositions} open positions
               </span>
             )}
           </div>
-          {collapsed ? <ChevronRight size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+          {collapsed ? <ChevronRight size={16} className="text-muted/70" /> : <ChevronDown size={16} className="text-muted/70" />}
         </button>
         {!collapsed && (rows.length === 0 ? (
-          <p className="text-xs text-slate-400 italic py-4 text-center">{emptyMsg}</p>
+          <p className="text-xs text-muted/70 italic py-4 text-center">{emptyMsg}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -952,22 +952,22 @@ export default function IndiaStaffingPage() {
                           >
                             <td colSpan={totalCols} className="py-2 px-3">
                               <div className="flex items-baseline gap-3 flex-wrap">
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 flex-shrink-0">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-muted flex-shrink-0">
                                   {acctCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                                 </span>
                                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${tier === 1 ? 'bg-primary/20 text-primary' : 'bg-primary/15 text-primary'}`}>
                                   <Building2 size={14} />
                                 </span>
-                                <span className="text-base font-extrabold text-slate-900 tracking-tight">{r.account}</span>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${tier === 1 ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                <span className="text-base font-extrabold text-ink tracking-tight">{r.account}</span>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${tier === 1 ? 'bg-primary text-white' : 'bg-line/60 text-muted'}`}>
                                   Tier {tier}
                                 </span>
-                                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
+                                <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">
                                   {sectionReqs} {sectionReqs === 1 ? 'req' : 'reqs'}
-                                  <span className="text-slate-300 mx-1">·</span>
-                                  <span className="text-slate-700">{sectionPositions}</span> open positions
-                                  <span className="text-slate-300 mx-1">·</span>
-                                  avg AI prob <span className="text-slate-700">{sectionAvgAi}%</span>
+                                  <span className="text-line mx-1">·</span>
+                                  <span className="text-ink/80">{sectionPositions}</span> open positions
+                                  <span className="text-line mx-1">·</span>
+                                  avg AI prob <span className="text-ink/80">{sectionAvgAi}%</span>
                                 </span>
                               </div>
                             </td>
@@ -988,17 +988,17 @@ export default function IndiaStaffingPage() {
 
   return (
     <>
-      <PageHeader title="India Staffing" subtitle="Real-time staffing tracker with AI-powered closure forecasting" />
+      <PageHeader eyebrow="India T&M" tone="gold" title="India Demand" subtitle="Real-time staffing tracker with AI-powered closure forecasting" />
 
       {/* AI Daily Briefing — top-of-page summary of what changed + what needs attention. */}
       <div className="mb-5 rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-100">
           <div className="flex items-center gap-2">
             <Sparkles size={15} className="text-violet-600" />
-            <span className="text-sm font-bold text-slate-800">Daily Briefing</span>
+            <span className="text-sm font-bold text-ink">Daily Briefing</span>
             <span className="bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">AI</span>
             {briefing?.generatedAt && (
-              <span className="text-[10px] text-slate-400">
+              <span className="text-[10px] text-muted/70">
                 · updated {new Date(briefing.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -1015,7 +1015,7 @@ export default function IndiaStaffingPage() {
             </button>
             <button
               onClick={() => setBriefingExpanded((v) => !v)}
-              className="p-1 rounded text-slate-400 hover:bg-slate-100"
+              className="p-1 rounded text-muted/70 hover:bg-surface-2"
               title={briefingExpanded ? 'Collapse' : 'Expand'}
             >
               {briefingExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -1025,12 +1025,12 @@ export default function IndiaStaffingPage() {
         {briefingExpanded && (
           <div className="px-4 py-3">
             {briefingLoading && !briefing && (
-              <div className="text-xs text-slate-400 italic flex items-center gap-2">
+              <div className="text-xs text-muted/70 italic flex items-center gap-2">
                 <Loader2 size={12} className="animate-spin" /> Claude is reviewing your pipeline...
               </div>
             )}
             {briefing && (
-              <div className="text-[12px] leading-relaxed text-slate-700 [&_strong]:text-slate-900 [&_em]:text-slate-500">
+              <div className="text-[12px] leading-relaxed text-ink/80 [&_strong]:text-ink [&_em]:text-muted">
                 {briefing.markdown.split('\n').map((line, i) => {
                   const trimmed = line.trim();
                   if (!trimmed) return null;
@@ -1073,15 +1073,15 @@ export default function IndiaStaffingPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
-        <select className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
+        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-white" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
           <option value="all">All Months</option>
           {months.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
-        <select className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
+        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-white" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
           <option value="all">All Accounts</option>
           {accounts.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
         </select>
-        <select className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)}>
+        <select className="px-3 py-2 rounded-lg border border-line text-sm bg-white" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)}>
           <option value="all">All Risk Levels</option>
           <option value="high">High Risk</option>
           <option value="medium">Medium Risk</option>
@@ -1100,7 +1100,7 @@ export default function IndiaStaffingPage() {
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors ${
                       pendingCount > 0
                         ? 'bg-violet-600 text-white hover:bg-violet-700'
-                        : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
+                        : 'bg-white border border-line text-muted hover:bg-surface-2/70'
                     }`}
                     title="Update today's statuses across all active requisitions in one focused flow">
               <ClipboardList size={14} /> Daily Status
@@ -1111,10 +1111,10 @@ export default function IndiaStaffingPage() {
           );
         })()}
         <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
-        <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium hover:bg-slate-50">
+        <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-line text-sm font-medium hover:bg-surface-2/70">
           <Upload size={14} /> Import CSV
         </button>
-        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium hover:bg-slate-50">
+        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-line text-sm font-medium hover:bg-surface-2/70">
           <Download size={14} /> Export
         </button>
         <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark shadow-sm">
@@ -1126,17 +1126,17 @@ export default function IndiaStaffingPage() {
       {showAddForm && (
         <div className="bg-white border border-blue-200 rounded-xl p-5 mb-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-800">New Requisition</h3>
-            <button onClick={() => setShowAddForm(false)} className="p-1 rounded hover:bg-slate-100 text-slate-400"><X size={16} /></button>
+            <h3 className="text-sm font-bold text-ink">New Requisition</h3>
+            <button onClick={() => setShowAddForm(false)} className="p-1 rounded hover:bg-surface-2 text-muted/70"><X size={16} /></button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Account */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Account</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Account</label>
               <select
                 value={newReq.accountId}
                 onChange={(e) => setNewReq({ ...newReq, accountId: e.target.value, newAccountName: '' })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="">Select account...</option>
                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -1145,91 +1145,91 @@ export default function IndiaStaffingPage() {
             </div>
             {newReq.accountId === '__new__' && (
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">New Account Name</label>
+                <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">New Account Name</label>
                 <input
                   value={newReq.newAccountName}
                   onChange={(e) => setNewReq({ ...newReq, newAccountName: e.target.value })}
                   placeholder="e.g. TCS, Infosys..."
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
             )}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Requisition Title</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Requisition Title</label>
               <input
                 value={newReq.title}
                 onChange={(e) => setNewReq({ ...newReq, title: e.target.value })}
                 placeholder="e.g. Java Developer, SF Architect..."
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Month</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Month</label>
               <select
                 value={newReq.month}
                 onChange={(e) => setNewReq({ ...newReq, month: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {ALL_MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Positions</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Positions</label>
               <input
                 type="number" min={1}
                 value={newReq.positions}
                 onChange={(e) => setNewReq({ ...newReq, positions: Number(e.target.value) || 1 })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Start Date</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Start Date</label>
               <input
                 type="date"
                 value={newReq.startDate}
                 onChange={(e) => setNewReq({ ...newReq, startDate: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Close Date</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Close Date</label>
               <input
                 type="date"
                 value={newReq.closeByDate}
                 onChange={(e) => setNewReq({ ...newReq, closeByDate: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Expected Closure (text)</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Expected Closure (text)</label>
               <input
                 value={newReq.expectedClosure}
                 onChange={(e) => setNewReq({ ...newReq, expectedClosure: e.target.value })}
                 placeholder="e.g. April End, TBD..."
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Client SPOC</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Client SPOC</label>
               <input
                 value={newReq.clientSpoc}
                 onChange={(e) => setNewReq({ ...newReq, clientSpoc: e.target.value })}
                 placeholder="Contact name..."
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Department</label>
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Department</label>
               <input
                 value={newReq.department}
                 onChange={(e) => setNewReq({ ...newReq, department: e.target.value })}
                 placeholder="e.g. Engineering..."
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
           </div>
           <div className="flex justify-end gap-3 mt-4">
-            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 rounded-lg border border-line text-sm font-medium text-muted hover:bg-surface-2/70">
               Cancel
             </button>
             <button
@@ -1247,7 +1247,7 @@ export default function IndiaStaffingPage() {
       <div className="flex gap-1 bg-white p-1 rounded-lg shadow-sm mb-6 flex-wrap">
         {tabs.map((t) => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors ${activeTab === t.key ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors ${activeTab === t.key ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2/70'}`}>
             <t.icon size={15} /> {t.label}
           </button>
         ))}
@@ -1293,14 +1293,14 @@ export default function IndiaStaffingPage() {
             <button
               type="button"
               onClick={() => setFunnelExpanded((v) => !v)}
-              className="w-full flex items-center justify-between -mx-2 px-2 -my-1 py-1 rounded hover:bg-slate-50 transition-colors"
+              className="w-full flex items-center justify-between -mx-2 px-2 -my-1 py-1 rounded hover:bg-surface-2/70 transition-colors"
             >
               <div className="flex items-center gap-2">
                 <BarChart3 size={14} className="text-violet-600" />
-                <span className="text-sm font-bold text-slate-800">Pipeline funnel + drop-off</span>
-                <span className="text-[10px] text-slate-400">{funnelExpanded ? 'click to collapse' : 'click to expand'}</span>
+                <span className="text-sm font-bold text-ink">Pipeline funnel + drop-off</span>
+                <span className="text-[10px] text-muted/70">{funnelExpanded ? 'click to collapse' : 'click to expand'}</span>
               </div>
-              {funnelExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+              {funnelExpanded ? <ChevronDown size={14} className="text-muted/70" /> : <ChevronRight size={14} className="text-muted/70" />}
             </button>
             {funnelExpanded && (
               <div className="mt-3">
@@ -1310,12 +1310,12 @@ export default function IndiaStaffingPage() {
           </Card>
 
           {/* View mode toggle */}
-          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mb-3" title="Switch between the wide inline-edit table and the compact split view">
+          <div className="flex gap-1 bg-surface-2 rounded-xl p-1 w-fit mb-3" title="Switch between the wide inline-edit table and the compact split view">
             <button
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Rows3 size={12} /> Table
@@ -1324,7 +1324,7 @@ export default function IndiaStaffingPage() {
               type="button"
               onClick={() => setViewMode('split')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Columns3 size={12} /> Split view
@@ -1380,7 +1380,7 @@ export default function IndiaStaffingPage() {
                   className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors ${
                     groupByAccount
                       ? 'bg-primary/10 border-primary/40 text-primary font-semibold'
-                      : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+                      : 'bg-white border-line text-muted hover:bg-surface-2/70'
                   }`}
                   title="Group rows under bold account-name banners"
                 >
@@ -1470,7 +1470,7 @@ export default function IndiaStaffingPage() {
                 <div className="flex-1" />
                 <button
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-[11px] text-slate-300 hover:text-white"
+                  className="text-[11px] text-line hover:text-white"
                 >
                   Clear selection
                 </button>
@@ -1523,15 +1523,15 @@ export default function IndiaStaffingPage() {
                                   <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/15 text-primary flex-shrink-0">
                                     <Building2 size={14} />
                                   </span>
-                                  <span className="text-base font-extrabold text-slate-900 tracking-tight">
+                                  <span className="text-base font-extrabold text-ink tracking-tight">
                                     {r.account}
                                   </span>
-                                  <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
+                                  <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">
                                     {sectionReqs} {sectionReqs === 1 ? 'req' : 'reqs'}
-                                    <span className="text-slate-300 mx-1">·</span>
-                                    <span className="text-slate-700">{sectionPositions}</span> open positions
-                                    <span className="text-slate-300 mx-1">·</span>
-                                    avg AI prob <span className="text-slate-700">{sectionAvgAi}%</span>
+                                    <span className="text-line mx-1">·</span>
+                                    <span className="text-ink/80">{sectionPositions}</span> open positions
+                                    <span className="text-line mx-1">·</span>
+                                    avg AI prob <span className="text-ink/80">{sectionAvgAi}%</span>
                                   </span>
                                 </div>
                               </td>
@@ -1574,12 +1574,12 @@ export default function IndiaStaffingPage() {
                         {wonOnboarded.length} joined
                       </span>
                     </div>
-                    {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                    {showArchive ? <ChevronDown size={16} className="text-muted/70" /> : <ChevronRight size={16} className="text-muted/70" />}
                   </button>
                   {showArchive && (
                     <div className="overflow-x-auto mt-4">
                       {wonOnboarded.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic py-4 text-center">No onboarded wins yet.</p>
+                        <p className="text-xs text-muted/70 italic py-4 text-center">No onboarded wins yet.</p>
                       ) : (
                         <table className="w-full text-xs">
                           <TableHeader />
@@ -1604,30 +1604,30 @@ export default function IndiaStaffingPage() {
                         {wonPending.length} awaiting join
                       </span>
                     </div>
-                    {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                    {showArchive ? <ChevronDown size={16} className="text-muted/70" /> : <ChevronRight size={16} className="text-muted/70" />}
                   </button>
                   {showArchive && (
                     <div className="overflow-x-auto mt-4">
                       {wonPending.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic py-4 text-center">Everyone we won has joined. Great work.</p>
+                        <p className="text-xs text-muted/70 italic py-4 text-center">Everyone we won has joined. Great work.</p>
                       ) : (
                         <>
-                          <p className="text-[11px] text-slate-500 mb-2">Enter the onboarding date on a row to move it into the Onboarded bucket above.</p>
+                          <p className="text-[11px] text-muted mb-2">Enter the onboarding date on a row to move it into the Onboarded bucket above.</p>
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="border-b border-slate-100 text-left">
-                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Account</th>
-                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Requisition</th>
-                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Close Date</th>
-                                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Onboarding Date</th>
+                              <tr className="border-b border-line/60 text-left">
+                                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Account</th>
+                                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Requisition</th>
+                                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Close Date</th>
+                                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Onboarding Date</th>
                               </tr>
                             </thead>
                             <tbody>
                               {wonPending.map((r) => (
-                                <tr key={`won-pending-${r.id}`} className="border-b border-slate-50">
-                                  <td className="p-2 text-slate-700">{r.account}</td>
-                                  <td className="p-2 text-slate-700">{r.requisition}</td>
-                                  <td className="p-2 text-slate-500">{r.closeByDate || '—'}</td>
+                                <tr key={`won-pending-${r.id}`} className="border-b border-line/40">
+                                  <td className="p-2 text-ink/80">{r.account}</td>
+                                  <td className="p-2 text-ink/80">{r.requisition}</td>
+                                  <td className="p-2 text-muted">{r.closeByDate || '—'}</td>
                                   <td className="p-2">
                                     <input
                                       type="date"
@@ -1637,7 +1637,7 @@ export default function IndiaStaffingPage() {
                                         if (!val) return;
                                         updateRequisition(r.id, { onboarding_date: val });
                                       }}
-                                      className="px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                      className="px-2 py-1 text-xs border border-line rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
                                     />
                                   </td>
                                 </tr>
@@ -1656,18 +1656,18 @@ export default function IndiaStaffingPage() {
                     className="w-full flex items-center justify-between text-left"
                   >
                     <div className="flex items-center gap-2">
-                      <Archive size={14} className="text-slate-400" />
+                      <Archive size={14} className="text-muted/70" />
                       <h3 className="font-bold text-sm">Closed Lost / Cancelled</h3>
-                      <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] text-muted bg-surface-2 px-2 py-0.5 rounded-full">
                         {lostRows.length}
                       </span>
                     </div>
-                    {showArchive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                    {showArchive ? <ChevronDown size={16} className="text-muted/70" /> : <ChevronRight size={16} className="text-muted/70" />}
                   </button>
                   {showArchive && (
                     <div className="overflow-x-auto mt-4">
                       {lostRows.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic py-4 text-center">Nothing lost or cancelled.</p>
+                        <p className="text-xs text-muted/70 italic py-4 text-center">Nothing lost or cancelled.</p>
                       ) : (
                         <table className="w-full text-xs">
                           <TableHeader />
@@ -1737,15 +1737,15 @@ export default function IndiaStaffingPage() {
           <>
             {/* Portfolio summary strip — total forecast, secured, unsecured, urgent count */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
-                <div className="text-xl font-extrabold text-slate-800">{summaries.length}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{summaries.filter((s) => s.forecast > 0).length} in sales plan</div>
+              <div className="rounded-xl border border-line bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
+                <div className="text-xl font-extrabold text-ink">{summaries.length}</div>
+                <div className="text-[10px] text-muted mt-0.5">{summaries.filter((s) => s.forecast > 0).length} in sales plan</div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
-                <div className="text-xl font-extrabold text-slate-800"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
-                <div className="text-[10px] text-slate-500 mt-0.5">across {summaries.length} accounts</div>
+              <div className="rounded-xl border border-line bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
+                <div className="text-xl font-extrabold text-ink"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
+                <div className="text-[10px] text-muted mt-0.5">across {summaries.length} accounts</div>
               </div>
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold mb-1 flex items-center gap-1"><Lock size={11} /> Secured</div>
@@ -1764,17 +1764,17 @@ export default function IndiaStaffingPage() {
             </div>
 
             {/* Status banner — sales plan source & freshness */}
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px] text-muted">
               <div className="flex items-center gap-2">
                 <Sparkles size={12} className="text-violet-500" />
                 <span>Forecast data from the 2026 Sales Plan{salesPlanUpdated ? ` · updated ${new Date(salesPlanUpdated).toLocaleDateString()}` : ''}</span>
-                {salesPlanLoading && <span className="text-slate-400">(refreshing…)</span>}
+                {salesPlanLoading && <span className="text-muted/70">(refreshing…)</span>}
                 {!salesPlanLoaded && !salesPlanLoading && <span className="text-rose-500">(not loaded)</span>}
               </div>
               <button
                 type="button"
                 onClick={() => void useSalesPlanStore.getState().load({ force: true })}
-                className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 text-[10px] text-muted hover:text-primary transition-colors"
               >
                 <RefreshCw size={10} /> Refresh
               </button>
@@ -1802,7 +1802,7 @@ export default function IndiaStaffingPage() {
                     className={`text-left rounded-xl bg-white border transition-all relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                       s.urgent
                         ? 'border-rose-300 ring-1 ring-rose-200 hover:ring-rose-300 hover:shadow-lg'
-                        : 'border-slate-200 hover:border-primary/40 hover:shadow-md'
+                        : 'border-line hover:border-primary/40 hover:shadow-md'
                     } ${isSelected ? 'ring-2 ring-primary/60' : ''}`}
                   >
                     {s.urgent && (
@@ -1814,8 +1814,8 @@ export default function IndiaStaffingPage() {
                       {/* Header: name + health */}
                       <div className="flex items-start justify-between gap-2 mb-2.5">
                         <div className="min-w-0 flex-1">
-                          <div className="font-bold text-sm text-slate-800 truncate">{s.name}</div>
-                          <div className="text-[10px] text-slate-500 truncate">
+                          <div className="font-bold text-sm text-ink truncate">{s.name}</div>
+                          <div className="text-[10px] text-muted truncate">
                             {s.insight?.salesRep ? `${s.insight.salesRep}` : 'No sales owner'}
                             {s.insight?.segment ? ` · ${s.insight.segment}` : ''}
                           </div>
@@ -1830,14 +1830,14 @@ export default function IndiaStaffingPage() {
                       {s.forecast > 0 ? (
                         <>
                           <div className="flex items-baseline justify-between mb-1">
-                            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Forecast '26</span>
-                            <span className="text-[10px] text-slate-400">{lockedPct}% locked</span>
+                            <span className="text-[10px] uppercase tracking-wider text-muted/70 font-bold">Forecast '26</span>
+                            <span className="text-[10px] text-muted/70">{lockedPct}% locked</span>
                           </div>
-                          <div className="text-2xl font-extrabold text-slate-800 mb-2 leading-none">
+                          <div className="text-2xl font-extrabold text-ink mb-2 leading-none">
                             <Sensitive>{fmtMoney(s.forecast)}</Sensitive>
                           </div>
                           {/* Secured / unsecured split bar */}
-                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden flex mb-1.5">
+                          <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden flex mb-1.5">
                             <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, lockedPct)}%` }} title={`Secured ${fmtMoney(s.secured)}`} />
                             <div className={`${s.urgent ? 'bg-rose-400' : 'bg-amber-400'} h-full`} style={{ width: `${100 - Math.min(100, lockedPct)}%` }} title={`Unsecured ${fmtMoney(s.unsecured)}`} />
                           </div>
@@ -1852,7 +1852,7 @@ export default function IndiaStaffingPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="mb-3 px-2 py-1.5 rounded-md bg-slate-50 border border-dashed border-slate-200 text-[10px] text-slate-500 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors flex items-center justify-between gap-2"
+                          className="mb-3 px-2 py-1.5 rounded-md bg-surface-2/70 border border-dashed border-line text-[10px] text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors flex items-center justify-between gap-2"
                           title={`Open 2026 Sales Plan to add a forecast for ${s.name}`}
                         >
                           <span className="italic truncate">Not in sales plan — add a forecast</span>
@@ -1863,41 +1863,41 @@ export default function IndiaStaffingPage() {
                       {/* Delivery snapshot */}
                       <div className="grid grid-cols-3 gap-2 mb-2 text-center">
                         <div>
-                          <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Reqs</div>
-                          <div className="text-sm font-bold text-slate-700">{s.rws.length}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted/70 font-bold">Reqs</div>
+                          <div className="text-sm font-bold text-ink/80">{s.rws.length}</div>
                         </div>
                         <div>
-                          <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Open pos</div>
-                          <div className="text-sm font-bold text-slate-700">{s.openPos}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted/70 font-bold">Open pos</div>
+                          <div className="text-sm font-bold text-ink/80">{s.openPos}</div>
                         </div>
                         <div>
-                          <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">High risk</div>
-                          <div className={`text-sm font-bold ${s.hr > 0 ? 'text-rose-600' : 'text-slate-700'}`}>{s.hr}</div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted/70 font-bold">High risk</div>
+                          <div className={`text-sm font-bold ${s.hr > 0 ? 'text-rose-600' : 'text-ink/80'}`}>{s.hr}</div>
                         </div>
                       </div>
 
                       {/* Connects strip */}
-                      <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-[10px]">
-                        <span className="inline-flex items-center gap-1 text-slate-500">
-                          <Activity size={10} className={s.insight && s.insight.signalCount > 0 ? 'text-violet-500' : 'text-slate-300'} />
+                      <div className="border-t border-line/60 pt-2 flex items-center justify-between text-[10px]">
+                        <span className="inline-flex items-center gap-1 text-muted">
+                          <Activity size={10} className={s.insight && s.insight.signalCount > 0 ? 'text-violet-500' : 'text-line'} />
                           {s.insight && s.insight.signalCount > 0
-                            ? <><strong className="text-slate-700">{s.insight.signalCount}</strong> active connect{s.insight.signalCount === 1 ? '' : 's'}</>
-                            : <span className="text-slate-400">No active connects</span>}
+                            ? <><strong className="text-ink/80">{s.insight.signalCount}</strong> active connect{s.insight.signalCount === 1 ? '' : 's'}</>
+                            : <span className="text-muted/70">No active connects</span>}
                         </span>
                         {lastTouch ? (
-                          <span className={`inline-flex items-center gap-1 ${staleTouch ? 'text-amber-600' : 'text-slate-500'}`}>
+                          <span className={`inline-flex items-center gap-1 ${staleTouch ? 'text-amber-600' : 'text-muted'}`}>
                             <Clock size={10} /> {lastTouch}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-muted/70">—</span>
                         )}
                       </div>
 
                       {s.insight && s.insight.openPipeline > 0 && (
-                        <div className="mt-1.5 text-[10px] text-slate-500">
-                          Open pipeline: <strong className="text-slate-700"><Sensitive>{fmtMoney(s.insight.openPipeline)}</Sensitive></strong>
+                        <div className="mt-1.5 text-[10px] text-muted">
+                          Open pipeline: <strong className="text-ink/80"><Sensitive>{fmtMoney(s.insight.openPipeline)}</Sensitive></strong>
                           {' · '}
-                          weighted: <strong className="text-slate-700"><Sensitive>{fmtMoney(s.insight.weightedPipeline)}</Sensitive></strong>
+                          weighted: <strong className="text-ink/80"><Sensitive>{fmtMoney(s.insight.weightedPipeline)}</Sensitive></strong>
                         </div>
                       )}
                     </div>
@@ -1911,8 +1911,8 @@ export default function IndiaStaffingPage() {
               <Card>
                 <div className="flex items-start justify-between mb-3 gap-3 flex-wrap">
                   <div className="min-w-0">
-                    <h3 className="font-bold text-base text-slate-800">{selectedSummary.name}</h3>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
+                    <h3 className="font-bold text-base text-ink">{selectedSummary.name}</h3>
+                    <div className="text-[11px] text-muted mt-0.5">
                       {selectedSummary.insight?.salesRep ? `Sales: ${selectedSummary.insight.salesRep}` : 'No sales owner'}
                       {selectedSummary.insight?.segment ? ` · ${selectedSummary.insight.segment}` : ''}
                       {selectedSummary.forecast > 0 && (
@@ -1923,14 +1923,14 @@ export default function IndiaStaffingPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedAccount(null)}
-                    className="text-slate-400 hover:text-slate-700 text-xs inline-flex items-center gap-1"
+                    className="text-muted/70 hover:text-ink/80 text-xs inline-flex items-center gap-1"
                   >
                     <X size={12} /> Close
                   </button>
                 </div>
 
                 {/* Sub-tab nav */}
-                <div className="flex gap-1 mb-4 border-b border-slate-200">
+                <div className="flex gap-1 mb-4 border-b border-line">
                   {([
                     { key: 'reqs' as const, label: 'Requisitions', icon: Briefcase, count: selectedSummary.rws.length },
                     { key: 'forecast' as const, label: 'Forecast breakdown', icon: TrendingUp, count: selectedSummary.forecast > 0 ? selectedSummary.insight?.monthly.filter((m) => m.value > 0).length : null },
@@ -1943,14 +1943,14 @@ export default function IndiaStaffingPage() {
                       className={`px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1.5 border-b-2 transition-colors ${
                         accountDetailTab === t.key
                           ? 'border-primary text-primary'
-                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                          : 'border-transparent text-muted hover:text-ink/80'
                       }`}
                     >
                       <t.icon size={12} />
                       {t.label}
                       {t.count != null && t.count > 0 && (
                         <span className={`ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold ${
-                          accountDetailTab === t.key ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'
+                          accountDetailTab === t.key ? 'bg-primary text-white' : 'bg-surface-2 text-muted'
                         }`}>{t.count}</span>
                       )}
                     </button>
@@ -1962,8 +1962,8 @@ export default function IndiaStaffingPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b-2 border-slate-100">
-                          <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Requisition</th>
+                        <tr className="border-b-2 border-line/60">
+                          <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Requisition</th>
                           <th className="p-2">Month</th>
                           <th className="p-2">Pos</th>
                           <th className="p-2">Ageing</th>
@@ -1976,18 +1976,18 @@ export default function IndiaStaffingPage() {
                       </thead>
                       <tbody>
                         {selectedSummary.rws.map((r) => (
-                          <tr key={r.id} className="border-b border-slate-50">
+                          <tr key={r.id} className="border-b border-line/40">
                             <td className="p-2 font-semibold">{r.requisition}</td>
                             <td className="p-2">{r.month}</td>
                             <td className="p-2 text-center font-bold" title={`${r.openPositions} open · ${r.filledPositions} filled · ${r.newPositions} total`}>
-                              {r.filledPositions > 0 ? <><span className={r.openPositions === 0 ? 'text-emerald-600' : ''}>{r.openPositions}</span><span className="text-slate-400">/{r.newPositions}</span></> : r.newPositions}
+                              {r.filledPositions > 0 ? <><span className={r.openPositions === 0 ? 'text-emerald-600' : ''}>{r.openPositions}</span><span className="text-muted/70">/{r.newPositions}</span></> : r.newPositions}
                             </td>
                             <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
                             <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
                             <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
                             <td className="p-2 font-bold">{r.probability > 0 ? `${r.probability}%` : '—'}</td>
                             <td className="p-2 font-bold">{r.aiProbability}%</td>
-                            <td className="p-2 text-slate-500 text-[11px] max-w-sm truncate">{r.status.split('\n')[0]}</td>
+                            <td className="p-2 text-muted text-[11px] max-w-sm truncate">{r.status.split('\n')[0]}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2003,10 +2003,10 @@ export default function IndiaStaffingPage() {
                           const max = Math.max(...selectedSummary.insight!.monthly.map((x) => x.value), 1);
                           const pct = Math.round((m.value / max) * 100);
                           return (
-                            <div key={m.month} className="rounded-lg border border-slate-200 bg-white p-2">
-                              <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-1">{m.month.toUpperCase()}</div>
-                              <div className="text-sm font-bold text-slate-800"><Sensitive>{fmtMoney(m.value)}</Sensitive></div>
-                              <div className="mt-1.5 h-1 bg-slate-100 rounded-full overflow-hidden">
+                            <div key={m.month} className="rounded-lg border border-line bg-white p-2">
+                              <div className="text-[9px] uppercase tracking-wider text-muted/70 font-bold mb-1">{m.month.toUpperCase()}</div>
+                              <div className="text-sm font-bold text-ink"><Sensitive>{fmtMoney(m.value)}</Sensitive></div>
+                              <div className="mt-1.5 h-1 bg-surface-2 rounded-full overflow-hidden">
                                 <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
                               </div>
                             </div>
@@ -2024,15 +2024,15 @@ export default function IndiaStaffingPage() {
                           <div className={`text-lg font-extrabold ${selectedSummary.urgent ? 'text-rose-700' : 'text-amber-700'}`}><Sensitive>{fmtMoney(selectedSummary.unsecured)}</Sensitive></div>
                           <div className={`text-[10px] mt-0.5 ${selectedSummary.urgent ? 'text-rose-600' : 'text-amber-600/80'}`}>{selectedSummary.urgent ? 'Urgent — sync sales & delivery' : 'Coverage acceptable'}</div>
                         </div>
-                        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1 flex items-center gap-1"><Activity size={10} /> Pipeline coverage</div>
-                          <div className="text-lg font-extrabold text-slate-800"><Sensitive>{fmtMoney(selectedSummary.insight.openPipeline)}</Sensitive></div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">weighted <Sensitive>{fmtMoney(selectedSummary.insight.weightedPipeline)}</Sensitive></div>
+                        <div className="rounded-lg bg-surface-2/70 border border-line p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-muted font-bold mb-1 flex items-center gap-1"><Activity size={10} /> Pipeline coverage</div>
+                          <div className="text-lg font-extrabold text-ink"><Sensitive>{fmtMoney(selectedSummary.insight.openPipeline)}</Sensitive></div>
+                          <div className="text-[10px] text-muted mt-0.5">weighted <Sensitive>{fmtMoney(selectedSummary.insight.weightedPipeline)}</Sensitive></div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-400 italic py-6 text-center">
+                    <div className="text-xs text-muted/70 italic py-6 text-center">
                       This account isn't in the 2026 Sales Plan yet. Open the sales plan to add a forecast.
                     </div>
                   )
@@ -2050,7 +2050,7 @@ export default function IndiaStaffingPage() {
                             opportunity: 'bg-violet-100 text-violet-700',
                             conversation: 'bg-sky-100 text-sky-700',
                             risk: 'bg-rose-100 text-rose-700',
-                            note: 'bg-slate-100 text-slate-600',
+                            note: 'bg-surface-2 text-muted',
                           };
                           const sentimentDot: Record<string, string> = {
                             positive: 'bg-emerald-500',
@@ -2058,22 +2058,22 @@ export default function IndiaStaffingPage() {
                             negative: 'bg-rose-500',
                           };
                           return (
-                            <div key={sig.id} className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs">
+                            <div key={sig.id} className="rounded-lg border border-line bg-white p-2.5 text-xs">
                               <div className="flex items-center justify-between gap-2 mb-1">
                                 <span className="inline-flex items-center gap-1.5">
                                   <span className={`w-1.5 h-1.5 rounded-full ${sentimentDot[sig.sentiment || 'neutral'] || sentimentDot.neutral}`} />
                                   <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${kindCls[sig.kind] || kindCls.note}`}>{sig.kind}</span>
-                                  {sig.owner && <span className="text-[10px] text-slate-500">· {sig.owner}</span>}
+                                  {sig.owner && <span className="text-[10px] text-muted">· {sig.owner}</span>}
                                 </span>
-                                <span className="text-[10px] text-slate-400">{ts ? new Date(ts).toLocaleDateString() : ''}</span>
+                                <span className="text-[10px] text-muted/70">{ts ? new Date(ts).toLocaleDateString() : ''}</span>
                               </div>
-                              {sig.text && <div className="text-slate-700">{sig.text}</div>}
+                              {sig.text && <div className="text-ink/80">{sig.text}</div>}
                               {sig.kind === 'opportunity' && (sig.amount || sig.stage || sig.probability != null) && (
-                                <div className="mt-1.5 text-[10px] text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
-                                  {sig.amount != null && <span>Amount: <strong className="text-slate-700"><Sensitive>{fmtMoney(sig.amount)}</Sensitive></strong></span>}
-                                  {sig.stage && <span>Stage: <strong className="text-slate-700">{sig.stage}</strong></span>}
-                                  {sig.probability != null && <span>Prob: <strong className="text-slate-700">{sig.probability}%</strong></span>}
-                                  {sig.closeDate && <span>Close: <strong className="text-slate-700">{sig.closeDate}</strong></span>}
+                                <div className="mt-1.5 text-[10px] text-muted flex flex-wrap gap-x-3 gap-y-0.5">
+                                  {sig.amount != null && <span>Amount: <strong className="text-ink/80"><Sensitive>{fmtMoney(sig.amount)}</Sensitive></strong></span>}
+                                  {sig.stage && <span>Stage: <strong className="text-ink/80">{sig.stage}</strong></span>}
+                                  {sig.probability != null && <span>Prob: <strong className="text-ink/80">{sig.probability}%</strong></span>}
+                                  {sig.closeDate && <span>Close: <strong className="text-ink/80">{sig.closeDate}</strong></span>}
                                 </div>
                               )}
                             </div>
@@ -2081,7 +2081,7 @@ export default function IndiaStaffingPage() {
                         })}
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-400 italic py-6 text-center">
+                    <div className="text-xs text-muted/70 italic py-6 text-center">
                       No active connects yet. Sales activity logged in the 2026 Sales Plan will appear here.
                     </div>
                   )
@@ -2100,7 +2100,7 @@ export default function IndiaStaffingPage() {
               <h2 className="font-bold text-base">AI-Powered Closure Forecast</h2>
               <span className="bg-gradient-to-r from-violet-500 to-blue-500 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide">AI Insights</span>
             </div>
-            <p className="text-slate-400 text-xs mb-5">Based on status velocity, sentiment analysis, and pipeline stage (manual Prob overrides AI when set)</p>
+            <p className="text-muted/70 text-xs mb-5">Based on status velocity, sentiment analysis, and pipeline stage (manual Prob overrides AI when set)</p>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               {[
                 { label: 'Optimistic', val: optimistic, color: '#10b981', conf: 40 },
@@ -2110,9 +2110,9 @@ export default function IndiaStaffingPage() {
               ].map((s) => (
                 <div key={s.label} className="bg-white/5 border border-white/10 rounded-lg p-4">
                   <h4 className="text-blue-300 text-xs font-semibold mb-2">{s.label}</h4>
-                  <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val} <span className="text-sm text-slate-400 font-normal">of {totalPos}</span></div>
+                  <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val} <span className="text-sm text-muted/70 font-normal">of {totalPos}</span></div>
                   <div className="h-1 bg-white/10 rounded mt-3 overflow-hidden"><div className="h-full rounded" style={{ width: `${s.conf}%`, background: s.color }} /></div>
-                  <p className="text-[10px] text-slate-500 text-right mt-1">{s.conf}% confidence</p>
+                  <p className="text-[10px] text-muted text-right mt-1">{s.conf}% confidence</p>
                 </div>
               ))}
             </div>
@@ -2121,7 +2121,7 @@ export default function IndiaStaffingPage() {
             <h3 className="font-bold text-sm mb-3">Forecast Reasoning by Requisition</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead><tr className="border-b-2 border-slate-100"><th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Account</th><th className="p-2">Requisition</th><th className="p-2">TA Stage</th><th className="p-2">Ageing</th><th className="p-2">Prob</th><th className="p-2">Risk</th><th className="p-2">Recommendation</th></tr></thead>
+                <thead><tr className="border-b-2 border-line/60"><th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Account</th><th className="p-2">Requisition</th><th className="p-2">TA Stage</th><th className="p-2">Ageing</th><th className="p-2">Prob</th><th className="p-2">Risk</th><th className="p-2">Recommendation</th></tr></thead>
                 <tbody>
                   {[...filtered].sort((a, b) => b.closureProb - a.closureProb).map((r) => {
                     let rec = 'Monitor';
@@ -2130,13 +2130,13 @@ export default function IndiaStaffingPage() {
                     else if (r.stage === 'Client Round') rec = 'Follow up with client';
                     else if (r.stage === 'Onboarding') rec = 'Track onboarding';
                     return (
-                      <tr key={r.id} className="border-b border-slate-50">
+                      <tr key={r.id} className="border-b border-line/40">
                         <td className="p-2 font-bold">{r.account}</td><td className="p-2">{r.requisition}</td>
                         <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
                         <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
                         <td className="p-2 font-bold">{r.closureProb}%</td>
                         <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
-                        <td className="p-2 text-slate-500">{rec}</td>
+                        <td className="p-2 text-muted">{rec}</td>
                       </tr>
                     );
                   })}
@@ -2222,18 +2222,18 @@ export default function IndiaStaffingPage() {
             onClick={(e) => { if (e.target === e.currentTarget) closeJdDrawer(); }}
           >
             <div className="bg-white w-full max-w-2xl h-full flex flex-col shadow-xl">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <div className="text-sm font-semibold text-ink flex items-center gap-2">
                     <Sparkles size={14} className="text-amber-500 flex-shrink-0" />
                     {reqRow?.title || 'Job description'}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                  <div className="text-[11px] text-muted mt-0.5 truncate">
                     {acctName}
                     {jdGeneratedAt && (<> · {jdCachedFromDb ? 'cached' : 'generated'} {new Date(jdGeneratedAt).toLocaleString()}</>)}
                   </div>
                 </div>
-                <button onClick={closeJdDrawer} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+                <button onClick={closeJdDrawer} className="text-muted/70 hover:text-ink/80 text-xl leading-none">×</button>
               </div>
 
               {jdState === 'loading' && (
@@ -2255,23 +2255,23 @@ export default function IndiaStaffingPage() {
                   value={jdText}
                   onChange={(e) => { setJdText(e.target.value); setJdDirty(true); }}
                   disabled={jdState === 'loading'}
-                  className="w-full h-full min-h-[400px] text-xs font-mono leading-relaxed border border-slate-200 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-400"
+                  className="w-full h-full min-h-[400px] text-xs font-mono leading-relaxed border border-line rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-surface-2/70 disabled:text-muted/70"
                   placeholder="Generated JD will appear here…"
                 />
               </div>
 
-              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
-                <div className="text-[11px] text-slate-500">Edit freely — your changes save to the requisition.</div>
+              <div className="px-5 py-3 border-t border-line/60 bg-surface-2/70 flex items-center justify-between gap-2">
+                <div className="text-[11px] text-muted">Edit freely — your changes save to the requisition.</div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={copyJd}
                     disabled={!jdText || jdState === 'loading'}
-                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40"
+                    className="text-xs font-semibold text-muted hover:text-ink px-3 py-2 disabled:opacity-40"
                   >Copy</button>
                   <button
                     onClick={() => openJdDrawer(jdReqId, { regenerate: true })}
                     disabled={jdState === 'loading'}
-                    className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-md hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+                    className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2 disabled:opacity-40 inline-flex items-center gap-1"
                     title="Throw away current JD and ask Claude for a fresh draft"
                   >
                     <RefreshCw size={12} /> Regenerate
@@ -2349,7 +2349,7 @@ function SplitCloseDialog({
   const badgeCls =
     targetStatus === 'Closed Won' ? 'bg-emerald-100 text-emerald-800' :
     targetStatus === 'Closed Lost' ? 'bg-rose-100 text-rose-800' :
-    'bg-slate-100 text-slate-700';
+    'bg-surface-2 text-ink/80';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
       <div
@@ -2357,10 +2357,10 @@ function SplitCloseDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-base font-bold text-slate-900">Partial close?</h3>
+          <h3 className="text-base font-bold text-ink">Partial close?</h3>
           <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeCls}`}>{targetStatus}</span>
         </div>
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-muted mb-4">
           <strong>{parent.title}</strong>{parent.account_name ? ` · ${parent.account_name}` : ''} has <strong>{total} positions</strong>. How many actually closed as <strong>{targetStatus}</strong>?
         </p>
         <div className="flex items-center gap-3 mb-4">
@@ -2373,10 +2373,10 @@ function SplitCloseDialog({
               const n = Math.max(1, Math.min(total, Number(e.target.value) || 1));
               setCount(n);
             }}
-            className="w-24 px-3 py-2 text-lg font-bold text-center rounded-lg border-2 border-slate-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+            className="w-24 px-3 py-2 text-lg font-bold text-center rounded-lg border-2 border-line focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
             autoFocus
           />
-          <span className="text-sm text-slate-500">of {total}</span>
+          <span className="text-sm text-muted">of {total}</span>
         </div>
         {remainder > 0 && (
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 mb-4">
@@ -2387,7 +2387,7 @@ function SplitCloseDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50"
+            className="px-3 py-1.5 text-sm font-semibold rounded-md border border-line bg-white hover:bg-surface-2/70"
           >
             Cancel
           </button>

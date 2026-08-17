@@ -115,12 +115,12 @@ export default function VendorsPage() {
             placeholder="Search company / SPOC / email / skill…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
           <select
             value={filterSkill}
             onChange={(e) => setFilterSkill(e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
           >
             <option value="">All skills</option>
             {VENDOR_SKILL_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -128,14 +128,14 @@ export default function VendorsPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'name' | 'last' | 'outreach')}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
             title="Sort vendors"
           >
             <option value="name">Sort: Name (A→Z)</option>
             <option value="last">Sort: Last contacted (recent first)</option>
             <option value="outreach">Sort: Outreach count (highest first)</option>
           </select>
-          <label className="text-xs text-slate-600 inline-flex items-center gap-2 cursor-pointer">
+          <label className="text-xs text-muted inline-flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Include inactive vendors
           </label>
@@ -159,13 +159,13 @@ export default function VendorsPage() {
 
       <Card title={`${filtered.length} vendor${filtered.length === 1 ? '' : 's'}`}>
         {filtered.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-500">
+          <div className="py-12 text-center text-sm text-muted">
             {vendors.length === 0
               ? <>No vendors yet. Click <strong>+ Add vendor</strong> to create one.</>
               : <>No vendors match.</>}
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 -mx-6">
+          <div className="divide-y divide-line/60 -mx-6">
             {filtered.map((v) => (
               <VendorRow
                 key={v.id}
@@ -212,14 +212,14 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
     daysSinceLast === 1 ? 'yesterday' :
     `${daysSinceLast}d ago`;
   return (
-    <div className="px-6 py-3 hover:bg-slate-50/60 flex items-start gap-3 group">
+    <div className="px-6 py-3 hover:bg-surface-2/60 flex items-start gap-3 group">
       <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
         <Building2 size={16} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1.5">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted/70 flex items-center gap-2">
               Company
               {needsFollowupDays !== null && (
                 <span
@@ -233,50 +233,50 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
             <input
               value={vendor.companyName}
               onChange={(e) => onPatch({ companyName: e.target.value })}
-              className="w-full text-sm font-semibold text-slate-900 bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
+              className="w-full text-sm font-semibold text-ink bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
             />
           </div>
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">SPOC</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted/70">SPOC</div>
             <input
               value={vendor.spocName ?? ''}
               onChange={(e) => onPatch({ spocName: e.target.value || null })}
               placeholder="—"
-              className="w-full text-sm text-slate-700 bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
+              className="w-full text-sm text-ink/80 bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
             />
           </div>
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">SPOC email</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted/70">SPOC email</div>
             <div className="inline-flex items-center gap-1.5 w-full">
-              <Mail size={12} className="text-slate-400 flex-shrink-0" />
+              <Mail size={12} className="text-muted/70 flex-shrink-0" />
               <input
                 value={vendor.spocEmail ?? ''}
                 onChange={(e) => onPatch({ spocEmail: e.target.value.toLowerCase() || null })}
                 placeholder="spoc@vendor.com"
-                className="flex-1 text-sm text-slate-700 bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
+                className="flex-1 text-sm text-ink/80 bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
               />
             </div>
           </div>
         </div>
         <div className="mt-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Skills</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted/70 mb-1">Skills</div>
           <SkillsMultiSelect
             value={vendor.skills}
             onChange={(skills) => onPatch({ skills })}
           />
         </div>
-        <div className="mt-2 flex items-center gap-4 text-[11px] text-slate-500 flex-wrap">
+        <div className="mt-2 flex items-center gap-4 text-[11px] text-muted flex-wrap">
           <span className="inline-flex items-center gap-1">
             <Send size={11} />
-            <span className="font-semibold text-slate-700">{outreachCount}</span> outreach{outreachCount === 1 ? '' : 'es'}
+            <span className="font-semibold text-ink/80">{outreachCount}</span> outreach{outreachCount === 1 ? '' : 'es'}
           </span>
           <span>
-            Last contacted: <span className="font-medium text-slate-700">{niceLast}</span>
+            Last contacted: <span className="font-medium text-ink/80">{niceLast}</span>
             {ageLabel && (
               <span className={`ml-1 text-[10px] ${
                 daysSinceLast !== null && daysSinceLast <= 7 ? 'text-emerald-600' :
                 daysSinceLast !== null && daysSinceLast <= 30 ? 'text-amber-600' :
-                'text-slate-400'
+                'text-muted/70'
               }`}>· {ageLabel}</span>
             )}
           </span>
@@ -287,7 +287,7 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
               onChange={(e) => onPatch({ active: e.target.checked })}
               className="cursor-pointer"
             />
-            <span className={vendor.active ? 'text-emerald-700 font-medium' : 'text-slate-400'}>
+            <span className={vendor.active ? 'text-emerald-700 font-medium' : 'text-muted/70'}>
               {vendor.active ? 'Active' : 'Inactive'}
             </span>
           </label>
@@ -296,7 +296,7 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
       <button
         type="button"
         onClick={onRemove}
-        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-700 transition-opacity flex-shrink-0 mt-1"
+        className="opacity-0 group-hover:opacity-100 text-line hover:text-red-700 transition-opacity flex-shrink-0 mt-1"
         title="Remove vendor"
       >
         <Trash2 size={14} />
@@ -351,19 +351,19 @@ export function SkillsMultiSelect({ value, onChange }: {
       )}
       <div className="flex flex-wrap gap-1 items-center">
         <details className="inline">
-          <summary className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer select-none list-none inline-flex items-center gap-1">
+          <summary className="text-[11px] text-muted hover:text-ink cursor-pointer select-none list-none inline-flex items-center gap-1">
             <Plus size={11} /> Add skill from list
           </summary>
-          <div className="mt-2 flex flex-wrap gap-1 max-h-40 overflow-y-auto bg-slate-50 border border-slate-200 rounded-md p-2">
+          <div className="mt-2 flex flex-wrap gap-1 max-h-40 overflow-y-auto bg-surface-2/70 border border-line rounded-md p-2">
             {suggestions.length === 0 ? (
-              <span className="text-[11px] text-slate-400 italic">All preset skills already added.</span>
+              <span className="text-[11px] text-muted/70 italic">All preset skills already added.</span>
             ) : (
               suggestions.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => toggle(s)}
-                  className="text-[11px] bg-white border border-slate-200 text-slate-700 hover:border-primary hover:text-primary px-2 py-0.5 rounded-full"
+                  className="text-[11px] bg-white border border-line text-ink/80 hover:border-primary hover:text-primary px-2 py-0.5 rounded-full"
                 >
                   + {s}
                 </button>
@@ -371,7 +371,7 @@ export function SkillsMultiSelect({ value, onChange }: {
             )}
           </div>
         </details>
-        <span className="text-slate-300 text-[11px]">·</span>
+        <span className="text-line text-[11px]">·</span>
         {adding ? (
           <span className="inline-flex items-center gap-1">
             <input
@@ -380,16 +380,16 @@ export function SkillsMultiSelect({ value, onChange }: {
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') { setAdding(false); setDraft(''); }}}
               placeholder="custom skill"
-              className="text-[11px] border border-slate-300 rounded px-2 py-0.5 w-32"
+              className="text-[11px] border border-line rounded px-2 py-0.5 w-32"
             />
             <button type="button" onClick={addCustom} className="text-[11px] text-primary font-semibold">Add</button>
-            <button type="button" onClick={() => { setAdding(false); setDraft(''); }} className="text-[11px] text-slate-400">cancel</button>
+            <button type="button" onClick={() => { setAdding(false); setDraft(''); }} className="text-[11px] text-muted/70">cancel</button>
           </span>
         ) : (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="text-[11px] text-slate-500 hover:text-slate-800 inline-flex items-center gap-1"
+            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1"
           >
             <Plus size={11} /> Add custom skill
           </button>
@@ -420,42 +420,42 @@ function AddVendorForm({ onCancel, onAdd }: {
     <Card className="mb-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         <div>
-          <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Company name *</label>
+          <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Company name *</label>
           <input
             autoFocus
             value={d.companyName}
             onChange={(e) => setD({ ...d, companyName: e.target.value })}
             placeholder="e.g. Talent Edge Pvt Ltd"
-            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+            className="w-full border border-line rounded-md px-3 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">SPOC name</label>
+          <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">SPOC name</label>
           <input
             value={d.spocName}
             onChange={(e) => setD({ ...d, spocName: e.target.value })}
             placeholder="Optional"
-            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+            className="w-full border border-line rounded-md px-3 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">SPOC email</label>
+          <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">SPOC email</label>
           <input
             type="email"
             value={d.spocEmail}
             onChange={(e) => setD({ ...d, spocEmail: e.target.value.toLowerCase() })}
             placeholder="spoc@vendor.com"
-            className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm"
+            className="w-full border border-line rounded-md px-3 py-1.5 text-sm"
           />
         </div>
       </div>
       <div className="mb-3">
-        <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Skills</label>
+        <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Skills</label>
         <SkillsMultiSelect value={d.skills} onChange={(skills) => setD({ ...d, skills })} />
       </div>
       <div className="flex items-center justify-end gap-2">
         <button type="button" onClick={onCancel}
-                className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+                className="text-xs text-muted hover:text-ink inline-flex items-center gap-1">
           <X size={12} /> Cancel
         </button>
         <button type="button" onClick={submit} disabled={!d.companyName.trim()}
@@ -470,7 +470,7 @@ function AddVendorForm({ onCancel, onAdd }: {
 /* ── Recent outreach activity feed ─────────────────────────────── */
 
 const OUTREACH_STATUS_META: Record<VendorOutreachStatus, { label: string; cls: string; Icon: typeof Check }> = {
-  composed: { label: 'Composed', cls: 'bg-slate-100 text-slate-600',    Icon: Clock },
+  composed: { label: 'Composed', cls: 'bg-surface-2 text-muted',    Icon: Clock },
   sent:     { label: 'Sent',     cls: 'bg-emerald-100 text-emerald-800', Icon: Check },
   bounced:  { label: 'Failed',   cls: 'bg-red-100 text-red-700',         Icon: AlertCircle },
   replied:  { label: 'Replied',  cls: 'bg-sky-100 text-sky-800',         Icon: Inbox },
@@ -541,11 +541,11 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
   /** Filter chips for triage. Order matches a typical recruiter mental model:
    *  see all first, then narrow by what's actionable now. */
   const chips: { key: VendorOutreachStatus | 'all'; label: string; cls: string }[] = [
-    { key: 'all',      label: 'All',      cls: 'bg-slate-100 text-slate-700' },
+    { key: 'all',      label: 'All',      cls: 'bg-surface-2 text-ink/80' },
     { key: 'sent',     label: 'Sent',     cls: 'bg-emerald-100 text-emerald-800' },
     { key: 'replied',  label: 'Replied',  cls: 'bg-sky-100 text-sky-800' },
     { key: 'bounced',  label: 'Failed',   cls: 'bg-red-100 text-red-700' },
-    { key: 'composed', label: 'Composed', cls: 'bg-slate-100 text-slate-600' },
+    { key: 'composed', label: 'Composed', cls: 'bg-surface-2 text-muted' },
   ];
 
   /** Download the currently-filtered outreach list as CSV. Reflects exactly
@@ -582,7 +582,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search subject / vendor / req / sender…"
-        className="w-full mb-2 border border-slate-200 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="w-full mb-2 border border-line rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
       <div className="flex items-center gap-1.5 flex-wrap mb-2">
         {([
@@ -598,7 +598,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
               type="button"
               onClick={() => setRangeFilter(r.key)}
               className={`text-[10px] font-semibold inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
-                active ? 'bg-primary text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                active ? 'bg-primary text-white' : 'bg-surface-2/70 text-muted hover:bg-surface-2'
               }`}
             >
               {r.label}
@@ -628,7 +628,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
           type="button"
           onClick={exportCsv}
           disabled={recent.length === 0}
-          className="ml-auto text-[10px] font-semibold bg-white border border-slate-300 text-slate-700 px-2 py-0.5 rounded-full hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1"
+          className="ml-auto text-[10px] font-semibold bg-white border border-line text-ink/80 px-2 py-0.5 rounded-full hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1"
           title={`Download ${recent.length} event${recent.length === 1 ? '' : 's'} as CSV`}
         >
           <Download size={10} /> Export
@@ -637,7 +637,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
       <div className="overflow-x-auto -mx-6 px-6">
         <table className="min-w-full text-sm [&_td]:align-middle [&_th]:align-middle">
           <thead>
-            <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+            <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
               <th className="py-2 pr-3 font-semibold"><Activity size={10} className="inline mr-1" />When</th>
               <th className="py-2 pr-3 font-semibold">Vendor</th>
               <th className="py-2 pr-3 font-semibold">Requisition</th>
@@ -647,21 +647,21 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
               <th className="py-2 pr-3 font-semibold w-32">Mark</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line/60">
             {recent.map((o) => {
               const meta = OUTREACH_STATUS_META[o.sendStatus] ?? OUTREACH_STATUS_META.composed;
               return (
-                <tr key={o.id} className="hover:bg-slate-50/60">
-                  <td className="py-2 pr-3 text-[11px] tabular-nums text-slate-500">
+                <tr key={o.id} className="hover:bg-surface-2/60">
+                  <td className="py-2 pr-3 text-[11px] tabular-nums text-muted">
                     {new Date(o.sentAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="py-2 pr-3 text-xs font-medium text-slate-900 truncate max-w-[160px]" title={vendorNameById(o.vendorId)}>
+                  <td className="py-2 pr-3 text-xs font-medium text-ink truncate max-w-[160px]" title={vendorNameById(o.vendorId)}>
                     {vendorNameById(o.vendorId)}
                   </td>
-                  <td className="py-2 pr-3 text-xs text-slate-700 truncate max-w-[200px]" title={reqTitleById(o.requisitionId)}>
+                  <td className="py-2 pr-3 text-xs text-ink/80 truncate max-w-[200px]" title={reqTitleById(o.requisitionId)}>
                     {reqTitleById(o.requisitionId)}
                   </td>
-                  <td className="py-2 pr-3 text-xs text-slate-600 max-w-[240px]" title={o.subject}>
+                  <td className="py-2 pr-3 text-xs text-muted max-w-[240px]" title={o.subject}>
                     <div className="flex items-center gap-1">
                       <span className="truncate">{o.subject}</span>
                       {o.bodyPreview && (
@@ -670,7 +670,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
                           onClick={() => {
                             void navigator.clipboard.writeText(o.bodyPreview);
                           }}
-                          className="text-slate-300 hover:text-primary p-0.5 rounded hover:bg-primary/10 flex-shrink-0"
+                          className="text-line hover:text-primary p-0.5 rounded hover:bg-primary/10 flex-shrink-0"
                           title={`Copy body to clipboard\n\n${o.bodyPreview.slice(0, 240)}${o.bodyPreview.length > 240 ? '…' : ''}`}
                         >
                           <Copy size={10} />
@@ -678,7 +678,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
                       )}
                     </div>
                   </td>
-                  <td className="py-2 pr-3 text-[11px] text-slate-500 truncate max-w-[160px]" title={o.sentBy ?? ''}>
+                  <td className="py-2 pr-3 text-[11px] text-muted truncate max-w-[160px]" title={o.sentBy ?? ''}>
                     {o.sentBy ?? '—'}
                   </td>
                   <td className="py-2 pr-3">
@@ -710,7 +710,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
                         </button>
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400">—</span>
+                      <span className="text-[10px] text-muted/70">—</span>
                     )}
                   </td>
                 </tr>

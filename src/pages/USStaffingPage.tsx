@@ -320,9 +320,9 @@ export default function USStaffingPage() {
     return (
       <div className="mb-8">
         {/* Category section header */}
-        <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-bold text-ink/80 mb-3 flex items-center gap-2">
           <Building2 size={16} /> {categoryLabel}
-          <span className="text-xs font-normal text-slate-400">
+          <span className="text-xs font-normal text-muted/70">
             ({totalReqs} requisitions across {populatedAccounts.length} accounts)
           </span>
         </h3>
@@ -331,7 +331,7 @@ export default function USStaffingPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 uppercase tracking-wider">
+                <tr className="bg-surface-2/70 text-muted uppercase tracking-wider">
                   <th className="px-3 py-2 text-left font-semibold text-[10px] min-w-[180px]">Account / Role</th>
                   <th className="px-3 py-2 text-left font-semibold text-[10px]">Initiation Date</th>
                   <th className="px-3 py-2 text-left font-semibold text-[10px]">Stage</th>
@@ -380,13 +380,13 @@ export default function USStaffingPage() {
                           >
                             <td colSpan={7} className="py-2.5 px-3">
                               <div className="flex items-baseline gap-3 flex-wrap">
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 flex-shrink-0">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded text-muted flex-shrink-0">
                                   {acctCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                                 </span>
                                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 ${acctUrgent ? 'bg-rose-600 text-white' : 'bg-primary/15 text-primary'}`}>
                                   {acctUrgent ? <Flame size={14} /> : <Building2 size={14} />}
                                 </span>
-                                <span className="text-base font-extrabold text-slate-900 tracking-tight">
+                                <span className="text-base font-extrabold text-ink tracking-tight">
                                   {req._account_name}
                                 </span>
                                 <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
@@ -401,22 +401,22 @@ export default function USStaffingPage() {
                                     <Flame size={9} /> Urgent: sales + delivery sync
                                   </span>
                                 )}
-                                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
+                                <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">
                                   {acctReqCount} {acctReqCount === 1 ? 'role' : 'roles'}
-                                  <span className="text-slate-300 mx-1">·</span>
+                                  <span className="text-line mx-1">·</span>
                                   <span className="text-emerald-700">{activeCount}</span> active
-                                  <span className="text-slate-300 mx-1">·</span>
-                                  avg AI prob <span className="text-slate-700">{avgAi}%</span>
+                                  <span className="text-line mx-1">·</span>
+                                  avg AI prob <span className="text-ink/80">{avgAi}%</span>
                                 </span>
                                 {acctForecast > 0 && (
-                                  <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide inline-flex items-center gap-2">
-                                    <span className="text-slate-300">·</span>
-                                    Forecast <span className="text-slate-800"><Sensitive>{fmtMoney(acctForecast)}</Sensitive></span>
-                                    <span className="text-slate-300">·</span>
+                                  <span className="text-[10px] text-muted font-semibold uppercase tracking-wide inline-flex items-center gap-2">
+                                    <span className="text-line">·</span>
+                                    Forecast <span className="text-ink"><Sensitive>{fmtMoney(acctForecast)}</Sensitive></span>
+                                    <span className="text-line">·</span>
                                     <Lock size={9} className="text-emerald-600" /> <span className="text-emerald-700"><Sensitive>{fmtMoney(acctSecured)}</Sensitive></span>
-                                    <span className="text-slate-300">·</span>
+                                    <span className="text-line">·</span>
                                     <Unlock size={9} className={acctUrgent ? 'text-rose-600' : 'text-amber-600'} /> <span className={acctUrgent ? 'text-rose-700' : 'text-amber-700'}><Sensitive>{fmtMoney(acctUnsecured)}</Sensitive></span>
-                                    <span className="text-slate-300">·</span>
+                                    <span className="text-line">·</span>
                                     {Math.round(acctLockedPct * 100)}% locked
                                   </span>
                                 )}
@@ -442,7 +442,7 @@ export default function USStaffingPage() {
                                 </button>
                               </div>
                               {acctForecast > 0 && (
-                                <div className="mt-1.5 h-1 bg-slate-100 rounded-full overflow-hidden flex" title={`${Math.round(acctLockedPct * 100)}% locked`}>
+                                <div className="mt-1.5 h-1 bg-surface-2 rounded-full overflow-hidden flex" title={`${Math.round(acctLockedPct * 100)}% locked`}>
                                   <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, Math.round(acctLockedPct * 100))}%` }} />
                                   <div className={`${acctUrgent ? 'bg-rose-400' : 'bg-amber-400'} h-full`} style={{ width: `${100 - Math.min(100, Math.round(acctLockedPct * 100))}%` }} />
                                 </div>
@@ -450,11 +450,11 @@ export default function USStaffingPage() {
                             </td>
                           </tr>
                         )}
-                        {!acctCollapsed && <tr className="border-t border-slate-100 hover:bg-blue-50/30">
+                        {!acctCollapsed && <tr className="border-t border-line/60 hover:bg-blue-50/30">
                           {/* Role — indented under the account banner with a ↳ guide */}
                           <td className="px-3 py-2 pl-10">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-slate-300 text-[10px]">↳</span>
+                              <span className="text-line text-[10px]">↳</span>
                               <EditableCell value={req.role} onSave={(v) => handleCellSave(req.id, 'role', v)} />
                             </div>
                           </td>
@@ -477,7 +477,7 @@ export default function USStaffingPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5">
-                              <div className="w-10 h-1.5 rounded bg-slate-100 overflow-hidden">
+                              <div className="w-10 h-1.5 rounded bg-surface-2 overflow-hidden">
                                 <div className="h-full rounded" style={{ width: `${req._score}%`, background: probColor }} />
                               </div>
                               <span className="font-bold text-[11px] tabular-nums" style={{ color: probColor }}>{req._score}%</span>
@@ -493,7 +493,7 @@ export default function USStaffingPage() {
                               className={`p-1 mr-0.5 rounded transition-colors disabled:opacity-50 ${
                                 req.job_description?.trim()
                                   ? 'text-amber-600 hover:bg-amber-50'
-                                  : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                                  : 'text-muted/70 hover:text-amber-600 hover:bg-amber-50'
                               }`}
                               title={req.job_description?.trim() ? 'View / edit JD' : 'Generate JD'}
                             >
@@ -533,7 +533,7 @@ export default function USStaffingPage() {
       {/* Stage Pipeline */}
       <Card>
         <div className="p-4">
-          <h3 className="text-sm font-bold text-slate-700 mb-3">Stage Pipeline</h3>
+          <h3 className="text-sm font-bold text-ink/80 mb-3">Stage Pipeline</h3>
           <div className="flex gap-1 items-end h-32">
             {ALL_STAGES.map(stage => {
               const count = stageDistribution[stage] || 0;
@@ -541,9 +541,9 @@ export default function USStaffingPage() {
               const height = Math.max((count / maxCount) * 100, 4);
               return (
                 <div key={stage} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] font-bold text-slate-600">{count}</span>
+                  <span className="text-[10px] font-bold text-muted">{count}</span>
                   <div className="w-full rounded-t" style={{ height: `${height}%`, background: US_STAGE_COLORS[stage] }} />
-                  <span className="text-[9px] text-slate-400 text-center leading-tight">{stage}</span>
+                  <span className="text-[9px] text-muted/70 text-center leading-tight">{stage}</span>
                 </div>
               );
             })}
@@ -567,12 +567,12 @@ export default function USStaffingPage() {
           return (
             <Card key={category}>
               <div className="p-4">
-                <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-ink/80 mb-3 flex items-center gap-2">
                   <Icon size={16} /> {category} Accounts
-                  <span className="text-xs font-normal text-slate-400">({acctList.length})</span>
+                  <span className="text-xs font-normal text-muted/70">({acctList.length})</span>
                 </h3>
                 {sorted.length === 0 && (
-                  <p className="text-xs text-slate-400 italic">No {category} accounts yet</p>
+                  <p className="text-xs text-muted/70 italic">No {category} accounts yet</p>
                 )}
                 {sorted.map(a => {
                   const count = requisitions.filter(r => r.account_id === a.id).length;
@@ -580,11 +580,11 @@ export default function USStaffingPage() {
                   return (
                     <div
                       key={a.id}
-                      className={`flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0 group/row ${isEmpty ? 'opacity-60' : ''}`}
+                      className={`flex items-center justify-between py-1.5 border-b border-line/40 last:border-0 group/row ${isEmpty ? 'opacity-60' : ''}`}
                     >
-                      <span className="text-xs text-slate-700">{a.name}</span>
+                      <span className="text-xs text-ink/80">{a.name}</span>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-semibold ${isEmpty ? 'text-slate-400 italic' : 'text-slate-500'}`}>
+                        <span className={`text-xs font-semibold ${isEmpty ? 'text-muted/70 italic' : 'text-muted'}`}>
                           {count} {count === 1 ? 'role' : 'roles'}
                         </span>
                         <button
@@ -624,7 +624,7 @@ export default function USStaffingPage() {
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <select value={filterStage} onChange={e => setFilterStage(e.target.value)}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
           <option value="All">All Stages</option>
           {ALL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -640,10 +640,10 @@ export default function USStaffingPage() {
       {showAddReq && (
         <Card className="border-2 border-blue-200 bg-blue-50/30">
           <div className="p-4 space-y-3">
-            <h4 className="text-sm font-bold text-slate-700">New Requisition</h4>
+            <h4 className="text-sm font-bold text-ink/80">New Requisition</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Account</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Account</label>
                 <select value={newAccountId} onChange={e => setNewAccountId(e.target.value)}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   <option value="">Select account...</option>
@@ -656,36 +656,36 @@ export default function USStaffingPage() {
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Role</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Role</label>
                 <input value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="e.g. Salesforce Developer"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Initiation Date</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Initiation Date</label>
                 <input type="date" value={newInitDate} onChange={e => setNewInitDate(e.target.value)}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Stage</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Stage</label>
                 <select value={newStage} onChange={e => setNewStage(e.target.value as USStaffingStage)}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   {ALL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Closure Date</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Closure Date</label>
                 <input type="date" value={newClosureDate} onChange={e => setNewClosureDate(e.target.value)}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Notes</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Notes</label>
                 <input value={newNotes} onChange={e => setNewNotes(e.target.value)} placeholder="Optional notes"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
             </div>
             <div className="flex gap-2 pt-1">
               <button onClick={handleAddReq} className="text-xs bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary/90">Save</button>
-              <button onClick={() => setShowAddReq(false)} className="text-xs text-slate-500 px-4 py-1.5 rounded-lg hover:bg-slate-100">Cancel</button>
+              <button onClick={() => setShowAddReq(false)} className="text-xs text-muted px-4 py-1.5 rounded-lg hover:bg-surface-2">Cancel</button>
             </div>
           </div>
         </Card>
@@ -695,15 +695,15 @@ export default function USStaffingPage() {
       {showAddAccount && (
         <Card className="border-2 border-green-200 bg-green-50/30">
           <div className="p-4 space-y-3">
-            <h4 className="text-sm font-bold text-slate-700">New Account</h4>
+            <h4 className="text-sm font-bold text-ink/80">New Account</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Account Name</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Account Name</label>
                 <input value={newAcctName} onChange={e => setNewAcctName(e.target.value)} placeholder="e.g. TEKsystems"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Category</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Category</label>
                 <select value={newAcctCategory} onChange={e => setNewAcctCategory(e.target.value as AccountCategory)}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -712,7 +712,7 @@ export default function USStaffingPage() {
             </div>
             <div className="flex gap-2 pt-1">
               <button onClick={handleAddAccount} className="text-xs bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700">Save</button>
-              <button onClick={() => setShowAddAccount(false)} className="text-xs text-slate-500 px-4 py-1.5 rounded-lg hover:bg-slate-100">Cancel</button>
+              <button onClick={() => setShowAddAccount(false)} className="text-xs text-muted px-4 py-1.5 rounded-lg hover:bg-surface-2">Cancel</button>
             </div>
           </div>
         </Card>
@@ -730,15 +730,15 @@ export default function USStaffingPage() {
         return (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
-                <div className="text-xl font-extrabold text-slate-800">{all.length}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{matched.length} in sales plan</div>
+              <div className="rounded-xl border border-line bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
+                <div className="text-xl font-extrabold text-ink">{all.length}</div>
+                <div className="text-[10px] text-muted mt-0.5">{matched.length} in sales plan</div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
-                <div className="text-xl font-extrabold text-slate-800"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
-                <div className="text-[10px] text-slate-500 mt-0.5">across {matched.length} accounts</div>
+              <div className="rounded-xl border border-line bg-white p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
+                <div className="text-xl font-extrabold text-ink"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
+                <div className="text-[10px] text-muted mt-0.5">across {matched.length} accounts</div>
               </div>
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold mb-1 flex items-center gap-1"><Lock size={11} /> Secured</div>
@@ -755,17 +755,17 @@ export default function USStaffingPage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
               <div className="flex items-center gap-2">
                 <Sparkles size={12} className="text-violet-500" />
                 <span>Forecast data from the 2026 Sales Plan{salesPlanUpdated ? ` · updated ${new Date(salesPlanUpdated).toLocaleDateString()}` : ''}</span>
-                {salesPlanLoading && <span className="text-slate-400">(refreshing…)</span>}
+                {salesPlanLoading && <span className="text-muted/70">(refreshing…)</span>}
                 {!salesPlanLoaded && !salesPlanLoading && <span className="text-rose-500">(not loaded)</span>}
               </div>
               <button
                 type="button"
                 onClick={() => void useSalesPlanStore.getState().load({ force: true })}
-                className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 text-[10px] text-muted hover:text-primary transition-colors"
               >
                 <RefreshCw size={10} /> Refresh
               </button>
@@ -795,13 +795,15 @@ export default function USStaffingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Global Staffing"
+        eyebrow="Global T&M"
+        tone="teal"
+        title="Global Demand"
         subtitle="Manage staffing requisitions across MSP and SI accounts"
       />
 
       {/* Tab Navigation + View mode toggle */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-surface-2 rounded-xl p-1 w-fit">
           {[
             { key: 'all', label: 'All Requisitions' },
             { key: 'forecast', label: 'AI Forecast' },
@@ -810,7 +812,7 @@ export default function USStaffingPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               {tab.label}
@@ -818,12 +820,12 @@ export default function USStaffingPage() {
           ))}
         </div>
         {activeTab === 'all' && (
-          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" title="Switch between the wide inline-edit table and the compact split view">
+          <div className="flex gap-1 bg-surface-2 rounded-xl p-1 w-fit" title="Switch between the wide inline-edit table and the compact split view">
             <button
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Rows3 size={12} /> Table
@@ -832,7 +834,7 @@ export default function USStaffingPage() {
               type="button"
               onClick={() => setViewMode('split')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Columns3 size={12} /> Split view
@@ -850,7 +852,7 @@ export default function USStaffingPage() {
               <h2 className="font-bold text-base">AI-Powered Closure Forecast</h2>
               <span className="bg-gradient-to-r from-violet-500 to-blue-500 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide">AI Insights</span>
             </div>
-            <p className="text-slate-400 text-xs mb-5">Based on pipeline stage, notes sentiment, and closure timeline</p>
+            <p className="text-muted/70 text-xs mb-5">Based on pipeline stage, notes sentiment, and closure timeline</p>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {[
                 { label: 'Total Roles', val: fTotalReqs, color: '#94a3b8', conf: 100 },
@@ -861,14 +863,14 @@ export default function USStaffingPage() {
               ].map((s) => (
                 <div key={s.label} className="bg-white/5 border border-white/10 rounded-lg p-4">
                   <h4 className="text-blue-300 text-xs font-semibold mb-2">{s.label}</h4>
-                  <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val} <span className="text-sm text-slate-400 font-normal">of {fTotalReqs}</span></div>
-                  {s.desc && <p className="text-[10px] text-slate-500">{s.desc}</p>}
+                  <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val} <span className="text-sm text-muted/70 font-normal">of {fTotalReqs}</span></div>
+                  {s.desc && <p className="text-[10px] text-muted">{s.desc}</p>}
                   <div className="h-1 bg-white/10 rounded mt-2 overflow-hidden"><div className="h-full rounded" style={{ width: `${s.conf}%`, background: s.color }} /></div>
                 </div>
               ))}
             </div>
             <div className="mt-4 text-center">
-              <span className="text-slate-300 text-sm font-semibold">Average Closure Probability: </span>
+              <span className="text-line text-sm font-semibold">Average Closure Probability: </span>
               <span className="text-xl font-extrabold" style={{ color: fAvgProb >= 60 ? '#10b981' : fAvgProb >= 40 ? '#f59e0b' : '#ef4444' }}>{fAvgProb}%</span>
             </div>
           </div>
@@ -878,14 +880,14 @@ export default function USStaffingPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b-2 border-slate-100">
-                    <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Account</th>
-                    <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Role</th>
-                    <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Stage</th>
-                    <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Prob</th>
-                    <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Risk</th>
-                    <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Closure Date</th>
-                    <th className="text-left p-2 text-slate-400 font-bold uppercase text-[10px]">Recommendation</th>
+                  <tr className="border-b-2 border-line/60">
+                    <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Account</th>
+                    <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Role</th>
+                    <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Stage</th>
+                    <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Prob</th>
+                    <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Risk</th>
+                    <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Closure Date</th>
+                    <th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Recommendation</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -898,7 +900,7 @@ export default function USStaffingPage() {
                     else if (req.stage === 'On Hold') rec = 'Re-engage - check if requirement is still active';
                     const probColor = req.closureProb >= 65 ? '#10b981' : req.closureProb >= 40 ? '#f59e0b' : '#ef4444';
                     return (
-                      <tr key={req.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <tr key={req.id} className="border-b border-line/40 hover:bg-surface-2/50">
                         <td className="p-2 font-bold">{req.account_name}</td>
                         <td className="p-2">{req.role}</td>
                         <td className="p-2">
@@ -908,7 +910,7 @@ export default function USStaffingPage() {
                         </td>
                         <td className="p-2">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-10 h-1.5 rounded bg-slate-100 overflow-hidden">
+                            <div className="w-10 h-1.5 rounded bg-surface-2 overflow-hidden">
                               <div className="h-full rounded" style={{ width: `${req.closureProb}%`, background: probColor }} />
                             </div>
                             <span className="font-bold">{req.closureProb}%</span>
@@ -917,8 +919,8 @@ export default function USStaffingPage() {
                         <td className="p-2">
                           <StatusBadge status={req.risk === 'high' ? 'at-risk' : req.risk === 'medium' ? 'caution' : 'on-track'} label={req.risk} />
                         </td>
-                        <td className="p-2 text-slate-500">{req.closure_date || 'TBD'}</td>
-                        <td className="p-2 text-slate-500">{rec}</td>
+                        <td className="p-2 text-muted">{req.closure_date || 'TBD'}</td>
+                        <td className="p-2 text-muted">{rec}</td>
                       </tr>
                     );
                   })}
@@ -939,18 +941,18 @@ export default function USStaffingPage() {
             onClick={(e) => { if (e.target === e.currentTarget) closeJdDrawer(); }}
           >
             <div className="bg-white w-full max-w-2xl h-full flex flex-col shadow-xl">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <div className="text-sm font-semibold text-ink flex items-center gap-2">
                     <Sparkles size={14} className="text-amber-500 flex-shrink-0" />
                     {reqRow?.role || 'Job description'}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                  <div className="text-[11px] text-muted mt-0.5 truncate">
                     US · {acctName}
                     {jdGeneratedAt && (<> · {jdCachedFromDb ? 'cached' : 'generated'} {new Date(jdGeneratedAt).toLocaleString()}</>)}
                   </div>
                 </div>
-                <button onClick={closeJdDrawer} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+                <button onClick={closeJdDrawer} className="text-muted/70 hover:text-ink/80 text-xl leading-none">×</button>
               </div>
 
               {jdState === 'loading' && (
@@ -972,18 +974,18 @@ export default function USStaffingPage() {
                   value={jdText}
                   onChange={(e) => { setJdText(e.target.value); setJdDirty(true); }}
                   disabled={jdState === 'loading'}
-                  className="w-full h-full min-h-[400px] text-xs font-mono leading-relaxed border border-slate-200 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-400"
+                  className="w-full h-full min-h-[400px] text-xs font-mono leading-relaxed border border-line rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:bg-surface-2/70 disabled:text-muted/70"
                   placeholder="Generated JD will appear here…"
                 />
               </div>
 
-              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
-                <div className="text-[11px] text-slate-500">Edit freely — your changes save to the requisition.</div>
+              <div className="px-5 py-3 border-t border-line/60 bg-surface-2/70 flex items-center justify-between gap-2">
+                <div className="text-[11px] text-muted">Edit freely — your changes save to the requisition.</div>
                 <div className="flex items-center gap-2">
                   <button onClick={copyJd} disabled={!jdText || jdState === 'loading'}
-                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40">Copy</button>
+                          className="text-xs font-semibold text-muted hover:text-ink px-3 py-2 disabled:opacity-40">Copy</button>
                   <button onClick={() => openJdDrawer(jdReqId, { regenerate: true })} disabled={jdState === 'loading'}
-                          className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-md hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+                          className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2 disabled:opacity-40 inline-flex items-center gap-1"
                           title="Throw away current JD and ask Claude for a fresh draft">
                     <RefreshCw size={12} /> Regenerate
                   </button>

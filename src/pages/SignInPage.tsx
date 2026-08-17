@@ -55,14 +55,14 @@ export default function SignInPage() {
           </div>
           <div>
             <div className="text-white text-xl font-bold tracking-tight">Simpliigence</div>
-            <div className="text-slate-400 text-xs uppercase tracking-widest">Operations Cockpit</div>
+            <div className="text-muted/70 text-xs uppercase tracking-widest">Operations Cockpit</div>
           </div>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h1 className="text-xl font-bold text-slate-900 mb-1">Sign in to continue</h1>
-          <p className="text-sm text-slate-500 mb-6">
+          <h1 className="text-xl font-bold text-ink mb-1">Sign in to continue</h1>
+          <p className="text-sm text-muted mb-6">
             Use your Simpliigence Microsoft 365 account.
           </p>
 
@@ -74,7 +74,7 @@ export default function SignInPage() {
             {loading ? <Loader2 size={15} className="animate-spin" /> : <MicrosoftIcon />}
             {loading ? 'Redirecting to Microsoft…' : 'Continue with Microsoft'}
           </button>
-          <p className="text-[11px] text-slate-500 text-center mt-3">
+          <p className="text-[11px] text-muted text-center mt-3">
             Sign-in is Microsoft 365 only. If your account isn't authorized, contact your admin.
           </p>
 
@@ -86,7 +86,7 @@ export default function SignInPage() {
           )}
         </div>
 
-        <p className="text-[11px] text-slate-500 text-center mt-6">
+        <p className="text-[11px] text-muted text-center mt-6">
           Access is restricted to authorized Simpliigence team members.
         </p>
       </div>

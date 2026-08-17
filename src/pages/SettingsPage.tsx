@@ -99,12 +99,12 @@ export default function SettingsPage() {
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <EyeOff size={16} className={maskUntil ? 'text-amber-600' : 'text-slate-400'} />
-                <p className="text-sm font-medium text-slate-800">
+                <EyeOff size={16} className={maskUntil ? 'text-amber-600' : 'text-muted/70'} />
+                <p className="text-sm font-medium text-ink">
                   {maskUntil ? 'Financials are masked' : 'Financials are visible'}
                 </p>
               </div>
-              <p className="text-xs text-slate-500 mt-1 max-w-md">
+              <p className="text-xs text-muted mt-1 max-w-md">
                 Hides revenue, cost, margin, and billing-rate values across all pages with a "•••"
                 placeholder. The Financials page is replaced with a placeholder card. Useful for live
                 demos with broader audiences.
@@ -135,55 +135,55 @@ export default function SettingsPage() {
 
         <Card title="Data Overview">
           <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b border-slate-50">
-              <span className="text-sm text-slate-600">Forecast Assignments</span>
-              <span className="text-sm font-semibold text-slate-800">{forecastStore.assignments.length}</span>
+            <div className="flex items-center justify-between py-2 border-b border-line/40">
+              <span className="text-sm text-muted">Forecast Assignments</span>
+              <span className="text-sm font-semibold text-ink">{forecastStore.assignments.length}</span>
             </div>
-            <div className="flex items-center justify-between py-2 border-b border-slate-50">
-              <span className="text-sm text-slate-600">Unique Employees</span>
-              <span className="text-sm font-semibold text-slate-800">{employees.length}</span>
+            <div className="flex items-center justify-between py-2 border-b border-line/40">
+              <span className="text-sm text-muted">Unique Employees</span>
+              <span className="text-sm font-semibold text-ink">{employees.length}</span>
             </div>
             <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-slate-600">Active Projects</span>
-              <span className="text-sm font-semibold text-slate-800">{projects.length}</span>
+              <span className="text-sm text-muted">Active Projects</span>
+              <span className="text-sm font-semibold text-ink">{projects.length}</span>
             </div>
           </div>
         </Card>
 
         <Card title="Currency & Exchange Rates">
-          <p className="text-xs text-slate-400 mb-4">Set conversion rates used across the dashboard for cost and revenue calculations.</p>
+          <p className="text-xs text-muted/70 mb-4">Set conversion rates used across the dashboard for cost and revenue calculations.</p>
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">USD to INR (₹ per $1 USD)</label>
+                <label className="block text-sm font-medium text-ink/80 mb-1">USD to INR (₹ per $1 USD)</label>
                 <input
                   type="number"
                   step="0.1"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   value={settings.exchangeRate}
                   onChange={(e) => updateSettings({ exchangeRate: Number(e.target.value) || 0 })}
                 />
               </div>
-              <div className="text-sm text-slate-500 pt-6">
+              <div className="text-sm text-muted pt-6">
                 $1 USD = ₹{settings.exchangeRate.toLocaleString()}
               </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">CAD to USD ($ per CA$1)</label>
+                <label className="block text-sm font-medium text-ink/80 mb-1">CAD to USD ($ per CA$1)</label>
                 <input
                   type="number"
                   step="0.01"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   value={settings.cadToUsdRate}
                   onChange={(e) => updateSettings({ cadToUsdRate: Number(e.target.value) || 0 })}
                 />
               </div>
-              <div className="text-sm text-slate-500 pt-6">
+              <div className="text-sm text-muted pt-6">
                 CA$1 = ${settings.cadToUsdRate.toFixed(2)} USD
               </div>
             </div>
-            <div className="border-t border-slate-100 pt-3 text-xs text-slate-400">
+            <div className="border-t border-line/60 pt-3 text-xs text-muted/70">
               <p>Quick reference: CA$100,000 = ${Math.round(100000 * (settings.cadToUsdRate || 0.73)).toLocaleString()} USD = ₹{Math.round(100000 * (settings.cadToUsdRate || 0.73) * (settings.exchangeRate || 83.5)).toLocaleString()} INR</p>
             </div>
           </div>
@@ -193,16 +193,16 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-2">
               <Brain size={16} className="text-blue-600" />
-              <p className="text-sm text-slate-600">Power the Dashboard Smart Query with Claude AI for accurate, natural-language answers.</p>
+              <p className="text-sm text-muted">Power the Dashboard Smart Query with Claude AI for accurate, natural-language answers.</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Anthropic API Key</label>
-              <p className="text-xs text-slate-400 mb-2">Stored locally in your browser only — never sent to Supabase or any server except Anthropic.</p>
+              <label className="block text-sm font-medium text-ink/80 mb-1">Anthropic API Key</label>
+              <p className="text-xs text-muted/70 mb-2">Stored locally in your browser only — never sent to Supabase or any server except Anthropic.</p>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <input
                     type={keyVisible ? 'text' : 'password'}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full rounded-lg border border-line px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
                     placeholder="sk-ant-..."
                     value={claudeKey}
                     onChange={(e) => setClaudeKey(e.target.value)}
@@ -210,7 +210,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setKeyVisible(!keyVisible)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted/70 hover:text-muted"
                   >
                     {keyVisible ? 'Hide' : 'Show'}
                   </button>
@@ -249,17 +249,17 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <ShieldCheck size={16} className="text-emerald-600" />
-              <p className="text-sm text-slate-600">Automatic daily backups run silently. You can also download or restore manually.</p>
+              <p className="text-sm text-muted">Automatic daily backups run silently. You can also download or restore manually.</p>
             </div>
             {lastBackup && (
-              <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-muted bg-surface-2/70 rounded-lg px-3 py-2">
                 <Clock size={14} />
                 Last backup: {new Date(lastBackup).toLocaleString()}
               </div>
             )}
 
             {/* Backup folder picker */}
-            <div className="rounded-lg border border-slate-200 px-3 py-3 bg-slate-50/40">
+            <div className="rounded-lg border border-line px-3 py-3 bg-surface-2/40">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -268,21 +268,21 @@ export default function SettingsPage() {
                     ) : folderState.name ? (
                       <FolderX size={16} className="text-amber-600 shrink-0" />
                     ) : (
-                      <FolderOpen size={16} className="text-slate-400 shrink-0" />
+                      <FolderOpen size={16} className="text-muted/70 shrink-0" />
                     )}
-                    <p className="text-sm font-medium text-slate-800">Local backup folder</p>
+                    <p className="text-sm font-medium text-ink">Local backup folder</p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-muted mt-0.5">
                     {!folderState.supported ? (
                       <>Folder backups require Chrome, Edge, or Brave. Other browsers will save to Downloads only.</>
                     ) : folderState.name && folderState.permission === 'granted' ? (
                       <>
-                        Saving to <span className="font-medium text-slate-700">"{folderState.name}"</span>.
+                        Saving to <span className="font-medium text-ink/80">"{folderState.name}"</span>.
                         Daily auto-backups and "Backup Now" will write here.
                       </>
                     ) : folderState.name ? (
                       <>
-                        Folder <span className="font-medium text-slate-700">"{folderState.name}"</span> is set
+                        Folder <span className="font-medium text-ink/80">"{folderState.name}"</span> is set
                         but permission expired. Click <em>Re-authorize</em> to reconnect.
                       </>
                     ) : (
@@ -334,7 +334,7 @@ export default function SettingsPage() {
                         setBackupStatus('Backup folder cleared.');
                         setTimeout(() => setBackupStatus(null), 3000);
                       }}
-                      className="text-xs text-slate-400 hover:text-red-500 px-1"
+                      className="text-xs text-muted/70 hover:text-red-500 px-1"
                       title="Forget this folder"
                     >
                       Clear
@@ -346,8 +346,8 @@ export default function SettingsPage() {
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-800">Download Full Backup</p>
-                <p className="text-xs text-slate-500">Exports all Supabase tables as a JSON file.</p>
+                <p className="text-sm font-medium text-ink">Download Full Backup</p>
+                <p className="text-xs text-muted">Exports all Supabase tables as a JSON file.</p>
               </div>
               <Button
                 size="sm"
@@ -371,10 +371,10 @@ export default function SettingsPage() {
                 <Download size={14} /> Backup Now
               </Button>
             </div>
-            <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+            <div className="border-t border-line/60 pt-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-800">Restore from Backup</p>
-                <p className="text-xs text-slate-500">Upload a previously downloaded backup file to restore data.</p>
+                <p className="text-sm font-medium text-ink">Restore from Backup</p>
+                <p className="text-xs text-muted">Upload a previously downloaded backup file to restore data.</p>
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -407,26 +407,26 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-800">Load Seed Data</p>
-                <p className="text-xs text-slate-500">Import sample employee forecast data. Replaces current data.</p>
+                <p className="text-sm font-medium text-ink">Load Seed Data</p>
+                <p className="text-xs text-muted">Import sample employee forecast data. Replaces current data.</p>
               </div>
               <Button size="sm" variant="secondary" onClick={() => setConfirmSeed(true)}>
                 <FileSpreadsheet size={14} /> Load Data
               </Button>
             </div>
-            <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+            <div className="border-t border-line/60 pt-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-800">Export All Data</p>
-                <p className="text-xs text-slate-500">Download as JSON. {forecastStore.assignments.length} assignments.</p>
+                <p className="text-sm font-medium text-ink">Export All Data</p>
+                <p className="text-xs text-muted">Download as JSON. {forecastStore.assignments.length} assignments.</p>
               </div>
               <Button size="sm" variant="secondary" onClick={exportData}>
                 <Download size={14} /> Export
               </Button>
             </div>
-            <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+            <div className="border-t border-line/60 pt-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-red-700">Clear All Data</p>
-                <p className="text-xs text-slate-500">Permanently delete everything. Cannot be undone.</p>
+                <p className="text-xs text-muted">Permanently delete everything. Cannot be undone.</p>
               </div>
               <Button size="sm" variant="danger" onClick={() => setConfirmClear(true)}>
                 <Trash2 size={14} /> Clear

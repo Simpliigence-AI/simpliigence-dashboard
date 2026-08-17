@@ -653,6 +653,7 @@ function accountToRow(a: Account) {
     industry: a.industry,
     notes: a.notes ?? '',
     team_aliases: a.teamAliases ?? [],
+    email_domains: (a.emailDomains ?? []).map((d) => d.toLowerCase()),
     updated_by: CLIENT_ID,
     updated_at: new Date().toISOString(),
   };
@@ -667,6 +668,7 @@ function rowToAccount(row: any): Account {
     industry: row.industry ?? null,
     notes: row.notes ?? '',
     teamAliases: Array.isArray(row.team_aliases) ? row.team_aliases : [],
+    emailDomains: Array.isArray(row.email_domains) ? row.email_domains : [],
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
@@ -711,6 +713,19 @@ function rowToAccountAction(row: any): AccountActionItem {
     status: row.status ?? 'open', completedAt: row.completed_at ?? null,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
+}
+
+export async function fetchPodAssignments(): Promise<
+  Array<{ employeeName: string; pod: string; updatedAt?: string; updatedBy?: string | null }> | null
+> {
+  const { data, error } = await supabase.from('project_team_pods').select('*');
+  if (error) { console.warn('[supabase] fetch project_team_pods failed:', error.message); return null; }
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    employeeName: r.employee_name as string,
+    pod: r.pod as string,
+    updatedAt: r.updated_at as string | undefined,
+    updatedBy: (r.updated_by as string | null | undefined) ?? null,
+  }));
 }
 
 export async function fetchPresales(): Promise<{
@@ -1077,6 +1092,7 @@ function indiaRosterToRow(m: IndiaRosterMember) {
     name: m.name,
     role: m.role,
     project: m.project,
+    pod: m.pod?.trim() || null,
     status: m.status,
     cost_per_hour: m.cost_per_hour,
     bill_rate: m.bill_rate,
@@ -1096,6 +1112,7 @@ function rowToIndiaRoster(row: any): IndiaRosterMember {
     name: row.name ?? '',
     role: row.role ?? '',
     project: row.project ?? '',
+    pod: row.pod ?? '',
     status: (row.status ?? 'Bench') as IndiaRosterStatus,
     cost_per_hour: row.cost_per_hour ?? 0,
     bill_rate: row.bill_rate ?? 0,
@@ -1330,9 +1347,11 @@ export const db = {
   },
 
   // --- Pipeline ---
-  async upsertPipelineProject(p: ZohoPipelineProject) {
+  /** Resolves with the error message on failure, null on success. */
+  async upsertPipelineProject(p: ZohoPipelineProject): Promise<string | null> {
     const { error } = await supabase.from('pipeline_projects').upsert(projectToRow(p), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert pipeline project failed:', error);
+    return error?.message ?? null;
   },
 
   async upsertPipelineProjects(projects: ZohoPipelineProject[]) {
@@ -1519,6 +1538,21 @@ export const db = {
   async upsertIndiaRosterMember(m: IndiaRosterMember) {
     const { error } = await supabase.from('india_roster').upsert(indiaRosterToRow(m), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert india_roster failed:', error);
+  },
+
+  // ─── Project-team pod assignments (see fetchPodAssignments) ────────
+  async upsertPodAssignment(row: { employeeName: string; pod: string }) {
+    const { error } = await supabase.from('project_team_pods').upsert({
+      employee_name: row.employeeName,
+      pod: row.pod,
+      updated_at: new Date().toISOString(),
+      updated_by: CLIENT_ID,
+    }, { onConflict: 'employee_name' });
+    if (error) console.warn('[supabase] upsert project_team_pods failed:', error);
+  },
+  async deletePodAssignment(employeeName: string) {
+    const { error } = await supabase.from('project_team_pods').delete().eq('employee_name', employeeName);
+    if (error) console.warn('[supabase] delete project_team_pods failed:', error);
   },
   async deleteIndiaRosterMember(id: string) {
     const { error } = await supabase.from('india_roster').delete().eq('id', id);
@@ -3308,6 +3342,31 @@ export const leaveDb = {
   async upsertRequest(r: LeaveRequest) {
     const { error } = await supabase.from('leave_requests').upsert(leaveRequestToRow(r), { onConflict: 'id' });
     if (error) { console.error('[supabase] upsert leave_request failed:', error); throw error; }
+  },
+  /** Targeted decision write (approve/reject/cancel) that VERIFIES the row
+   *  actually changed. An UPDATE blocked by RLS doesn't error — PostgREST just
+   *  matches 0 rows — so `upsertRequest` could "succeed" while the request
+   *  stayed pending in the DB. `.select('id')` returns the updated rows; an
+   *  empty result means the write was silently blocked, and we throw so the
+   *  caller can roll back its optimistic state. */
+  async updateRequestDecision(
+    id: string,
+    patch: Pick<LeaveRequest, 'status' | 'decidedAt' | 'decidedBy' | 'decisionComment'>,
+  ) {
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .update({
+        status: patch.status,
+        decided_at: patch.decidedAt,
+        decided_by: patch.decidedBy?.toLowerCase() ?? null,
+        decision_comment: patch.decisionComment,
+      })
+      .eq('id', id)
+      .select('id');
+    if (error) { console.error('[supabase] update leave_request decision failed:', error); throw error; }
+    if (!data || data.length === 0) {
+      throw new Error('Leave request update was blocked (0 rows changed) — likely a database permission (RLS) issue.');
+    }
   },
   async deleteRequest(id: string) {
     const { error } = await supabase.from('leave_requests').delete().eq('id', id);

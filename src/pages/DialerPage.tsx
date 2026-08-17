@@ -124,11 +124,11 @@ function AiNotesView({ notes }: { notes: DialerAiNotes }) {
   const listBlock = (title: string, items?: string[]) =>
     items && items.length > 0 ? (
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">{title}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted/70 mb-1">{title}</p>
         <ul className="space-y-1">
           {items.map((it, i) => (
-            <li key={i} className="text-sm text-slate-700 flex gap-2">
-              <span className="text-slate-300 mt-0.5">•</span>
+            <li key={i} className="text-sm text-ink/80 flex gap-2">
+              <span className="text-line mt-0.5">•</span>
               <span>{it}</span>
             </li>
           ))}
@@ -139,7 +139,7 @@ function AiNotesView({ notes }: { notes: DialerAiNotes }) {
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
-        {notes.summary && <p className="text-sm text-slate-700 leading-relaxed">{notes.summary}</p>}
+        {notes.summary && <p className="text-sm text-ink/80 leading-relaxed">{notes.summary}</p>}
         {sentiment && <Badge variant={sentiment.variant}>{sentiment.label}</Badge>}
       </div>
       {listBlock('Key points', notes.key_points)}
@@ -147,7 +147,7 @@ function AiNotesView({ notes }: { notes: DialerAiNotes }) {
       {listBlock('Objections', notes.objections)}
       {listBlock('Opportunity signals', notes.opportunity_signals)}
       {(notes.next_steps || notes.follow_up_recommended) && (
-        <div className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">
+        <div className="text-sm text-ink/80 bg-surface-2/70 rounded-lg px-3 py-2">
           {notes.next_steps && <p><span className="font-semibold">Next steps:</span> {notes.next_steps}</p>}
           {notes.follow_up_recommended && (
             <p className="mt-0.5"><span className="font-semibold">Follow up:</span> {notes.follow_up_recommended}</p>
@@ -198,26 +198,26 @@ function CallHistoryRow({ call, onRedial, canRedial }: {
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="border border-line rounded-lg overflow-hidden">
       <div className="flex items-stretch">
         <button
-          className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+          className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 hover:bg-surface-2/70 transition-colors text-left"
           onClick={() => setExpanded((e) => !e)}
         >
           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
             call.status === 'in-progress' ? 'bg-emerald-100 text-emerald-600'
-            : call.status === 'completed' ? 'bg-slate-100 text-slate-500'
+            : call.status === 'completed' ? 'bg-surface-2 text-muted'
             : ['failed', 'busy', 'no-answer'].includes(call.status) ? 'bg-red-50 text-red-500'
             : 'bg-blue-50 text-blue-500'
           }`}>
             <Phone size={14} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-800 truncate">
+            <p className="text-sm font-semibold text-ink truncate">
               {call.to_name || call.to_phone}
-              {call.to_company && <span className="font-normal text-slate-500"> · {call.to_company}</span>}
+              {call.to_company && <span className="font-normal text-muted"> · {call.to_company}</span>}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted">
               {call.to_name ? `${call.to_phone} · ` : ''}{timeAgo(call.created_at)}
               {call.duration_sec != null && ` · ${fmtDuration(call.duration_sec)}`}
               {call.placed_by && ` · ${call.placed_by.split('@')[0]}`}
@@ -229,11 +229,11 @@ function CallHistoryRow({ call, onRedial, canRedial }: {
               <Loader2 size={14} className="text-violet-400 animate-spin" />
             )}
             <Badge variant={badge.variant}>{badge.label}</Badge>
-            {expanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+            {expanded ? <ChevronUp size={16} className="text-muted/70" /> : <ChevronDown size={16} className="text-muted/70" />}
           </div>
         </button>
         <button
-          className="px-3 border-l border-slate-100 text-emerald-600 hover:bg-emerald-50 disabled:text-slate-300 disabled:hover:bg-transparent transition-colors flex items-center"
+          className="px-3 border-l border-line/60 text-emerald-600 hover:bg-emerald-50 disabled:text-line disabled:hover:bg-transparent transition-colors flex items-center"
           onClick={() => onRedial(call)}
           disabled={!canRedial}
           title={canRedial ? `Redial ${call.to_phone}` : 'Softphone busy or not ready'}
@@ -243,7 +243,7 @@ function CallHistoryRow({ call, onRedial, canRedial }: {
       </div>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-4">
+        <div className="px-4 pb-4 pt-1 border-t border-line/60 space-y-4">
           {call.error_msg && (
             <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5 flex items-center gap-1.5">
               <AlertTriangle size={12} /> {call.error_msg}
@@ -287,13 +287,13 @@ function CallHistoryRow({ call, onRedial, canRedial }: {
           {call.transcript && (
             <div>
               <button
-                className="text-xs font-semibold text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                className="text-xs font-semibold text-muted hover:text-ink/80 flex items-center gap-1"
                 onClick={() => setShowTranscript((s) => !s)}
               >
                 <FileText size={12} /> {showTranscript ? 'Hide transcript' : 'Show transcript'}
               </button>
               {showTranscript && (
-                <pre className="mt-2 text-xs text-slate-600 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap max-h-64 overflow-y-auto font-sans">
+                <pre className="mt-2 text-xs text-muted bg-surface-2/70 rounded-lg p-3 whitespace-pre-wrap max-h-64 overflow-y-auto font-sans">
                   {call.transcript}
                 </pre>
               )}
@@ -302,9 +302,9 @@ function CallHistoryRow({ call, onRedial, canRedial }: {
 
           {/* Manual notes */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">My notes</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted/70 mb-1">My notes</p>
             <textarea
-              className="w-full text-sm border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y min-h-[60px]"
+              className="w-full text-sm border border-line rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y min-h-[60px]"
               placeholder="Type your own notes about this call…"
               value={manualNotes}
               onChange={(e) => setManualNotes(e.target.value)}
@@ -626,26 +626,26 @@ export default function DialerPage() {
                 <span className={`inline-block w-2 h-2 rounded-full ${
                   phoneState === 'ready' ? 'bg-emerald-500'
                   : inCall ? 'bg-emerald-500 animate-pulse'
-                  : phoneState === 'init' ? 'bg-slate-300'
+                  : phoneState === 'init' ? 'bg-line'
                   : 'bg-amber-400'
                 }`} />
-                <span className={inCall ? 'text-emerald-600' : 'text-slate-400'}>{statusLine}</span>
+                <span className={inCall ? 'text-emerald-600' : 'text-muted/70'}>{statusLine}</span>
               </div>
 
               {selectedContact && (
-                <p className="text-sm font-semibold text-slate-700 mb-1">
+                <p className="text-sm font-semibold text-ink/80 mb-1">
                   {selectedContact.name}
-                  {selectedContact.company && <span className="font-normal text-slate-500"> · {selectedContact.company}</span>}
+                  {selectedContact.company && <span className="font-normal text-muted"> · {selectedContact.company}</span>}
                 </p>
               )}
 
               <div className="flex items-center gap-2">
-                <div className="flex rounded-lg border border-slate-200 overflow-hidden flex-shrink-0">
+                <div className="flex rounded-lg border border-line overflow-hidden flex-shrink-0">
                   {(['+1', '+91'] as CountryCode[]).map((cc) => (
                     <button
                       key={cc}
                       className={`px-2.5 py-2 text-xs font-bold transition-colors ${
-                        country === cc ? 'bg-primary text-white' : 'bg-white text-slate-500 hover:bg-slate-50'
+                        country === cc ? 'bg-primary text-white' : 'bg-white text-muted hover:bg-surface-2/70'
                       }`}
                       onClick={() => setCountry(cc)}
                       disabled={inCall}
@@ -655,7 +655,7 @@ export default function DialerPage() {
                   ))}
                 </div>
                 <input
-                  className="flex-1 text-xl font-semibold text-slate-800 tracking-wide text-center border border-slate-200 rounded-lg py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums min-w-0"
+                  className="flex-1 text-xl font-semibold text-ink tracking-wide text-center border border-line rounded-lg py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums min-w-0"
                   placeholder="(555) 123-4567"
                   value={rawNumber}
                   onChange={(e) => { setRawNumber(e.target.value); setSelectedContact(null); }}
@@ -663,7 +663,7 @@ export default function DialerPage() {
                   inputMode="tel"
                 />
                 <button
-                  className="p-2 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                  className="p-2 text-muted/70 hover:text-muted disabled:opacity-30"
                   onClick={() => { setRawNumber((n) => n.slice(0, -1)); setSelectedContact(null); }}
                   disabled={inCall || !rawNumber}
                   title="Backspace"
@@ -672,7 +672,7 @@ export default function DialerPage() {
                 </button>
               </div>
               {rawNumber && !inCall && (
-                <p className={`text-xs mt-1.5 ${e164 ? 'text-slate-400' : 'text-red-500'}`}>
+                <p className={`text-xs mt-1.5 ${e164 ? 'text-muted/70' : 'text-red-500'}`}>
                   {e164 ? `Will dial ${e164}` : 'Not a valid number yet'}
                 </p>
               )}
@@ -683,16 +683,16 @@ export default function DialerPage() {
               {KEYPAD.map((k) => (
                 <button
                   key={k.digit}
-                  className="h-12 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors flex flex-col items-center justify-center"
+                  className="h-12 rounded-lg bg-surface-2/70 hover:bg-surface-2 active:bg-line/60 transition-colors flex flex-col items-center justify-center"
                   onClick={() => pressKey(k.digit)}
                 >
-                  <span className="text-lg font-semibold text-slate-800 leading-none">{k.digit}</span>
-                  {k.letters && <span className="text-[9px] text-slate-400 tracking-widest mt-0.5">{k.letters}</span>}
+                  <span className="text-lg font-semibold text-ink leading-none">{k.digit}</span>
+                  {k.letters && <span className="text-[9px] text-muted/70 tracking-widest mt-0.5">{k.letters}</span>}
                 </button>
               ))}
             </div>
             {phoneState === 'in-call' && (
-              <p className="text-[11px] text-slate-400 text-center -mt-2 mb-3">Keypad sends touch-tones during the call</p>
+              <p className="text-[11px] text-muted/70 text-center -mt-2 mb-3">Keypad sends touch-tones during the call</p>
             )}
 
             {/* call controls */}
@@ -700,7 +700,7 @@ export default function DialerPage() {
               <div className="flex items-center justify-center gap-3">
                 <button
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                    muted ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    muted ? 'bg-amber-100 text-amber-600' : 'bg-surface-2 text-muted hover:bg-line/60'
                   }`}
                   onClick={toggleMute}
                   title={muted ? 'Unmute' : 'Mute'}
@@ -717,7 +717,7 @@ export default function DialerPage() {
               </div>
             ) : (
               <button
-                className="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
+                className="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-line/60 disabled:text-muted/70 text-white font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
                 onClick={() => placeCall()}
                 disabled={!e164 || phoneState !== 'ready'}
               >
@@ -726,7 +726,7 @@ export default function DialerPage() {
             )}
 
             {activeRow && inCall && (
-              <p className="text-xs text-slate-400 text-center mt-3 flex items-center justify-center gap-1">
+              <p className="text-xs text-muted/70 text-center mt-3 flex items-center justify-center gap-1">
                 <Clock size={11} /> Call is being recorded for AI notes
               </p>
             )}
@@ -735,14 +735,14 @@ export default function DialerPage() {
           {/* contact search */}
           <Card title="Find a contact">
             <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/70" />
               <input
-                className="w-full text-sm border border-slate-200 rounded-lg py-2 pl-9 pr-3 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full text-sm border border-line rounded-lg py-2 pl-9 pr-3 focus:outline-none focus:ring-2 focus:ring-primary/40"
                 placeholder="Search Salesforce & ZoomInfo by name, company or phone…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {searching && <Loader2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />}
+              {searching && <Loader2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/70 animate-spin" />}
             </div>
 
             {searchResults.length > 0 && (
@@ -752,17 +752,17 @@ export default function DialerPage() {
                   return (
                     <button
                       key={`${c.source}-${c.id}`}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors text-left disabled:opacity-50"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-2/70 transition-colors text-left disabled:opacity-50"
                       onClick={() => pickContact(c)}
                       disabled={!num}
                       title={num ? `Dial ${num}` : 'No phone number on record'}
                     >
-                      <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <User size={13} className="text-slate-500" />
+                      <div className="w-7 h-7 rounded-full bg-surface-2 flex items-center justify-center flex-shrink-0">
+                        <User size={13} className="text-muted" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
-                        <p className="text-xs text-slate-500 truncate">
+                        <p className="text-sm font-semibold text-ink truncate">{c.name}</p>
+                        <p className="text-xs text-muted truncate">
                           {[c.title, c.company].filter(Boolean).join(' · ') || '—'}
                         </p>
                       </div>
@@ -770,7 +770,7 @@ export default function DialerPage() {
                         <Badge variant={c.source === 'salesforce' ? 'info' : 'default'}>
                           {c.source === 'salesforce' ? 'SF' : 'ZI'}
                         </Badge>
-                        <p className="text-[11px] text-slate-400 mt-0.5 tabular-nums">{num || 'no phone'}</p>
+                        <p className="text-[11px] text-muted/70 mt-0.5 tabular-nums">{num || 'no phone'}</p>
                       </div>
                     </button>
                   );
@@ -779,11 +779,11 @@ export default function DialerPage() {
             )}
 
             {search.trim().length >= 2 && !searching && searchResults.length === 0 && (
-              <p className="text-xs text-slate-400 mt-3">No matches.</p>
+              <p className="text-xs text-muted/70 mt-3">No matches.</p>
             )}
 
             {searchMeta && (searchMeta.salesforce?.error || searchMeta.zoominfo?.error || searchMeta.zoominfo?.configured === false) && (
-              <div className="mt-3 text-[11px] text-slate-400 space-y-0.5">
+              <div className="mt-3 text-[11px] text-muted/70 space-y-0.5">
                 {searchMeta.salesforce?.error && <p>Salesforce: {searchMeta.salesforce.error}</p>}
                 {searchMeta.zoominfo?.configured === false
                   ? <p>ZoomInfo: not configured yet (Salesforce-only results).</p>
@@ -798,7 +798,7 @@ export default function DialerPage() {
           title="Recent calls"
           action={
             <button
-              className="text-slate-400 hover:text-slate-600 transition-colors"
+              className="text-muted/70 hover:text-muted transition-colors"
               title="Refresh"
               onClick={async () => {
                 const { data } = await supabase.from('dialer_calls')

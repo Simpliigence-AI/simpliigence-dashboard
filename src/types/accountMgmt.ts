@@ -16,6 +16,12 @@ export interface Account {
    *  Solutions" but the account is "Ciklum"). Case-insensitive
    *  substring match — short, specific tokens work best. */
   teamAliases: string[];
+  /** Sending domains that route inbound support emails to this account.
+   *  Matched exactly (case-insensitive) against the sender's email domain
+   *  in the desk-inbound edge function. E.g. ['acme.com', 'acme-inc.com'].
+   *  Two catch-alls exist for the misses: 'Internal Simpliigence' and
+   *  'Others'. */
+  emailDomains: string[];
   createdAt: string;
   updatedAt: string;
 }

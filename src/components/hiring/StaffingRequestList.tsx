@@ -29,23 +29,23 @@ export function StaffingRequestList({ requests, onAdd, onRemove }: Props) {
   return (
     <div>
       {requests.length === 0 && !showForm && (
-        <p className="text-sm text-slate-400 mb-3">No staffing requests yet.</p>
+        <p className="text-sm text-muted/70 mb-3">No staffing requests yet.</p>
       )}
 
       {requests.map((r) => (
-        <div key={r.id} className="flex items-center justify-between py-2 border-b border-slate-50 group">
+        <div key={r.id} className="flex items-center justify-between py-2 border-b border-line/40 group">
           <div>
-            <span className="text-sm font-medium text-slate-700">
+            <span className="text-sm font-medium text-ink/80">
               {ROLE_CATEGORY_LABELS[r.roleCategory]}
             </span>
-            <span className="text-xs text-slate-500 ml-2">
+            <span className="text-xs text-muted ml-2">
               {r.hoursPerMonth} hrs/mo &middot; {r.startMonth}–{r.endMonth}
               {r.clientName && <> &middot; {r.clientName}</>}
             </span>
           </div>
           <button
             onClick={() => onRemove(r.id)}
-            className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="text-line hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <Trash2 size={14} />
           </button>
@@ -53,12 +53,12 @@ export function StaffingRequestList({ requests, onAdd, onRemove }: Props) {
       ))}
 
       {showForm ? (
-        <div className="mt-3 space-y-2 bg-slate-50 rounded-lg p-3">
+        <div className="mt-3 space-y-2 bg-surface-2/70 rounded-lg p-3">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[10px] font-medium text-slate-500 uppercase">Role</label>
+              <label className="text-[10px] font-medium text-muted uppercase">Role</label>
               <select
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs"
+                className="w-full rounded border border-line px-2 py-1.5 text-xs"
                 value={role}
                 onChange={(e) => setRole(e.target.value as RoleCategory)}
               >
@@ -68,12 +68,12 @@ export function StaffingRequestList({ requests, onAdd, onRemove }: Props) {
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-500 uppercase">Hrs/Month</label>
+              <label className="text-[10px] font-medium text-muted uppercase">Hrs/Month</label>
               <input
                 type="number"
                 min={0}
                 step={10}
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs"
+                className="w-full rounded border border-line px-2 py-1.5 text-xs"
                 value={hours}
                 onChange={(e) => setHours(Number(e.target.value) || 0)}
               />
@@ -81,9 +81,9 @@ export function StaffingRequestList({ requests, onAdd, onRemove }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[10px] font-medium text-slate-500 uppercase">Start</label>
+              <label className="text-[10px] font-medium text-muted uppercase">Start</label>
               <select
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs"
+                className="w-full rounded border border-line px-2 py-1.5 text-xs"
                 value={startMonth}
                 onChange={(e) => setStartMonth(e.target.value as Month)}
               >
@@ -91,9 +91,9 @@ export function StaffingRequestList({ requests, onAdd, onRemove }: Props) {
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-500 uppercase">End</label>
+              <label className="text-[10px] font-medium text-muted uppercase">End</label>
               <select
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs"
+                className="w-full rounded border border-line px-2 py-1.5 text-xs"
                 value={endMonth}
                 onChange={(e) => setEndMonth(e.target.value as Month)}
               >
@@ -102,10 +102,10 @@ export function StaffingRequestList({ requests, onAdd, onRemove }: Props) {
             </div>
           </div>
           <div>
-            <label className="text-[10px] font-medium text-slate-500 uppercase">Client (optional)</label>
+            <label className="text-[10px] font-medium text-muted uppercase">Client (optional)</label>
             <input
               type="text"
-              className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs"
+              className="w-full rounded border border-line px-2 py-1.5 text-xs"
               placeholder="e.g., CoolAir expansion"
               value={client}
               onChange={(e) => setClient(e.target.value)}
@@ -120,7 +120,7 @@ export function StaffingRequestList({ requests, onAdd, onRemove }: Props) {
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="text-xs text-slate-500 px-3 py-1.5 rounded hover:bg-slate-200"
+              className="text-xs text-muted px-3 py-1.5 rounded hover:bg-line/60"
             >
               Cancel
             </button>

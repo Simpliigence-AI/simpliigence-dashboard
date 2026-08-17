@@ -553,7 +553,7 @@ function InlineEdit({ value, onSave, type = 'text', prefix = '', placeholder = '
   }
   return (
     <span onClick={(e) => { e.stopPropagation(); setEditing(true); setDraft(String(value ?? '')); }} className="cursor-pointer hover:text-primary">
-      {value ? `${prefix}${value}` : <span className="text-slate-400 italic">{placeholder}</span>}
+      {value ? `${prefix}${value}` : <span className="text-muted/70 italic">{placeholder}</span>}
     </span>
   );
 }
@@ -595,41 +595,41 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
     <Card>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-slate-800 text-base">New Pipeline Project</h3>
-          <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+          <h3 className="font-semibold text-ink text-base">New Pipeline Project</h3>
+          <button type="button" onClick={onCancel} className="text-muted/70 hover:text-muted">
             <X size={18} />
           </button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="col-span-2 md:col-span-1">
-            <label className="text-xs text-slate-500 block mb-1">Project Name *</label>
+            <label className="text-xs text-muted block mb-1">Project Name *</label>
             <input
               ref={nameRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
               placeholder="e.g. Acme Corp Phase 2"
             />
           </div>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Owner</label>
+            <label className="text-xs text-muted block mb-1">Owner</label>
             <input
               type="text"
               value={owner}
               onChange={(e) => setOwner(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Project owner"
             />
           </div>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Status</label>
+            <label className="text-xs text-muted block mb-1">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {PIPELINE_STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -637,30 +637,30 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
             </select>
           </div>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Expected Start</label>
+            <label className="text-xs text-muted block mb-1">Expected Start</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Expected End</label>
+            <label className="text-xs text-muted block mb-1">Expected End</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
           <div>
-            <label className="text-xs text-slate-500 block mb-1">Est. Revenue</label>
+            <label className="text-xs text-muted block mb-1">Est. Revenue</label>
             <div className="flex gap-1">
               <select
                 value={revCurrency}
                 onChange={(e) => setRevCurrency(e.target.value as 'USD' | 'CAD')}
-                className="rounded border border-slate-300 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="rounded border border-line bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="USD">USD</option>
                 <option value="CAD">CAD</option>
@@ -669,7 +669,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
                 type="number"
                 value={revenue}
                 onChange={(e) => setRevenue(e.target.value)}
-                className="flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="flex-1 rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="0"
                 min="0"
               />
@@ -679,24 +679,24 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
 
         {/* Resource needs */}
         <div>
-          <label className="text-xs text-slate-500 block mb-2 flex items-center gap-1">
+          <label className="text-xs text-muted block mb-2 flex items-center gap-1">
             <UserPlus size={12} /> Resource Needs (headcount) — feeds into Hiring Forecast
           </label>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-[10px] text-slate-400 block mb-1">Business Analysts</label>
+              <label className="text-[10px] text-muted/70 block mb-1">Business Analysts</label>
               <input type="number" min={0} value={baCount} onChange={(e) => setBaCount(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                className="w-full rounded border border-line bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div>
-              <label className="text-[10px] text-slate-400 block mb-1">Junior Developers</label>
+              <label className="text-[10px] text-muted/70 block mb-1">Junior Developers</label>
               <input type="number" min={0} value={jdCount} onChange={(e) => setJdCount(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                className="w-full rounded border border-line bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div>
-              <label className="text-[10px] text-slate-400 block mb-1">Senior Developers</label>
+              <label className="text-[10px] text-muted/70 block mb-1">Senior Developers</label>
               <input type="number" min={0} value={sdCount} onChange={(e) => setSdCount(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                className="w-full rounded border border-line bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
           </div>
         </div>
@@ -712,7 +712,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+            className="px-4 py-2 border border-line text-muted rounded-lg text-sm font-medium hover:bg-surface-2/70 transition-colors"
           >
             Cancel
           </button>
@@ -749,11 +749,11 @@ function PipelineProjectCard({
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(!expanded)}>
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-slate-800 text-base">{project.name}</h3>
+            <h3 className="font-semibold text-ink text-base">{project.name}</h3>
             <Badge variant={statusVariant(project.status)}>{project.status}</Badge>
             <Badge variant="default">Pipeline</Badge>
           </div>
-          <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
+          <div className="flex items-center gap-4 mt-1 text-xs text-muted flex-wrap">
             <span className="flex items-center gap-1"><Users size={12} /> {project.owner}</span>
             {(project.startDate || project.endDate) && (
               <span className="flex items-center gap-1">
@@ -795,7 +795,7 @@ function PipelineProjectCard({
             </button>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="text-xs text-slate-500">Archive?</span>
+              <span className="text-xs text-muted">Archive?</span>
               <button
                 onClick={() => { onArchive(project.id); setConfirmArchive(false); }}
                 className="px-2 py-1 text-xs text-white bg-amber-700 rounded hover:bg-amber-800"
@@ -804,7 +804,7 @@ function PipelineProjectCard({
               </button>
               <button
                 onClick={() => setConfirmArchive(false)}
-                className="px-2 py-1 text-xs text-slate-600 bg-slate-100 rounded hover:bg-slate-200"
+                className="px-2 py-1 text-xs text-muted bg-surface-2 rounded hover:bg-line/60"
               >
                 No
               </button>
@@ -814,7 +814,7 @@ function PipelineProjectCard({
             <button
               onClick={() => setConfirmDelete(true)}
               title="Delete project"
-              className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded hover:bg-red-50"
+              className="p-1.5 text-muted/70 hover:text-red-500 transition-colors rounded hover:bg-red-50"
             >
               <Trash2 size={14} />
             </button>
@@ -829,7 +829,7 @@ function PipelineProjectCard({
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="px-2 py-1 text-xs text-slate-600 bg-slate-100 rounded hover:bg-slate-200"
+                className="px-2 py-1 text-xs text-muted bg-surface-2 rounded hover:bg-line/60"
               >
                 No
               </button>
@@ -839,10 +839,10 @@ function PipelineProjectCard({
       </div>
 
       {expanded && (
-        <div className="mt-4 border-t border-slate-100 pt-4">
+        <div className="mt-4 border-t border-line/60 pt-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Project Name</label>
+              <label className="text-xs text-muted block mb-1">Project Name</label>
               <InlineEdit
                 value={project.name}
                 onSave={(v) => v && onUpdate(project.id, { name: v })}
@@ -850,7 +850,7 @@ function PipelineProjectCard({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Owner</label>
+              <label className="text-xs text-muted block mb-1">Owner</label>
               <InlineEdit
                 value={project.owner}
                 onSave={(v) => onUpdate(project.id, { owner: v || 'Unassigned' })}
@@ -858,11 +858,11 @@ function PipelineProjectCard({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Status</label>
+              <label className="text-xs text-muted block mb-1">Status</label>
               <select
                 value={project.status}
                 onChange={(e) => onUpdate(project.id, { status: e.target.value })}
-                className="rounded border border-slate-200 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="rounded border border-line bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
               >
                 {PIPELINE_STATUSES.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -870,17 +870,17 @@ function PipelineProjectCard({
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Est. Revenue</label>
+              <label className="text-xs text-muted block mb-1">Est. Revenue</label>
               <div className="flex items-center gap-1">
                 <select
                   value={curr}
                   onChange={(e) => onUpdate(project.id, { revenueCurrency: e.target.value as 'USD' | 'CAD' })}
-                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="rounded border border-line bg-white px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
                   <option value="USD">USD</option>
                   <option value="CAD">CAD</option>
                 </select>
-                <Sensitive placeholder={<span className="text-sm text-slate-400 italic">•••</span>}>
+                <Sensitive placeholder={<span className="text-sm text-muted/70 italic">•••</span>}>
                   <InlineEdit
                     value={project.revenue ?? ''}
                     type="number"
@@ -893,7 +893,7 @@ function PipelineProjectCard({
               </div>
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Expected Start</label>
+              <label className="text-xs text-muted block mb-1">Expected Start</label>
               <InlineEdit
                 value={project.startDate ?? ''}
                 type="date"
@@ -903,7 +903,7 @@ function PipelineProjectCard({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Expected End</label>
+              <label className="text-xs text-muted block mb-1">Expected End</label>
               <InlineEdit
                 value={project.endDate ?? ''}
                 type="date"
@@ -913,7 +913,7 @@ function PipelineProjectCard({
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Go-Live Date</label>
+              <label className="text-xs text-muted block mb-1">Go-Live Date</label>
               <InlineEdit
                 value={project.goLiveDate ?? ''}
                 type="date"
@@ -925,18 +925,18 @@ function PipelineProjectCard({
           </div>
 
           {/* Resource needs */}
-          <div className="mt-4 pt-3 border-t border-slate-100">
-            <label className="text-xs text-slate-500 block mb-2 flex items-center gap-1">
+          <div className="mt-4 pt-3 border-t border-line/60">
+            <label className="text-xs text-muted block mb-2 flex items-center gap-1">
               <UserPlus size={12} /> Resource Needs (feeds into Hiring Forecast)
             </label>
             <div className="flex gap-4 items-end">
               {(['BA', 'JuniorDev', 'SeniorDev'] as const).map((role) => (
                 <div key={role}>
-                  <label className="text-[10px] text-slate-400 block mb-1">{ROLE_LABELS[role]}</label>
+                  <label className="text-[10px] text-muted/70 block mb-1">{ROLE_LABELS[role]}</label>
                   <input
                     type="number"
                     min={0}
-                    className="w-16 rounded border border-slate-200 bg-white px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    className="w-16 rounded border border-line bg-white px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary/50"
                     value={getHeadcount(project.resources, role)}
                     onChange={(e) => {
                       const val = Math.max(0, Number(e.target.value) || 0);
@@ -951,7 +951,7 @@ function PipelineProjectCard({
                 </div>
               ))}
               {totalPeople(project.resources) > 0 && (
-                <span className="text-[10px] text-slate-400 pb-1">
+                <span className="text-[10px] text-muted/70 pb-1">
                   = {totalPeople(project.resources)} people × 160 hrs/mo
                 </span>
               )}
@@ -985,7 +985,7 @@ function PipelineProjectCard({
 // ── SOW Wizard ──────────────────────────────────────────
 const SOW_STATUSES = ['draft', 'sent', 'signed', 'archived'] as const;
 const SOW_STATUS_STYLES: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-700 border-slate-300',
+  draft: 'bg-surface-2 text-ink/80 border-line',
   sent: 'bg-blue-50 text-blue-700 border-blue-200',
   signed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   archived: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -1053,16 +1053,16 @@ function SowHistory({ projectId, refreshKey, onEdit }: {
 
   if (loading && rows.length === 0) {
     return (
-      <div className="mt-4 pt-3 border-t border-slate-100">
-        <div className="text-xs text-slate-400">Loading SOW history…</div>
+      <div className="mt-4 pt-3 border-t border-line/60">
+        <div className="text-xs text-muted/70">Loading SOW history…</div>
       </div>
     );
   }
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-4 pt-3 border-t border-slate-100">
-      <div className="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
+    <div className="mt-4 pt-3 border-t border-line/60">
+      <div className="text-xs font-semibold text-muted mb-2 flex items-center gap-1.5">
         <FileText size={12} /> SOW versions ({rows.length})
       </div>
       <div className="space-y-1">
@@ -1071,10 +1071,10 @@ function SowHistory({ projectId, refreshKey, onEdit }: {
           const isBusy = busyId === r.id;
           const statusClass = SOW_STATUS_STYLES[r.status] ?? SOW_STATUS_STYLES.draft;
           return (
-            <div key={r.id} className="flex items-center justify-between gap-3 py-1.5 px-2 hover:bg-slate-50 rounded text-xs">
+            <div key={r.id} className="flex items-center justify-between gap-3 py-1.5 px-2 hover:bg-surface-2/70 rounded text-xs">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="font-semibold text-slate-700 shrink-0">v{r.version}</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 shrink-0">{r.sowType}</span>
+                <span className="font-semibold text-ink/80 shrink-0">v{r.version}</span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-2 text-muted shrink-0">{r.sowType}</span>
                 <button
                   type="button"
                   onClick={() => cycleStatus(r)}
@@ -1084,9 +1084,9 @@ function SowHistory({ projectId, refreshKey, onEdit }: {
                 >
                   {r.status}
                 </button>
-                <span className="text-slate-600 truncate">{r.clientName}</span>
-                <span className="text-slate-400 shrink-0">· {new Date(r.createdAt).toLocaleDateString()}</span>
-                {r.createdBy && <span className="text-slate-400 truncate hidden md:inline">by {r.createdBy}</span>}
+                <span className="text-muted truncate">{r.clientName}</span>
+                <span className="text-muted/70 shrink-0">· {new Date(r.createdAt).toLocaleDateString()}</span>
+                {r.createdBy && <span className="text-muted/70 truncate hidden md:inline">by {r.createdBy}</span>}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <button
@@ -1102,7 +1102,7 @@ function SowHistory({ projectId, refreshKey, onEdit }: {
                   type="button"
                   onClick={() => onEdit(r.id)}
                   disabled={isBusy}
-                  className="px-2 py-1 text-[11px] font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1"
+                  className="px-2 py-1 text-[11px] font-medium text-ink/80 bg-white border border-line rounded hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1"
                   title="Open in wizard to tweak and save as next version"
                 >
                   Edit
@@ -1113,7 +1113,7 @@ function SowHistory({ projectId, refreshKey, onEdit }: {
                     onClick={() => setConfirmDelete(r.id)}
                     disabled={isBusy}
                     title="Delete this SOW version"
-                    className="p-1 text-slate-400 hover:text-red-500 disabled:opacity-40 rounded hover:bg-red-50"
+                    className="p-1 text-muted/70 hover:text-red-500 disabled:opacity-40 rounded hover:bg-red-50"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -1131,7 +1131,7 @@ function SowHistory({ projectId, refreshKey, onEdit }: {
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(null)}
-                      className="px-1.5 py-0.5 text-[10px] text-slate-600 bg-slate-100 rounded hover:bg-slate-200"
+                      className="px-1.5 py-0.5 text-[10px] text-muted bg-surface-2 rounded hover:bg-line/60"
                     >
                       No
                     </button>
@@ -1461,29 +1461,29 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
        *  with many edit fields; an accidental click on whitespace used to
        *  trash the user's inputs. Close via the ✕ button or Escape only. */}
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-4">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 sticky top-0 bg-white rounded-t-xl">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line sticky top-0 bg-white rounded-t-xl">
           <div>
-            <div className="text-sm font-bold text-slate-900">Generate Statement of Work</div>
-            <div className="text-[11px] text-slate-500">{project.name} · Step {step} of 4</div>
+            <div className="text-sm font-bold text-ink">Generate Statement of Work</div>
+            <div className="text-[11px] text-muted">{project.name} · Step {step} of 4</div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xs font-semibold">✕ Close</button>
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xs font-semibold">✕ Close</button>
         </div>
 
         <div className="p-5 space-y-4">
 
           {step === 1 && (
             <div className="space-y-3">
-              <div className="text-sm font-semibold text-slate-800">What kind of project is this?</div>
+              <div className="text-sm font-semibold text-ink">What kind of project is this?</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <button type="button" onClick={() => { setSowType('concierge'); setStep(2); }}
-                        className="text-left p-4 border-2 border-slate-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
-                  <div className="font-bold text-sm text-slate-900 mb-1">🛠 Concierge / Support</div>
-                  <div className="text-xs text-slate-600">Time & Materials engagement for ongoing enhancements, business-ops support, ad-hoc work. Billed hourly.</div>
+                        className="text-left p-4 border-2 border-line rounded-lg hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
+                  <div className="font-bold text-sm text-ink mb-1">🛠 Concierge / Support</div>
+                  <div className="text-xs text-muted">Time & Materials engagement for ongoing enhancements, business-ops support, ad-hoc work. Billed hourly.</div>
                 </button>
                 <button type="button" onClick={() => { setSowType('implementation'); setStep(2); }}
-                        className="text-left p-4 border-2 border-slate-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
-                  <div className="font-bold text-sm text-slate-900 mb-1">🚀 Implementation</div>
-                  <div className="text-xs text-slate-600">Fixed-scope build / delivery with business goals, in/out-of-scope, assumptions, payment milestones.</div>
+                        className="text-left p-4 border-2 border-line rounded-lg hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
+                  <div className="font-bold text-sm text-ink mb-1">🚀 Implementation</div>
+                  <div className="text-xs text-muted">Fixed-scope build / delivery with business goals, in/out-of-scope, assumptions, payment milestones.</div>
                 </button>
               </div>
             </div>
@@ -1491,7 +1491,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
 
           {step === 2 && (
             <div className="space-y-3">
-              <div className="text-sm font-semibold text-slate-800">Client details</div>
+              <div className="text-sm font-semibold text-ink">Client details</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Client legal name *">
                   <input value={clientName} onChange={(e) => setClientName(e.target.value)} className={fInput} />
@@ -1515,7 +1515,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                 </Field>
               </div>
               <div className="flex justify-between pt-2">
-                <button onClick={() => setStep(1)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
+                <button onClick={() => setStep(1)} className="text-xs text-muted hover:text-ink">← Back</button>
                 <button onClick={() => setStep(3)} disabled={!clientName || !effectiveDate} className="px-4 py-1.5 bg-primary text-white rounded-md text-xs font-semibold disabled:opacity-50">Next →</button>
               </div>
             </div>
@@ -1523,12 +1523,12 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
 
           {step === 3 && sowType === 'concierge' && (
             <div className="space-y-3">
-              <div className="text-sm font-semibold text-slate-800">Concierge SOW — standard template</div>
-              <div className="text-[11px] text-slate-500 -mt-1">
+              <div className="text-sm font-semibold text-ink">Concierge SOW — standard template</div>
+              <div className="text-[11px] text-muted -mt-1">
                 Every section below is pre-filled from Simpliigence's standard concierge SOW (the Knit / Marnoa template). Edit any field that differs for this engagement; everything else stays verbatim. The generated document is a 1:1 mirror of the source template — no AI rewriting.
               </div>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Scope of Services</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Scope of Services</div>
               <Field label="Scope intro paragraph">
                 <textarea value={conIntro} onChange={(e) => setConIntro(e.target.value)} rows={3} className={fInput} />
               </Field>
@@ -1536,12 +1536,12 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                 <textarea value={conActivities} onChange={(e) => setConActivities(e.target.value)} rows={5} className={`${fInput} font-mono text-[11px]`} />
               </Field>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Assumptions</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Assumptions</div>
               <Field label="Assumptions (one per line — become numbered bullets; pre-filled with Legal's standard 5 clauses)">
                 <textarea value={conAssumptions} onChange={(e) => setConAssumptions(e.target.value)} rows={8} className={`${fInput} font-mono text-[11px]`} />
               </Field>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Pricing Terms & Fee Schedule</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Pricing Terms & Fee Schedule</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Contract type"><input value={conContractType} onChange={(e) => setConContractType(e.target.value)} className={fInput} /></Field>
                 <Field label="Rate"><input value={conHourlyRate} onChange={(e) => setConHourlyRate(e.target.value)} className={fInput} /></Field>
@@ -1561,7 +1561,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
               </Field>
               {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
               <div className="flex justify-between pt-2">
-                <button onClick={() => setStep(2)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
+                <button onClick={() => setStep(2)} className="text-xs text-muted hover:text-ink">← Back</button>
                 <button onClick={generate} disabled={!conActivities || busy} className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1.5">
                   <FileText size={12} />
                   {busy ? 'Building…' : 'Build SOW'}
@@ -1572,19 +1572,19 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
 
           {step === 3 && sowType === 'implementation' && (
             <div className="space-y-3">
-              <div className="text-sm font-semibold text-slate-800">Implementation SOW — standard template</div>
-              <div className="text-[11px] text-slate-500 -mt-1">
+              <div className="text-sm font-semibold text-ink">Implementation SOW — standard template</div>
+              <div className="text-[11px] text-muted -mt-1">
                 Every section below is pre-filled from Simpliigence's standard implementation SOW (the Qu Data Centres template). Edit any field that differs for this engagement; everything else stays verbatim. The generated document mirrors the source template 1:1 — no AI rewriting.
               </div>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Statement of Work — narrative</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Statement of Work — narrative</div>
               <Field label="Project context narrative (3-5 paragraphs, separated by blank lines — appears after the opening clause)">
                 <textarea value={impIntroNarrative} onChange={(e) => setImpIntroNarrative(e.target.value)} rows={8}
                           placeholder={'Client has engaged Simpliigence to…\n\nThe solution will deliver…\n\nThis implementation emphasizes…'}
                           className={`${fInput} font-mono text-[11px]`} />
               </Field>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Scope of Services (Implementation)</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Scope of Services (Implementation)</div>
               <Field label="Scope intro paragraph">
                 <textarea value={impScopeIntro} onChange={(e) => setImpScopeIntro(e.target.value)} rows={2} className={fInput} />
               </Field>
@@ -1595,7 +1595,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                 <textarea value={impGoverningArtifacts} onChange={(e) => setImpGoverningArtifacts(e.target.value)} rows={3} className={`${fInput} font-mono text-[11px]`} />
               </Field>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Discovery and Design</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Discovery and Design</div>
               <Field label="Discovery intro">
                 <textarea value={impDiscoveryIntro} onChange={(e) => setImpDiscoveryIntro(e.target.value)} rows={3} className={fInput} />
               </Field>
@@ -1606,13 +1606,13 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                 <textarea value={impDiscoveryAreas} onChange={(e) => setImpDiscoveryAreas(e.target.value)} rows={9} className={`${fInput} font-mono text-[11px]`} />
               </Field>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Configuration and Build</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Configuration and Build</div>
               <Field label="Build intro">
                 <textarea value={impBuildIntro} onChange={(e) => setImpBuildIntro(e.target.value)} rows={3} className={fInput} />
               </Field>
               <div className="space-y-2">
                 {impBuildCategories.map((cat, idx) => (
-                  <div key={idx} className="border border-slate-200 rounded p-2 space-y-2">
+                  <div key={idx} className="border border-line rounded p-2 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <input
                         value={cat.heading}
@@ -1627,7 +1627,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                       <button
                         type="button"
                         onClick={() => setImpBuildCategories(impBuildCategories.filter((_, i) => i !== idx))}
-                        className="p-1 text-slate-400 hover:text-red-500 rounded"
+                        className="p-1 text-muted/70 hover:text-red-500 rounded"
                         title="Remove this category"
                       >
                         <Trash2 size={12} />
@@ -1655,19 +1655,19 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                 </button>
               </div>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">
                 Summary of Deliverables / Testing / Training tables
               </div>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-muted">
                 These three tables (Deliverables by phase, Testing types, Training tiers) are emitted verbatim from the standard template. Edit them by opening the generated .docx if needed for a specific engagement.
               </div>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Assumptions (Implementation)</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Assumptions (Implementation)</div>
               <Field label="Assumptions (one per line — pre-filled with Legal's standard 7 clauses)">
                 <textarea value={impAssumptions} onChange={(e) => setImpAssumptions(e.target.value)} rows={9} className={`${fInput} font-mono text-[11px]`} />
               </Field>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Timeline</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Timeline</div>
               <Field label="Overall duration (e.g. 17 weeks)">
                 <input value={impTotalDuration} onChange={(e) => setImpTotalDuration(e.target.value)} className={fInput} />
               </Field>
@@ -1675,7 +1675,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                 <textarea value={impTimelineBullets} onChange={(e) => setImpTimelineBullets(e.target.value)} rows={6} className={`${fInput} font-mono text-[11px]`} />
               </Field>
 
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 pt-2">Pricing Terms & Fee Schedule</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-2">Pricing Terms & Fee Schedule</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Contract type"><input value={impContractType} onChange={(e) => setImpContractType(e.target.value)} className={fInput} /></Field>
                 <Field label="Total fee (e.g. CAD $44,000.00)"><input value={impTotalFees} onChange={(e) => setImpTotalFees(e.target.value)} placeholder="CAD $44,000.00" className={fInput} /></Field>
@@ -1686,7 +1686,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
               <Field label="Travel & Expenses"><textarea value={impTravel} onChange={(e) => setImpTravel(e.target.value)} rows={2} className={fInput} /></Field>
               <Field label="Purchase Order"><textarea value={impPurchaseOrder} onChange={(e) => setImpPurchaseOrder(e.target.value)} rows={2} className={fInput} /></Field>
 
-              <div className="text-[11px] font-semibold text-slate-600 pt-2">Payment milestones</div>
+              <div className="text-[11px] font-semibold text-muted pt-2">Payment milestones</div>
               <div className="space-y-2">
                 {impMilestones.map((m, idx) => (
                   <div key={idx} className="grid grid-cols-12 gap-2 items-center">
@@ -1703,7 +1703,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                            placeholder="CAD $11,000.00"
                            className={`${fInput} col-span-3`} />
                     <button type="button" onClick={() => setImpMilestones(impMilestones.filter((_, i) => i !== idx))}
-                            className="col-span-1 p-1 text-slate-400 hover:text-red-500 rounded" title="Remove milestone">
+                            className="col-span-1 p-1 text-muted/70 hover:text-red-500 rounded" title="Remove milestone">
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -1717,7 +1717,7 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
 
               {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
               <div className="flex justify-between pt-2">
-                <button onClick={() => setStep(2)} className="text-xs text-slate-500 hover:text-slate-800">← Back</button>
+                <button onClick={() => setStep(2)} className="text-xs text-muted hover:text-ink">← Back</button>
                 <button onClick={generate} disabled={busy}
                         className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1.5">
                   <FileText size={12} />
@@ -1730,12 +1730,12 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
           {step === 4 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-800">Preview</div>
+                <div className="text-sm font-semibold text-ink">Preview</div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={downloadDocx} disabled={busy} className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded inline-flex items-center gap-1 disabled:opacity-50">
                     <Download size={12} /> Download .docx
                   </button>
-                  <button onClick={downloadHtml} className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded inline-flex items-center gap-1 hover:bg-slate-50">
+                  <button onClick={downloadHtml} className="px-3 py-1.5 text-xs font-semibold border border-line rounded inline-flex items-center gap-1 hover:bg-surface-2/70">
                     <Download size={12} /> .html
                   </button>
                   <button onClick={save} disabled={busy || !!savedId} className="px-3 py-1.5 text-xs font-semibold bg-primary text-white rounded inline-flex items-center gap-1 disabled:opacity-50">
@@ -1749,15 +1749,15 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
                   <ul className="list-disc pl-4 mt-1">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
                 </div>
               )}
-              <div className="border border-slate-300 rounded-md max-h-[60vh] overflow-y-auto">
+              <div className="border border-line rounded-md max-h-[60vh] overflow-y-auto">
                 <iframe srcDoc={html} className="w-full h-[60vh] border-0" title="SOW preview" />
               </div>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-muted">
                 Tip: open the downloaded HTML in Chrome → Cmd-P → "Save as PDF" for a print-ready document.
               </div>
               <div className="flex justify-between pt-2">
-                <button onClick={() => setStep(3)} className="text-xs text-slate-500 hover:text-slate-800">← Back to edit</button>
-                <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-300 rounded">Close</button>
+                <button onClick={() => setStep(3)} className="text-xs text-muted hover:text-ink">← Back to edit</button>
+                <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-muted border border-line rounded">Close</button>
               </div>
             </div>
           )}
@@ -1768,12 +1768,12 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
   );
 }
 
-const fInput = 'w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40';
+const fInput = 'w-full border border-line rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{label}</label>
+      <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">{label}</label>
       {children}
     </div>
   );
@@ -1835,7 +1835,7 @@ export default function PipelinePage() {
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
                   showArchived
                     ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                    : 'bg-white text-muted border-line hover:border-slate-400'
                 }`}
                 title={showArchived ? 'Hide archived projects' : `Show ${archivedCount} archived project${archivedCount === 1 ? '' : 's'}`}
               >
@@ -1856,23 +1856,23 @@ export default function PipelinePage() {
 
       {/* Summary stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <div className="text-2xl font-bold text-slate-800">{pipelineProjects.length}</div>
-          <div className="text-xs text-slate-500">Total Pipeline</div>
+        <div className="bg-white rounded-lg border border-line p-4">
+          <div className="text-2xl font-bold text-ink">{pipelineProjects.length}</div>
+          <div className="text-xs text-muted">Total Pipeline</div>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-amber-600">{proposed}</div>
-          <div className="text-xs text-slate-500">Proposed</div>
+          <div className="text-xs text-muted">Proposed</div>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-blue-600">{negotiation}</div>
-          <div className="text-xs text-slate-500">In Negotiation</div>
+          <div className="text-xs text-muted">In Negotiation</div>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-emerald-600">
             {totalRevenueUsd > 0 ? `$${(totalRevenueUsd / 1000).toFixed(0)}k` : '—'}
           </div>
-          <div className="text-xs text-slate-500">Pipeline Revenue (USD)</div>
+          <div className="text-xs text-muted">Pipeline Revenue (USD)</div>
         </div>
       </div>
 
@@ -1887,11 +1887,11 @@ export default function PipelinePage() {
       {pipelineProjects.length === 0 && !showForm ? (
         <Card>
           <div className="text-center py-12">
-            <div className="text-slate-400 mb-3">
+            <div className="text-muted/70 mb-3">
               <Layers size={48} className="mx-auto opacity-50" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-600 mb-1">No pipeline projects yet</h3>
-            <p className="text-sm text-slate-400 mb-4">
+            <h3 className="text-lg font-semibold text-muted mb-1">No pipeline projects yet</h3>
+            <p className="text-sm text-muted/70 mb-4">
               Add upcoming projects to track your pipeline and forecast future resource needs.
             </p>
             <button
@@ -1924,8 +1924,8 @@ export default function PipelinePage() {
       {/* Pipeline funnel summary */}
       {pipelineProjects.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-slate-800 mb-3">Pipeline Funnel</h2>
-          <div className="bg-white rounded-lg border border-slate-200 p-6">
+          <h2 className="text-lg font-semibold text-ink mb-3">Pipeline Funnel</h2>
+          <div className="bg-white rounded-lg border border-line p-6">
             <div className="flex items-end gap-6">
               {PIPELINE_STATUSES.map((status) => {
                 const count = pipelineProjects.filter((p) => p.status === status).length;
@@ -1937,20 +1937,20 @@ export default function PipelinePage() {
                 return (
                   <div key={status} className="flex-1 text-center">
                     <div className="flex flex-col items-center justify-end" style={{ height: 140 }}>
-                      <div className="text-sm font-bold text-slate-700 mb-1">{count}</div>
+                      <div className="text-sm font-bold text-ink/80 mb-1">{count}</div>
                       <div
                         className={`w-full rounded-t-lg ${
-                          status === 'Proposed' ? 'bg-slate-300' :
+                          status === 'Proposed' ? 'bg-line' :
                           status === 'Negotiation' ? 'bg-amber-400' :
                           status === 'Confirmed' ? 'bg-emerald-500' :
-                          'bg-slate-200'
+                          'bg-line/60'
                         }`}
                         style={{ height }}
                       />
                     </div>
-                    <div className="text-xs font-medium text-slate-600 mt-2">{status}</div>
+                    <div className="text-xs font-medium text-muted mt-2">{status}</div>
                     {rev > 0 && (
-                      <div className="text-[10px] text-slate-400">${(rev / 1000).toFixed(0)}k</div>
+                      <div className="text-[10px] text-muted/70">${(rev / 1000).toFixed(0)}k</div>
                     )}
                   </div>
                 );

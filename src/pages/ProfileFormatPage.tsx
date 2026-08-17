@@ -206,7 +206,7 @@ export default function ProfileFormatPage() {
               <button
                 type="button"
                 onClick={reset}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 px-3 py-1.5 rounded-md inline-flex items-center gap-1"
+                className="text-xs font-semibold text-muted hover:text-ink border border-line px-3 py-1.5 rounded-md inline-flex items-center gap-1"
               >
                 <RotateCcw size={12} /> Start over
               </button>
@@ -240,12 +240,12 @@ export default function ProfileFormatPage() {
                     value={resumeText}
                     onChange={(e) => setResumeText(e.target.value)}
                     placeholder="Paste resume text here…"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono resize-y"
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono resize-y"
                   />
                   <button
                     type="button"
                     onClick={() => { setResumeText(''); setSourceMode('none'); }}
-                    className="mt-2 text-[11px] text-slate-500 hover:text-slate-800 hover:underline"
+                    className="mt-2 text-[11px] text-muted hover:text-ink hover:underline"
                   >
                     Clear / choose different source
                   </button>
@@ -255,11 +255,11 @@ export default function ProfileFormatPage() {
                   <label
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleFile(e.dataTransfer.files?.[0] ?? null); }}
-                    className="block border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 hover:border-primary/50"
+                    className="block border-2 border-dashed border-line rounded-lg p-6 text-center cursor-pointer hover:bg-surface-2/70 hover:border-primary/50"
                   >
-                    <Upload size={28} className="text-slate-400 mx-auto mb-2" />
-                    <div className="text-sm font-medium text-slate-700">Drop a PDF or .txt resume here</div>
-                    <div className="text-[11px] text-slate-500 mt-1">or click to pick a file</div>
+                    <Upload size={28} className="text-muted/70 mx-auto mb-2" />
+                    <div className="text-sm font-medium text-ink/80">Drop a PDF or .txt resume here</div>
+                    <div className="text-[11px] text-muted mt-1">or click to pick a file</div>
                     <input
                       type="file"
                       accept=".pdf,.txt,application/pdf,text/plain"
@@ -267,7 +267,7 @@ export default function ProfileFormatPage() {
                       onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
                     />
                   </label>
-                  <div className="text-center text-[11px] text-slate-400">— OR —</div>
+                  <div className="text-center text-[11px] text-muted/70">— OR —</div>
                   <button
                     type="button"
                     onClick={() => setSourceMode('text')}
@@ -281,7 +281,7 @@ export default function ProfileFormatPage() {
 
             {/* Target format — OPTIONAL */}
             <Card title="2 · Target format (optional)">
-              <p className="text-[11px] text-slate-500 mb-3">
+              <p className="text-[11px] text-muted mb-3">
                 By default Claude uses the Simpliigence house format. If you have a different format you want — e.g. a client-specific resume template — upload a sample PDF here and Claude will match its layout instead.
               </p>
               {targetPdfBase64 ? (
@@ -302,11 +302,11 @@ export default function ProfileFormatPage() {
                 <label
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleTargetFile(e.dataTransfer.files?.[0] ?? null); }}
-                  className="block border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-50 hover:border-violet-300"
+                  className="block border-2 border-dashed border-line rounded-lg p-4 text-center cursor-pointer hover:bg-surface-2/70 hover:border-violet-300"
                 >
-                  <Target size={20} className="text-slate-400 mx-auto mb-1" />
-                  <div className="text-[12px] font-medium text-slate-700">Drop a sample-format PDF here</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Or click — Claude will mimic its layout</div>
+                  <Target size={20} className="text-muted/70 mx-auto mb-1" />
+                  <div className="text-[12px] font-medium text-ink/80">Drop a sample-format PDF here</div>
+                  <div className="text-[10px] text-muted mt-0.5">Or click — Claude will mimic its layout</div>
                   <input
                     type="file"
                     accept=".pdf,application/pdf"
@@ -324,7 +324,7 @@ export default function ProfileFormatPage() {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="e.g. Emphasize Salesforce platform experience. Drop personal details. Rewrite for a senior architect role. Cut the customer-service section."
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
               />
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {QUICK_INSTRUCTIONS.map((qi) => (
@@ -332,7 +332,7 @@ export default function ProfileFormatPage() {
                     key={qi}
                     type="button"
                     onClick={() => setInstructions((cur) => (cur.trim() ? `${cur.trim()}\n${qi}` : qi))}
-                    className="text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full px-2 py-1"
+                    className="text-[10px] font-semibold text-muted bg-surface-2 hover:bg-line/60 rounded-full px-2 py-1"
                   >
                     + {qi}
                   </button>
@@ -378,7 +378,7 @@ export default function ProfileFormatPage() {
                   <button
                     type="button"
                     onClick={copyMarkdown}
-                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 px-2 py-1 rounded inline-flex items-center gap-1"
+                    className="text-[11px] font-semibold text-muted hover:text-ink border border-line px-2 py-1 rounded inline-flex items-center gap-1"
                     title="Copy as Markdown"
                   >
                     {copied === 'md' ? <Check size={11} /> : <Copy size={11} />}
@@ -387,7 +387,7 @@ export default function ProfileFormatPage() {
                   <button
                     type="button"
                     onClick={copyPlainText}
-                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 px-2 py-1 rounded inline-flex items-center gap-1"
+                    className="text-[11px] font-semibold text-muted hover:text-ink border border-line px-2 py-1 rounded inline-flex items-center gap-1"
                     title="Copy as plain text (markdown stripped)"
                   >
                     {copied === 'txt' ? <Check size={11} /> : <Copy size={11} />}
@@ -396,7 +396,7 @@ export default function ProfileFormatPage() {
                   <button
                     type="button"
                     onClick={downloadMd}
-                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 px-2 py-1 rounded inline-flex items-center gap-1"
+                    className="text-[11px] font-semibold text-muted hover:text-ink border border-line px-2 py-1 rounded inline-flex items-center gap-1"
                     title="Download as .md"
                   >
                     <Download size={11} /> .md
@@ -405,12 +405,12 @@ export default function ProfileFormatPage() {
               ) : null
             }>
               {!draft && !running && (
-                <div className="text-sm text-slate-400 italic text-center py-12">
-                  Click <strong className="text-slate-600 not-italic">Format with Claude</strong> on the left to generate.
+                <div className="text-sm text-muted/70 italic text-center py-12">
+                  Click <strong className="text-muted not-italic">Format with Claude</strong> on the left to generate.
                 </div>
               )}
               {running && !draft && (
-                <div className="text-sm text-slate-500 text-center py-12 inline-flex items-center justify-center gap-2 w-full">
+                <div className="text-sm text-muted text-center py-12 inline-flex items-center justify-center gap-2 w-full">
                   <Loader2 size={16} className="animate-spin" /> Claude is rewriting the resume…
                 </div>
               )}
@@ -422,14 +422,14 @@ export default function ProfileFormatPage() {
             {/* History */}
             {history.length > 0 && (
               <Card title="Previous drafts">
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-line/60">
                   {history.map((h, idx) => (
                     <li key={idx} className="py-2 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-xs font-medium text-slate-700 truncate">
+                        <div className="text-xs font-medium text-ink/80 truncate">
                           {h.instructions ? h.instructions.split('\n')[0].slice(0, 80) : 'Initial draft'}
                         </div>
-                        <div className="text-[10px] text-slate-400">{h.at}</div>
+                        <div className="text-[10px] text-muted/70">{h.at}</div>
                       </div>
                       <button
                         type="button"
@@ -557,7 +557,7 @@ function FormattedPreview({ markdown, onEdit }: { markdown: string; onEdit: (nex
           rows={24}
           value={markdown}
           onChange={(e) => onEdit(e.target.value)}
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
+          className="w-full border border-line rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
         />
         <button
           type="button"
@@ -575,7 +575,7 @@ function FormattedPreview({ markdown, onEdit }: { markdown: string; onEdit: (nex
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="float-right text-[11px] font-semibold text-slate-500 hover:text-slate-900 inline-flex items-center gap-1"
+        className="float-right text-[11px] font-semibold text-muted hover:text-ink inline-flex items-center gap-1"
       >
         <FileEdit size={11} /> Edit
       </button>

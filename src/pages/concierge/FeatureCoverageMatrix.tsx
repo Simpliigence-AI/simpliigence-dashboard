@@ -69,7 +69,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
 
   if (catalog.length === 0) {
     return (
-      <div className="text-sm text-slate-500 text-center py-12 border border-dashed border-slate-200 rounded-lg">
+      <div className="text-sm text-muted text-center py-12 border border-dashed border-line rounded-lg">
         Master catalog not loaded yet — head to the <strong>Feature Catalog</strong> tab and hit Refresh.
       </div>
     );
@@ -77,7 +77,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
 
   if (accounts.length === 0) {
     return (
-      <div className="text-sm text-slate-500 text-center py-12 border border-dashed border-slate-200 rounded-lg">
+      <div className="text-sm text-muted text-center py-12 border border-dashed border-line rounded-lg">
         No concierge accounts yet — add one from the Overview tab.
       </div>
     );
@@ -88,8 +88,8 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
       {/* Header + controls */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-base font-bold text-slate-900">Feature Coverage</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h2 className="text-base font-bold text-ink">Feature Coverage</h2>
+          <p className="text-xs text-muted mt-0.5">
             {rows.length} account{rows.length === 1 ? '' : 's'} · {clouds.length} clouds ·{' '}
             {totalGapUpsell > 0 && (
               <span className="inline-flex items-center gap-0.5 text-amber-700 font-medium">
@@ -99,14 +99,14 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-slate-500">Sort:</span>
+          <span className="text-muted">Sort:</span>
           {(['overall', 'name', 'gap'] as SortMode[]).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setSort(m)}
               className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
-                sort === m ? 'bg-primary text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                sort === m ? 'bg-primary text-white' : 'bg-white border border-line text-muted hover:bg-surface-2/70'
               }`}
             >
               {m === 'overall' ? 'Coverage %' : m === 'name' ? 'Name' : 'Biggest gap'}
@@ -116,34 +116,34 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
       </div>
 
       {/* Matrix */}
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-line bg-white">
         <table className="min-w-full text-xs">
-          <thead className="bg-slate-50 sticky top-0">
+          <thead className="bg-surface-2/70 sticky top-0">
             <tr>
-              <th className="text-left px-3 py-2 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10 min-w-[180px]">
+              <th className="text-left px-3 py-2 font-semibold text-ink/80 sticky left-0 bg-surface-2/70 z-10 min-w-[180px]">
                 Account
               </th>
-              <th className="text-center px-2 py-2 font-semibold text-slate-700 min-w-[70px]">Overall</th>
+              <th className="text-center px-2 py-2 font-semibold text-ink/80 min-w-[70px]">Overall</th>
               {clouds.map((c) => (
-                <th key={c} className="text-center px-2 py-2 font-semibold text-slate-700 min-w-[80px] whitespace-nowrap">
+                <th key={c} className="text-center px-2 py-2 font-semibold text-ink/80 min-w-[80px] whitespace-nowrap">
                   {c}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line/60">
             {rows.map((r) => (
-              <tr key={r.account.id} className="hover:bg-slate-50/60">
-                <td className="px-3 py-2 sticky left-0 bg-white hover:bg-slate-50/60">
+              <tr key={r.account.id} className="hover:bg-surface-2/60">
+                <td className="px-3 py-2 sticky left-0 bg-white hover:bg-surface-2/60">
                   <button
                     type="button"
                     onClick={() => onAccountClick?.(r.account.id)}
                     className="text-left group"
                   >
-                    <div className="text-sm font-semibold text-slate-900 group-hover:text-primary">
+                    <div className="text-sm font-semibold text-ink group-hover:text-primary">
                       {r.account.name}
                     </div>
-                    <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <div className="text-[10px] text-muted flex items-center gap-1">
                       {r.account.industry ? (
                         <span className="bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded font-medium">{r.account.industry}</span>
                       ) : (
@@ -168,7 +168,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
                 {clouds.map((c) => {
                   const score = r.scoreByCloud.get(c);
                   if (!score || score.total === 0) {
-                    return <td key={c} className="text-center px-2 py-2 text-[10px] text-slate-300">—</td>;
+                    return <td key={c} className="text-center px-2 py-2 text-[10px] text-line">—</td>;
                   }
                   return (
                     <td key={c} className="text-center px-2 py-2">
@@ -197,12 +197,12 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
             className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
+            <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-900">
+                <div className="text-sm font-bold text-ink">
                   {drilldown.cloud} — {drilldownRow.account.name}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
+                <div className="text-[11px] text-muted mt-0.5">
                   {drilldownScore.implemented} of {drilldownScore.total} implemented ({drilldownScore.pct}%)
                   {drilldownRow.account.industry && ` · filtered to ${drilldownRow.account.industry}`}
                   {drilldownGapUpsell > 0 && (
@@ -212,31 +212,31 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
                   )}
                 </div>
               </div>
-              <button onClick={() => setDrilldown(null)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button onClick={() => setDrilldown(null)} className="text-muted/70 hover:text-ink/80 p-1">
                 <X size={16} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {drilldownGap.length === 0 ? (
-                <div className="text-sm text-slate-500 text-center py-8 flex flex-col items-center gap-2">
+                <div className="text-sm text-muted text-center py-8 flex flex-col items-center gap-2">
                   <Sparkles size={20} className="text-emerald-500" />
                   All relevant {drilldown.cloud} features are implemented for {drilldownRow.account.name}.
                 </div>
               ) : (
                 <>
-                  <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                  <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">
                     Not implemented — potential upsell
                   </div>
                   <div className="space-y-2">
                     {drilldownGap
                       .sort((a, b) => b.upsellHint - a.upsellHint)
                       .map((entry) => (
-                        <div key={entry.id} className="rounded-md border border-slate-200 px-3 py-2 hover:border-sky-300 transition-colors">
+                        <div key={entry.id} className="rounded-md border border-line px-3 py-2 hover:border-sky-300 transition-colors">
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="text-sm font-semibold text-slate-900 truncate">{entry.name}</div>
+                              <div className="text-sm font-semibold text-ink truncate">{entry.name}</div>
                               {entry.category && (
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">
+                                <div className="text-[10px] text-muted/70 font-medium uppercase tracking-wider mt-0.5">
                                   {entry.category}
                                 </div>
                               )}
@@ -248,7 +248,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
                             )}
                           </div>
                           {entry.description && (
-                            <div className="text-[11px] text-slate-600 mt-1 leading-relaxed">{entry.description}</div>
+                            <div className="text-[11px] text-muted mt-1 leading-relaxed">{entry.description}</div>
                           )}
                           {entry.industriesRelevant.length > 0 && (
                             <div className="mt-1.5 flex flex-wrap gap-1">
@@ -258,7 +258,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
                                   className={`text-[9px] px-1.5 py-0.5 rounded ${
                                     i === drilldownRow.account.industry
                                       ? 'bg-sky-100 text-sky-800 font-semibold'
-                                      : 'bg-slate-100 text-slate-600'
+                                      : 'bg-surface-2 text-muted'
                                   }`}
                                 >
                                   {i}
@@ -267,7 +267,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
                             </div>
                           )}
                           {entry.licenseTier && (
-                            <div className="text-[10px] text-slate-400 mt-1">Requires: {entry.licenseTier}</div>
+                            <div className="text-[10px] text-muted/70 mt-1">Requires: {entry.licenseTier}</div>
                           )}
                         </div>
                       ))}
@@ -277,7 +277,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
 
               {drilldownScore.implemented > 0 && (
                 <>
-                  <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider pt-3 border-t border-slate-100">
+                  <div className="text-[11px] font-semibold text-muted uppercase tracking-wider pt-3 border-t border-line/60">
                     Already implemented
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -294,7 +294,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
               )}
 
               {onAccountClick && (
-                <div className="pt-3 border-t border-slate-100">
+                <div className="pt-3 border-t border-line/60">
                   <button
                     type="button"
                     onClick={() => {

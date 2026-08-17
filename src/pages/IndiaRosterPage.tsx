@@ -209,6 +209,7 @@ export default function IndiaRosterPage() {
       name: draft.name.trim(),
       role: draft.role,
       project: draft.project.trim(),
+      pod: '',
       status: draft.status,
       cost_per_hour: Number(draft.cost_per_hour) || 0,
       bill_rate: Number(draft.bill_rate) || 0,
@@ -244,8 +245,8 @@ export default function IndiaRosterPage() {
 
   const SortHeader = ({ field, label, align = 'left', sticky = false }: { field: string; label: string; align?: 'left' | 'right' | 'center'; sticky?: boolean }) => (
     <th
-      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px] ${
-        sticky ? 'sticky left-0 bg-slate-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-ink/80 select-none uppercase tracking-wide text-[10px] ${
+        sticky ? 'sticky left-0 bg-surface-2/70 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
       }`}
       onClick={() => handleSort(field)}
     >
@@ -256,6 +257,8 @@ export default function IndiaRosterPage() {
   return (
     <>
       <PageHeader
+        eyebrow="India T&M"
+        tone="gold"
         title="India Roster"
         subtitle="Full India FTE roster — billable allocations, bench, and margin"
       />
@@ -289,15 +292,15 @@ export default function IndiaRosterPage() {
       {/* Role distribution */}
       {roleDistribution.length > 0 && (
         <Card className="mb-6">
-          <h3 className="text-sm font-bold text-slate-700 mb-3">Role Distribution</h3>
+          <h3 className="text-sm font-bold text-ink/80 mb-3">Role Distribution</h3>
           <div className="space-y-1.5">
             {roleDistribution.map(([role, count]) => (
               <div key={role} className="flex items-center gap-2">
-                <span className="text-xs text-slate-600 w-40 truncate">{role}</span>
-                <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
+                <span className="text-xs text-muted w-40 truncate">{role}</span>
+                <div className="flex-1 bg-surface-2 rounded-full h-4 overflow-hidden">
                   <div className="bg-blue-500/70 h-full rounded-full" style={{ width: `${(count / total) * 100}%` }} />
                 </div>
-                <span className="text-xs font-semibold text-slate-500 w-8 text-right">{count}</span>
+                <span className="text-xs font-semibold text-muted w-8 text-right">{count}</span>
               </div>
             ))}
           </div>
@@ -307,17 +310,17 @@ export default function IndiaRosterPage() {
       {/* Filters + Add */}
       <div className="flex items-center gap-3 flex-wrap mb-4">
         <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, skill, project, role..."
-            className="text-xs border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 bg-white w-64" />
+            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-white w-64" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
           <option value="All">All Statuses</option>
           {INDIA_ROSTER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
           <option value="All">All Roles</option>
           {ROSTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
@@ -326,14 +329,14 @@ export default function IndiaRosterPage() {
           className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${
             groupByAccount
               ? 'border-blue-300 bg-blue-50 text-blue-700 font-semibold'
-              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              : 'border-line bg-white text-muted hover:bg-surface-2/70'
           }`}
           title="Group rows under bold account-name banners"
         >
           {groupByAccount ? '✓ Grouped by account' : 'Group by account'}
         </button>
         {groupByAccount && (
-          <div className="flex items-center gap-1 text-[11px] text-slate-500">
+          <div className="flex items-center gap-1 text-[11px] text-muted">
             <button
               onClick={() => {
                 const keys = new Set<string>();
@@ -343,11 +346,11 @@ export default function IndiaRosterPage() {
                 }
                 groupState.expandAll(Array.from(keys));
               }}
-              className="underline-offset-2 hover:text-slate-700 hover:underline"
+              className="underline-offset-2 hover:text-ink/80 hover:underline"
             >
               Expand all
             </button>
-            <span className="text-slate-300">·</span>
+            <span className="text-line">·</span>
             <button
               onClick={() => {
                 const keys = new Set<string>();
@@ -357,14 +360,14 @@ export default function IndiaRosterPage() {
                 }
                 groupState.collapseAll(Array.from(keys));
               }}
-              className="underline-offset-2 hover:text-slate-700 hover:underline"
+              className="underline-offset-2 hover:text-ink/80 hover:underline"
             >
               Collapse all
             </button>
           </div>
         )}
         <div className="flex-1" />
-        <button onClick={exportCSV} className="flex items-center gap-1 text-xs border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50">
+        <button onClick={exportCSV} className="flex items-center gap-1 text-xs border border-line px-3 py-1.5 rounded-lg hover:bg-surface-2/70">
           <Download size={13} /> Export CSV
         </button>
         <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90">
@@ -376,63 +379,63 @@ export default function IndiaRosterPage() {
       {showAdd && (
         <Card className="border-2 border-blue-200 bg-blue-50/30 mb-4">
           <div className="p-4 space-y-3">
-            <h4 className="text-sm font-bold text-slate-700">New India Roster Member</h4>
+            <h4 className="text-sm font-bold text-ink/80">New India Roster Member</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Name *</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Name *</label>
                 <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Full name"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" autoFocus />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Role</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Role</label>
                 <select value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   {ROSTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Project</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Project</label>
                 <input value={draft.project} onChange={(e) => setDraft({ ...draft, project: e.target.value })} placeholder="e.g. QUData"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Status</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Status</label>
                 <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as IndiaRosterStatus })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   {INDIA_ROSTER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Cost / hr (USD)</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Cost / hr (USD)</label>
                 <input type="number" value={draft.cost_per_hour} onChange={(e) => setDraft({ ...draft, cost_per_hour: Number(e.target.value) })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Bill Rate / hr (USD)</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Bill Rate / hr (USD)</label>
                 <input type="number" value={draft.bill_rate} onChange={(e) => setDraft({ ...draft, bill_rate: Number(e.target.value) })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Start Date</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Start Date</label>
                 <input type="date" value={draft.start_date} onChange={(e) => setDraft({ ...draft, start_date: e.target.value })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div className="col-span-2 md:col-span-3">
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Skills</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Skills</label>
                 <input value={draft.skills} onChange={(e) => setDraft({ ...draft, skills: e.target.value })} placeholder="e.g. Salesforce, LWC, Apex"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Email</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Email</label>
                 <input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} placeholder="optional"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
             </div>
             {/* Live margin preview */}
             {draft.bill_rate > 0 && (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-muted">
                 Margin preview:&nbsp;
-                <strong className="text-slate-700">{calcMarginPercent(draft as any)}%</strong>&nbsp;
+                <strong className="text-ink/80">{calcMarginPercent(draft as any)}%</strong>&nbsp;
                 (${calcMarginAbsolute(draft as any).toFixed(2)}/hr)
               </div>
             )}
@@ -440,7 +443,7 @@ export default function IndiaRosterPage() {
               <button onClick={handleAdd} disabled={!draft.name.trim()} className="text-xs bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50">
                 Save
               </button>
-              <button onClick={() => setShowAdd(false)} className="text-xs text-slate-500 px-4 py-1.5 rounded-lg hover:bg-slate-100">
+              <button onClick={() => setShowAdd(false)} className="text-xs text-muted px-4 py-1.5 rounded-lg hover:bg-surface-2">
                 Cancel
               </button>
             </div>
@@ -453,11 +456,11 @@ export default function IndiaRosterPage() {
 
       {/* Active Roster */}
       <Card className="mb-4">
-        <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-line/60">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <h3 className="text-sm font-bold text-slate-700">Active Roster</h3>
-            <span className="text-[11px] text-slate-500">
+            <h3 className="text-sm font-bold text-ink/80">Active Roster</h3>
+            <span className="text-[11px] text-muted">
               {activeRows.length} billable {activeRows.length === 1 ? 'resource' : 'resources'} this month
             </span>
           </div>
@@ -465,7 +468,7 @@ export default function IndiaRosterPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-slate-50 text-slate-500">
+              <tr className="bg-surface-2/70 text-muted">
                 <SortHeader field="name" label="Name" sticky />
                 <SortHeader field="role" label="Role" />
                 <SortHeader field="project" label="Project" />
@@ -482,7 +485,7 @@ export default function IndiaRosterPage() {
               {renderRowsGrouped(activeRows, groupByAccount, handleCellSave, removeMember, 10, groupState, 'active')}
               {activeRows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-3 py-8 text-center text-muted/70">
                     {members.length === 0
                       ? 'No roster members yet. Click "Add Member" to start populating the India team.'
                       : 'No active (billable) resources match the current filters.'}
@@ -499,25 +502,25 @@ export default function IndiaRosterPage() {
         <button
           type="button"
           onClick={() => setShowInactive((v) => !v)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 rounded-lg transition-colors"
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-surface-2/70 rounded-lg transition-colors"
         >
           <div className="flex items-center gap-2">
-            {showInactive ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+            {showInactive ? <ChevronDown size={16} className="text-muted/70" /> : <ChevronRight size={16} className="text-muted/70" />}
             <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <h3 className="text-sm font-bold text-slate-700">Inactive Positions</h3>
-            <span className="text-[11px] text-slate-500">
+            <h3 className="text-sm font-bold text-ink/80">Inactive Positions</h3>
+            <span className="text-[11px] text-muted">
               {inactiveRows.length} on bench / leave / notice
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+          <span className="text-[10px] text-muted/70 uppercase tracking-wide">
             {showInactive ? 'Click to collapse' : 'Click to expand'}
           </span>
         </button>
         {showInactive && (
-          <div className="overflow-x-auto border-t border-slate-100">
+          <div className="overflow-x-auto border-t border-line/60">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-50 text-slate-500">
+                <tr className="bg-surface-2/70 text-muted">
                   <SortHeader field="name" label="Name" sticky />
                   <SortHeader field="role" label="Role" />
                   <SortHeader field="project" label="Last Project" />
@@ -534,7 +537,7 @@ export default function IndiaRosterPage() {
                 {renderRowsGrouped(inactiveRows, groupByAccount, handleCellSave, removeMember, 10, groupState, 'inactive')}
                 {inactiveRows.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
+                    <td colSpan={10} className="px-3 py-8 text-center text-muted/70">
                       No inactive positions.
                     </td>
                   </tr>
@@ -574,11 +577,11 @@ function SharePointSyncBanner({ members }: { members: any[] }) {
     <div className="mb-4 flex items-center gap-3 px-4 py-2.5 rounded-lg border border-blue-200 bg-blue-50/40 text-xs">
       <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/10 text-blue-600 font-bold text-[10px]">SP</span>
       <div className="flex-1">
-        <div className="font-semibold text-slate-700">
+        <div className="font-semibold text-ink/80">
           Synced from <span className="font-mono">Staffing Report India.xlsx</span> (Rupesh's OneDrive · /Finance/KPIs and Project Reports/Staffing report/)
         </div>
-        <div className="text-slate-500">
-          Last sync: <span className="font-medium text-slate-700">{fmt}</span> · Auto-syncs bi-weekly (1st &amp; 15th at 07:07 AM). To force a sync, open Claude → Scheduled tasks → "india-roster-sharepoint-sync" → Run now.
+        <div className="text-muted">
+          Last sync: <span className="font-medium text-ink/80">{fmt}</span> · Auto-syncs bi-weekly (1st &amp; 15th at 07:07 AM). To force a sync, open Claude → Scheduled tasks → "india-roster-sharepoint-sync" → Run now.
         </div>
       </div>
     </div>
@@ -648,21 +651,21 @@ function renderRowsGrouped(
             <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/15 text-primary flex-shrink-0">
               <Building2 size={14} />
             </span>
-            <span className="text-base font-extrabold text-slate-900 tracking-tight">
+            <span className="text-base font-extrabold text-ink tracking-tight">
               {project || '— Unassigned —'}
             </span>
-            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
+            <span className="text-[10px] text-muted font-semibold uppercase tracking-wide">
               {s.count} {s.count === 1 ? 'resource' : 'resources'}
               {s.revenue > 0 && (
                 <>
-                  <span className="text-slate-300 mx-1">·</span>
-                  <span className="text-slate-700"><Sensitive>{`$${(s.revenue / 1000).toFixed(0)}k`}</Sensitive></span> /mo @160h
+                  <span className="text-line mx-1">·</span>
+                  <span className="text-ink/80"><Sensitive>{`$${(s.revenue / 1000).toFixed(0)}k`}</Sensitive></span> /mo @160h
                 </>
               )}
               {s.avgMargin > 0 && (
                 <>
-                  <span className="text-slate-300 mx-1">·</span>
-                  avg margin <span className="text-slate-700"><Sensitive>{`${s.avgMargin}%`}</Sensitive></span>
+                  <span className="text-line mx-1">·</span>
+                  avg margin <span className="text-ink/80"><Sensitive>{`${s.avgMargin}%`}</Sensitive></span>
                 </>
               )}
             </span>
@@ -690,8 +693,8 @@ function renderMemberRow(
   const marginAbs = calcMarginAbsolute(m);
   const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
   return (
-    <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30 group">
-      <td className="px-3 py-2 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+    <tr key={m.id} className="border-t border-line/60 hover:bg-blue-50/30 group">
+      <td className="px-3 py-2 font-medium text-ink sticky left-0 bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
         <EditableCell value={m.name} onSave={(v) => handleCellSave(m.id, 'name', v)} />
       </td>
       <td className="px-3 py-2">
@@ -784,15 +787,15 @@ function PlanningSyncBanner() {
   return (
     <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50/40 px-4 py-3 flex items-center gap-3 flex-wrap">
       <div className="flex-1 min-w-[240px]">
-        <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+        <div className="text-sm font-semibold text-ink flex items-center gap-1.5">
           <RefreshCw size={13} className="text-sky-600" /> Sync from Sales Planning 2026
         </div>
-        <div className="text-[11px] text-slate-600 mt-0.5">
-          Pulls India + active positions from planning-2026 and updates <code className="text-[10px] bg-white border border-slate-200 px-1 rounded">source=planning-2026</code> rows only.
+        <div className="text-[11px] text-muted mt-0.5">
+          Pulls India + active positions from planning-2026 and updates <code className="text-[10px] bg-white border border-line px-1 rounded">source=planning-2026</code> rows only.
           Bench rows and manual entries stay untouched.
         </div>
         {result && (
-          <div className={`mt-1 text-[11px] inline-flex items-center gap-1 ${result.dryRun ? 'text-slate-700' : 'text-emerald-700 font-semibold'}`}>
+          <div className={`mt-1 text-[11px] inline-flex items-center gap-1 ${result.dryRun ? 'text-ink/80' : 'text-emerald-700 font-semibold'}`}>
             {result.dryRun ? <AlertTriangle size={11} /> : <CheckCircle2 size={11} />}
             {result.dryRun ? 'Preview' : 'Synced'}: {result.active} active in planning-2026 · {result.added} added · {result.updated} updated · {result.removed} removed
           </div>
@@ -806,7 +809,7 @@ function PlanningSyncBanner() {
           type="button"
           onClick={() => run(true)}
           disabled={!!busy}
-          className="text-xs px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 inline-flex items-center gap-1"
+          className="text-xs px-3 py-1.5 rounded-md border border-line bg-white text-ink/80 hover:bg-surface-2/70 disabled:opacity-50 inline-flex items-center gap-1"
         >
           {busy === 'dry' ? <Loader2 size={12} className="animate-spin" /> : null}
           Preview

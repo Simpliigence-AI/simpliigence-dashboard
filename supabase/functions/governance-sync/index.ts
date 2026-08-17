@@ -96,10 +96,13 @@ async function login(): Promise<string> {
       'GOVERNANCE_PASSWORD secrets on this Supabase project.',
     );
   }
+  // Governance's /api/auth/login is FastAPI's OAuth2PasswordRequestForm —
+  // it wants `username` + `password` as x-www-form-urlencoded, not JSON.
+  // Sending JSON gets a 422 with "field required" for username/password.
   const r = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: GOV_EMAIL, password: GOV_PASSWORD }),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ username: GOV_EMAIL, password: GOV_PASSWORD }).toString(),
   });
   if (!r.ok) {
     const body = (await r.text()).slice(0, 300);

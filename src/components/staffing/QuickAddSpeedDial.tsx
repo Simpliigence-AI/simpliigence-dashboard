@@ -43,14 +43,14 @@ export function QuickAddSpeedDial({ accounts, onAddAccount, onAddRequisition }: 
             <button
               type="button"
               onClick={() => { setModal('req'); setOpen(false); }}
-              className="bg-white text-slate-900 border border-slate-200 shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-violet-50 hover:border-violet-300"
+              className="bg-white text-ink border border-line shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-violet-50 hover:border-violet-300"
             >
               <Briefcase size={12} className="text-violet-600" /> Quick requisition
             </button>
             <button
               type="button"
               onClick={() => { setModal('account'); setOpen(false); }}
-              className="bg-white text-slate-900 border border-slate-200 shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-amber-50 hover:border-amber-300"
+              className="bg-white text-ink border border-line shadow-md rounded-full px-4 py-2 text-xs font-semibold inline-flex items-center gap-2 hover:bg-amber-50 hover:border-amber-300"
             >
               <Building2 size={12} className="text-amber-600" /> Quick account
             </button>
@@ -135,7 +135,7 @@ function QuickReqModal({
         <Field label="Account">
           <select value={accountId}
                   onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full h-9 px-3 text-sm border border-slate-300 rounded-md bg-white focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                  className="w-full h-9 px-3 text-sm border border-line rounded-md bg-white focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             <option value="__new__">+ Add new account…</option>
           </select>
@@ -145,7 +145,7 @@ function QuickReqModal({
             <input value={newAccountName}
                    onChange={(e) => setNewAccountName(e.target.value)}
                    placeholder="e.g. ACME Corp"
-                   className="w-full h-9 px-3 text-sm border border-slate-300 rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                   className="w-full h-9 px-3 text-sm border border-line rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200" />
           </Field>
         )}
         <Field label="Title">
@@ -154,18 +154,18 @@ function QuickReqModal({
                  onChange={(e) => setTitle(e.target.value)}
                  onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
                  placeholder="e.g. Salesforce Architect"
-                 className="w-full h-9 px-3 text-sm border border-slate-300 rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                 className="w-full h-9 px-3 text-sm border border-line rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200" />
         </Field>
         <Field label="Month">
           <select value={month}
                   onChange={(e) => setMonth(e.target.value)}
-                  className="w-full h-9 px-3 text-sm border border-slate-300 rounded-md bg-white focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                  className="w-full h-9 px-3 text-sm border border-line rounded-md bg-white focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200">
             {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </Field>
         {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</div>}
         <div className="flex items-center justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="text-xs text-slate-600 hover:text-slate-900 px-3 py-1.5">Cancel</button>
+          <button type="button" onClick={onClose} className="text-xs text-muted hover:text-ink px-3 py-1.5">Cancel</button>
           <button type="button" onClick={submit} disabled={saving}
                   className="text-xs font-semibold bg-violet-600 text-white px-4 py-1.5 rounded-md hover:bg-violet-700 disabled:opacity-50">
             {saving ? 'Saving…' : 'Create requisition'}
@@ -212,11 +212,11 @@ function QuickAccountModal({ onAdd, onClose }: {
                  onChange={(e) => setName(e.target.value)}
                  onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
                  placeholder="e.g. ACME Corp"
-                 className="w-full h-9 px-3 text-sm border border-slate-300 rounded-md focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" />
+                 className="w-full h-9 px-3 text-sm border border-line rounded-md focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" />
         </Field>
         {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</div>}
         <div className="flex items-center justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="text-xs text-slate-600 hover:text-slate-900 px-3 py-1.5">Cancel</button>
+          <button type="button" onClick={onClose} className="text-xs text-muted hover:text-ink px-3 py-1.5">Cancel</button>
           <button type="button" onClick={submit} disabled={saving}
                   className="text-xs font-semibold bg-amber-500 text-white px-4 py-1.5 rounded-md hover:bg-amber-600 disabled:opacity-50">
             {saving ? 'Saving…' : 'Create account'}
@@ -244,12 +244,12 @@ function Modal({ title, subtitle, onClose, children }: {
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
+        <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">{title}</h2>
-            {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+            <h2 className="text-sm font-bold text-ink">{title}</h2>
+            {subtitle && <p className="text-[11px] text-muted mt-0.5">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1">
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 p-1">
             <X size={16} />
           </button>
         </div>
@@ -264,7 +264,7 @@ function Modal({ title, subtitle, onClose, children }: {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">{label}</label>
+      <label className="text-[10px] font-semibold text-muted uppercase tracking-wider block mb-1">{label}</label>
       {children}
     </div>
   );

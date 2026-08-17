@@ -20,7 +20,7 @@ export function Sensitive({
   return (
     <span
       title="Hidden during demo (Settings → Demo mode to disable)"
-      className={`text-slate-400 italic font-medium tracking-wider select-none ${className}`}
+      className={`text-muted/70 italic font-medium tracking-wider select-none ${className}`}
     >
       {placeholder ?? '•••'}
     </span>
@@ -45,7 +45,7 @@ export function FinancialMaskedNote({ what = 'values' }: { what?: string }) {
   const masked = useFinancialsMasked();
   if (!masked) return null;
   return (
-    <p className="text-[11px] text-slate-400 italic mt-1">
+    <p className="text-[11px] text-muted/70 italic mt-1">
       Financial {what} hidden during demo. Disable in Settings → Demo mode.
     </p>
   );

@@ -216,7 +216,7 @@ export function hoursColor(hours: number, capacity = 160): {
   ring: string;
 } {
   if (hours <= 0) {
-    return { fill: 'bg-slate-100', text: 'text-slate-400', ring: 'ring-slate-200' };
+    return { fill: 'bg-surface-2', text: 'text-muted/70', ring: 'ring-slate-200' };
   }
   const util = hours / capacity;
   if (util >= 0.8) return { fill: 'bg-emerald-500', text: 'text-emerald-50', ring: 'ring-emerald-300' };

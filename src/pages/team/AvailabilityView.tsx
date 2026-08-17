@@ -169,7 +169,7 @@ export default function AvailabilityView() {
           <button
             type="button"
             onClick={() => setOffsetWeeks((v) => v - WEEKS_SHOWN)}
-            className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+            className="p-1.5 rounded-lg border border-line bg-white text-muted hover:bg-surface-2/70"
             title="Earlier"
           >
             <ChevronLeft size={15} />
@@ -178,29 +178,29 @@ export default function AvailabilityView() {
             type="button"
             onClick={() => setOffsetWeeks(0)}
             disabled={offsetWeeks === 0}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-line bg-white text-ink/80 hover:bg-surface-2/70 disabled:opacity-40"
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setOffsetWeeks((v) => v + WEEKS_SHOWN)}
-            className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+            className="p-1.5 rounded-lg border border-line bg-white text-muted hover:bg-surface-2/70"
             title="Later"
           >
             <ChevronRight size={15} />
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
-          <CalendarDays size={14} className="text-slate-400" />
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <CalendarDays size={14} className="text-muted/70" />
           {label}
         </div>
 
         {/* Legend */}
-        <div className="ml-auto flex items-center gap-3 text-[11px] text-slate-600">
+        <div className="ml-auto flex items-center gap-3 text-[11px] text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="w-4 h-3.5 rounded border border-slate-200 bg-white inline-block" /> Available
+            <span className="w-4 h-3.5 rounded border border-line bg-white inline-block" /> Available
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-4 h-3.5 rounded bg-rose-200 inline-block" /> Leave — approved
@@ -224,24 +224,24 @@ export default function AvailabilityView() {
       )}
 
       {projects.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+        <div className="text-center py-12 text-muted/70 text-sm border border-dashed border-line rounded-xl">
           No projects with allocations yet.
         </div>
       ) : (
-        <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
+        <div className="overflow-x-auto border border-line rounded-xl bg-white">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="bg-slate-50">
-                <th className="sticky left-0 z-20 bg-slate-50 text-left px-4 py-2.5 font-semibold text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200 min-w-[220px]">
+              <tr className="bg-surface-2/70">
+                <th className="sticky left-0 z-20 bg-surface-2/70 text-left px-4 py-2.5 font-semibold text-muted text-xs uppercase tracking-wider border-b border-line min-w-[220px]">
                   Resource
                 </th>
                 {columns.map((c) => (
                   <th
                     key={c.iso}
-                    className={`px-1 py-2 text-center border-b border-slate-200 font-medium ${c.isWeekStart ? 'border-l border-slate-200' : ''} ${c.isToday ? 'bg-blue-50' : ''}`}
+                    className={`px-1 py-2 text-center border-b border-line font-medium ${c.isWeekStart ? 'border-l border-line' : ''} ${c.isToday ? 'bg-blue-50' : ''}`}
                   >
-                    <div className={`text-[11px] ${c.isToday ? 'text-blue-700 font-bold' : 'text-slate-700'}`}>{c.weekday}</div>
-                    <div className={`text-[10px] ${c.isToday ? 'text-blue-600' : 'text-slate-400'}`}>{c.date}</div>
+                    <div className={`text-[11px] ${c.isToday ? 'text-blue-700 font-bold' : 'text-ink/80'}`}>{c.weekday}</div>
+                    <div className={`text-[10px] ${c.isToday ? 'text-blue-600' : 'text-muted/70'}`}>{c.date}</div>
                   </th>
                 ))}
               </tr>
@@ -254,13 +254,13 @@ export default function AvailabilityView() {
                     <tr>
                       <td
                         colSpan={columns.length + 1}
-                        className="px-4 py-2 font-bold text-slate-800 text-sm border-y border-slate-100"
+                        className="px-4 py-2 font-bold text-ink text-sm border-y border-line/60"
                         style={{ backgroundColor: `hsl(${hue} 70% 97%)` }}
                       >
                         <span className="inline-flex items-center gap-2">
                           <span className="w-1.5 h-4 rounded-full inline-block" style={{ backgroundColor: `hsl(${hue} 60% 55%)` }} />
                           {proj.name}
-                          <span className="font-normal text-slate-400 text-xs">
+                          <span className="font-normal text-muted/70 text-xs">
                             {proj.people.length} {proj.people.length === 1 ? 'person' : 'people'}
                           </span>
                         </span>
@@ -270,8 +270,8 @@ export default function AvailabilityView() {
                     {proj.people.map((person) => {
                       const personHue = colorHash(person.name);
                       return (
-                        <tr key={`${proj.name}-${person.name}`} className="hover:bg-slate-50/60">
-                          <td className="sticky left-0 z-10 bg-white px-4 py-1.5 border-b border-slate-50">
+                        <tr key={`${proj.name}-${person.name}`} className="hover:bg-surface-2/60">
+                          <td className="sticky left-0 z-10 bg-white px-4 py-1.5 border-b border-line/40">
                             <div className="flex items-center gap-2 min-w-0">
                               <span
                                 className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
@@ -282,7 +282,7 @@ export default function AvailabilityView() {
                               >
                                 {getInitials(person.name)}
                               </span>
-                              <span className={`truncate text-sm ${person.email ? 'text-slate-800' : 'text-slate-400'}`}>
+                              <span className={`truncate text-sm ${person.email ? 'text-ink' : 'text-muted/70'}`}>
                                 {person.name}
                               </span>
                               {!person.email && (
@@ -302,18 +302,18 @@ export default function AvailabilityView() {
                             return (
                               <td
                                 key={col.iso}
-                                className={`px-1 py-1.5 border-b border-slate-50 ${col.isWeekStart ? 'border-l border-slate-200' : ''} ${col.isToday ? 'bg-blue-50/40' : ''}`}
+                                className={`px-1 py-1.5 border-b border-line/40 ${col.isWeekStart ? 'border-l border-line' : ''} ${col.isToday ? 'bg-blue-50/40' : ''}`}
                               >
                                 <div
                                   title={req ? `${person.name} — ${typeName} (${req.status}), ${req.startDate} to ${req.endDate}` : undefined}
                                   className={`h-6 rounded-md border text-[10px] font-bold flex items-center justify-center ${
                                     !person.email
-                                      ? 'border-slate-100 bg-slate-50/60'
+                                      ? 'border-line/60 bg-surface-2/60'
                                       : req
                                         ? approved
                                           ? 'border-rose-200 bg-rose-200 text-rose-900'
                                           : 'border-amber-300 bg-amber-300 text-amber-900'
-                                        : 'border-slate-200 bg-white'
+                                        : 'border-line bg-white'
                                   }`}
                                 >
                                   {req ? 'L' : ''}
@@ -331,8 +331,8 @@ export default function AvailabilityView() {
 
             {/* Daily totals */}
             <tfoot>
-              <tr className="bg-slate-50">
-                <td className="sticky left-0 z-10 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 border-t border-slate-200">
+              <tr className="bg-surface-2/70">
+                <td className="sticky left-0 z-10 bg-surface-2/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted border-t border-line">
                   Away that day
                 </td>
                 {columns.map((col) => {
@@ -340,9 +340,9 @@ export default function AvailabilityView() {
                   return (
                     <td
                       key={col.iso}
-                      className={`px-1 py-2 text-center border-t border-slate-200 ${col.isWeekStart ? 'border-l border-slate-200' : ''} ${col.isToday ? 'bg-blue-50' : ''}`}
+                      className={`px-1 py-2 text-center border-t border-line ${col.isWeekStart ? 'border-l border-line' : ''} ${col.isToday ? 'bg-blue-50' : ''}`}
                     >
-                      <span className={`text-xs font-bold tabular-nums ${n > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
+                      <span className={`text-xs font-bold tabular-nums ${n > 0 ? 'text-ink/80' : 'text-line'}`}>
                         {n || '—'}
                       </span>
                     </td>
@@ -354,7 +354,7 @@ export default function AvailabilityView() {
         </div>
       )}
 
-      <p className="mt-3 text-[11px] text-slate-400">
+      <p className="mt-3 text-[11px] text-muted/70">
         A person appears under every project they&apos;re allocated to, so one absence shows on each of them. Cancelled
         and rejected requests are not shown.
       </p>

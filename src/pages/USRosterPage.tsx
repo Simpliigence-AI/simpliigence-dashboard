@@ -98,7 +98,7 @@ function MultiProjectPicker({
         title="Click to manage project allocations"
       >
         {selected.length === 0 && (
-          <span className="text-slate-400 italic text-[11px]">— Unallocated —</span>
+          <span className="text-muted/70 italic text-[11px]">— Unallocated —</span>
         )}
         {selected.map(p => (
           <span
@@ -120,14 +120,14 @@ function MultiProjectPicker({
       </div>
 
       {open && (
-        <div className="absolute z-30 mt-1 left-0 w-72 max-h-80 overflow-hidden bg-white border border-slate-200 rounded-lg shadow-xl flex flex-col">
-          <div className="p-2 border-b border-slate-100">
+        <div className="absolute z-30 mt-1 left-0 w-72 max-h-80 overflow-hidden bg-white border border-line rounded-lg shadow-xl flex flex-col">
+          <div className="p-2 border-b border-line/60">
             <input
               autoFocus
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Search or add a project..."
-              className="w-full text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full text-xs border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -148,10 +148,10 @@ function MultiProjectPicker({
                   onClick={() => toggle(opt)}
                   className={`w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 hover:bg-blue-50 ${checked ? 'bg-blue-50/60' : ''}`}
                 >
-                  <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${checked ? 'bg-blue-500 border-blue-500' : 'border-slate-300'}`}>
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${checked ? 'bg-blue-500 border-blue-500' : 'border-line'}`}>
                     {checked && <Check size={10} className="text-white" />}
                   </span>
-                  <span className="text-slate-700 truncate">{opt}</span>
+                  <span className="text-ink/80 truncate">{opt}</span>
                 </button>
               );
             })}
@@ -159,13 +159,13 @@ function MultiProjectPicker({
               <button
                 type="button"
                 onClick={addNew}
-                className="w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 text-blue-600 hover:bg-blue-50 border-t border-slate-100"
+                className="w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 text-blue-600 hover:bg-blue-50 border-t border-line/60"
               >
                 <Plus size={11} /> Add &ldquo;{filter.trim()}&rdquo; as new project
               </button>
             )}
             {filteredOpts.length === 0 && !filter.trim() && (
-              <div className="px-3 py-3 text-[11px] text-slate-400 italic text-center">
+              <div className="px-3 py-3 text-[11px] text-muted/70 italic text-center">
                 No projects yet — type to add the first one.
               </div>
             )}
@@ -390,8 +390,8 @@ export default function USRosterPage() {
 
   const SortHeader = ({ field, label, align = 'left', sticky = false, leftOffset = 0 }: { field: string; label: string; align?: 'left' | 'right' | 'center'; sticky?: boolean; leftOffset?: number }) => (
     <th
-      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-slate-700 select-none uppercase tracking-wide text-[10px] ${
-        sticky ? 'sticky bg-slate-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+      className={`px-3 py-2 text-${align} font-semibold cursor-pointer hover:text-ink/80 select-none uppercase tracking-wide text-[10px] ${
+        sticky ? 'sticky bg-surface-2/70 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
       }`}
       style={sticky ? { left: leftOffset } : undefined}
       onClick={() => handleSort(field)}
@@ -408,12 +408,12 @@ export default function USRosterPage() {
         title="Global Roster"
         subtitle="Full FTE roster — billable allocations, bench, visa, location, margin"
         action={
-          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" title="Switch between the card grid and the wide inline-edit table">
+          <div className="flex gap-1 bg-surface-2 rounded-xl p-1 w-fit" title="Switch between the card grid and the wide inline-edit table">
             <button
               type="button"
               onClick={() => setViewMode('cards')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'cards' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'cards' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <LayoutGrid size={12} /> Cards
@@ -422,7 +422,7 @@ export default function USRosterPage() {
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Rows3 size={12} /> Table
@@ -443,7 +443,7 @@ export default function USRosterPage() {
       {/* Visa distribution */}
       {Object.keys(visaDist).length > 0 && (
         <Card className="mb-6">
-          <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-ink/80 mb-3 flex items-center gap-2">
             <Shield size={14} /> Visa Distribution
           </h3>
           <div className="flex gap-1 items-end h-20">
@@ -452,9 +452,9 @@ export default function USRosterPage() {
               const height = Math.max((count / maxCount) * 100, 8);
               return (
                 <div key={visa} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] font-bold text-slate-600">{count}</span>
+                  <span className="text-[10px] font-bold text-muted">{count}</span>
                   <div className="w-full rounded-t" style={{ height: `${height}%`, background: VISA_COLORS[visa] || '#94a3b8' }} />
-                  <span className="text-[9px] text-slate-400 text-center leading-tight">{visa}</span>
+                  <span className="text-[9px] text-muted/70 text-center leading-tight">{visa}</span>
                 </div>
               );
             })}
@@ -479,10 +479,10 @@ export default function USRosterPage() {
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
                   statusFilter === 'All'
                     ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                    : 'bg-white text-ink/80 border-line hover:border-slate-400'
                 }`}
               >
-                All <span className={statusFilter === 'All' ? 'text-white/70' : 'text-slate-400'}>· {total}</span>
+                All <span className={statusFilter === 'All' ? 'text-white/70' : 'text-muted/70'}>· {total}</span>
               </button>
               {US_ROSTER_STATUSES.map((s) => {
                 const active = statusFilter === s;
@@ -495,12 +495,12 @@ export default function USRosterPage() {
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors ${
                       active
                         ? 'text-white border-transparent shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                        : 'bg-white text-ink/80 border-line hover:border-slate-400'
                     }`}
                     style={active ? { background: color } : undefined}
                   >
                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                    {s} <span className={active ? 'text-white/80' : 'text-slate-400'}>· {counts[s]}</span>
+                    {s} <span className={active ? 'text-white/80' : 'text-muted/70'}>· {counts[s]}</span>
                   </button>
                 );
               })}
@@ -512,27 +512,27 @@ export default function USRosterPage() {
       {/* Filters + Add */}
       <div className="flex items-center gap-3 flex-wrap mb-4">
         <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, skill, project, location..."
-            className="text-xs border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 bg-white w-64" />
+            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-white w-64" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
           <option value="All">All Statuses</option>
           {US_ROSTER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
           <option value="All">All Roles</option>
           {ROSTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={visaFilter} onChange={(e) => setVisaFilter(e.target.value)}
-          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
           <option value="All">All Visas</option>
           {VISA_CATEGORIES.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
         <div className="flex-1" />
-        <button onClick={exportCSV} className="flex items-center gap-1 text-xs border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50">
+        <button onClick={exportCSV} className="flex items-center gap-1 text-xs border border-line px-3 py-1.5 rounded-lg hover:bg-surface-2/70">
           <Download size={13} /> Export CSV
         </button>
         <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90">
@@ -544,22 +544,22 @@ export default function USRosterPage() {
       {showAdd && (
         <Card className="border-2 border-blue-200 bg-blue-50/30 mb-4">
           <div className="p-4 space-y-3">
-            <h4 className="text-sm font-bold text-slate-700">New Global Roster Member</h4>
+            <h4 className="text-sm font-bold text-ink/80">New Global Roster Member</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Name *</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Name *</label>
                 <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Full name"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" autoFocus />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Role</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Role</label>
                 <select value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   {ROSTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Project(s)</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Project(s)</label>
                 <div className="mt-0.5 border rounded px-2 py-1 bg-white">
                   <MultiProjectPicker
                     value={draft.project}
@@ -569,49 +569,49 @@ export default function USRosterPage() {
                 </div>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Status</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Status</label>
                 <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as USRosterStatus })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   {US_ROSTER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Visa</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Visa</label>
                 <select value={draft.visa_category} onChange={(e) => setDraft({ ...draft, visa_category: e.target.value as VisaCategory })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5">
                   {VISA_CATEGORIES.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Cost / hr</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Cost / hr</label>
                 <input type="number" value={draft.cost_per_hour} onChange={(e) => setDraft({ ...draft, cost_per_hour: Number(e.target.value) })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Bill Rate / hr</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Bill Rate / hr</label>
                 <input type="number" value={draft.bill_rate} onChange={(e) => setDraft({ ...draft, bill_rate: Number(e.target.value) })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Start Date</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Start Date</label>
                 <input type="date" value={draft.start_date} onChange={(e) => setDraft({ ...draft, start_date: e.target.value })}
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div className="col-span-2">
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Location</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Location</label>
                 <input value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} placeholder="e.g. Dallas, TX"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
               <div className="col-span-2">
-                <label className="text-[10px] uppercase text-slate-500 font-semibold">Skills</label>
+                <label className="text-[10px] uppercase text-muted font-semibold">Skills</label>
                 <input value={draft.skills} onChange={(e) => setDraft({ ...draft, skills: e.target.value })} placeholder="e.g. Salesforce, LWC"
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
             </div>
             {draft.bill_rate > 0 && (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-muted">
                 Margin preview:&nbsp;
-                <strong className="text-slate-700">{calcUSMarginPercent(draft as any)}%</strong>&nbsp;
+                <strong className="text-ink/80">{calcUSMarginPercent(draft as any)}%</strong>&nbsp;
                 (${calcUSMarginAbsolute(draft as any).toFixed(2)}/hr)
               </div>
             )}
@@ -619,7 +619,7 @@ export default function USRosterPage() {
               <button onClick={handleAdd} disabled={!draft.name.trim()} className="text-xs bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50">
                 Save
               </button>
-              <button onClick={() => setShowAdd(false)} className="text-xs text-slate-500 px-4 py-1.5 rounded-lg hover:bg-slate-100">
+              <button onClick={() => setShowAdd(false)} className="text-xs text-muted px-4 py-1.5 rounded-lg hover:bg-surface-2">
                 Cancel
               </button>
             </div>
@@ -640,9 +640,9 @@ export default function USRosterPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-slate-50 text-slate-500">
+              <tr className="bg-surface-2/70 text-muted">
                 <th
-                  className="px-2 py-2 text-left font-semibold uppercase tracking-wide text-[10px] w-8 sticky left-0 bg-slate-50 z-10"
+                  className="px-2 py-2 text-left font-semibold uppercase tracking-wide text-[10px] w-8 sticky left-0 bg-surface-2/70 z-10"
                   title="Serial number within the current filter"
                 >#</th>
                 <SortHeader field="name" label="Name" sticky leftOffset={32} />
@@ -665,9 +665,9 @@ export default function USRosterPage() {
                 const marginAbs = calcUSMarginAbsolute(m);
                 const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
                 return (
-                  <tr key={m.id} className="border-t border-slate-100 hover:bg-blue-50/30 group">
-                    <td className="px-2 py-2 text-slate-400 tabular-nums text-right pr-3 sticky left-0 bg-white group-hover:bg-blue-50/60 w-8">{idx + 1}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800 sticky bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" style={{ left: 32 }}>
+                  <tr key={m.id} className="border-t border-line/60 hover:bg-blue-50/30 group">
+                    <td className="px-2 py-2 text-muted/70 tabular-nums text-right pr-3 sticky left-0 bg-white group-hover:bg-blue-50/60 w-8">{idx + 1}</td>
+                    <td className="px-3 py-2 font-medium text-ink sticky bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]" style={{ left: 32 }}>
                       <EditableCell value={m.name} onSave={(v) => handleCellSave(m.id, 'name', v)} />
                     </td>
                     <td className="px-3 py-2">
@@ -701,7 +701,7 @@ export default function USRosterPage() {
                         }
                       />
                     </td>
-                    <td className="px-3 py-2 text-slate-600">
+                    <td className="px-3 py-2 text-muted">
                       <EditableCell value={m.location} onSave={(v) => handleCellSave(m.id, 'location', v)} />
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -740,7 +740,7 @@ export default function USRosterPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-3 py-8 text-center text-slate-400">
+                  <td colSpan={12} className="px-3 py-8 text-center text-muted/70">
                     {members.length === 0
                       ? 'No US roster members yet. Click "Add Member" to start populating the US team.'
                       : 'No matches for the current filters.'}

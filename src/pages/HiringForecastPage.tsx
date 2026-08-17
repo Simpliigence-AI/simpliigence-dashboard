@@ -76,7 +76,7 @@ export default function HiringForecastPage() {
       <Card className="mb-6">
         <div className="flex flex-wrap items-end gap-6">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Target Utilization</label>
+            <label className="block text-xs font-medium text-muted mb-1">Target Utilization</label>
             <div className="flex items-center gap-2">
               <input
                 type="range"
@@ -87,24 +87,24 @@ export default function HiringForecastPage() {
                 onChange={(e) => updateScenarioSettings({ targetUtilization: Number(e.target.value) })}
                 className="w-32 accent-primary"
               />
-              <span className="text-sm font-semibold text-slate-700 tabular-nums w-10">
+              <span className="text-sm font-semibold text-ink/80 tabular-nums w-10">
                 {scenarioSettings.targetUtilization}%
               </span>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Forecast Period</label>
+            <label className="block text-xs font-medium text-muted mb-1">Forecast Period</label>
             <div className="flex items-center gap-2">
               <select
-                className="rounded border border-slate-200 px-2 py-1.5 text-sm"
+                className="rounded border border-line px-2 py-1.5 text-sm"
                 value={scenarioSettings.forecastStartMonth}
                 onChange={(e) => updateScenarioSettings({ forecastStartMonth: e.target.value as Month })}
               >
                 {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
-              <span className="text-slate-400 text-sm">to</span>
+              <span className="text-muted/70 text-sm">to</span>
               <select
-                className="rounded border border-slate-200 px-2 py-1.5 text-sm"
+                className="rounded border border-line px-2 py-1.5 text-sm"
                 value={scenarioSettings.forecastEndMonth}
                 onChange={(e) => updateScenarioSettings({ forecastEndMonth: e.target.value as Month })}
               >
@@ -113,7 +113,7 @@ export default function HiringForecastPage() {
             </div>
           </div>
           <div className="flex-1" />
-          <div className="flex gap-3 text-xs text-slate-500">
+          <div className="flex gap-3 text-xs text-muted">
             <span><span className="inline-block w-3 h-3 rounded bg-[#3b82f6] mr-1 align-middle" />Project</span>
             <span><span className="inline-block w-3 h-3 rounded bg-[#ef4444] mr-1 align-middle" />Pipeline</span>
             <span><span className="inline-block w-3 h-3 rounded bg-[#8b5cf6] mr-1 align-middle" />Staffing</span>
@@ -132,7 +132,7 @@ export default function HiringForecastPage() {
         <Card className="mb-6">
           <div className="flex items-center gap-3 text-sm">
             <span className="text-violet-600 font-medium">{pipelineProjects.length} pipeline project{pipelineProjects.length > 1 ? 's' : ''}</span>
-            <span className="text-slate-400">contributing to demand forecast.</span>
+            <span className="text-muted/70">contributing to demand forecast.</span>
             <a href="pipeline" className="text-primary hover:underline text-xs font-medium ml-auto">Manage in Pipeline tab &rarr;</a>
           </div>
         </Card>
@@ -152,12 +152,12 @@ export default function HiringForecastPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left">
-                <th className="pb-3 pr-4 font-semibold text-slate-600">Role</th>
+              <tr className="border-b border-line text-left">
+                <th className="pb-3 pr-4 font-semibold text-muted">Role</th>
                 {activeMonths.map((m) => (
-                  <th key={m} className="pb-3 text-center font-semibold text-slate-600">{m}</th>
+                  <th key={m} className="pb-3 text-center font-semibold text-muted">{m}</th>
                 ))}
-                <th className="pb-3 text-right font-semibold text-slate-600">Peak Hires</th>
+                <th className="pb-3 text-right font-semibold text-muted">Peak Hires</th>
               </tr>
             </thead>
             <tbody>
@@ -165,11 +165,11 @@ export default function HiringForecastPage() {
                 const catRows = gapRows.filter((r) => r.roleCategory === cat);
                 const peakHires = Math.max(0, ...catRows.map((r) => r.hiresNeeded));
                 return (
-                  <tr key={cat} className="border-b border-slate-100">
-                    <td className="py-3 pr-4 font-medium text-slate-700 text-xs">{ROLE_CATEGORY_LABELS[cat]}</td>
+                  <tr key={cat} className="border-b border-line/60">
+                    <td className="py-3 pr-4 font-medium text-ink/80 text-xs">{ROLE_CATEGORY_LABELS[cat]}</td>
                     {activeMonths.map((m) => {
                       const row = catRows.find((r) => r.month === m);
-                      if (!row) return <td key={m} className="py-3 text-center text-slate-300">—</td>;
+                      if (!row) return <td key={m} className="py-3 text-center text-line">—</td>;
                       const hasGap = row.gap > 0;
                       const tip = `Project: ${Math.round(row.projectDemand)} hrs\nPipeline: ${Math.round(row.pipelineDemand)} hrs\nStaffing: ${Math.round(row.staffingDemand)} hrs\n──────\nTotal Demand: ${Math.round(row.totalDemand)} hrs\nCapacity: ${Math.round(row.totalCapacity)} hrs (${row.currentHeadcount} × ${Math.round(row.effectiveCapacityPerPerson)})`;
                       return (
@@ -178,7 +178,7 @@ export default function HiringForecastPage() {
                             <span className={`text-xs font-semibold tabular-nums ${hasGap ? 'text-red-700' : 'text-green-700'}`}>
                               {row.hiresNeeded > 0 ? `+${row.hiresNeeded}` : '0'}
                             </span>
-                            <span className="text-[10px] text-slate-500 tabular-nums">
+                            <span className="text-[10px] text-muted tabular-nums">
                               {Math.round(row.totalDemand)} / {Math.round(row.totalCapacity)}
                             </span>
                           </div>
@@ -195,8 +195,8 @@ export default function HiringForecastPage() {
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-300 font-bold">
-                <td className="pt-3 text-slate-700">Total</td>
+              <tr className="border-t-2 border-line font-bold">
+                <td className="pt-3 text-ink/80">Total</td>
                 {activeMonths.map((m) => {
                   const monthRows = gapRows.filter((r) => r.month === m);
                   const totalHires = monthRows.reduce((s, r) => s + r.hiresNeeded, 0);

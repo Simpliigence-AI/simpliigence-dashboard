@@ -201,7 +201,7 @@ export default function UsersPage() {
 
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             Anyone on this list can sign in via magic link or Google. Admins additionally see this page,
             Activity, and the Audit Log.
           </p>
@@ -223,28 +223,28 @@ export default function UsersPage() {
           <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Email *</label>
+                <label className="block text-xs text-muted mb-1">Email *</label>
                 <input
                   type="email"
                   autoFocus
                   value={draftEmail}
                   onChange={(e) => setDraftEmail(e.target.value)}
                   placeholder="name@simpliigence.com"
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Full name</label>
+                <label className="block text-xs text-muted mb-1">Full name</label>
                 <input
                   type="text"
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
                   placeholder="Optional"
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Role</label>
+                <label className="block text-xs text-muted mb-1">Role</label>
                 <select
                   value={draftAdmin ? 'admin' : draftRole}
                   onChange={(e) => {
@@ -252,7 +252,7 @@ export default function UsersPage() {
                     setDraftRole(v);
                     setDraftAdmin(v === 'admin');
                   }}
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-white"
                 >
                   <option value="employee">Employee</option>
                   <option value="manager">Manager</option>
@@ -260,11 +260,11 @@ export default function UsersPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Manager email</label>
+                <label className="block text-xs text-muted mb-1">Manager email</label>
                 <select
                   value={draftManager}
                   onChange={(e) => setDraftManager(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-white"
                 >
                   <option value="">— No manager —</option>
                   {rows.filter((r) => r.role === 'admin' || r.role === 'manager').map((r) => (
@@ -273,11 +273,11 @@ export default function UsersPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Gender</label>
+                <label className="block text-xs text-muted mb-1">Gender</label>
                 <select
                   value={draftGender}
                   onChange={(e) => setDraftGender(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-white"
                   title="Gates gender-specific leave types (Maternity / Paternity)"
                 >
                   <option value="">—</option>
@@ -286,23 +286,23 @@ export default function UsersPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Employee code (Zoho)</label>
+                <label className="block text-xs text-muted mb-1">Employee code (Zoho)</label>
                 <input
                   type="text"
                   value={draftEmpCode}
                   onChange={(e) => setDraftEmpCode(e.target.value)}
                   placeholder="Leave blank for Simpliigence-entered time"
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Notes</label>
+                <label className="block text-xs text-muted mb-1">Notes</label>
                 <input
                   type="text"
                   value={draftNotes}
                   onChange={(e) => setDraftNotes(e.target.value)}
                   placeholder="e.g. team / finance"
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm"
                 />
               </div>
               <div className="md:col-span-2 flex items-end justify-end gap-2">
@@ -315,7 +315,7 @@ export default function UsersPage() {
                 </button>
               </div>
             </div>
-            <p className="mt-2 text-[10px] text-slate-400">
+            <p className="mt-2 text-[10px] text-muted/70">
               Employees signed in with role=employee see only My Time, Leave and Concierge tickets. <strong>Managers</strong> (previously labelled “TA Manager” — the stored role and access are unchanged) can approve their direct reports’ timesheets on Team Time and their leave requests on the Leave page’s Approvals tab, see Team Leave, and access the India T&amp;M section (no visibility to Projects / Financials / Admin). Set each report’s manager email here — leave requests route to that manager for approval.
             </p>
           </div>
@@ -324,27 +324,27 @@ export default function UsersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left">
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Email</th>
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Name</th>
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Role</th>
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Manager</th>
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Gender</th>
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Zoho code</th>
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Notes</th>
-                <th className="pb-3 pr-3 font-semibold text-slate-600">Added</th>
+              <tr className="border-b border-line text-left">
+                <th className="pb-3 pr-3 font-semibold text-muted">Email</th>
+                <th className="pb-3 pr-3 font-semibold text-muted">Name</th>
+                <th className="pb-3 pr-3 font-semibold text-muted">Role</th>
+                <th className="pb-3 pr-3 font-semibold text-muted">Manager</th>
+                <th className="pb-3 pr-3 font-semibold text-muted">Gender</th>
+                <th className="pb-3 pr-3 font-semibold text-muted">Zoho code</th>
+                <th className="pb-3 pr-3 font-semibold text-muted">Notes</th>
+                <th className="pb-3 pr-3 font-semibold text-muted">Added</th>
                 <th className="pb-3 w-8" />
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">Loading…</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-muted/70 text-sm">Loading…</td></tr>
               )}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">No authorized users.</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-muted/70 text-sm">No authorized users.</td></tr>
               )}
               {rows.map((r) => (
-                <tr key={r.email} className="border-b border-slate-100 hover:bg-slate-50 group">
+                <tr key={r.email} className="border-b border-line/60 hover:bg-surface-2/70 group">
                   <td className="py-2.5 pr-3">
                     <div className="flex items-center gap-2.5">
                       <label className="relative cursor-pointer group/avatar" title="Upload a profile photo">
@@ -362,7 +362,7 @@ export default function UsersPage() {
                           disabled={uploadingFor === r.email}
                         />
                       </label>
-                      <span className="font-medium text-slate-800">{r.email}</span>
+                      <span className="font-medium text-ink">{r.email}</span>
                     </div>
                   </td>
                   <td className="py-2.5 pr-3">
@@ -378,7 +378,7 @@ export default function UsersPage() {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}
                       title="Press Enter or click away to save"
-                      className="text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
+                      className="text-sm text-ink/80 bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
                     />
                   </td>
                   <td className="py-2.5 pr-3">
@@ -386,7 +386,7 @@ export default function UsersPage() {
                       value={r.role}
                       onChange={(e) => patchRow(r.email, { role: e.target.value as UserRole })}
                       style={{ borderLeft: `3px solid ${r.role === 'admin' ? '#f59e0b' : r.role === 'manager' ? '#3b82f6' : '#94a3b8'}` }}
-                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+                      className="text-xs border border-line rounded px-2 py-1 bg-white"
                     >
                       <option value="employee">Employee</option>
                       <option value="manager">Manager</option>
@@ -412,7 +412,7 @@ export default function UsersPage() {
                           setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, manager_email: value || null } : x));
                           patchRow(r.email, { manager_email: value });
                         }}
-                        className="text-xs border border-slate-200 rounded px-2 py-1 bg-white max-w-[200px]"
+                        className="text-xs border border-line rounded px-2 py-1 bg-white max-w-[200px]"
                         title="Pick this user's manager — changes save immediately"
                       >
                         <option value="">— No manager —</option>
@@ -423,7 +423,7 @@ export default function UsersPage() {
                           ))}
                       </select>
                       {savedFlash[r.email] === 'saving' && (
-                        <span className="text-[10px] text-slate-400">Saving…</span>
+                        <span className="text-[10px] text-muted/70">Saving…</span>
                       )}
                       {savedFlash[r.email] === 'saved' && (
                         <span className="text-[10px] text-emerald-600 font-semibold">✓ Saved</span>
@@ -438,7 +438,7 @@ export default function UsersPage() {
                         setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, gender: value || null } : x));
                         patchRow(r.email, { gender: value });
                       }}
-                      className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+                      className="text-xs border border-line rounded px-2 py-1 bg-white"
                       title="Gates gender-specific leave types (Maternity / Paternity) — saves immediately"
                     >
                       <option value="">—</option>
@@ -459,7 +459,7 @@ export default function UsersPage() {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}
                       title="Press Enter or click away to save"
-                      className="text-xs bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-24"
+                      className="text-xs bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-24"
                     />
                   </td>
                   <td className="py-2.5 pr-3">
@@ -475,17 +475,17 @@ export default function UsersPage() {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}
                       title="Press Enter or click away to save"
-                      className="text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
+                      className="text-xs text-muted bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
                     />
                   </td>
-                  <td className="py-2.5 pr-3 text-xs text-slate-500">
+                  <td className="py-2.5 pr-3 text-xs text-muted">
                     {new Date(r.added_at).toLocaleDateString()}
-                    {r.added_by && <div className="text-[10px] text-slate-400">by {r.added_by}</div>}
+                    {r.added_by && <div className="text-[10px] text-muted/70">by {r.added_by}</div>}
                   </td>
                   <td className="py-2.5 text-right">
                     <button
                       onClick={() => setConfirmRemove(r.email)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-line hover:text-red-500 transition-opacity"
                       title="Remove access"
                     >
                       <Trash2 size={14} />

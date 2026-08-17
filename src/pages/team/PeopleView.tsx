@@ -144,13 +144,13 @@ export default function PeopleView() {
       <div className="lg:w-80 shrink-0 flex flex-col">
         <div className="flex gap-2 mb-3">
           <div className="flex-1 relative">
-            <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+            <Search size={14} className="absolute left-2.5 top-2.5 text-muted/70" />
             <input
               type="text"
               placeholder="Search people..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full rounded-lg border border-line pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
           <button
@@ -166,7 +166,7 @@ export default function PeopleView() {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="flex-1 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+            className="flex-1 rounded-lg border border-line px-2 py-1 text-xs"
           >
             <option value="">All Roles</option>
             {roles.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -174,7 +174,7 @@ export default function PeopleView() {
           <button
             onClick={() => setGroupByRole((v) => !v)}
             className={`px-2 py-1 rounded-lg border text-xs transition-colors ${
-              groupByRole ? 'bg-primary/10 border-primary/40 text-primary font-semibold' : 'bg-white border-slate-300 text-slate-600'
+              groupByRole ? 'bg-primary/10 border-primary/40 text-primary font-semibold' : 'bg-white border-line text-muted'
             }`}
             title="Group by role"
           >
@@ -197,7 +197,7 @@ export default function PeopleView() {
           {sections.map((s) => (
             <div key={s.bucket ?? '_'}>
               {s.bucket && (
-                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 sticky top-0 z-10">
+                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted bg-surface-2/70 sticky top-0 z-10">
                   {s.bucket} · {s.items.length}
                 </div>
               )}
@@ -210,7 +210,7 @@ export default function PeopleView() {
                     key={g.name}
                     onClick={() => setSelectedName(g.name)}
                     className={`w-full text-left p-2 rounded-lg flex items-center gap-2 transition-colors ${
-                      isSel ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-slate-50'
+                      isSel ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-surface-2/70'
                     }`}
                   >
                     <div
@@ -224,19 +224,19 @@ export default function PeopleView() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-slate-800 truncate">{g.name}</span>
-                        <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{Math.round(utilPct)}%</span>
+                        <span className="text-sm font-medium text-ink truncate">{g.name}</span>
+                        <span className="text-[10px] text-muted/70 tabular-nums shrink-0">{Math.round(utilPct)}%</span>
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-slate-500 truncate">{g.role || 'No role'}</span>
+                        <span className="text-[10px] text-muted truncate">{g.role || 'No role'}</span>
                         {g.assignments.length > 0 && (
-                          <span className="text-[9px] text-slate-400 shrink-0">· {g.assignments.length}p</span>
+                          <span className="text-[9px] text-muted/70 shrink-0">· {g.assignments.length}p</span>
                         )}
                       </div>
-                      <div className="mt-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="mt-1 h-1 bg-surface-2 rounded-full overflow-hidden">
                         <div
                           className={`h-full ${
-                            utilPct >= 80 ? 'bg-emerald-500' : utilPct >= 50 ? 'bg-sky-500' : utilPct > 0 ? 'bg-amber-400' : 'bg-slate-200'
+                            utilPct >= 80 ? 'bg-emerald-500' : utilPct >= 50 ? 'bg-sky-500' : utilPct > 0 ? 'bg-amber-400' : 'bg-line/60'
                           }`}
                           style={{ width: `${Math.min(utilPct, 100)}%` }}
                         />
@@ -248,7 +248,7 @@ export default function PeopleView() {
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="text-center py-8 text-slate-400 text-sm">
+            <div className="text-center py-8 text-muted/70 text-sm">
               {groups.length === 0 ? 'No team yet. Click + Add.' : 'No matches.'}
             </div>
           )}
@@ -258,11 +258,11 @@ export default function PeopleView() {
       {/* ── Detail pane ─────────────────────── */}
       <div className="flex-1 min-w-0">
         {!selected ? (
-          <div className="h-full flex items-center justify-center text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl py-16">
+          <div className="h-full flex items-center justify-center text-muted/70 text-sm border border-dashed border-line rounded-xl py-16">
             Select a person to view and edit their allocations.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="bg-white rounded-xl border border-line p-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-center gap-3">
@@ -286,16 +286,16 @@ export default function PeopleView() {
                       void renamePodAssignment(oldName, v);
                       setSelectedName(v);
                     }}
-                    className="text-xl font-bold text-slate-900"
+                    className="text-xl font-bold text-ink"
                   />
-                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-muted">
                     <EditableField
                       value={selected.role || ''}
                       placeholder="Role"
                       onSave={(v) => updateEmployeeRole(selected.name, v)}
                     />
                     <span>·</span>
-                    <Sensitive placeholder={<span className="text-slate-400 italic">$•••</span>}>
+                    <Sensitive placeholder={<span className="text-muted/70 italic">$•••</span>}>
                       <EditableField
                         value={selected.rateCard != null ? `$${selected.rateCard}` : ''}
                         placeholder="Rate"
@@ -343,7 +343,7 @@ export default function PeopleView() {
                 />
                 <button
                   onClick={() => setConfirmDelete(selected.name)}
-                  className="p-2 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50"
+                  className="p-2 rounded-lg text-line hover:text-red-500 hover:bg-red-50"
                   title="Remove resource"
                 >
                   <Trash2 size={16} />
@@ -367,7 +367,7 @@ export default function PeopleView() {
                   </button>
                   <button
                     onClick={() => setConfirmDelete(null)}
-                    className="px-3 py-1 text-sm font-medium rounded border border-slate-300 text-slate-600 hover:bg-slate-50"
+                    className="px-3 py-1 text-sm font-medium rounded border border-line text-muted hover:bg-surface-2/70"
                   >
                     Cancel
                   </button>
@@ -376,7 +376,7 @@ export default function PeopleView() {
             )}
 
             {/* Year row */}
-            <div className="flex items-center gap-3 text-[10px] text-slate-400 uppercase tracking-wider mb-1 px-1">
+            <div className="flex items-center gap-3 text-[10px] text-muted/70 uppercase tracking-wider mb-1 px-1">
               <span className="w-40 shrink-0">Project</span>
               <span className="flex-1">
                 <span className="grid grid-cols-12 gap-0.5">
@@ -399,7 +399,7 @@ export default function PeopleView() {
                     hue={colorHash(a.project)}
                     trailing={
                       <div className="flex items-center gap-1.5 w-16 justify-end">
-                        <span className="text-xs font-bold tabular-nums text-slate-700">
+                        <span className="text-xs font-bold tabular-nums text-ink/80">
                           {total > 0 ? total : '—'}
                         </span>
                         {selected.assignments.length > 1 && (
@@ -410,7 +410,7 @@ export default function PeopleView() {
                               );
                               if (idx >= 0) removeAssignment(idx);
                             }}
-                            className="text-slate-300 hover:text-red-400"
+                            className="text-line hover:text-red-400"
                             title="Remove project"
                           >
                             <X size={12} />
@@ -433,12 +433,12 @@ export default function PeopleView() {
               })}
 
               {/* Add project row */}
-              <div className="pt-2 border-t border-slate-100 mt-2">
+              <div className="pt-2 border-t border-line/60 mt-2">
                 {addingProject ? (
                   <div className="flex items-center gap-2">
                     <select
                       autoFocus
-                      className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                      className="flex-1 rounded-lg border border-line px-2 py-1.5 text-sm"
                       defaultValue=""
                       onChange={(e) => {
                         const val = e.target.value;
@@ -471,7 +471,7 @@ export default function PeopleView() {
                     </select>
                     <button
                       onClick={() => setAddingProject(false)}
-                      className="text-xs text-slate-400 hover:text-slate-600"
+                      className="text-xs text-muted/70 hover:text-muted"
                     >
                       Cancel
                     </button>
@@ -487,7 +487,7 @@ export default function PeopleView() {
               </div>
             </div>
 
-            <p className="mt-5 text-[11px] text-slate-400 leading-relaxed">
+            <p className="mt-5 text-[11px] text-muted/70 leading-relaxed">
               Tip — click any month bar to set hours. Use the presets (Full / Half / Quarter / Off), the +/- stepper for fine-tuning, or “Apply to” to fill multiple months at once. Need weekly precision? Hit “Edit by week →” inside the popover.
             </p>
           </div>
@@ -500,10 +500,10 @@ export default function PeopleView() {
 function StatBlock({ label, value, unit }: { label: string; value: number; unit: string }) {
   return (
     <div className="text-right">
-      <div className="text-[10px] text-slate-400 uppercase tracking-wider">{label}</div>
-      <div className="text-base font-bold tabular-nums text-slate-800">
+      <div className="text-[10px] text-muted/70 uppercase tracking-wider">{label}</div>
+      <div className="text-base font-bold tabular-nums text-ink">
         {value > 0 ? value.toLocaleString() : '—'}
-        <span className="text-[10px] text-slate-400 ml-0.5">{unit}</span>
+        <span className="text-[10px] text-muted/70 ml-0.5">{unit}</span>
       </div>
     </div>
   );
@@ -552,7 +552,7 @@ function EditableField({
       }}
       className={`hover:text-primary text-left ${className}`}
     >
-      {value || <span className="text-slate-300">{placeholder}</span>}
+      {value || <span className="text-line">{placeholder}</span>}
     </button>
   );
 }
@@ -569,7 +569,7 @@ function PodInlineEditor({ currentPod, onCommit, knownPods }: {
   const [draft, setDraft] = useState(currentPod);
   return (
     <div className="inline-flex items-center gap-1">
-      <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Pod</span>
+      <span className="text-[10px] uppercase tracking-wider text-muted/70 font-semibold">Pod</span>
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -584,7 +584,7 @@ function PodInlineEditor({ currentPod, onCommit, knownPods }: {
         placeholder="—"
         list="team-people-pod-suggestions"
         title="Press Enter or click away to save · Esc to cancel"
-        className="w-20 text-xs bg-transparent border border-transparent hover:border-slate-200 focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="w-20 text-xs bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
       <datalist id="team-people-pod-suggestions">
         {knownPods.map((p) => <option key={p} value={p} />)}

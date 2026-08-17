@@ -58,7 +58,7 @@ export interface GtmAction {
 }
 
 export const GTM_STATUS_META: Record<GtmStatus, { label: string; cls: string; rank: number }> = {
-  prospecting:        { label: 'Prospecting',        cls: 'bg-slate-100 text-slate-700 border-slate-200', rank: 0 },
+  prospecting:        { label: 'Prospecting',        cls: 'bg-surface-2 text-ink/80 border-line', rank: 0 },
   engaged:            { label: 'Engaged',            cls: 'bg-sky-50 text-sky-700 border-sky-200',       rank: 1 },
   active_discussion:  { label: 'Active Discussion',  cls: 'bg-indigo-50 text-indigo-700 border-indigo-200', rank: 2 },
   proposal:           { label: 'Proposal',           cls: 'bg-violet-50 text-violet-700 border-violet-200', rank: 3 },
@@ -70,14 +70,14 @@ export const GTM_STATUS_META: Record<GtmStatus, { label: string; cls: string; ra
 export const GTM_PRIORITY_META: Record<GtmPriority, { label: string; cls: string; dot: string }> = {
   high:   { label: 'High',   cls: 'bg-rose-100 text-rose-800 border-rose-200',       dot: 'bg-rose-500' },
   medium: { label: 'Medium', cls: 'bg-amber-100 text-amber-800 border-amber-200',    dot: 'bg-amber-500' },
-  low:    { label: 'Low',    cls: 'bg-slate-100 text-slate-600 border-slate-200',    dot: 'bg-slate-400' },
+  low:    { label: 'Low',    cls: 'bg-surface-2 text-muted border-line',    dot: 'bg-slate-400' },
 };
 
 export const GTM_ACTION_STATUS_META: Record<GtmActionStatus, { label: string; cls: string }> = {
-  open:         { label: 'Open',        cls: 'bg-slate-100 text-slate-700 border-slate-200' },
+  open:         { label: 'Open',        cls: 'bg-surface-2 text-ink/80 border-line' },
   in_progress:  { label: 'In Progress', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
   done:         { label: 'Done',        cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-  cancelled:    { label: 'Cancelled',   cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+  cancelled:    { label: 'Cancelled',   cls: 'bg-surface-2 text-muted border-line' },
 };
 
 export const GTM_PARTNERSHIP_TYPES = [

@@ -22,7 +22,7 @@ export function RoleOnly({ allow, fallback = '/', children }: {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-400 text-sm">
+      <div className="flex items-center justify-center py-20 text-muted/70 text-sm">
         Checking permissions…
       </div>
     );

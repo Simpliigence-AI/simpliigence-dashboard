@@ -99,25 +99,25 @@ export function IgnoredSendersModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
+        <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">
           <div>
-            <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <div className="text-sm font-bold text-ink flex items-center gap-1.5">
               <ShieldOff size={14} className="text-rose-600" /> Ignored senders
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
+            <div className="text-[11px] text-muted mt-0.5">
               Emails matching any active rule are dropped before ticket creation.
-              {totalSuppressed > 0 && <> · <span className="font-semibold text-slate-700">{totalSuppressed}</span> total suppressed to date.</>}
+              {totalSuppressed > 0 && <> · <span className="font-semibold text-ink/80">{totalSuppressed}</span> total suppressed to date.</>}
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={16} /></button>
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 p-1"><X size={16} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Add form */}
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-            <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Add rule</div>
+          <div className="rounded-lg border border-line bg-surface-2/70 p-3 space-y-2">
+            <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">Add rule</div>
             <div className="grid grid-cols-4 gap-2">
-              <select value={addKind} onChange={(e) => setAddKind(e.target.value as IgnoredKind)} className="px-2 py-1.5 rounded border border-slate-300 text-xs bg-white">
+              <select value={addKind} onChange={(e) => setAddKind(e.target.value as IgnoredKind)} className="px-2 py-1.5 rounded border border-line text-xs bg-white">
                 <option value="substring">Contains</option>
                 <option value="domain">Domain</option>
                 <option value="email">Exact email</option>
@@ -127,7 +127,7 @@ export function IgnoredSendersModal({ onClose }: { onClose: () => void }) {
                 value={addPattern}
                 onChange={(e) => setAddPattern(e.target.value)}
                 placeholder={addKind === 'email' ? 'noreply@vendor.com' : addKind === 'domain' ? 'vendor.com' : 'launch27'}
-                className="col-span-2 px-2 py-1.5 rounded border border-slate-300 text-xs"
+                className="col-span-2 px-2 py-1.5 rounded border border-line text-xs"
               />
               <Button variant="primary" size="sm" onClick={add} disabled={!addPattern.trim() || busy}>
                 {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
@@ -139,7 +139,7 @@ export function IgnoredSendersModal({ onClose }: { onClose: () => void }) {
               value={addReason}
               onChange={(e) => setAddReason(e.target.value)}
               placeholder="Why (optional) — e.g. Noise, automated notifications, not real tickets"
-              className="w-full px-2 py-1.5 rounded border border-slate-300 text-xs"
+              className="w-full px-2 py-1.5 rounded border border-line text-xs"
             />
           </div>
 
@@ -151,38 +151,38 @@ export function IgnoredSendersModal({ onClose }: { onClose: () => void }) {
 
           {/* Rules list */}
           {loading ? (
-            <div className="text-center text-slate-500 py-6 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
+            <div className="text-center text-muted py-6 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
           ) : rules.length === 0 ? (
-            <div className="text-center text-slate-400 italic text-sm py-6">No ignore rules yet.</div>
+            <div className="text-center text-muted/70 italic text-sm py-6">No ignore rules yet.</div>
           ) : (
             <ul className="space-y-1.5">
               {rules.map((r) => (
-                <li key={r.id} className={`rounded-lg border p-2.5 ${r.isActive ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50 opacity-70'}`}>
+                <li key={r.id} className={`rounded-lg border p-2.5 ${r.isActive ? 'border-line bg-white' : 'border-line bg-surface-2/70 opacity-70'}`}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={() => toggle(r)}
                       title={r.isActive ? 'Disable rule' : 'Enable rule'}
                       className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                        r.isActive ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-100 text-slate-500 border-slate-200'
+                        r.isActive ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-surface-2 text-muted border-line'
                       }`}
                     >
                       {r.isActive ? <ShieldOff size={9} /> : <Check size={9} />}
                       {r.isActive ? 'Active' : 'Disabled'}
                     </button>
-                    <span className="text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-medium bg-surface-2 text-muted border border-line px-1.5 py-0.5 rounded">
                       {r.kind === 'email' ? 'exact' : r.kind === 'domain' ? 'domain' : 'contains'}
                     </span>
-                    <code className="text-sm font-mono font-semibold text-slate-900 flex-1 min-w-0 truncate">{r.pattern}</code>
-                    <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                    <code className="text-sm font-mono font-semibold text-ink flex-1 min-w-0 truncate">{r.pattern}</code>
+                    <span className="text-[10px] text-muted whitespace-nowrap">
                       {r.suppressedCount > 0
                         ? `${r.suppressedCount} suppressed${r.lastSuppressedAt ? ` · last ${new Date(r.lastSuppressedAt).toLocaleDateString()}` : ''}`
                         : 'not yet triggered'}
                     </span>
-                    <button type="button" onClick={() => remove(r)} className="text-slate-400 hover:text-rose-600 p-1" title="Remove"><Trash2 size={13} /></button>
+                    <button type="button" onClick={() => remove(r)} className="text-muted/70 hover:text-rose-600 p-1" title="Remove"><Trash2 size={13} /></button>
                   </div>
-                  {r.reason && <div className="text-[11px] text-slate-600 mt-1 pl-1">{r.reason}</div>}
-                  <div className="text-[10px] text-slate-400 mt-0.5 pl-1">
+                  {r.reason && <div className="text-[11px] text-muted mt-1 pl-1">{r.reason}</div>}
+                  <div className="text-[10px] text-muted/70 mt-0.5 pl-1">
                     Added {new Date(r.addedAt).toLocaleDateString()}{r.addedBy ? ` by ${r.addedBy}` : ''}
                   </div>
                 </li>

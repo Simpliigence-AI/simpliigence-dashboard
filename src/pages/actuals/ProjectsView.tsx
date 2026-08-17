@@ -64,19 +64,19 @@ export default function ActualProjectsView() {
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex-1 min-w-[200px] relative">
-          <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+          <Search size={14} className="absolute left-2.5 top-2.5 text-muted/70" />
           <input
             type="text"
             placeholder="Search projects..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="w-full rounded-lg border border-line pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+        <div className="text-center py-12 text-muted/70 text-sm border border-dashed border-line rounded-xl">
           {cards.length === 0 ? 'No actuals synced yet.' : 'No projects match the filter.'}
         </div>
       ) : (
@@ -84,9 +84,9 @@ export default function ActualProjectsView() {
           {filtered.map((card) => {
             const hue = colorHash(card.name);
             return (
-              <div key={card.name} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div key={card.name} className="bg-white rounded-xl border border-line overflow-hidden">
                 <div
-                  className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100"
+                  className="px-4 py-3 flex items-center justify-between gap-3 border-b border-line/60"
                   style={{ backgroundColor: `hsl(${hue} 70% 97%)` }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -95,16 +95,16 @@ export default function ActualProjectsView() {
                       style={{ backgroundColor: `hsl(${hue} 60% 55%)` }}
                     />
                     <div className="min-w-0">
-                      <h3 className="text-base font-bold text-slate-800 truncate">{card.name}</h3>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <h3 className="text-base font-bold text-ink truncate">{card.name}</h3>
+                      <div className="text-xs text-muted mt-0.5">
                         {card.people.length} {card.people.length === 1 ? 'person' : 'people'} ·{' '}
-                        <span className="font-semibold text-slate-700 tabular-nums">{card.totalHours.toFixed(0)} hrs logged</span>
+                        <span className="font-semibold text-ink/80 tabular-nums">{card.totalHours.toFixed(0)} hrs logged</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="divide-y divide-slate-50">
+                <div className="divide-y divide-line/40">
                   {card.people.map((p) => {
                     const personHue = colorHash(p.name);
                     return (
@@ -120,8 +120,8 @@ export default function ActualProjectsView() {
                             {getInitials(p.name)}
                           </div>
                           <div className="w-40 shrink-0 min-w-0">
-                            <div className="text-sm font-medium text-slate-800 truncate">{p.name}</div>
-                            {p.email && <div className="text-[11px] text-slate-500 truncate">{p.email}</div>}
+                            <div className="text-sm font-medium text-ink truncate">{p.name}</div>
+                            {p.email && <div className="text-[11px] text-muted truncate">{p.email}</div>}
                           </div>
                           <div className="flex-1 min-w-0">
                             <AllocationStrip
@@ -135,8 +135,8 @@ export default function ActualProjectsView() {
                             />
                           </div>
                           <div className="w-14 shrink-0 text-right tabular-nums">
-                            <div className="text-sm font-bold text-slate-700">{p.total.toFixed(0)}</div>
-                            <div className="text-[9px] text-slate-400 uppercase">hrs/yr</div>
+                            <div className="text-sm font-bold text-ink/80">{p.total.toFixed(0)}</div>
+                            <div className="text-[9px] text-muted/70 uppercase">hrs/yr</div>
                           </div>
                         </div>
                       </div>
@@ -149,7 +149,7 @@ export default function ActualProjectsView() {
         </div>
       )}
 
-      <p className="mt-4 text-[11px] text-slate-400 leading-relaxed">
+      <p className="mt-4 text-[11px] text-muted/70 leading-relaxed">
         Read-only view of logged hours per project from Zoho People. To assign forecast hours, use the Project Team page.
       </p>
     </div>

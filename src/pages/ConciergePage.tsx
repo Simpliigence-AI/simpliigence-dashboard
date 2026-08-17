@@ -51,7 +51,7 @@ import { Card, StatCard, Badge, Button, EmptyState, Drawer } from '../components
 type BaseInputProps = InputHTMLAttributes<HTMLInputElement>;
 type BaseSelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 type BaseTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
-const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
+const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm text-ink placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: BaseInputProps) => <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: BaseSelectProps) => (
   <select className={`${INPUT_CLS} bg-white ${className}`} {...p}>{children}</select>
@@ -184,14 +184,14 @@ function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl:
         src={src}
         alt={`${account.name} logo`}
         onError={() => setSrcIdx((i) => i + 1)}
-        className="rounded-lg object-contain bg-white border border-slate-200 flex-shrink-0"
+        className="rounded-lg object-contain bg-white border border-line flex-shrink-0"
         style={{ width: size, height: size }}
       />
     );
   }
   return (
     <div
-      className="rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 font-semibold flex-shrink-0"
+      className="rounded-lg bg-surface-2 border border-line flex items-center justify-center text-muted font-semibold flex-shrink-0"
       style={{ width: size, height: size, fontSize: Math.max(11, size / 3) }}
     >
       {initials}
@@ -219,15 +219,15 @@ interface ClientGroup {
 function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicketClick: (id: string) => void }) {
   const [expanded, setExpanded] = useState(group.openCount > 0);
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+    <div className="bg-white rounded-xl border border-line shadow-sm">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors rounded-xl"
+        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-surface-2/70 transition-colors rounded-xl"
       >
         <div className="flex items-center gap-3">
-          {expanded ? <ChevronDown size={18} className="text-slate-400" /> : <ChevronRight size={18} className="text-slate-400" />}
-          <h3 className="text-sm font-semibold text-slate-800">{group.account}</h3>
+          {expanded ? <ChevronDown size={18} className="text-muted/70" /> : <ChevronRight size={18} className="text-muted/70" />}
+          <h3 className="text-sm font-semibold text-ink">{group.account}</h3>
           <Badge variant="neutral">{group.tickets.length} ticket{group.tickets.length !== 1 ? 's' : ''}</Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -239,14 +239,14 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
         <div className="px-6 pb-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">#</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Subject</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Status</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Priority</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Assignee</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-slate-500 uppercase">Est. hours</th>
-                <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Created</th>
+              <tr className="border-b border-line/60">
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">#</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Subject</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Status</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Priority</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Assignee</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Est. hours</th>
+                <th className="text-left py-2 text-xs font-medium text-muted uppercase">Created</th>
               </tr>
             </thead>
             <tbody>
@@ -254,9 +254,9 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                 <tr
                   key={t.id}
                   onClick={() => onTicketClick(t.id)}
-                  className="border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50"
+                  className="border-b border-line/40 last:border-0 cursor-pointer hover:bg-surface-2/70"
                 >
-                  <td className="py-2.5 pr-4 text-slate-500 font-mono text-xs">{t.ticketNumber}</td>
+                  <td className="py-2.5 pr-4 text-muted font-mono text-xs">{t.ticketNumber}</td>
                   <td className="py-2.5 pr-4 max-w-xs">
                     <div className="text-primary inline-flex items-center gap-1">
                       <span className="truncate">{t.subject}</span>
@@ -265,9 +265,9 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                   </td>
                   <td className="py-2.5 pr-4"><Badge variant={ticketStatusVariant(t.status)}>{t.status}</Badge></td>
                   <td className="py-2.5 pr-4"><Badge variant={priorityVariant(t.priority)}>{t.priority ?? 'None'}</Badge></td>
-                  <td className="py-2.5 pr-4 text-xs text-slate-600 truncate max-w-[10rem]">{t.assigneeEmail ?? <span className="text-slate-400">Unassigned</span>}</td>
-                  <td className="py-2.5 pr-4 text-slate-600 whitespace-nowrap tabular-nums">{fmtTicketEstimate(t)}</td>
-                  <td className="py-2.5 whitespace-nowrap text-slate-600">{fmtDate(t.createdTime)}</td>
+                  <td className="py-2.5 pr-4 text-xs text-muted truncate max-w-[10rem]">{t.assigneeEmail ?? <span className="text-muted/70">Unassigned</span>}</td>
+                  <td className="py-2.5 pr-4 text-muted whitespace-nowrap tabular-nums">{fmtTicketEstimate(t)}</td>
+                  <td className="py-2.5 whitespace-nowrap text-muted">{fmtDate(t.createdTime)}</td>
                 </tr>
               ))}
             </tbody>
@@ -309,16 +309,16 @@ function AccountCard({ account, features, openTickets, monthAmount, onOpen }: Ac
       className={`text-left rounded-xl shadow-sm hover:shadow-md transition-all p-5 flex flex-col gap-4 ${
         dormant
           ? 'bg-rose-50 border-2 border-rose-300 hover:border-rose-500 ring-1 ring-rose-200'
-          : `bg-white border border-slate-200 hover:border-primary/40 ring-1 ${health.ring}`
+          : `bg-white border border-line hover:border-primary/40 ring-1 ${health.ring}`
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <AccountLogo account={account} size={44} />
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-slate-900 truncate">{account.name}</h3>
+            <h3 className="text-base font-semibold text-ink truncate">{account.name}</h3>
             {account.industry && (
-              <div className="text-xs text-slate-500 truncate">{account.industry}</div>
+              <div className="text-xs text-muted truncate">{account.industry}</div>
             )}
             <div className="flex flex-wrap gap-1.5 mt-1">
               <Badge variant="neutral" className={billing.cls}>{billing.label}</Badge>
@@ -331,27 +331,27 @@ function AccountCard({ account, features, openTickets, monthAmount, onOpen }: Ac
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="text-xs text-slate-500">Monthly</div>
-          <div className="text-sm font-semibold text-slate-900">{fmtUSD(account.monthlyRate, { compact: true })}</div>
+          <div className="text-xs text-muted">Monthly</div>
+          <div className="text-sm font-semibold text-ink">{fmtUSD(account.monthlyRate, { compact: true })}</div>
         </div>
       </div>
 
       {/* Feature heat bar */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-slate-500">Feature coverage</span>
-          <span className="text-xs font-medium text-slate-700">{coverage}% ({implemented}/{total})</span>
+          <span className="text-xs text-muted">Feature coverage</span>
+          <span className="text-xs font-medium text-ink/80">{coverage}% ({implemented}/{total})</span>
         </div>
-        <div className="flex h-2 rounded-full overflow-hidden bg-slate-100">
+        <div className="flex h-2 rounded-full overflow-hidden bg-surface-2">
           {total > 0 ? (
             <>
               {implemented > 0 && <div className="bg-emerald-500" style={{ width: `${(implemented / total) * 100}%` }} />}
               {inProgress > 0 && <div className="bg-sky-400" style={{ width: `${(inProgress / total) * 100}%` }} />}
               {planned > 0 && <div className="bg-amber-400" style={{ width: `${(planned / total) * 100}%` }} />}
-              {notImpl > 0 && <div className="bg-slate-200" style={{ width: `${(notImpl / total) * 100}%` }} />}
+              {notImpl > 0 && <div className="bg-line/60" style={{ width: `${(notImpl / total) * 100}%` }} />}
             </>
           ) : (
-            <div className="w-full bg-slate-100" />
+            <div className="w-full bg-surface-2" />
           )}
         </div>
       </div>
@@ -360,29 +360,29 @@ function AccountCard({ account, features, openTickets, monthAmount, onOpen }: Ac
       {account.techStack.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {account.techStack.slice(0, 4).map((t) => (
-            <span key={t} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+            <span key={t} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-2/70 border border-line text-[11px] text-muted">
               <Cpu size={10} />
               {t}
             </span>
           ))}
           {account.techStack.length > 4 && (
-            <span className="px-1.5 py-0.5 text-[11px] text-slate-500">+{account.techStack.length - 4}</span>
+            <span className="px-1.5 py-0.5 text-[11px] text-muted">+{account.techStack.length - 4}</span>
           )}
         </div>
       )}
 
       {/* Footer stats */}
-      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
+      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-line/60">
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">Tickets</div>
-          <div className="text-sm font-semibold text-slate-900">{openTickets}</div>
+          <div className="text-[11px] uppercase tracking-wider text-muted">Tickets</div>
+          <div className="text-sm font-semibold text-ink">{openTickets}</div>
         </div>
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">This month</div>
-          <div className="text-sm font-semibold text-slate-900">{fmtUSD(monthAmount, { compact: true })}</div>
+          <div className="text-[11px] uppercase tracking-wider text-muted">This month</div>
+          <div className="text-sm font-semibold text-ink">{fmtUSD(monthAmount, { compact: true })}</div>
         </div>
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">Upsell</div>
+          <div className="text-[11px] uppercase tracking-wider text-muted">Upsell</div>
           <div className="text-sm font-semibold text-emerald-600">{fmtUSD(upsellPotential, { compact: true })}</div>
         </div>
       </div>
@@ -461,7 +461,7 @@ function AccountDrawer({
 
   return (
     <Drawer open={true} onClose={onClose} title={account.name} width="max-w-3xl">
-      <div className="flex items-center gap-1 border-b border-slate-200 mb-4 -mt-2 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-line mb-4 -mt-2 overflow-x-auto">
         {([
           { key: 'overview', label: 'Overview' },
           { key: 'documents', label: 'Documents' },
@@ -476,7 +476,7 @@ function AccountDrawer({
             className={`px-3 py-2 text-xs font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
               drawerTab === t.key
                 ? 'border-sky-600 text-sky-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                : 'border-transparent text-muted hover:text-ink'
             }`}
           >
             {t.label}
@@ -493,7 +493,7 @@ function AccountDrawer({
       <div className="space-y-6">
         {/* Dormant flag */}
         <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer ${
-          account.isDormant ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-200'
+          account.isDormant ? 'bg-rose-50 border-rose-300' : 'bg-surface-2/70 border-line'
         }`}>
           <input
             type="checkbox"
@@ -502,21 +502,21 @@ function AccountDrawer({
             className="w-4 h-4 accent-rose-600"
           />
           <div className="flex-1">
-            <div className={`text-sm font-semibold ${account.isDormant ? 'text-rose-800' : 'text-slate-700'}`}>
+            <div className={`text-sm font-semibold ${account.isDormant ? 'text-rose-800' : 'text-ink/80'}`}>
               {account.isDormant ? 'Dormant — needs re-engagement' : 'Mark as dormant'}
             </div>
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-muted">
               Dormant accounts render red on the Overview tab; use them as a re-engagement target list to reactivate concierge relationships.
             </div>
           </div>
         </label>
 
         {/* Identity: logo + industry + website */}
-        <section className="flex items-start gap-4 p-3 rounded-lg border border-slate-200 bg-slate-50">
+        <section className="flex items-start gap-4 p-3 rounded-lg border border-line bg-surface-2/70">
           <AccountLogo account={account} size={64} />
           <div className="flex-1 grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Industry</label>
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Industry</label>
               <Input
                 value={account.industry ?? ''}
                 onChange={(e) => store.updateAccount(account.id, { industry: e.target.value || null })}
@@ -543,7 +543,7 @@ function AccountDrawer({
               </datalist>
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Website</label>
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Website</label>
               <Input
                 value={account.website ?? ''}
                 onChange={(e) => store.updateAccount(account.id, { website: e.target.value || null })}
@@ -552,7 +552,7 @@ function AccountDrawer({
               />
             </div>
             <div className="col-span-2">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Logo URL (optional — auto-derived from website)</label>
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Logo URL (optional — auto-derived from website)</label>
               <Input
                 value={account.logoUrl ?? ''}
                 onChange={(e) => store.updateAccount(account.id, { logoUrl: e.target.value || null })}
@@ -566,7 +566,7 @@ function AccountDrawer({
         {/* Contract + status */}
         <section className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Billing Model</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Billing Model</label>
             <Select
               value={account.billingModel}
               onChange={(e) => store.updateAccount(account.id, { billingModel: e.target.value as BillingModel })}
@@ -578,7 +578,7 @@ function AccountDrawer({
             </Select>
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Health</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Health</label>
             <Select
               value={account.health}
               onChange={(e) => store.updateAccount(account.id, { health: e.target.value as AccountHealth })}
@@ -590,7 +590,7 @@ function AccountDrawer({
             </Select>
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Monthly Rate (USD)</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Monthly Rate (USD)</label>
             <Input
               type="number"
               value={account.monthlyRate ?? ''}
@@ -600,7 +600,7 @@ function AccountDrawer({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Owner Email</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Owner Email</label>
             <Input
               type="email"
               value={account.ownerEmail ?? ''}
@@ -610,7 +610,7 @@ function AccountDrawer({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Contract Start</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Contract Start</label>
             <Input
               type="date"
               value={account.contractStart ?? ''}
@@ -619,7 +619,7 @@ function AccountDrawer({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Contract End</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Contract End</label>
             <Input
               type="date"
               value={account.contractEnd ?? ''}
@@ -632,7 +632,7 @@ function AccountDrawer({
         {/* Work summary */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Current Work</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Current Work</label>
             <Textarea
               rows={3}
               value={account.currentWork ?? ''}
@@ -642,7 +642,7 @@ function AccountDrawer({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Previous Work</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Previous Work</label>
             <Textarea
               rows={3}
               value={account.previousWork ?? ''}
@@ -655,12 +655,12 @@ function AccountDrawer({
 
         {/* Tech stack */}
         <section>
-          <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-ink mb-2 flex items-center gap-2">
             <Cpu size={16} /> Tech Stack
           </h3>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {account.techStack.map((t) => (
-              <span key={t} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-xs text-slate-700">
+              <span key={t} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-2 text-xs text-ink/80">
                 {t}
                 <button type="button" onClick={() => removeTech(t)} className="hover:text-rose-600">
                   <X size={12} />
@@ -668,7 +668,7 @@ function AccountDrawer({
               </span>
             ))}
             {account.techStack.length === 0 && (
-              <span className="text-xs text-slate-400">None recorded yet.</span>
+              <span className="text-xs text-muted/70">None recorded yet.</span>
             )}
           </div>
           <div className="flex gap-2">
@@ -696,7 +696,7 @@ function AccountDrawer({
 
         {/* Features / heat map / backlog */}
         <section>
-          <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-ink mb-2 flex items-center gap-2">
             <Sparkles size={16} /> Functionality Heat Map ({features.length})
           </h3>
           <div className="space-y-2 mb-3">
@@ -704,12 +704,12 @@ function AccountDrawer({
               <FeatureRow key={f.id} feature={f} />
             ))}
             {features.length === 0 && (
-              <p className="text-sm text-slate-500 italic">No features tracked. Add from catalog below or free-form.</p>
+              <p className="text-sm text-muted italic">No features tracked. Add from catalog below or free-form.</p>
             )}
           </div>
 
           {/* Add feature */}
-          <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+          <div className="bg-surface-2/70 rounded-lg p-3 space-y-2">
             <div className="flex gap-2">
               <Input
                 value={newFeatureName}
@@ -728,20 +728,20 @@ function AccountDrawer({
             </div>
 
             <div>
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">Or add from catalog:</div>
+              <div className="text-xs font-medium text-muted uppercase tracking-wider mb-1.5">Or add from catalog:</div>
               <div className="flex flex-wrap gap-1">
                 {STANDARD_FEATURE_CATALOG.filter((c) => !features.some((f) => f.name === c.name)).map((c) => (
                   <button
                     key={c.name}
                     type="button"
                     onClick={() => addFeatureFromCatalog(c)}
-                    className="text-[11px] px-2 py-1 rounded border border-slate-200 bg-white hover:bg-primary/5 hover:border-primary/40 text-slate-700"
+                    className="text-[11px] px-2 py-1 rounded border border-line bg-white hover:bg-primary/5 hover:border-primary/40 text-ink/80"
                   >
                     + {c.name}
                   </button>
                 ))}
                 {STANDARD_FEATURE_CATALOG.every((c) => features.some((f) => f.name === c.name)) && (
-                  <span className="text-xs text-slate-400 italic">All catalog items added.</span>
+                  <span className="text-xs text-muted/70 italic">All catalog items added.</span>
                 )}
               </div>
             </div>
@@ -751,7 +751,7 @@ function AccountDrawer({
         {/* Tickets for this account */}
         {tickets.length > 0 && (
           <section>
-            <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-ink mb-2 flex items-center gap-2">
               <Ticket size={16} /> Open Tickets ({tickets.length})
             </h3>
             <div className="space-y-1">
@@ -761,11 +761,11 @@ function AccountDrawer({
                   href={t.webUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block px-3 py-2 rounded-md border border-slate-200 hover:border-primary/40 hover:bg-primary/5"
+                  className="block px-3 py-2 rounded-md border border-line hover:border-primary/40 hover:bg-primary/5"
                 >
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="font-mono text-xs text-slate-500">#{t.ticketNumber}</span>
-                    <span className="flex-1 truncate text-slate-800">{t.subject}</span>
+                    <span className="font-mono text-xs text-muted">#{t.ticketNumber}</span>
+                    <span className="flex-1 truncate text-ink">{t.subject}</span>
                     <Badge variant={ticketStatusVariant(t.status)}>{t.status}</Badge>
                     <ExternalLink size={12} className="opacity-60" />
                   </div>
@@ -778,7 +778,7 @@ function AccountDrawer({
         {/* Billing history */}
         <section>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-ink flex items-center gap-2">
               <Receipt size={16} /> Billing History ({billing.length})
             </h3>
             <Button variant="secondary" onClick={() => setShowBillingForm(!showBillingForm)}>
@@ -786,7 +786,7 @@ function AccountDrawer({
             </Button>
           </div>
           {showBillingForm && (
-            <div className="bg-slate-50 rounded-lg p-3 mb-2 grid grid-cols-4 gap-2">
+            <div className="bg-surface-2/70 rounded-lg p-3 mb-2 grid grid-cols-4 gap-2">
               <Input type="month" value={billingMonth} onChange={(e) => setBillingMonth(e.target.value)} />
               <Input type="number" value={billingAmount} onChange={(e) => setBillingAmount(e.target.value)} placeholder="Amount ($)" />
               <Input type="number" value={billingHours} onChange={(e) => setBillingHours(e.target.value)} placeholder="Hours" />
@@ -796,23 +796,23 @@ function AccountDrawer({
           {sortedBilling.length > 0 ? (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-2 text-xs font-medium text-slate-500 uppercase">Month</th>
-                  <th className="text-right py-2 text-xs font-medium text-slate-500 uppercase">Amount</th>
-                  <th className="text-right py-2 text-xs font-medium text-slate-500 uppercase">Hours</th>
-                  <th className="text-right py-2 text-xs font-medium text-slate-500 uppercase">$/hr</th>
+                <tr className="border-b border-line/60">
+                  <th className="text-left py-2 text-xs font-medium text-muted uppercase">Month</th>
+                  <th className="text-right py-2 text-xs font-medium text-muted uppercase">Amount</th>
+                  <th className="text-right py-2 text-xs font-medium text-muted uppercase">Hours</th>
+                  <th className="text-right py-2 text-xs font-medium text-muted uppercase">$/hr</th>
                   <th className="py-2 w-8"></th>
                 </tr>
               </thead>
               <tbody>
                 {sortedBilling.map((b) => (
-                  <tr key={b.id} className="border-b border-slate-50 last:border-0">
-                    <td className="py-2 text-slate-800">{monthLabel(b.month)}</td>
-                    <td className="py-2 text-right font-medium text-slate-900">{fmtUSD(b.amount)}</td>
-                    <td className="py-2 text-right text-slate-600">{b.hours.toFixed(1)}</td>
-                    <td className="py-2 text-right text-slate-500">{b.hours > 0 ? fmtUSD(b.amount / b.hours) : '—'}</td>
+                  <tr key={b.id} className="border-b border-line/40 last:border-0">
+                    <td className="py-2 text-ink">{monthLabel(b.month)}</td>
+                    <td className="py-2 text-right font-medium text-ink">{fmtUSD(b.amount)}</td>
+                    <td className="py-2 text-right text-muted">{b.hours.toFixed(1)}</td>
+                    <td className="py-2 text-right text-muted">{b.hours > 0 ? fmtUSD(b.amount / b.hours) : '—'}</td>
                     <td className="py-2 text-right">
-                      <button type="button" onClick={() => store.removeBilling(b.id)} className="text-slate-400 hover:text-rose-600">
+                      <button type="button" onClick={() => store.removeBilling(b.id)} className="text-muted/70 hover:text-rose-600">
                         <Trash2 size={13} />
                       </button>
                     </td>
@@ -821,12 +821,12 @@ function AccountDrawer({
               </tbody>
             </table>
           ) : (
-            <p className="text-sm text-slate-500 italic">No billing entries yet.</p>
+            <p className="text-sm text-muted italic">No billing entries yet.</p>
           )}
         </section>
 
         {/* Danger zone */}
-        <section className="pt-4 border-t border-slate-100">
+        <section className="pt-4 border-t border-line/60">
           <Button
             variant="secondary"
             onClick={() => {
@@ -850,12 +850,12 @@ function FeatureRow({ feature }: { feature: ConciergeFeature }) {
   const store = useConciergeAccountsStore();
   const meta = FEATURE_STATUS_META[feature.status];
   return (
-    <div className="flex items-center gap-3 py-2 px-3 rounded-lg border border-slate-100 hover:border-slate-200 bg-white">
+    <div className="flex items-center gap-3 py-2 px-3 rounded-lg border border-line/60 hover:border-line bg-white">
       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.heat}`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-slate-800 truncate">{feature.name}</span>
-          {feature.category && <span className="text-xs text-slate-400">· {feature.category}</span>}
+          <span className="font-medium text-ink truncate">{feature.name}</span>
+          {feature.category && <span className="text-xs text-muted/70">· {feature.category}</span>}
         </div>
       </div>
       <Select
@@ -883,7 +883,7 @@ function FeatureRow({ feature }: { feature: ConciergeFeature }) {
         placeholder="$ upsell"
         className="w-24 h-8 text-xs"
       />
-      <button type="button" onClick={() => store.removeFeature(feature.id)} className="text-slate-400 hover:text-rose-600">
+      <button type="button" onClick={() => store.removeFeature(feature.id)} className="text-muted/70 hover:text-rose-600">
         <Trash2 size={13} />
       </button>
     </div>
@@ -924,26 +924,26 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
         <div className="flex items-center gap-3">
           <AccountLogo account={previewAccount} size={52} />
           <div className="flex-1">
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Account name</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Account name</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Whitmore Inc." autoFocus className="mt-1" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Industry</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Industry</label>
             <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. SaaS, Manufacturing" className="mt-1" />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Website</label>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Website</label>
             <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g. acme.com" className="mt-1" />
           </div>
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Logo URL (optional)</label>
+          <label className="text-xs font-medium text-muted uppercase tracking-wider">Logo URL (optional)</label>
           <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Auto-derived from website if empty" className="mt-1" />
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Billing model</label>
+          <label className="text-xs font-medium text-muted uppercase tracking-wider">Billing model</label>
           <Select value={billingModel} onChange={(e) => setBillingModel(e.target.value as BillingModel)} className="mt-1 w-full">
             {Object.entries(BILLING_MODEL_META).map(([k, v]) => (
               <option key={k} value={k}>{v.label}</option>
@@ -951,7 +951,7 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
           </Select>
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Monthly rate (USD)</label>
+          <label className="text-xs font-medium text-muted uppercase tracking-wider">Monthly rate (USD)</label>
           <Input type="number" value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder="e.g. 5000" className="mt-1" />
         </div>
         <label className="flex items-center gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50 cursor-pointer">
@@ -1228,8 +1228,8 @@ export default function ConciergePage() {
         action={
           <div className="flex items-center gap-3 flex-wrap justify-end">
             <div className="flex items-center gap-1.5 text-xs">
-              <Clock size={14} className={lastSyncOk ? 'text-slate-400' : 'text-red-500'} />
-              <span className={lastSyncOk ? 'text-slate-500' : 'text-red-600'}>
+              <Clock size={14} className={lastSyncOk ? 'text-muted/70' : 'text-red-500'} />
+              <span className={lastSyncOk ? 'text-muted' : 'text-red-600'}>
                 {formatFreshness(lastSynced)}
               </span>
               {!lastSyncOk && lastSyncError && (
@@ -1243,7 +1243,7 @@ export default function ConciergePage() {
               type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-line bg-white hover:bg-surface-2/70 disabled:opacity-50"
               title="Pull the latest open/on-hold/escalated tickets from Zoho Desk"
             >
               {refreshing
@@ -1252,7 +1252,7 @@ export default function ConciergePage() {
               {refreshing ? 'Refreshing…' : 'Refresh tickets'}
             </button>
             {refreshMsg && (
-              <span className="text-[11px] text-slate-500 italic">{refreshMsg}</span>
+              <span className="text-[11px] text-muted italic">{refreshMsg}</span>
             )}
             {activeGraphSub ? (
               <span
@@ -1273,12 +1273,12 @@ export default function ConciergePage() {
                 {graphSetupBusy ? 'Setting up…' : 'Enable email → tickets'}
               </button>
             )}
-            {graphMsg && <span className="text-[11px] text-slate-500 italic">{graphMsg}</span>}
+            {graphMsg && <span className="text-[11px] text-muted italic">{graphMsg}</span>}
             {!employeeMode && (
               <button
                 type="button"
                 onClick={() => setShowIgnoredSenders(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-700 bg-white"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-line text-muted hover:border-rose-300 hover:text-rose-700 bg-white"
                 title="Manage ignored email senders — noise blocklist for auto-ticket creation"
               >
                 <ShieldOff size={12} /> Ignored senders
@@ -1312,7 +1312,7 @@ export default function ConciergePage() {
       )}
 
       {/* Tab bar — employees only see the Tickets tab. */}
-      <div className="flex flex-wrap gap-1 bg-white border border-slate-200 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex flex-wrap gap-1 bg-white border border-line rounded-lg p-1 mb-6 w-fit">
         {(([
           { key: 'overview', label: 'Overview', icon: <LayoutGrid size={14} /> },
           { key: 'tickets',  label: 'Tickets',  icon: <Ticket size={14} /> },
@@ -1327,7 +1327,7 @@ export default function ConciergePage() {
             type="button"
             onClick={() => setTab(t.key)}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 ${
-              tab === t.key ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
+              tab === t.key ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2'
             }`}
           >
             {t.icon} {t.label}
@@ -1339,7 +1339,7 @@ export default function ConciergePage() {
       {tab === 'overview' && (
         <>
           <div className="mb-4 max-w-sm relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/70" />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search accounts, tech, work…" className="pl-9" />
           </div>
 
@@ -1371,7 +1371,7 @@ export default function ConciergePage() {
           {/* Unmanaged (ticket-only) accounts */}
           {unmanagedAccountNames.length > 0 && (
             <Card title="Ticket clients not yet in Concierge" className="mt-6">
-              <p className="text-sm text-slate-500 mb-3">
+              <p className="text-sm text-muted mb-3">
                 These clients have open Zoho Desk tickets but no Concierge account record. Add them to track billing, features, and upsell.
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -1380,7 +1380,7 @@ export default function ConciergePage() {
                     key={n}
                     type="button"
                     onClick={() => { setSeedName(n); setShowNewAccount(true); }}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 bg-white hover:bg-primary/5 hover:border-primary/40 text-sm text-slate-700"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-line bg-white hover:bg-primary/5 hover:border-primary/40 text-sm text-ink/80"
                   >
                     <Plus size={12} /> {n}
                   </button>
@@ -1415,14 +1415,14 @@ export default function ConciergePage() {
           <>
             {dormantCount > 0 && (
               <div className="mb-3 flex items-center gap-2 text-xs">
-                <span className="text-slate-500">
+                <span className="text-muted">
                   Showing {shown.length} {includeDormantInCoverage ? 'accounts' : 'active accounts'}
                   {!includeDormantInCoverage && ` · ${dormantCount} dormant hidden`}
                 </span>
                 <button
                   type="button"
                   onClick={() => setIncludeDormantInCoverage((v) => !v)}
-                  className="px-2 py-0.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium"
+                  className="px-2 py-0.5 rounded-md border border-line bg-white hover:bg-surface-2/70 text-ink/80 font-medium"
                 >
                   {includeDormantInCoverage ? 'Hide dormant' : `Include dormant (${dormantCount})`}
                 </button>
@@ -1443,7 +1443,7 @@ export default function ConciergePage() {
         <Card
           title={`Monthly Billing — ${billingMatrix.year} (YTD + Forecast)`}
           action={
-            <div className="flex items-center gap-3 text-[11px] text-slate-500">
+            <div className="flex items-center gap-3 text-[11px] text-muted">
               <span className="inline-flex items-center gap-1">
                 <span className="inline-block w-3 h-3 rounded bg-emerald-100 border border-emerald-200" /> up
               </span>
@@ -1455,13 +1455,13 @@ export default function ConciergePage() {
           }
         >
           {accounts.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">Add concierge accounts to see billing history.</p>
+            <p className="text-center text-muted py-8">Add concierge accounts to see billing history.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left py-2 pr-3 text-xs font-medium text-slate-500 uppercase sticky left-0 bg-white">Account</th>
+                  <tr className="border-b border-line/60">
+                    <th className="text-left py-2 pr-3 text-xs font-medium text-muted uppercase sticky left-0 bg-white">Account</th>
                     {billingMatrix.months.map((m, i) => {
                       // Header shows * only when the whole column is forecast for every account.
                       // A per-row cell may still be actual if that account has explicit data.
@@ -1469,25 +1469,25 @@ export default function ConciergePage() {
                       return (
                         <th
                           key={m}
-                          className={`text-right py-2 px-2 text-xs font-medium uppercase whitespace-nowrap ${isForecast ? 'text-slate-400 italic' : 'text-slate-500'}`}
+                          className={`text-right py-2 px-2 text-xs font-medium uppercase whitespace-nowrap ${isForecast ? 'text-muted/70 italic' : 'text-muted'}`}
                         >
                           {monthLabel(m)}{isForecast ? '*' : ''}
                         </th>
                       );
                     })}
-                    <th className="text-right py-2 pl-3 text-xs font-medium text-slate-500 uppercase">YTD</th>
-                    <th className="text-right py-2 pl-3 text-xs font-medium text-slate-400 uppercase italic">Year Fcst</th>
+                    <th className="text-right py-2 pl-3 text-xs font-medium text-muted uppercase">YTD</th>
+                    <th className="text-right py-2 pl-3 text-xs font-medium text-muted/70 uppercase italic">Year Fcst</th>
                   </tr>
                 </thead>
                 <tbody>
                   {billingMatrix.rows.map(({ account, cells, ytdActual, yearTotal }) => (
                     <tr
                       key={account.id}
-                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                      className="border-b border-line/40 last:border-0 hover:bg-surface-2/70"
                     >
                       <td
                         onClick={() => setOpenAccountId(account.id)}
-                        className="py-2 pr-3 text-slate-800 font-medium sticky left-0 bg-white cursor-pointer"
+                        className="py-2 pr-3 text-ink font-medium sticky left-0 bg-white cursor-pointer"
                       >{account.name}</td>
                       {cells.map((c, i) => {
                         const prev = i > 0 ? cells[i - 1].amount : 0;
@@ -1529,10 +1529,10 @@ export default function ConciergePage() {
                                   else if (ev.key === 'Escape') { ev.preventDefault(); setOverrideCell(null); }
                                 }}
                                 onClick={(ev) => ev.stopPropagation()}
-                                className="w-20 px-1 py-0.5 text-right text-xs border border-primary rounded bg-white text-slate-900 focus:outline-none"
+                                className="w-20 px-1 py-0.5 text-right text-xs border border-primary rounded bg-white text-ink focus:outline-none"
                               />
                             ) : (
-                              <span className={`relative ${c.forecast ? 'text-slate-500' : 'text-slate-700'}`}>
+                              <span className={`relative ${c.forecast ? 'text-muted' : 'text-ink/80'}`}>
                                 {c.amount > 0 ? fmtUSD(c.amount, { compact: true }) : '—'}
                                 {c.forecast && c.amount > 0 && '*'}
                                 {arrow && <span className={`ml-1 text-[10px] ${arrowCls}`}>{arrow}</span>}
@@ -1543,11 +1543,11 @@ export default function ConciergePage() {
                       })}
                       <td
                         onClick={() => setOpenAccountId(account.id)}
-                        className="py-2 pl-3 text-right font-semibold text-slate-900 cursor-pointer"
+                        className="py-2 pl-3 text-right font-semibold text-ink cursor-pointer"
                       >{fmtUSD(ytdActual, { compact: true })}</td>
                       <td
                         onClick={() => setOpenAccountId(account.id)}
-                        className="py-2 pl-3 text-right font-semibold text-slate-500 italic cursor-pointer"
+                        className="py-2 pl-3 text-right font-semibold text-muted italic cursor-pointer"
                       >{fmtUSD(yearTotal, { compact: true })}*</td>
                     </tr>
                   ))}
@@ -1560,18 +1560,18 @@ export default function ConciergePage() {
                     const ytdSum = billingMatrix.rows.reduce((s, r) => s + r.ytdActual, 0);
                     const yearSum = billingMatrix.rows.reduce((s, r) => s + r.yearTotal, 0);
                     return (
-                      <tr className="border-t border-slate-200 bg-slate-50 font-semibold">
-                        <td className="py-2 pr-3 text-slate-900 sticky left-0 bg-slate-50">Total</td>
+                      <tr className="border-t border-line bg-surface-2/70 font-semibold">
+                        <td className="py-2 pr-3 text-ink sticky left-0 bg-surface-2/70">Total</td>
                         {totals.map((v, i) => {
                           const isForecast = i >= billingMatrix.currentMonthIdx;
                           return (
-                            <td key={i} className={`py-2 px-2 text-right ${isForecast ? 'italic text-slate-500' : 'text-slate-800'}`}>
+                            <td key={i} className={`py-2 px-2 text-right ${isForecast ? 'italic text-muted' : 'text-ink'}`}>
                               {v > 0 ? fmtUSD(v, { compact: true }) : '—'}{isForecast && v > 0 && '*'}
                             </td>
                           );
                         })}
-                        <td className="py-2 pl-3 text-right text-slate-900">{fmtUSD(ytdSum, { compact: true })}</td>
-                        <td className="py-2 pl-3 text-right text-slate-600 italic">{fmtUSD(yearSum, { compact: true })}*</td>
+                        <td className="py-2 pl-3 text-right text-ink">{fmtUSD(ytdSum, { compact: true })}</td>
+                        <td className="py-2 pl-3 text-right text-muted italic">{fmtUSD(yearSum, { compact: true })}*</td>
                       </tr>
                     );
                   })()}

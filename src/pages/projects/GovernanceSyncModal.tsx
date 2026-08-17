@@ -451,18 +451,18 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white shrink-0">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-line/60 bg-gradient-to-r from-blue-50 to-white shrink-0">
           <span className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
             <Link2 size={15} />
           </span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-slate-900">Sync with Delivery Governance</div>
-            <div className="text-[11px] text-slate-500">
+            <div className="text-sm font-bold text-ink">Sync with Delivery Governance</div>
+            <div className="text-[11px] text-muted">
               Confirm which Governance project each one is, then pull its dates and plan.
               Team allocation stays from the Project Team tab.
             </div>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-100">
+          <button type="button" onClick={onClose} className="text-muted/70 hover:text-ink/80 p-1 rounded hover:bg-surface-2">
             <X size={16} />
           </button>
         </div>
@@ -470,7 +470,7 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
           {loading && (
-            <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted">
               <Loader2 size={16} className="animate-spin" /> Loading Governance projects…
             </div>
           )}
@@ -490,15 +490,15 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                   Changes only apply in this browser and will not reach other users. {saveError}
                 </div>
               ) : (
-                <div className="text-sm font-semibold text-slate-800 mb-2">Sync complete</div>
+                <div className="text-sm font-semibold text-ink mb-2">Sync complete</div>
               )}
               {result.map((r) => (
                 <div key={r.name} className="flex items-start gap-2 text-xs">
                   {r.ok
                     ? <Check size={13} className="text-emerald-600 mt-0.5 shrink-0" />
                     : <AlertTriangle size={13} className="text-amber-600 mt-0.5 shrink-0" />}
-                  <span className="font-medium text-slate-800">{r.name}</span>
-                  <span className="text-slate-500">— {r.note}</span>
+                  <span className="font-medium text-ink">{r.name}</span>
+                  <span className="text-muted">— {r.note}</span>
                 </div>
               ))}
             </div>
@@ -506,10 +506,10 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
 
           {!loading && !error && !result && (
             <>
-              <div className="grid grid-cols-[1fr_auto_1.3fr] gap-x-3 gap-y-0 items-center px-2 pb-1.5 mb-1 border-b border-slate-100">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">This tool</div>
+              <div className="grid grid-cols-[1fr_auto_1.3fr] gap-x-3 gap-y-0 items-center px-2 pb-1.5 mb-1 border-b border-line/60">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted">This tool</div>
                 <div />
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Delivery Governance</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Delivery Governance</div>
               </div>
 
               {projects.map((p) => {
@@ -517,16 +517,16 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                 const g = sel && sel !== SKIP ? govById.get(sel) : null;
                 const noPlan = g ? g.taskCount === 0 : false;
                 return (
-                  <div key={p.id} className="grid grid-cols-[1fr_auto_1.3fr] gap-x-3 items-center px-2 py-2 rounded-lg hover:bg-slate-50">
+                  <div key={p.id} className="grid grid-cols-[1fr_auto_1.3fr] gap-x-3 items-center px-2 py-2 rounded-lg hover:bg-surface-2/70">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-800 truncate">{p.name}</div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-sm font-medium text-ink truncate">{p.name}</div>
+                      <div className="text-[11px] text-muted/70">
                         {fmt(p.startDate)} – {fmt(p.endDate)} · {p.phases?.length ?? 0} phases
                       </div>
                     </div>
 
-                    <div className="text-slate-300">
-                      {sel === SKIP ? <Ban size={14} className="text-slate-400" /> : <Link2 size={14} />}
+                    <div className="text-line">
+                      {sel === SKIP ? <Ban size={14} className="text-muted/70" /> : <Link2 size={14} />}
                     </div>
 
                     <div className="min-w-0">
@@ -534,8 +534,8 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                         value={sel}
                         onChange={(e) => setChoice((c) => ({ ...c, [p.id]: e.target.value }))}
                         className={`w-full px-2.5 py-1.5 text-sm rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 ${
-                          sel === SKIP ? 'border-slate-200 text-slate-400'
-                          : sel ? 'border-slate-300 text-slate-800'
+                          sel === SKIP ? 'border-line text-muted/70'
+                          : sel ? 'border-line text-ink'
                           : 'border-amber-300 bg-amber-50 text-amber-900'
                         }`}
                       >
@@ -548,7 +548,7 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                         ))}
                       </select>
                       {g && (
-                        <div className={`text-[11px] mt-0.5 ${noPlan ? 'text-amber-700' : 'text-slate-400'}`}>
+                        <div className={`text-[11px] mt-0.5 ${noPlan ? 'text-amber-700' : 'text-muted/70'}`}>
                           {noPlan
                             ? 'No plan in Governance — dates only, existing phases kept'
                             : `${fmt(g.startDate)} – ${fmt(g.currentEnd ?? g.plannedEnd)} · ${g.taskCount} tasks`}
@@ -561,15 +561,15 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
 
               {/* ── New in Governance ── */}
               {unmatched.length > 0 && (
-                <div className="mt-5 pt-4 border-t border-slate-200">
+                <div className="mt-5 pt-4 border-t border-line">
                   <div className="flex items-baseline gap-2 mb-1 px-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted">
                       In Governance, not here
                     </div>
                     <span className="text-xs font-semibold text-blue-800 bg-blue-100 rounded-full px-2 py-0.5">
                       {unmatched.length}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-muted/70">
                       created in Governance since the last sync
                     </span>
                   </div>
@@ -579,20 +579,20 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                     const isCreate = act === 'create';
                     const isIgnore = act === 'ignore';
                     return (
-                      <div key={g.id} className="grid grid-cols-[1fr_auto_1.3fr] gap-x-3 items-center px-2 py-2 rounded-lg hover:bg-slate-50">
+                      <div key={g.id} className="grid grid-cols-[1fr_auto_1.3fr] gap-x-3 items-center px-2 py-2 rounded-lg hover:bg-surface-2/70">
                         <div className="min-w-0">
-                          <div className={`text-sm font-medium truncate ${isIgnore ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                          <div className={`text-sm font-medium truncate ${isIgnore ? 'text-muted/70 line-through' : 'text-ink'}`}>
                             {g.name}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-[11px] text-muted/70">
                             {fmt(g.startDate)} – {fmt(g.currentEnd ?? g.plannedEnd)}
                             {g.taskCount > 0 ? ` · ${g.taskCount} tasks` : ' · no plan yet'}
                             {g.pm ? ` · ${g.pm}` : ''}
                           </div>
                         </div>
 
-                        <div className="text-slate-300">
-                          {isIgnore ? <Ban size={14} className="text-slate-400" />
+                        <div className="text-line">
+                          {isIgnore ? <Ban size={14} className="text-muted/70" />
                             : isCreate ? <Plus size={14} className="text-emerald-600" />
                             : <Link2 size={14} />}
                         </div>
@@ -603,8 +603,8 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                             onChange={(e) => setNewAction((s) => ({ ...s, [g.id]: e.target.value }))}
                             className={`w-full px-2.5 py-1.5 text-sm rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                               isCreate ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                              : isIgnore ? 'border-slate-200 text-slate-400'
-                              : 'border-slate-300 text-slate-800'
+                              : isIgnore ? 'border-line text-muted/70'
+                              : 'border-line text-ink'
                             }`}
                           >
                             <option value="create">Create as a new project here</option>
@@ -618,12 +618,12 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                             </optgroup>
                           </select>
                           {isCreate && (
-                            <div className="text-[11px] mt-0.5 text-slate-400">
+                            <div className="text-[11px] mt-0.5 text-muted/70">
                               Added to Current Projects. Team allocation is set on the Project Team tab.
                             </div>
                           )}
                           {isIgnore && (
-                            <div className="text-[11px] mt-0.5 text-slate-400">
+                            <div className="text-[11px] mt-0.5 text-muted/70">
                               Remembered — it won&apos;t be offered again.
                             </div>
                           )}
@@ -638,9 +638,9 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 shrink-0">
+        <div className="px-5 py-3 border-t border-line/60 bg-surface-2/70 shrink-0">
           {!result && !loading && !error && (
-            <div className="text-[11px] text-slate-500 mb-2">
+            <div className="text-[11px] text-muted mb-2">
               {linkedCount} of {projects.length} matched
               {toCreateCount > 0 && <span className="text-emerald-700"> · {toCreateCount} to create</span>}
               {toLinkCount > 0 && <span> · {toLinkCount} to link</span>}
@@ -655,7 +655,7 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
             <button
               type="button"
               onClick={onClose}
-              className="text-xs font-semibold px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+              className="text-xs font-semibold px-3 py-1.5 rounded-md border border-line bg-white text-ink/80 hover:bg-surface-2"
             >
               {result ? 'Done' : 'Cancel'}
             </button>

@@ -82,14 +82,14 @@ export function MonthEditPopover({
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 bg-white rounded-xl border border-slate-200 shadow-2xl"
+      className="fixed z-50 bg-white rounded-xl border border-line shadow-2xl"
       style={{ left, top, width: POPOVER_W }}
     >
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
-        <div className="text-sm font-semibold text-slate-700">
-          {month} {year} <span className="text-slate-400 font-normal">— hours</span>
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-line/60">
+        <div className="text-sm font-semibold text-ink/80">
+          {month} {year} <span className="text-muted/70 font-normal">— hours</span>
         </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+        <button onClick={onClose} className="p-1 rounded hover:bg-surface-2 text-muted/70 hover:text-muted">
           <X size={14} />
         </button>
       </div>
@@ -109,7 +109,7 @@ export function MonthEditPopover({
           <div className="flex items-center gap-2 mb-3">
             <button
               onClick={() => setDraft(Math.max(0, draft - 8))}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500"
+              className="p-1.5 rounded-lg border border-line hover:bg-surface-2/70 text-muted"
               title="−8 hrs"
             >
               <Minus size={14} />
@@ -120,16 +120,16 @@ export function MonthEditPopover({
               max={400}
               value={draft}
               onChange={(e) => setDraft(parseFloat(e.target.value) || 0)}
-              className="flex-1 text-center text-2xl font-bold tabular-nums rounded-lg border border-slate-200 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="flex-1 text-center text-2xl font-bold tabular-nums rounded-lg border border-line py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
             <button
               onClick={() => setDraft(draft + 8)}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500"
+              className="p-1.5 rounded-lg border border-line hover:bg-surface-2/70 text-muted"
               title="+8 hrs"
             >
               <Plus size={14} />
             </button>
-            <span className="text-xs text-slate-400">hrs</span>
+            <span className="text-xs text-muted/70">hrs</span>
           </div>
 
           <div className="flex gap-1.5 mb-3">
@@ -140,7 +140,7 @@ export function MonthEditPopover({
                 className={`flex-1 py-1.5 text-[11px] rounded-lg border transition-colors ${
                   draft === p.value
                     ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-muted border-line hover:bg-surface-2/70'
                 }`}
               >
                 <div className="font-semibold">{p.label}</div>
@@ -150,7 +150,7 @@ export function MonthEditPopover({
           </div>
 
           <div className="mb-3">
-            <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Apply to</label>
+            <label className="block text-[10px] text-muted/70 uppercase tracking-wider mb-1">Apply to</label>
             <div className="flex gap-1">
               {([
                 { v: 'this', label: 'This month' },
@@ -163,7 +163,7 @@ export function MonthEditPopover({
                   className={`flex-1 py-1 text-[11px] rounded-md border transition-colors ${
                     scope === s.v
                       ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
-                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                      : 'bg-white text-muted border-line hover:bg-surface-2/70'
                   }`}
                 >
                   {s.label}
@@ -172,7 +172,7 @@ export function MonthEditPopover({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-line/60">
             <button
               onClick={() => setShowWeekly(true)}
               className="text-xs text-primary/80 hover:text-primary font-medium"
@@ -182,7 +182,7 @@ export function MonthEditPopover({
             <div className="flex gap-2">
               <button
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                className="px-3 py-1.5 text-xs rounded-lg border border-line text-muted hover:bg-surface-2/70"
               >
                 Cancel
               </button>

@@ -79,19 +79,19 @@ function PhaseTimeline({ phases, projectStart, projectEnd }: { phases: ZohoPhase
   return (
     <div className="relative mt-3 mb-1">
       {/* date labels */}
-      <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+      <div className="flex justify-between text-[10px] text-muted/70 mb-1">
         <span>{formatDate(projectStart)}</span>
         <span>{formatDate(projectEnd)}</span>
       </div>
       {/* track */}
-      <div className="relative h-6 bg-slate-100 rounded-full overflow-hidden">
+      <div className="relative h-6 bg-surface-2 rounded-full overflow-hidden">
         {phases.map((ph) => {
           const offsetDays = Math.max(daysBetween(projectStart, ph.startDate), 0);
           const durationDays = Math.max(daysBetween(ph.startDate, ph.endDate), 1);
           const left = (offsetDays / totalDays) * 100;
           const width = Math.max((durationDays / totalDays) * 100, 1);
           const bg = ph.isClosed
-            ? 'bg-slate-300'
+            ? 'bg-line'
             : ph.status === 'In Progress'
               ? 'bg-blue-500'
               : 'bg-emerald-400';
@@ -115,8 +115,8 @@ function PhaseTimeline({ phases, projectStart, projectEnd }: { phases: ZohoPhase
         })()}
       </div>
       {/* legend */}
-      <div className="flex gap-4 mt-1 text-[10px] text-slate-500">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300 inline-block" /> Completed</span>
+      <div className="flex gap-4 mt-1 text-[10px] text-muted">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-line inline-block" /> Completed</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> In Progress</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Upcoming</span>
         <span className="flex items-center gap-1"><span className="w-0.5 h-2 bg-red-500 inline-block" /> Today</span>
@@ -154,7 +154,7 @@ function InlineEdit({ value, onSave, type = 'text', prefix = '', placeholder = '
   }
   return (
     <span onClick={(e) => { e.stopPropagation(); setEditing(true); setDraft(String(value ?? '')); }} className="cursor-pointer hover:text-primary">
-      {value ? `${prefix}${value}` : <span className="text-slate-400 italic">{placeholder}</span>}
+      {value ? `${prefix}${value}` : <span className="text-muted/70 italic">{placeholder}</span>}
     </span>
   );
 }
@@ -196,11 +196,11 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {expanded ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
-            <h3 className="font-semibold text-slate-800 text-base">{project.name}</h3>
+            {expanded ? <ChevronDown size={16} className="text-muted/70 shrink-0" /> : <ChevronRight size={16} className="text-muted/70 shrink-0" />}
+            <h3 className="font-semibold text-ink text-base">{project.name}</h3>
             <Badge variant={projectStatusVariant(project.status)}>{project.status}</Badge>
           </div>
-          <div className="flex items-center gap-4 mt-1 ml-6 text-xs text-slate-500 flex-wrap">
+          <div className="flex items-center gap-4 mt-1 ml-6 text-xs text-muted flex-wrap">
             <span className="flex items-center gap-1"><Users size={12} /> {project.owner}</span>
             <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(project.startDate)} – {formatDate(project.endDate)}</span>
             {phases.length > 0 && (
@@ -229,19 +229,19 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
                 <DollarSign size={12} /> Revenue: <Sensitive>{`${currSymbol}${revenue.toLocaleString()} ${curr}`}</Sensitive>
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-slate-400"><DollarSign size={12} /> Revenue: <em>not set</em></span>
+              <span className="flex items-center gap-1 text-muted/70"><DollarSign size={12} /> Revenue: <em>not set</em></span>
             )}
             {loadedCost > 0 ? (
-              <span className="flex items-center gap-1 text-slate-600">
+              <span className="flex items-center gap-1 text-muted">
                 <TrendingUp size={12} /> Expected Cost: <Sensitive>{`$${Math.round(loadedCost).toLocaleString()} USD`}</Sensitive>
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-slate-400"><TrendingUp size={12} /> Expected Cost: <em>no rate cards</em></span>
+              <span className="flex items-center gap-1 text-muted/70"><TrendingUp size={12} /> Expected Cost: <em>no rate cards</em></span>
             )}
             {revenue > 0 && loadedCost > 0 && (
               <span className={`font-semibold ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                 Expected Margin: <Sensitive>{`$${Math.round(margin).toLocaleString()} (${marginPct}%)`}</Sensitive>
-                {curr === 'CAD' && <span className="font-normal text-slate-400 ml-1">(converted)</span>}
+                {curr === 'CAD' && <span className="font-normal text-muted/70 ml-1">(converted)</span>}
               </span>
             )}
           </div>
@@ -253,7 +253,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             <button
               onClick={() => onRestore(project.id)}
               title="Restore to the active project list"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ink/80 bg-white border border-line rounded-lg hover:bg-surface-2/70 transition-colors"
             >
               <ArchiveRestore size={14} />
               Restore
@@ -270,7 +270,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             </button>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="text-xs text-slate-500">Archive?</span>
+              <span className="text-xs text-muted">Archive?</span>
               <button
                 onClick={() => { onArchive(project.id); setConfirmArchive(false); }}
                 className="px-2 py-1 text-xs text-white bg-amber-700 rounded hover:bg-amber-800"
@@ -279,7 +279,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
               </button>
               <button
                 onClick={() => setConfirmArchive(false)}
-                className="px-2 py-1 text-xs text-slate-600 bg-slate-100 rounded hover:bg-slate-200"
+                className="px-2 py-1 text-xs text-muted bg-surface-2 rounded hover:bg-line/60"
               >
                 No
               </button>
@@ -290,8 +290,8 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
         {/* mini progress */}
         {phases.length > 0 && (
           <div className="shrink-0 w-24">
-            <div className="text-[10px] text-slate-400 text-right mb-0.5">{Math.round((completedPhases / phases.length) * 100)}%</div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="text-[10px] text-muted/70 text-right mb-0.5">{Math.round((completedPhases / phases.length) * 100)}%</div>
+            <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(completedPhases / phases.length) * 100}%` }} />
             </div>
           </div>
@@ -299,7 +299,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
       </div>
 
       {expanded && (
-        <div className="mt-4 border-t border-slate-100 pt-4 space-y-4">
+        <div className="mt-4 border-t border-line/60 pt-4 space-y-4">
           {/* Phase timeline */}
           {phases.length > 0 && project.startDate && project.endDate && (
             <PhaseTimeline phases={phases} projectStart={project.startDate} projectEnd={project.endDate} />
@@ -308,29 +308,29 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
           {/* Phase table */}
           {phases.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Phases</h4>
+              <h4 className="text-sm font-semibold text-ink/80 mb-2">Phases</h4>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left border-b border-slate-200">
-                    <th className="pb-2 font-semibold text-slate-600">Phase</th>
-                    <th className="pb-2 font-semibold text-slate-600">Start</th>
-                    <th className="pb-2 font-semibold text-slate-600">End</th>
-                    <th className="pb-2 font-semibold text-slate-600">Status</th>
-                    <th className="pb-2 font-semibold text-slate-600">Owner</th>
+                  <tr className="text-left border-b border-line">
+                    <th className="pb-2 font-semibold text-muted">Phase</th>
+                    <th className="pb-2 font-semibold text-muted">Start</th>
+                    <th className="pb-2 font-semibold text-muted">End</th>
+                    <th className="pb-2 font-semibold text-muted">Status</th>
+                    <th className="pb-2 font-semibold text-muted">Owner</th>
                   </tr>
                 </thead>
                 <tbody>
                   {phases.map((ph) => (
-                    <tr key={ph.id} className={`border-b border-slate-50 ${ph.isClosed ? 'opacity-60' : ''}`}>
-                      <td className="py-1.5 font-medium text-slate-700">{ph.name}</td>
-                      <td className="py-1.5 text-slate-500 tabular-nums">{formatDate(ph.startDate)}</td>
-                      <td className="py-1.5 text-slate-500 tabular-nums">{formatDate(ph.endDate)}</td>
+                    <tr key={ph.id} className={`border-b border-line/40 ${ph.isClosed ? 'opacity-60' : ''}`}>
+                      <td className="py-1.5 font-medium text-ink/80">{ph.name}</td>
+                      <td className="py-1.5 text-muted tabular-nums">{formatDate(ph.startDate)}</td>
+                      <td className="py-1.5 text-muted tabular-nums">{formatDate(ph.endDate)}</td>
                       <td className="py-1.5">
                         <Badge variant={phaseStatusVariant(ph)}>
                           {ph.isClosed ? 'Completed' : ph.status}
                         </Badge>
                       </td>
-                      <td className="py-1.5 text-slate-500 text-xs">{ph.owner}</td>
+                      <td className="py-1.5 text-muted text-xs">{ph.owner}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -341,22 +341,22 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
           {/* Team allocation from forecast store */}
           {teamAllocation && teamAllocation.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Team Allocation <span className="font-normal text-slate-400">(from Team tab)</span></h4>
+              <h4 className="text-sm font-semibold text-ink/80 mb-2">Team Allocation <span className="font-normal text-muted/70">(from Team tab)</span></h4>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left border-b border-slate-200">
-                    <th className="pb-2 font-semibold text-slate-600">Employee</th>
-                    <th className="pb-2 font-semibold text-slate-600">Role</th>
-                    <th className="pb-2 font-semibold text-slate-600">Rate</th>
-                    <th className="pb-2 font-semibold text-slate-600 text-right">Total Hrs</th>
+                  <tr className="text-left border-b border-line">
+                    <th className="pb-2 font-semibold text-muted">Employee</th>
+                    <th className="pb-2 font-semibold text-muted">Role</th>
+                    <th className="pb-2 font-semibold text-muted">Rate</th>
+                    <th className="pb-2 font-semibold text-muted text-right">Total Hrs</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teamAllocation.map((e) => (
-                    <tr key={e.name} className="border-b border-slate-50">
-                      <td className="py-1.5 font-medium text-slate-700">{e.name}</td>
-                      <td className="py-1.5 text-slate-500 text-xs">{e.role || '—'}</td>
-                      <td className="py-1.5 text-slate-500">{e.rateCard ? <Sensitive>{`$${e.rateCard}/hr`}</Sensitive> : '—'}</td>
+                    <tr key={e.name} className="border-b border-line/40">
+                      <td className="py-1.5 font-medium text-ink/80">{e.name}</td>
+                      <td className="py-1.5 text-muted text-xs">{e.role || '—'}</td>
+                      <td className="py-1.5 text-muted">{e.rateCard ? <Sensitive>{`$${e.rateCard}/hr`}</Sensitive> : '—'}</td>
                       <td className="py-1.5 text-right font-semibold tabular-nums">{e.totalHours}</td>
                     </tr>
                   ))}
@@ -368,7 +368,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
           {/* Editable fields: Go-Live Date & Revenue */}
           <div className="flex flex-wrap gap-6 items-center">
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Go-Live Date</label>
+              <label className="text-xs text-muted block mb-1">Go-Live Date</label>
               <InlineEdit
                 value={project.goLiveDate ?? (goLiveDate || '')}
                 type="date"
@@ -377,23 +377,23 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
                 className="w-36"
               />
               {!project.goLiveDate && goLiveDate && (
-                <span className="text-[10px] text-slate-400 block mt-0.5">Auto-detected from phases</span>
+                <span className="text-[10px] text-muted/70 block mt-0.5">Auto-detected from phases</span>
               )}
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Project Revenue</label>
+              <label className="text-xs text-muted block mb-1">Project Revenue</label>
               <div className="flex items-center gap-1">
                 <select
                   value={curr}
                   onChange={(e) => onUpdateProject(project.id, { revenueCurrency: e.target.value as 'USD' | 'CAD' })}
                   onClick={(e) => e.stopPropagation()}
-                  className="rounded border border-slate-200 bg-white px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="rounded border border-line bg-white px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
                   <option value="USD">USD</option>
                   <option value="CAD">CAD</option>
                 </select>
                 <Sensitive
-                  placeholder={<span className="text-sm text-slate-400 italic">•••</span>}
+                  placeholder={<span className="text-sm text-muted/70 italic">•••</span>}
                 >
                   <InlineEdit
                     value={project.revenue ?? ''}
@@ -407,22 +407,22 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
               </div>
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1">Expected Loaded Cost (USD)</label>
+              <label className="text-xs text-muted block mb-1">Expected Loaded Cost (USD)</label>
               {loadedCost > 0 ? (
-                <span className="text-sm font-medium text-slate-700"><Sensitive>{`$${Math.round(loadedCost).toLocaleString()}`}</Sensitive></span>
+                <span className="text-sm font-medium text-ink/80"><Sensitive>{`$${Math.round(loadedCost).toLocaleString()}`}</Sensitive></span>
               ) : (
-                <span className="text-sm text-slate-400 italic">No rate cards assigned</span>
+                <span className="text-sm text-muted/70 italic">No rate cards assigned</span>
               )}
-              <span className="text-[10px] text-slate-400 block mt-0.5">Based on forecasted hours × rate cards</span>
+              <span className="text-[10px] text-muted/70 block mt-0.5">Based on forecasted hours × rate cards</span>
             </div>
             {revenue > 0 && loadedCost > 0 && (
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Expected Margin {curr === 'CAD' ? '(CAD→USD converted)' : ''}</label>
+                <label className="text-xs text-muted block mb-1">Expected Margin {curr === 'CAD' ? '(CAD→USD converted)' : ''}</label>
                 <span className={`text-sm font-bold ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                   <Sensitive>{`$${Math.round(margin).toLocaleString()} (${marginPct}%)`}</Sensitive>
                 </span>
                 {curr === 'CAD' && (
-                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                  <span className="text-[10px] text-muted/70 block mt-0.5">
                     Revenue <Sensitive>{`${currSymbol}${revenue.toLocaleString()}`}</Sensitive> × {cadToUsdRate} = <Sensitive>{`$${Math.round(revenueUsd).toLocaleString()} USD`}</Sensitive>
                   </span>
                 )}
@@ -430,14 +430,14 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             )}
             {revenue > 0 && loadedCost === 0 && (
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Expected Margin</label>
-                <span className="text-xs text-slate-400 italic">Set rate cards on team members to calculate margin</span>
+                <label className="text-xs text-muted block mb-1">Expected Margin</label>
+                <span className="text-xs text-muted/70 italic">Set rate cards on team members to calculate margin</span>
               </div>
             )}
           </div>
 
           {(!teamAllocation || teamAllocation.length === 0) && phases.length === 0 && (
-            <p className="text-sm text-slate-400 italic">No phases or team allocations yet.</p>
+            <p className="text-sm text-muted/70 italic">No phases or team allocations yet.</p>
           )}
         </div>
       )}
@@ -507,7 +507,7 @@ export default function ProjectPipelinePage() {
               Sync with Delivery Governance
             </button>
             {lastGovSync && (
-              <span className="text-[10px] text-slate-400">
+              <span className="text-[10px] text-muted/70">
                 Last synced {new Date(lastGovSync).toLocaleString(undefined, {
                   day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
                 })}
@@ -535,22 +535,22 @@ export default function ProjectPipelinePage() {
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <div className="text-2xl font-bold text-slate-800">{currentProjects.length}</div>
-          <div className="text-xs text-slate-500">Current Projects</div>
+        <div className="bg-white rounded-lg border border-line p-4">
+          <div className="text-2xl font-bold text-ink">{currentProjects.length}</div>
+          <div className="text-xs text-muted">Current Projects</div>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-blue-600">{activeProjects}</div>
-          <div className="text-xs text-slate-500">Active / In Progress</div>
+          <div className="text-xs text-muted">Active / In Progress</div>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-emerald-600">{totalPhases}</div>
-          <div className="text-xs text-slate-500">Total Phases</div>
+          <div className="text-xs text-muted">Total Phases</div>
         </div>
       </div>
 
       {/* Current projects */}
-      <h2 className="text-lg font-semibold text-slate-800 mb-3">Current Projects</h2>
+      <h2 className="text-lg font-semibold text-ink mb-3">Current Projects</h2>
       <div className="grid grid-cols-1 gap-3 mb-8">
         {currentProjects.map((project) => {
           const ps = teamByProject.get((project.forecastName ?? project.name).toLowerCase()) ?? teamByProject.get(project.name.toLowerCase());
@@ -576,16 +576,16 @@ export default function ProjectPipelinePage() {
             onClick={() => setShowArchived((v) => !v)}
             className="w-full flex items-center gap-2 text-left py-2 group"
           >
-            {showArchived ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+            {showArchived ? <ChevronDown size={16} className="text-muted/70" /> : <ChevronRight size={16} className="text-muted/70" />}
             <Archive size={15} className="text-amber-600" />
-            <h2 className="text-lg font-semibold text-slate-800">Archived</h2>
+            <h2 className="text-lg font-semibold text-ink">Archived</h2>
             <span className="text-xs font-semibold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5">
               {archivedProjects.length}
             </span>
-            <span className="text-xs text-slate-400 font-normal">
+            <span className="text-xs text-muted/70 font-normal">
               wrapped up — hidden from the active list, nothing deleted
             </span>
-            <span className="ml-auto text-xs text-slate-500 group-hover:text-slate-700">
+            <span className="ml-auto text-xs text-muted group-hover:text-ink/80">
               {showArchived ? 'Hide' : 'Show'}
             </span>
           </button>

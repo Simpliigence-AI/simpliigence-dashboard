@@ -86,7 +86,7 @@ export function UserPicker({
         type="button"
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
-        className={`w-full inline-flex items-center justify-between gap-2 border border-slate-300 rounded-md px-3 ${triggerSize} bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 disabled:cursor-not-allowed`}
+        className={`w-full inline-flex items-center justify-between gap-2 border border-line rounded-md px-3 ${triggerSize} bg-white hover:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 disabled:cursor-not-allowed`}
       >
         {selected ? (
           <span className="inline-flex items-center gap-2 min-w-0">
@@ -96,12 +96,12 @@ export function UserPicker({
               avatarUrl={selected.avatarUrl}
               size={20}
             />
-            <span className="truncate text-slate-900">
+            <span className="truncate text-ink">
               {selected.fullName || selected.email}
             </span>
           </span>
         ) : (
-          <span className="text-slate-400 italic">{placeholder}</span>
+          <span className="text-muted/70 italic">{placeholder}</span>
         )}
         <span className="flex-shrink-0 inline-flex items-center gap-1">
           {selected && allowClear && !disabled && (
@@ -110,27 +110,27 @@ export function UserPicker({
               tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onChange(null); }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onChange(null); } }}
-              className="text-slate-400 hover:text-red-600"
+              className="text-muted/70 hover:text-red-600"
               title="Clear"
             >
               <X size={12} />
             </span>
           )}
-          <ChevronDown size={14} className="text-slate-400" />
+          <ChevronDown size={14} className="text-muted/70" />
         </span>
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-1 w-full min-w-[280px] bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
-          <div className="p-2 border-b border-slate-100">
+        <div className="absolute z-30 mt-1 w-full min-w-[280px] bg-white border border-line rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-line/60">
             <div className="relative">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
               <input
                 autoFocus
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search by name or email…"
-                className="w-full border border-slate-200 rounded-md pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full border border-line rounded-md pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
@@ -140,14 +140,14 @@ export function UserPicker({
                 <button
                   type="button"
                   onClick={() => { onChange(null); setOpen(false); }}
-                  className="w-full text-left px-3 py-2 text-xs text-slate-500 italic hover:bg-slate-50 inline-flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-xs text-muted italic hover:bg-surface-2/70 inline-flex items-center gap-2"
                 >
                   {placeholder}
                 </button>
               </li>
             )}
             {options.length === 0 ? (
-              <li className="px-3 py-4 text-xs text-slate-500 text-center">
+              <li className="px-3 py-4 text-xs text-muted text-center">
                 {q ? 'No users match.' : 'Directory is empty — add users on /admin/users.'}
               </li>
             ) : (
@@ -158,19 +158,19 @@ export function UserPicker({
                     <button
                       type="button"
                       onClick={() => { onChange(p.email); setOpen(false); setQ(''); }}
-                      className={`w-full text-left px-3 py-2 hover:bg-slate-50 inline-flex items-center gap-2 ${
+                      className={`w-full text-left px-3 py-2 hover:bg-surface-2/70 inline-flex items-center gap-2 ${
                         isSelected ? 'bg-primary/5' : ''
                       }`}
                     >
                       <UserAvatar email={p.email} name={p.fullName} avatarUrl={p.avatarUrl} size={24} />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-xs font-medium text-slate-900 truncate">
+                        <span className="block text-xs font-medium text-ink truncate">
                           {p.fullName || p.email}
                         </span>
-                        <span className="block text-[10px] text-slate-500 truncate">{p.email}</span>
+                        <span className="block text-[10px] text-muted truncate">{p.email}</span>
                       </span>
                       {p.role !== 'employee' && (
-                        <span className="text-[9px] uppercase tracking-wider font-semibold text-slate-400">
+                        <span className="text-[9px] uppercase tracking-wider font-semibold text-muted/70">
                           {p.role}
                         </span>
                       )}

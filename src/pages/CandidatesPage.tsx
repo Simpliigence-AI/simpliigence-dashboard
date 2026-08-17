@@ -243,7 +243,7 @@ export default function CandidatesPage() {
             <button
               type="button"
               onClick={() => setBulkOpen(true)}
-              className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-md hover:bg-slate-50 flex items-center gap-1"
+              className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2/70 flex items-center gap-1"
               title="Drop multiple resumes; each one is auto-parsed and creates a candidate"
             >
               <UploadCloud size={14} /> Bulk import resumes
@@ -330,7 +330,7 @@ export default function CandidatesPage() {
             <button
               type="button"
               onClick={clearAiSearch}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 inline-flex items-center gap-1"
+              className="text-xs font-semibold text-muted hover:text-ink px-2 py-1 inline-flex items-center gap-1"
               title="Clear AI search"
             >
               <X size={12} /> Clear
@@ -338,11 +338,11 @@ export default function CandidatesPage() {
           )}
         </div>
         {aiMatchSet && (
-          <div className="mt-2 text-[11px] text-slate-600">
+          <div className="mt-2 text-[11px] text-muted">
             <span className="font-semibold text-amber-700">
               {aiMatchSet.size} match{aiMatchSet.size === 1 ? '' : 'es'}
             </span>
-            {aiExplanation && <span className="text-slate-500"> · {aiExplanation}</span>}
+            {aiExplanation && <span className="text-muted"> · {aiExplanation}</span>}
           </div>
         )}
         {aiError && (
@@ -357,12 +357,12 @@ export default function CandidatesPage() {
             placeholder="Search name / email / skill / location…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
           <select
             value={filterReq}
             onChange={(e) => setFilterReq(e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
           >
             <option value="">All requisitions</option>
             <option value="__unassigned__">— Unassigned —</option>
@@ -371,7 +371,7 @@ export default function CandidatesPage() {
           <select
             value={filterOwner}
             onChange={(e) => setFilterOwner(e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
           >
             <option value="">All owners</option>
             {owners.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -379,7 +379,7 @@ export default function CandidatesPage() {
           <select
             value={filterStage}
             onChange={(e) => setFilterStage(e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
           >
             <option value="">All stages</option>
             {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -389,7 +389,7 @@ export default function CandidatesPage() {
             placeholder="Location (e.g. Bangalore)"
             value={filterLocation}
             onChange={(e) => setFilterLocation(e.target.value)}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             title="Substring match — type 'Bangalore' to find candidates whose location contains it"
           />
           <datalist id="candidate-location-options">
@@ -403,33 +403,33 @@ export default function CandidatesPage() {
         <Card className="mb-4">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <input placeholder="Name *" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-1" />
+                   className="border border-line rounded-md px-3 py-2 text-sm md:col-span-1" />
             <input placeholder="Email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-1" />
+                   className="border border-line rounded-md px-3 py-2 text-sm md:col-span-1" />
             <input placeholder="Phone" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-1" />
+                   className="border border-line rounded-md px-3 py-2 text-sm md:col-span-1" />
             <select value={draft.requisition_id} onChange={(e) => setDraft({ ...draft, requisition_id: e.target.value })}
-                    className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white md:col-span-1">
+                    className="border border-line rounded-md px-3 py-2 text-sm bg-white md:col-span-1">
               <option value="">No requisition (unassigned)</option>
               {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
             </select>
             <select value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value })}
-                    className="border border-slate-300 rounded-md px-3 py-2 text-sm bg-white">
+                    className="border border-line rounded-md px-3 py-2 text-sm bg-white">
               {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
             <input placeholder="Owning TA email" value={draft.owning_ta_email}
                    onChange={(e) => setDraft({ ...draft, owning_ta_email: e.target.value })}
-                   className="border border-slate-300 rounded-md px-3 py-2 text-sm" />
+                   className="border border-line rounded-md px-3 py-2 text-sm" />
             <input placeholder="Location (e.g. Bangalore, India)" value={draft.location}
                    onChange={(e) => setDraft({ ...draft, location: e.target.value })}
                    list="candidate-location-options"
-                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-2" />
+                   className="border border-line rounded-md px-3 py-2 text-sm md:col-span-2" />
             <input placeholder="LinkedIn URL (https://linkedin.com/in/…)" value={draft.linkedin_url}
                    onChange={(e) => setDraft({ ...draft, linkedin_url: e.target.value })}
-                   className="border border-slate-300 rounded-md px-3 py-2 text-sm md:col-span-4" />
+                   className="border border-line rounded-md px-3 py-2 text-sm md:col-span-4" />
             <div className="md:col-span-6 flex items-center justify-end gap-2">
               <button type="button" onClick={() => setAdding(false)}
-                      className="text-xs font-semibold text-slate-500 hover:text-slate-700 flex items-center gap-1">
+                      className="text-xs font-semibold text-muted hover:text-ink/80 flex items-center gap-1">
                 <X size={12} /> Cancel
               </button>
               <button type="button" onClick={commitAdd}
@@ -439,7 +439,7 @@ export default function CandidatesPage() {
               </button>
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2">
+          <p className="text-[11px] text-muted mt-2">
             Tip: after adding, click <strong>▸</strong> on the row to upload the resume — it'll auto-extract skills + summary.
           </p>
         </Card>
@@ -447,18 +447,18 @@ export default function CandidatesPage() {
 
       {/* List header w/ count + view toggle */}
       <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
-        <div className="text-sm font-semibold text-slate-700">
+        <div className="text-sm font-semibold text-ink/80">
           {filtered.length} candidate{filtered.length === 1 ? '' : 's'}
           {filtered.length !== candidates.length && (
-            <span className="ml-1 text-slate-400 font-normal">of {candidates.length}</span>
+            <span className="ml-1 text-muted/70 font-normal">of {candidates.length}</span>
           )}
         </div>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 text-xs font-semibold">
+        <div className="inline-flex rounded-lg border border-line bg-white p-1 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setViewMode('cards')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-              viewMode === 'cards' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+              viewMode === 'cards' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
             }`}
             title="Card view — rich, browse-friendly"
           >
@@ -468,7 +468,7 @@ export default function CandidatesPage() {
             type="button"
             onClick={() => setViewMode('table')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-              viewMode === 'table' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+              viewMode === 'table' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
             }`}
             title="Table view — dense, power-user editing"
           >
@@ -478,7 +478,7 @@ export default function CandidatesPage() {
             type="button"
             onClick={() => setViewMode('map')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-              viewMode === 'map' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+              viewMode === 'map' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
             }`}
             title="Map view — candidates plotted on India by city"
           >
@@ -489,10 +489,10 @@ export default function CandidatesPage() {
 
       {filtered.length === 0 ? (
         <Card>
-          <div className="text-sm text-slate-500 text-center py-12">
-            <UsersIcon size={32} className="mx-auto mb-2 text-slate-300" />
+          <div className="text-sm text-muted text-center py-12">
+            <UsersIcon size={32} className="mx-auto mb-2 text-line" />
             <div>No candidates match your filters.</div>
-            <div className="text-[11px] text-slate-400 mt-1">
+            <div className="text-[11px] text-muted/70 mt-1">
               Try clearing filters or use <strong>+ Add candidate</strong> at the top.
             </div>
           </div>
@@ -518,7 +518,7 @@ export default function CandidatesPage() {
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
                   <th className="py-2 pr-3 font-semibold w-6"></th>
                   <th className="py-2 pr-3 font-semibold">Name</th>
                   <th className="py-2 pr-3 font-semibold">Requisition</th>
@@ -531,7 +531,7 @@ export default function CandidatesPage() {
                   <th className="py-2 pr-3 font-semibold w-12"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line/60">
                 {filtered.slice(0, visibleCount).map((c) => (
                   <CandidateRow
                     key={c.id}
@@ -578,9 +578,9 @@ function CandidateDetailModal({ candidate, requisitions, accountName, onChange, 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto p-4 md:p-8" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl my-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 sticky top-0 bg-white rounded-t-xl">
-          <div className="text-sm font-bold text-slate-900">{candidate.name || '(unnamed)'}</div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xs font-semibold">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line sticky top-0 bg-white rounded-t-xl">
+          <div className="text-sm font-bold text-ink">{candidate.name || '(unnamed)'}</div>
+          <button type="button" onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xs font-semibold">
             ✕ Close
           </button>
         </div>
@@ -612,9 +612,9 @@ function LoadMoreFooter({ shown, total, onMore }: { shown: number; total: number
   if (shown >= total) return null;
   return (
     <div className="mt-4 flex flex-col items-center gap-1.5 py-3 text-xs">
-      <div className="text-slate-500">Showing <span className="font-semibold text-slate-800">{shown.toLocaleString()}</span> of <span className="font-semibold text-slate-800">{total.toLocaleString()}</span></div>
+      <div className="text-muted">Showing <span className="font-semibold text-ink">{shown.toLocaleString()}</span> of <span className="font-semibold text-ink">{total.toLocaleString()}</span></div>
       <button type="button" onClick={onMore}
-              className="px-4 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold">
+              className="px-4 py-1.5 rounded-md bg-white border border-line text-ink/80 hover:bg-surface-2/70 font-semibold">
         Load more
       </button>
     </div>
@@ -640,9 +640,9 @@ function KpiTile({ color, icon, label, value, subtitle }: {
     <div className={`rounded-xl bg-gradient-to-br ${p.bg} border ${p.ring} px-4 py-3 shadow-sm hover:shadow transition-shadow`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
-          <div className="text-2xl font-extrabold text-slate-900 mt-0.5 tabular-nums">{value}</div>
-          {subtitle && <div className="text-[10px] text-slate-500 mt-0.5">{subtitle}</div>}
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted">{label}</div>
+          <div className="text-2xl font-extrabold text-ink mt-0.5 tabular-nums">{value}</div>
+          {subtitle && <div className="text-[10px] text-muted mt-0.5">{subtitle}</div>}
         </div>
         <div className={`w-9 h-9 rounded-lg ${p.iconBg} ${p.iconColor} flex items-center justify-center flex-shrink-0`}>
           {icon}
@@ -701,26 +701,26 @@ function CandidateCard({ c, onOpen }: {
     <button
       type="button"
       onClick={onOpen}
-      className="text-left bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-primary/40 hover:shadow-md transition-all duration-150 group h-full flex flex-col p-3 gap-2.5"
+      className="text-left bg-white rounded-lg border border-line shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-primary/40 hover:shadow-md transition-all duration-150 group h-full flex flex-col p-3 gap-2.5"
     >
       {/* Header: avatar + name + years + assets */}
       <div className="flex items-start gap-2.5">
         <div
-          className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-xs"
+          className="flex-shrink-0 w-9 h-9 rounded-full bg-surface-2 text-muted flex items-center justify-center font-semibold text-xs"
           aria-hidden
         >
           {initials}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5 min-w-0">
-            <div className="text-sm font-semibold text-slate-900 truncate group-hover:text-primary transition-colors">
+            <div className="text-sm font-semibold text-ink truncate group-hover:text-primary transition-colors">
               {c.name || '(unnamed)'}
             </div>
             <span
               className={`flex-shrink-0 text-[10px] font-semibold px-1.5 py-0 rounded whitespace-nowrap ${
                 yearsToShow != null
                   ? 'text-indigo-700 bg-indigo-50'
-                  : 'text-slate-400 bg-slate-50'
+                  : 'text-muted/70 bg-surface-2/70'
               }`}
               title={
                 hasYears ? 'Years of experience (from Zoho)'
@@ -732,10 +732,10 @@ function CandidateCard({ c, onOpen }: {
             </span>
           </div>
           {c.experience && (
-            <div className="text-[11px] text-slate-500 truncate mt-0.5">{c.experience}</div>
+            <div className="text-[11px] text-muted truncate mt-0.5">{c.experience}</div>
           )}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0 text-slate-300">
+        <div className="flex items-center gap-1 flex-shrink-0 text-line">
           {c.resume_url && <FileText size={13} className="text-primary/70" />}
           {c.linkedin_url && (
             <a
@@ -753,21 +753,21 @@ function CandidateCard({ c, onOpen }: {
 
       {/* Info strip: location · expected salary · availability — dense */}
       {(c.location || c.expected_salary || availability) && (
-        <div className="flex items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-600 flex-wrap">
+        <div className="flex items-center gap-x-2.5 gap-y-1 text-[11px] text-muted flex-wrap">
           {c.location && (
             <span className="inline-flex items-center gap-1 min-w-0 max-w-[60%]">
-              <MapPin size={10} className="text-slate-400 flex-shrink-0" />
+              <MapPin size={10} className="text-muted/70 flex-shrink-0" />
               <span className="truncate">{c.location}</span>
             </span>
           )}
           {c.expected_salary && (
-            <span className="inline-flex items-center gap-1 text-slate-700">
-              <IndianRupee size={10} className="text-slate-400" />
+            <span className="inline-flex items-center gap-1 text-ink/80">
+              <IndianRupee size={10} className="text-muted/70" />
               {c.expected_salary}
             </span>
           )}
           {availability && (
-            <span className="text-slate-500" title="Availability">{availability}</span>
+            <span className="text-muted" title="Availability">{availability}</span>
           )}
         </div>
       )}
@@ -776,12 +776,12 @@ function CandidateCard({ c, onOpen }: {
       {(c.skills && c.skills.length > 0) && (
         <div className="flex flex-wrap gap-1">
           {c.skills.slice(0, 3).map((s) => (
-            <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-600 border border-slate-200">
+            <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-surface-2/70 text-muted border border-line">
               {s}
             </span>
           ))}
           {c.skills.length > 3 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded text-slate-400">
+            <span className="text-[10px] px-1.5 py-0.5 rounded text-muted/70">
               +{c.skills.length - 3}
             </span>
           )}
@@ -790,7 +790,7 @@ function CandidateCard({ c, onOpen }: {
 
       {/* Footer: assigned TA — light grey, single line */}
       {c.owning_ta_email && (
-        <div className="mt-auto pt-1.5 text-[10px] text-slate-400 truncate">
+        <div className="mt-auto pt-1.5 text-[10px] text-muted/70 truncate">
           Owner · {c.owning_ta_email}
         </div>
       )}
@@ -874,9 +874,9 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
 
   return (
     <>
-      <tr className="hover:bg-slate-50/60">
+      <tr className="hover:bg-surface-2/60">
         <td className="py-2 pr-1 align-top">
-          <button type="button" onClick={onToggleExpand} className="text-slate-400 hover:text-slate-700">
+          <button type="button" onClick={onToggleExpand} className="text-muted/70 hover:text-ink/80">
             {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
         </td>
@@ -885,7 +885,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
             <input
               value={c.name}
               onChange={(e) => onChange({ name: e.target.value })}
-              className="flex-1 text-sm font-medium text-slate-900 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="flex-1 text-sm font-medium text-ink bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
             {c.source === 'Referral' && (
               <span
@@ -899,10 +899,10 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           {(c.skills && c.skills.length > 0) && (
             <div className="mt-1 flex flex-wrap gap-1">
               {c.skills.slice(0, 4).map((s) => (
-                <span key={s} className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">{s}</span>
+                <span key={s} className="text-[10px] bg-surface-2 text-ink/80 px-1.5 py-0.5 rounded-full whitespace-nowrap">{s}</span>
               ))}
               {c.skills.length > 4 && (
-                <span className="text-[10px] text-slate-400">+{c.skills.length - 4}</span>
+                <span className="text-[10px] text-muted/70">+{c.skills.length - 4}</span>
               )}
             </div>
           )}
@@ -911,7 +911,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           <select
             value={c.requisition_id || ''}
             onChange={(e) => onChange({ requisition_id: e.target.value })}
-            className={`text-xs border border-slate-200 rounded px-2 py-1 bg-white max-w-[220px] ${!c.requisition_id ? 'italic text-slate-500' : ''}`}
+            className={`text-xs border border-line rounded px-2 py-1 bg-white max-w-[220px] ${!c.requisition_id ? 'italic text-muted' : ''}`}
           >
             <option value="">Unassigned</option>
             {requisitions.map((r) => (
@@ -924,7 +924,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
             value={c.stage}
             onChange={(e) => onChange({ stage: e.target.value as CandidateStage })}
             style={{ borderLeft: `3px solid ${CANDIDATE_STAGE_COLORS[c.stage]}` }}
-            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+            className="text-xs border border-line rounded px-2 py-1 bg-white"
           >
             {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -933,7 +933,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           <select
             value={c.source}
             onChange={(e) => onChange({ source: e.target.value })}
-            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+            className="text-xs border border-line rounded px-2 py-1 bg-white"
           >
             {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
             {c.source && !SOURCE_OPTIONS.includes(c.source) && (
@@ -953,7 +953,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
         <td className="py-2 pr-3 align-top">
           <OwnerCell email={c.owning_ta_email ?? ''} onChange={(v) => onChange({ owning_ta_email: v || undefined })} />
         </td>
-        <td className="py-2 pr-3 align-top text-xs text-slate-500">
+        <td className="py-2 pr-3 align-top text-xs text-muted">
           <input
             value={c.email}
             onChange={(e) => onChange({ email: e.target.value })}
@@ -979,7 +979,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 <FileText size={12} /> Resume
               </button>
             ) : (
-              <label className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer">
+              <label className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink cursor-pointer">
                 <Upload size={12} />
                 {uploading ? 'Uploading…' : 'Upload CV'}
                 <input
@@ -1017,25 +1017,25 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
       </tr>
 
       {expanded && (
-        <tr className="bg-slate-50/60">
+        <tr className="bg-surface-2/60">
           <td colSpan={10} className="px-4 py-5">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-5">
+            <div className="bg-white rounded-xl border border-line shadow-sm p-5 space-y-5">
 
               {/* — Header strip: summary as quote-style or empty-state — */}
               {c.profile_summary ? (
                 <div className="border-l-4 border-primary/40 pl-4 py-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted mb-1 flex items-center gap-2">
                     Profile summary
                     {c.parsed_at && (
-                      <span className="text-[10px] text-slate-400 normal-case font-normal">
+                      <span className="text-[10px] text-muted/70 normal-case font-normal">
                         · parsed {new Date(c.parsed_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-slate-800 leading-relaxed italic">"{c.profile_summary}"</p>
+                  <p className="text-sm text-ink leading-relaxed italic">"{c.profile_summary}"</p>
                 </div>
               ) : (
-                <div className="text-[12px] text-slate-400 italic border-l-4 border-slate-200 pl-4 py-1">
+                <div className="text-[12px] text-muted/70 italic border-l-4 border-line pl-4 py-1">
                   {c.resume_url
                     ? 'No summary yet — upload triggered parsing; click Reparse below if it stalled.'
                     : 'Upload a resume to auto-generate a profile summary + skills.'}
@@ -1044,19 +1044,19 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
 
               {/* — Skills row (full width) — */}
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted mb-2">
                   Skills {c.skills && c.skills.length > 0 && (
-                    <span className="text-slate-400 normal-case font-normal">· {c.skills.length}</span>
+                    <span className="text-muted/70 normal-case font-normal">· {c.skills.length}</span>
                   )}
                 </div>
                 {(c.skills && c.skills.length > 0) ? (
                   <div className="flex flex-wrap gap-1.5">
                     {c.skills.map((s) => (
-                      <span key={s} className="text-[11px] bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">{s}</span>
+                      <span key={s} className="text-[11px] bg-surface-2 text-ink/80 px-2.5 py-1 rounded-full">{s}</span>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-[11px] text-slate-400 italic">
+                  <div className="text-[11px] text-muted/70 italic">
                     {c.resume_url ? 'No skills extracted yet — click Reparse below.' : 'Upload a resume to auto-extract skills.'}
                   </div>
                 )}
@@ -1066,29 +1066,29 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
                 {/* Contact column */}
-                <section className="rounded-lg border border-slate-200 p-4 space-y-3">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <section className="rounded-lg border border-line p-4 space-y-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
                     <Linkedin size={11} /> Contact + Resume
                   </h4>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Location</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted/70 mb-1">Location</label>
                     <input
                       value={c.location ?? ''}
                       onChange={(e) => onChange({ location: e.target.value || undefined })}
                       placeholder="e.g. Bangalore, India"
                       list="candidate-location-options"
-                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">LinkedIn URL</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted/70 mb-1">LinkedIn URL</label>
                     <input
                       value={c.linkedin_url ?? ''}
                       onChange={(e) => onChange({ linkedin_url: e.target.value.trim() || undefined })}
                       placeholder="https://linkedin.com/in/jane-doe"
-                      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                     {c.linkedin_url && (
                       <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
@@ -1099,9 +1099,9 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Resume / CV</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted/70 mb-1.5">Resume / CV</label>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <label className="inline-flex items-center gap-1 text-xs bg-white border border-slate-300 rounded-md px-2.5 py-1.5 hover:bg-slate-100 cursor-pointer">
+                      <label className="inline-flex items-center gap-1 text-xs bg-white border border-line rounded-md px-2.5 py-1.5 hover:bg-surface-2 cursor-pointer">
                         <Upload size={12} />
                         {c.resume_url ? 'Replace' : 'Upload PDF / .txt'}
                         <input
@@ -1127,7 +1127,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                       )}
                     </div>
                     {c.resume_uploaded_at && (
-                      <div className="text-[10px] text-slate-400 mt-1">
+                      <div className="text-[10px] text-muted/70 mt-1">
                         Uploaded {new Date(c.resume_uploaded_at).toLocaleString()}
                       </div>
                     )}
@@ -1143,13 +1143,13 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 </section>
 
                 {/* Hiring details column */}
-                <section className="rounded-lg border border-slate-200 p-4 space-y-3">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <section className="rounded-lg border border-line p-4 space-y-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
                     <IndianRupee size={11} /> Hiring details
                   </h4>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Open to</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted/70 mb-1.5">Open to</label>
                     <div className="flex items-center gap-2 flex-wrap">
                       {(['full_time', 'contracting'] as AvailabilityKind[]).map((kind) => {
                         const checked = (c.availability ?? []).includes(kind);
@@ -1159,7 +1159,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                             className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                               checked
                                 ? 'bg-primary text-white border-primary'
-                                : 'bg-white text-slate-600 border-slate-300 hover:border-primary hover:text-primary'
+                                : 'bg-white text-muted border-line hover:border-primary hover:text-primary'
                             }`}
                           >
                             <input
@@ -1180,14 +1180,14 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Expected salary</label>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted/70 mb-1">Expected salary</label>
                     <div className="relative">
-                      <IndianRupee size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <IndianRupee size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
                       <input
                         value={c.expected_salary ?? ''}
                         onChange={(e) => onChange({ expected_salary: e.target.value || undefined })}
                         placeholder="e.g. 12-14 LPA, $60/hr"
-                        className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                     </div>
                   </div>
@@ -1215,7 +1215,7 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                         className="w-full border border-emerald-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
                       />
                       {c.referred_at && (
-                        <p className="text-[10px] text-slate-500 mt-1">
+                        <p className="text-[10px] text-muted mt-1">
                           Referred on {new Date(c.referred_at).toLocaleDateString()}
                         </p>
                       )}
@@ -1388,24 +1388,24 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={running ? undefined : onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-slate-800">Bulk import resumes</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Drop multiple PDFs or .txt files — each one is parsed and creates a candidate row.</div>
+            <div className="text-sm font-semibold text-ink">Bulk import resumes</div>
+            <div className="text-[11px] text-muted mt-0.5">Drop multiple PDFs or .txt files — each one is parsed and creates a candidate row.</div>
           </div>
-          <button onClick={onClose} disabled={running} className="text-slate-400 hover:text-slate-700 text-xl leading-none disabled:opacity-40">×</button>
+          <button onClick={onClose} disabled={running} className="text-muted/70 hover:text-ink/80 text-xl leading-none disabled:opacity-40">×</button>
         </div>
 
         <div className="p-5 space-y-4 overflow-y-auto">
           {/* Settings applied to every imported candidate */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Requisition (optional)</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Requisition (optional)</label>
               <select
                 value={requisitionId}
                 onChange={(e) => setRequisitionId(e.target.value)}
                 disabled={running}
-                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white disabled:bg-slate-50"
+                className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white disabled:bg-surface-2/70"
               >
                 <option value="">Unassigned (attach later)</option>
                 {requisitions.map((r) => (
@@ -1414,22 +1414,22 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Owning TA</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Owning TA</label>
               <input
                 value={owner}
                 onChange={(e) => setOwner(e.target.value.toLowerCase())}
                 disabled={running}
                 placeholder="ta@simpliigence.com"
-                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm disabled:bg-slate-50"
+                className="w-full border border-line rounded-md px-3 py-2 text-sm disabled:bg-surface-2/70"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Source</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Source</label>
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
                 disabled={running}
-                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white disabled:bg-slate-50"
+                className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white disabled:bg-surface-2/70"
               >
                 {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -1441,11 +1441,11 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
             <label
               onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
               onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e.dataTransfer.files); }}
-              className="block border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 hover:border-primary/50"
+              className="block border-2 border-dashed border-line rounded-lg p-6 text-center cursor-pointer hover:bg-surface-2/70 hover:border-primary/50"
             >
-              <UploadCloud size={28} className="text-slate-400 mx-auto mb-2" />
-              <div className="text-sm text-slate-700 font-medium">Drop PDFs / .txt files here</div>
-              <div className="text-[11px] text-slate-500 mt-1">or click to pick — you can add many at once</div>
+              <UploadCloud size={28} className="text-muted/70 mx-auto mb-2" />
+              <div className="text-sm text-ink/80 font-medium">Drop PDFs / .txt files here</div>
+              <div className="text-[11px] text-muted mt-1">or click to pick — you can add many at once</div>
               <input
                 type="file"
                 multiple
@@ -1480,10 +1480,10 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
             const costSoFar = done * COST_PER_RESUME_USD;
             const costRemaining = remaining * COST_PER_RESUME_USD;
             return (
-              <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-600">
+              <div className="rounded-lg bg-surface-2/70 border border-line p-3 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-muted">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-ink">
                       {completed} of {total}
                     </span>
                     <span>·</span>
@@ -1491,19 +1491,19 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
                     {failed > 0 && <><span>·</span><span className="text-red-700">{failed} failed</span></>}
                     {inFlight > 0 && <><span>·</span><span className="text-sky-700">{inFlight} in flight</span></>}
                   </div>
-                  <div className="text-slate-500 tabular-nums">
+                  <div className="text-muted tabular-nums">
                     {running ? <>elapsed {fmt(elapsedMs)}{etaMs > 0 && ` · ETA ~${fmt(etaMs)}`}</> : <>completed in {fmt(elapsedMs)}</>}
                   </div>
                 </div>
-                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-line/60 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-slate-500 tabular-nums">
+                <div className="text-[10px] text-muted tabular-nums">
                   est. spent ${costSoFar.toFixed(2)}{remaining > 0 && ` · est. remaining $${costRemaining.toFixed(2)}`}
-                  <span className="ml-1 text-slate-400">(prompt-cached calls run cheaper — these are upper bounds)</span>
+                  <span className="ml-1 text-muted/70">(prompt-cached calls run cheaper — these are upper bounds)</span>
                 </div>
               </div>
             );
@@ -1511,14 +1511,14 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
 
           {/* File list / progress */}
           {(files.length > 0 || results.length > 0) && (
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <div className="px-3 py-2 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+            <div className="border border-line rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-surface-2/70 text-[11px] font-semibold uppercase tracking-wider text-muted flex items-center justify-between">
                 <span>{(results.length || files.length)} file{(results.length || files.length) === 1 ? '' : 's'}</span>
                 {!running && results.length === 0 && (
-                  <button onClick={() => setFiles([])} className="text-[11px] text-slate-400 hover:text-slate-700">Clear all</button>
+                  <button onClick={() => setFiles([])} className="text-[11px] text-muted/70 hover:text-ink/80">Clear all</button>
                 )}
               </div>
-              <ul className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+              <ul className="divide-y divide-line/60 max-h-72 overflow-y-auto">
                 {(results.length > 0
                   ? results
                   : files.map<BulkRow>((f) => ({ filename: f.name, status: 'pending' }))
@@ -1527,9 +1527,9 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <StatusIcon status={r.status} />
                       <div className="min-w-0">
-                        <div className="text-slate-900 truncate" title={r.filename}>{r.filename}</div>
+                        <div className="text-ink truncate" title={r.filename}>{r.filename}</div>
                         {('name' in r && r.name) && (
-                          <div className="text-[11px] text-slate-600 truncate">
+                          <div className="text-[11px] text-muted truncate">
                             → {r.name}{r.email ? ` · ${r.email}` : ''}
                           </div>
                         )}
@@ -1539,7 +1539,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
                       </div>
                     </div>
                     {results.length === 0 && (
-                      <button onClick={() => removeFile(idx)} className="text-slate-400 hover:text-red-700" title="Remove">
+                      <button onClick={() => removeFile(idx)} className="text-muted/70 hover:text-red-700" title="Remove">
                         <X size={12} />
                       </button>
                     )}
@@ -1550,8 +1550,8 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-          <div className="text-[11px] text-slate-500">
+        <div className="px-5 py-3 border-t border-line/60 flex items-center justify-between bg-surface-2/70">
+          <div className="text-[11px] text-muted">
             {results.length > 0 && !running && (
               <>
                 <strong className="text-emerald-700">{results.filter((r) => r.status === 'done').length} created</strong>
@@ -1565,7 +1565,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
             <button
               onClick={onClose}
               disabled={running}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 disabled:opacity-40"
+              className="text-xs font-semibold text-muted hover:text-ink px-3 py-2 disabled:opacity-40"
             >
               {results.length > 0 && !running ? 'Close' : 'Cancel'}
             </button>
@@ -1611,7 +1611,7 @@ function OwnerCell({ email, onChange }: { email: string; onChange: (v: string) =
           if (e.key === 'Escape') { setDraft(email); setEditing(false); }
         }}
         placeholder="ta@simpliigence.com"
-        className="text-xs bg-white border border-slate-300 px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
+        className="text-xs bg-white border border-line px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary/40 w-44"
       />
     );
   }
@@ -1621,7 +1621,7 @@ function OwnerCell({ email, onChange }: { email: string; onChange: (v: string) =
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="text-[11px] text-slate-400 italic hover:text-slate-700 hover:bg-slate-50 rounded px-1.5 py-0.5"
+        className="text-[11px] text-muted/70 italic hover:text-ink/80 hover:bg-surface-2/70 rounded px-1.5 py-0.5"
       >
         Unassigned — assign…
       </button>
@@ -1633,7 +1633,7 @@ function OwnerCell({ email, onChange }: { email: string; onChange: (v: string) =
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="hover:bg-slate-50 rounded px-1 py-0.5 -mx-1"
+        className="hover:bg-surface-2/70 rounded px-1 py-0.5 -mx-1"
         title="Click to change"
       >
         <TaIdentity email={email} avatarSize={22} nameSize="text-xs" />
@@ -1654,14 +1654,14 @@ function OwnerCell({ email, onChange }: { email: string; onChange: (v: string) =
  */
 
 const CALL_STATUS_PILL: Record<CandidateCall['status'], { label: string; cls: string }> = {
-  queued:        { label: 'Queued',      cls: 'bg-slate-100 text-slate-600' },
+  queued:        { label: 'Queued',      cls: 'bg-surface-2 text-muted' },
   dialing:       { label: 'Dialing…',    cls: 'bg-amber-100 text-amber-800' },
   ringing:       { label: 'Ringing…',    cls: 'bg-amber-100 text-amber-800' },
   'in-progress': { label: 'Talking',     cls: 'bg-sky-100 text-sky-800' },
   completed:     { label: 'Done',        cls: 'bg-emerald-100 text-emerald-800' },
-  'no-answer':   { label: 'No answer',   cls: 'bg-slate-200 text-slate-700' },
+  'no-answer':   { label: 'No answer',   cls: 'bg-line/60 text-ink/80' },
   failed:        { label: 'Failed',      cls: 'bg-red-100 text-red-700' },
-  cancelled:     { label: 'Cancelled',   cls: 'bg-slate-100 text-slate-500' },
+  cancelled:     { label: 'Cancelled',   cls: 'bg-surface-2 text-muted' },
 };
 
 function CallControls({ candidate }: { candidate: StaffingCandidate }) {
@@ -1759,53 +1759,53 @@ function CallModal({ candidate, templates, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-slate-800">📞 Call {candidate.name || 'candidate'}</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Outbound AI screening via Vapi</div>
+            <div className="text-sm font-semibold text-ink">📞 Call {candidate.name || 'candidate'}</div>
+            <div className="text-[11px] text-muted mt-0.5">Outbound AI screening via Vapi</div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xl leading-none">×</button>
         </div>
         <div className="p-5 space-y-3">
           <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Template</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Template</label>
             <select
               value={templateId}
               onChange={(e) => setTemplateId(e.target.value)}
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+              className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white"
             >
               {templates.length === 0 && <option value="tmpl-india-v1">India · Candidate Screening v1</option>}
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             {tpl && (
-              <p className="text-[10px] text-slate-500 mt-1">
+              <p className="text-[10px] text-muted mt-1">
                 {tpl.questions.length} question{tpl.questions.length === 1 ? '' : 's'} · ~3–5 min call
               </p>
             )}
           </div>
           <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Role title (optional)</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Role title (optional)</label>
             <input
               type="text"
               value={roleTitle}
               onChange={(e) => setRoleTitle(e.target.value)}
               placeholder="e.g. Senior Salesforce Developer"
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-line rounded-md px-3 py-2 text-sm"
             />
-            <p className="text-[10px] text-slate-500 mt-1">Used in the AI's opening line.</p>
+            <p className="text-[10px] text-muted mt-1">Used in the AI's opening line.</p>
           </div>
           <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Phone</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Phone</label>
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+91 …"
-              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tabular-nums"
+              className="w-full border border-line rounded-md px-3 py-2 text-sm tabular-nums"
             />
-            <p className="text-[10px] text-slate-500 mt-1">10-digit Indian numbers auto-prefix +91.</p>
+            <p className="text-[10px] text-muted mt-1">10-digit Indian numbers auto-prefix +91.</p>
           </div>
-          <label className="flex items-start gap-2 text-[11px] text-slate-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          <label className="flex items-start gap-2 text-[11px] text-ink/80 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
             <input
               type="checkbox"
               checked={consent}
@@ -1820,8 +1820,8 @@ function CallModal({ candidate, templates, onClose }: {
             <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{error}</div>
           )}
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2">
-          <button onClick={onClose} className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2">Cancel</button>
+        <div className="px-5 py-3 border-t border-line/60 bg-surface-2/70 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="text-xs font-semibold text-muted hover:text-ink px-3 py-2">Cancel</button>
           <button
             onClick={handleStart}
             disabled={!canStart}
@@ -1846,14 +1846,14 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
   const latest = [...calls].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
   const pill = CALL_STATUS_PILL[latest.status];
   return (
-    <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+    <section className="rounded-lg border border-line bg-surface-2/60 p-4">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Latest AI call</div>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Latest AI call</div>
         <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${pill.cls}`}>
           {pill.label}
         </span>
       </div>
-      <div className="text-[11px] text-slate-500 mb-3">
+      <div className="text-[11px] text-muted mb-3">
         Triggered by <span className="font-medium">{latest.triggeredBy || '—'}</span>
         {latest.startedAt && ` · ${new Date(latest.startedAt).toLocaleString()}`}
         {latest.durationSec != null && ` · ${Math.round(latest.durationSec)}s`}
@@ -1873,24 +1873,24 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
             ['Notice', latest.extractedAnswers.notice_period_days != null ? `${latest.extractedAnswers.notice_period_days} days` : ''],
             ['Engagement', latest.extractedAnswers.engagement || ''],
           ].filter(([, v]) => v).map(([label, value]) => (
-            <div key={label as string} className="bg-white rounded border border-slate-200 px-2 py-1.5">
-              <div className="text-[9px] uppercase tracking-wider text-slate-500">{label}</div>
-              <div className="text-xs font-medium text-slate-900 mt-0.5">{value as string}</div>
+            <div key={label as string} className="bg-white rounded border border-line px-2 py-1.5">
+              <div className="text-[9px] uppercase tracking-wider text-muted">{label}</div>
+              <div className="text-xs font-medium text-ink mt-0.5">{value as string}</div>
             </div>
           ))}
         </div>
       )}
       {latest.extractedAnswers?.overall_summary && (
-        <p className="text-xs text-slate-700 italic border-l-4 border-emerald-400 pl-3 mb-3">
+        <p className="text-xs text-ink/80 italic border-l-4 border-emerald-400 pl-3 mb-3">
           {latest.extractedAnswers.overall_summary}
         </p>
       )}
       {latest.transcript && (
         <details>
-          <summary className="text-[11px] text-slate-500 cursor-pointer hover:text-slate-800">
+          <summary className="text-[11px] text-muted cursor-pointer hover:text-ink">
             Show transcript ({latest.transcript.length.toLocaleString()} chars)
           </summary>
-          <pre className="mt-2 text-[11px] text-slate-700 bg-white border border-slate-200 rounded p-3 max-h-72 overflow-y-auto whitespace-pre-wrap font-mono">{latest.transcript}</pre>
+          <pre className="mt-2 text-[11px] text-ink/80 bg-white border border-line rounded p-3 max-h-72 overflow-y-auto whitespace-pre-wrap font-mono">{latest.transcript}</pre>
         </details>
       )}
       {latest.recordingUrl && (
@@ -1899,7 +1899,7 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
         </div>
       )}
       {calls.length > 1 && (
-        <div className="text-[10px] text-slate-400 mt-2">{calls.length} total calls to this candidate</div>
+        <div className="text-[10px] text-muted/70 mt-2">{calls.length} total calls to this candidate</div>
       )}
     </section>
   );
@@ -1907,7 +1907,7 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
 
 
 function StatusIcon({ status }: { status: 'pending' | 'uploading' | 'parsing' | 'done' | 'failed' }) {
-  if (status === 'pending')  return <FileText size={14} className="text-slate-400 flex-shrink-0" />;
+  if (status === 'pending')  return <FileText size={14} className="text-muted/70 flex-shrink-0" />;
   if (status === 'uploading') return <Loader2 size={14} className="text-sky-500 animate-spin flex-shrink-0" />;
   if (status === 'parsing')  return <Loader2 size={14} className="text-amber-500 animate-spin flex-shrink-0" />;
   if (status === 'done')     return <CheckCircle size={14} className="text-emerald-600 flex-shrink-0" />;
@@ -1963,14 +1963,14 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <div className="text-sm font-semibold text-ink flex items-center gap-2">
               <UserPlus size={14} className="text-emerald-600" /> Add employee referral
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Capture a candidate referred by a Simpliigence employee.</div>
+            <div className="text-[11px] text-muted mt-0.5">Capture a candidate referred by a Simpliigence employee.</div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xl leading-none">×</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -1979,21 +1979,21 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
             <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-2">Referred by</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Employee email *</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Employee email *</label>
                 <input
                   value={referrerEmail}
                   onChange={(e) => setReferrerEmail(e.target.value)}
                   placeholder="employee@simpliigence.com"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Display name</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Display name</label>
                 <input
                   value={referrerName}
                   onChange={(e) => setReferrerName(e.target.value)}
                   placeholder="Optional"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
                 />
               </div>
             </div>
@@ -2001,42 +2001,42 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
 
           {/* Candidate */}
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-2">Candidate</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-ink/80 mb-2">Candidate</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Name *</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Name *</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Jane Doe"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Email</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Email</label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="jane@example.com"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Phone</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Phone</label>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+91 …"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">LinkedIn URL</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">LinkedIn URL</label>
                 <input
                   value={linkedinUrl}
                   onChange={(e) => setLinkedinUrl(e.target.value)}
                   placeholder="https://linkedin.com/in/…"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
@@ -2044,14 +2044,14 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
 
           {/* Fit details */}
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-2">Fit details</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-ink/80 mb-2">Fit details</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Requisition (optional)</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Requisition (optional)</label>
                 <select
                   value={requisitionId}
                   onChange={(e) => setRequisitionId(e.target.value)}
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm bg-white"
                 >
                   <option value="">Unassigned (attach later)</option>
                   {requisitions.map((r) => (
@@ -2060,16 +2060,16 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Expected salary</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Expected salary</label>
                 <input
                   value={expectedSalary}
                   onChange={(e) => setExpectedSalary(e.target.value)}
                   placeholder="e.g. 12-14 LPA, $60/hr"
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Open to</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1.5">Open to</label>
                 <div className="flex items-center gap-2 flex-wrap">
                   {(['full_time', 'contracting'] as AvailabilityKind[]).map((kind) => {
                     const checked = availability.includes(kind);
@@ -2079,7 +2079,7 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
                         className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                           checked
                             ? 'bg-primary text-white border-primary'
-                            : 'bg-white text-slate-600 border-slate-300 hover:border-primary hover:text-primary'
+                            : 'bg-white text-muted border-line hover:border-primary hover:text-primary'
                         }`}
                       >
                         <input
@@ -2099,23 +2099,23 @@ function AddReferralDialog({ requisitions, accountName, defaultOwner, onClose, o
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Notes</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">Notes</label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Why this candidate? Notable strengths, recent role, etc."
-                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
+                  className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
+        <div className="px-5 py-3 border-t border-line/60 flex items-center justify-end gap-2 bg-surface-2/70">
           <button
             onClick={onClose}
-            className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2"
+            className="text-xs font-semibold text-muted hover:text-ink px-3 py-2"
           >
             Cancel
           </button>

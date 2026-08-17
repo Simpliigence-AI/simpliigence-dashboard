@@ -195,7 +195,7 @@ export default function TADailyLogPage() {
 
   if (!currentUser) {
     return (
-      <div className="w-full py-12 text-center text-slate-500">
+      <div className="w-full py-12 text-center text-muted">
         Sign in to view your TA Daily Log.
       </div>
     );
@@ -219,12 +219,12 @@ export default function TADailyLogPage() {
           <div className="flex items-center gap-3 flex-wrap">
             {isAdmin && (
               <div className="flex items-center gap-2">
-                <Eye size={14} className="text-slate-400" />
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">View as</label>
+                <Eye size={14} className="text-muted/70" />
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">View as</label>
                 <select
                   value={viewAsEmail}
                   onChange={(e) => setViewAsEmail(e.target.value)}
-                  className="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white max-w-[220px]"
+                  className="border border-line rounded-md px-2 py-1.5 text-sm bg-white max-w-[220px]"
                   title="Admin: inspect any TA's day (read-only)"
                 >
                   <option value="">Myself</option>
@@ -235,12 +235,12 @@ export default function TADailyLogPage() {
               </div>
             )}
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</label>
+              <label className="text-xs font-semibold text-muted uppercase tracking-wider">Date</label>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
@@ -248,12 +248,12 @@ export default function TADailyLogPage() {
       />
 
       {/* Tab strip */}
-      <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1 text-xs font-semibold">
+      <div className="mb-4 inline-flex rounded-lg border border-line bg-white p-1 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setActiveView('my-day')}
           className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-            activeView === 'my-day' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            activeView === 'my-day' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
           }`}
         >
           My Day
@@ -262,7 +262,7 @@ export default function TADailyLogPage() {
           type="button"
           onClick={() => setActiveView('team')}
           className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-            activeView === 'team' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+            activeView === 'team' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
           }`}
         >
           <Users size={12} /> Team Activity
@@ -279,13 +279,13 @@ export default function TADailyLogPage() {
       ) : (
         <>
           {/* Whose-day hero strip */}
-          <div className="mb-4 rounded-xl bg-gradient-to-r from-slate-50 to-white border border-slate-200 px-4 py-3 flex items-center gap-3">
+          <div className="mb-4 rounded-xl bg-gradient-to-r from-slate-50 to-white border border-line px-4 py-3 flex items-center gap-3">
             <TaIdentity email={taEmail} avatarSize={40} nameSize="text-base" showEmail />
             <div className="ml-auto text-right">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-muted/70">
                 {isViewingSelf ? 'My day' : 'Viewing day'}
               </div>
-              <div className="text-sm font-semibold text-slate-700">{niceDate}</div>
+              <div className="text-sm font-semibold text-ink/80">{niceDate}</div>
             </div>
           </div>
 
@@ -361,7 +361,7 @@ export default function TADailyLogPage() {
             </div>
           )}>
             {dailyRows.length === 0 ? (
-              <div className="text-sm text-slate-500 py-10 text-center px-4">
+              <div className="text-sm text-muted py-10 text-center px-4">
                 Nothing here yet. Tap <strong>+ Requisition</strong> for a specific opening, or <strong>+ Activity</strong> for vendor coordination, training, or other non-req work.
               </div>
             ) : (
@@ -487,25 +487,25 @@ function TimeStepper({ value, onChange, disabled }: { value: number; onChange: (
   const dec = () => onChange(Math.max(0, value - 30));
   const inc = () => onChange(Math.min(720, value + 30));
   return (
-    <div className="inline-flex items-center bg-slate-100 rounded-lg overflow-hidden">
+    <div className="inline-flex items-center bg-surface-2 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={dec}
         disabled={disabled || value === 0}
-        className="px-3 py-2 hover:bg-slate-200 active:bg-slate-300 transition-colors text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+        className="px-3 py-2 hover:bg-line/60 active:bg-line transition-colors text-muted disabled:opacity-30 disabled:cursor-not-allowed"
         aria-label="Decrease by 30 minutes"
       >
         <Minus size={14} />
       </button>
-      <div className="px-3 py-1.5 min-w-[88px] text-center bg-white border-x border-slate-200">
-        <div className="text-base font-bold tabular-nums text-slate-900">{fmtMinutes(value)}</div>
-        <div className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold -mt-0.5">Time</div>
+      <div className="px-3 py-1.5 min-w-[88px] text-center bg-white border-x border-line">
+        <div className="text-base font-bold tabular-nums text-ink">{fmtMinutes(value)}</div>
+        <div className="text-[9px] uppercase tracking-wider text-muted/70 font-semibold -mt-0.5">Time</div>
       </div>
       <button
         type="button"
         onClick={inc}
         disabled={disabled || value >= 720}
-        className="px-3 py-2 hover:bg-slate-200 active:bg-slate-300 transition-colors text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+        className="px-3 py-2 hover:bg-line/60 active:bg-line transition-colors text-muted disabled:opacity-30 disabled:cursor-not-allowed"
         aria-label="Increase by 30 minutes"
       >
         <Plus size={14} />
@@ -571,7 +571,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
         type="button"
         onClick={onToggle}
         className={`w-full flex items-center justify-between text-left px-4 py-3.5 rounded-xl min-h-[60px] ${
-          isOpen ? '' : 'hover:bg-slate-50'
+          isOpen ? '' : 'hover:bg-surface-2/70'
         } transition-colors`}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -579,13 +579,13 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
             <Icon size={16} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-slate-900 truncate">{title}</div>
-            <div className="text-[11px] text-slate-500 truncate">{subtitle}</div>
+            <div className="text-sm font-semibold text-ink truncate">{title}</div>
+            <div className="text-[11px] text-muted truncate">{subtitle}</div>
           </div>
         </div>
         <div className="flex-shrink-0 flex items-center gap-2 ml-2">
           {minutesSpent > 0 && (
-            <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap">
+            <span className="text-[11px] font-semibold text-muted bg-surface-2 px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap">
               <Clock size={10} /> {fmtMinutes(minutesSpent)}
             </span>
           )}
@@ -597,7 +597,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
           {entryId && !dirty && (
             <span className="text-[10px] text-emerald-600 font-medium" title="Saved">●</span>
           )}
-          {isOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+          {isOpen ? <ChevronDown size={16} className="text-muted/70" /> : <ChevronRight size={16} className="text-muted/70" />}
         </div>
       </button>
 
@@ -608,7 +608,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {TA_LOG_COUNTERS.map((c) => (
                 <div key={c.key}>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
                     {c.label}
                   </label>
                   <input
@@ -618,14 +618,14 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
                     value={counters[c.key]}
                     disabled={readOnly}
                     onChange={(e) => setCounters({ ...counters, [c.key]: Math.max(0, Number(e.target.value) || 0) })}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-lg font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-50 disabled:text-slate-500"
+                    className="w-full border border-line rounded-lg px-3 py-2.5 text-lg font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-surface-2/70 disabled:text-muted"
                   />
                 </div>
               ))}
             </div>
           ) : (
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
                 Customer / topic
               </label>
               <input
@@ -634,7 +634,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
                 disabled={readOnly}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="e.g. Acme Corp, Naukri rep, Kafka 101, Quarterly all-hands"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-50 disabled:text-slate-500"
+                className="w-full border border-line rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-surface-2/70 disabled:text-muted"
               />
             </div>
           )}
@@ -642,13 +642,13 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
           {/* Time spent stepper + Description */}
           <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-4 items-start">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
                 Time spent
               </label>
               <TimeStepper value={minutesSpent} onChange={setMinutesSpent} disabled={readOnly} />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
                 Description
               </label>
               <textarea
@@ -657,7 +657,7 @@ function EntryRow({ row, isOpen, onToggle, initialCounters, initialNotes, initia
                 disabled={readOnly}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={readOnly ? '' : notesPlaceholder}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary resize-y disabled:bg-slate-50 disabled:text-slate-500"
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary resize-y disabled:bg-surface-2/70 disabled:text-muted"
               />
             </div>
           </div>
@@ -732,7 +732,7 @@ function TeamOverview({ entries, allTaEmails, onViewAs }: {
       <div className="overflow-x-auto -mx-6 px-6">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+            <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
               <th className="py-2 pr-3 font-semibold">TA</th>
               <th className="py-2 pr-3 font-semibold text-right">This week</th>
               <th className="py-2 pr-3 font-semibold text-right">Last week</th>
@@ -741,10 +741,10 @@ function TeamOverview({ entries, allTaEmails, onViewAs }: {
               <th className="py-2 pr-3 font-semibold w-24"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line/60">
             {summary.map((s) => {
               const diff = s.thisWeek - s.lastWeek;
-              const trendColor = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-slate-400';
+              const trendColor = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-muted/70';
               const trendArrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
               const stale = !s.lastActivity || (() => {
                 const d = new Date(s.lastActivity!);
@@ -752,14 +752,14 @@ function TeamOverview({ entries, allTaEmails, onViewAs }: {
                 return ageDays > 2;
               })();
               return (
-                <tr key={s.email} className="hover:bg-slate-50/60">
+                <tr key={s.email} className="hover:bg-surface-2/60">
                   <td className="py-2 pr-3"><TaIdentity email={s.email} avatarSize={28} nameSize="text-sm" /></td>
                   <td className="py-2 pr-3 text-right tabular-nums font-semibold">{s.thisWeek}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums text-slate-500">{s.lastWeek}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-muted">{s.lastWeek}</td>
                   <td className={`py-2 pr-3 text-xs font-semibold ${trendColor}`}>
                     {trendArrow} {diff >= 0 ? '+' : ''}{diff}
                   </td>
-                  <td className={`py-2 pr-3 text-xs ${stale ? 'text-amber-700 font-medium' : 'text-slate-500'}`}>
+                  <td className={`py-2 pr-3 text-xs ${stale ? 'text-amber-700 font-medium' : 'text-muted'}`}>
                     {s.lastActivity ?? '—'}
                     {stale && s.lastActivity && <span className="ml-1 text-[10px]">(stale)</span>}
                   </td>
@@ -798,33 +798,33 @@ function AddRequisitionDialog({ requisitions, accountName, onPick, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-800">Add a requisition</div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+        <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
+          <div className="text-sm font-semibold text-ink">Add a requisition</div>
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xl leading-none">×</button>
         </div>
-        <div className="p-4 border-b border-slate-100">
+        <div className="p-4 border-b border-line/60">
           <input
             autoFocus
             placeholder="Search by title or account…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 ? (
-            <div className="p-6 text-sm text-slate-500 text-center">No requisitions match.</div>
+            <div className="p-6 text-sm text-muted text-center">No requisitions match.</div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line/60">
               {filtered.map((r) => (
                 <li key={r.id}>
                   <button
                     type="button"
                     onClick={() => onPick(r.id)}
-                    className="w-full text-left px-5 py-3 hover:bg-slate-50"
+                    className="w-full text-left px-5 py-3 hover:bg-surface-2/70"
                   >
-                    <div className="text-sm font-medium text-slate-900">{r.title}</div>
-                    <div className="text-[11px] text-slate-500">{accountName(r.account_id)} · {r.stage} · {r.status_field}</div>
+                    <div className="text-sm font-medium text-ink">{r.title}</div>
+                    <div className="text-[11px] text-muted">{accountName(r.account_id)} · {r.stage} · {r.status_field}</div>
                   </button>
                 </li>
               ))}
@@ -846,29 +846,29 @@ function AddActivityDialog({ available, onPick, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-slate-800">Log non-requisition activity</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">For vendor coordination, training, or other internal work that isn't tied to a specific req.</div>
+            <div className="text-sm font-semibold text-ink">Log non-requisition activity</div>
+            <div className="text-[11px] text-muted mt-0.5">For vendor coordination, training, or other internal work that isn't tied to a specific req.</div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-muted/70 hover:text-ink/80 text-xl leading-none">×</button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {available.length === 0 ? (
-            <div className="p-6 text-sm text-slate-500 text-center">
+            <div className="p-6 text-sm text-muted text-center">
               You've already logged on every activity type for the week.
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line/60">
               {available.map((a) => (
                 <li key={a}>
                   <button
                     type="button"
                     onClick={() => onPick(a)}
-                    className="w-full text-left px-5 py-3 hover:bg-slate-50 flex items-center gap-3"
+                    className="w-full text-left px-5 py-3 hover:bg-surface-2/70 flex items-center gap-3"
                   >
                     <Sparkles size={14} className="text-amber-500 flex-shrink-0" />
-                    <span className="text-sm font-medium text-slate-900">{a}</span>
+                    <span className="text-sm font-medium text-ink">{a}</span>
                   </button>
                 </li>
               ))}
@@ -968,27 +968,27 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
     <>
       {/* Header strip */}
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 text-xs text-slate-600">
-          <span className="font-semibold text-slate-900 tabular-nums text-base">{activeGroups.length}</span>
+        <div className="flex items-center gap-3 text-xs text-muted">
+          <span className="font-semibold text-ink tabular-nums text-base">{activeGroups.length}</span>
           <span>active item{activeGroups.length === 1 ? '' : 's'}</span>
-          <span className="text-slate-300">·</span>
-          <span className="font-semibold text-slate-900 tabular-nums">{activeTas}</span>
+          <span className="text-line">·</span>
+          <span className="font-semibold text-ink tabular-nums">{activeTas}</span>
           <span>TA{activeTas === 1 ? '' : 's'} active</span>
-          <span className="text-slate-300">·</span>
-          <span className="font-semibold text-slate-900 tabular-nums">{totalAll}</span>
+          <span className="text-line">·</span>
+          <span className="font-semibold text-ink tabular-nums">{totalAll}</span>
           <span>total activity</span>
         </div>
         <input
           placeholder="Filter by req, account, or TA…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="border border-slate-300 rounded-md px-3 py-1.5 text-xs w-full md:w-72 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="border border-line rounded-md px-3 py-1.5 text-xs w-full md:w-72 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
       </div>
 
       {activeGroups.length === 0 ? (
         <Card>
-          <div className="text-sm text-slate-500 text-center py-12">
+          <div className="text-sm text-muted text-center py-12">
             No team activity logged for this date{filter ? ' that matches your filter' : ''}.
           </div>
         </Card>
@@ -999,13 +999,13 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0 flex items-center gap-2">
                   {isReq
-                    ? <Briefcase size={14} className="text-slate-400 flex-shrink-0" />
+                    ? <Briefcase size={14} className="text-muted/70 flex-shrink-0" />
                     : <Sparkles size={14} className="text-amber-500 flex-shrink-0" />}
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-900 truncate">
+                    <div className="text-sm font-semibold text-ink truncate">
                       {isReq ? req!.title : id}
                     </div>
-                    <div className="text-[11px] text-slate-500 truncate">
+                    <div className="text-[11px] text-muted truncate">
                       {isReq
                         ? `${accountName(id)} · ${req!.stage} · ${req!.status_field}`
                         : 'Non-requisition activity'}
@@ -1020,7 +1020,7 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
               <div className="overflow-x-auto -mx-6 px-6">
                 <table className="min-w-full text-xs">
                   <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                    <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
                       <th className="py-1.5 pr-3 font-semibold">TA</th>
                       {TA_LOG_COUNTERS.map((c) => (
                         <th key={c.key} className="py-1.5 pr-3 font-semibold text-right whitespace-nowrap">{c.short}</th>
@@ -1029,7 +1029,7 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
                       <th className="py-1.5 pr-3 font-semibold text-right">Updated</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-line/60">
                     {list
                       .slice()
                       .sort((a, b) =>
@@ -1043,10 +1043,10 @@ function TeamActivityView({ entries, requisitions, accounts, selectedDate }: {
                             {(e as unknown as Record<string, number>)[c.key] || ''}
                           </td>
                         ))}
-                        <td className="py-1.5 pr-3 text-slate-600 max-w-[280px]">
-                          {e.notes ? <span className="line-clamp-2">{e.notes}</span> : <span className="text-slate-300">—</span>}
+                        <td className="py-1.5 pr-3 text-muted max-w-[280px]">
+                          {e.notes ? <span className="line-clamp-2">{e.notes}</span> : <span className="text-line">—</span>}
                         </td>
-                        <td className="py-1.5 pr-3 text-right text-[10px] text-slate-400 whitespace-nowrap">
+                        <td className="py-1.5 pr-3 text-right text-[10px] text-muted/70 whitespace-nowrap">
                           {new Date(e.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
                       </tr>

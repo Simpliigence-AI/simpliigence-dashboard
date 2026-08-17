@@ -104,7 +104,7 @@ export function InnovationTab({ accountId }: { accountId: string }) {
   };
 
   if (loading) return (
-    <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+    <div className="py-8 text-center text-xs text-muted/70 flex items-center justify-center gap-2">
       <Loader2 size={14} className="animate-spin" /> Loading innovations…
     </div>
   );
@@ -112,7 +112,7 @@ export function InnovationTab({ accountId }: { accountId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-slate-500">
+        <div className="text-[11px] text-muted">
           Innovative things we&apos;ve built, proposed, or delivered for this account. Use to remember wins worth talking about in QBRs and renewals.
         </div>
         <button type="button" onClick={addBlank}
@@ -122,7 +122,7 @@ export function InnovationTab({ accountId }: { accountId: string }) {
       </div>
       {error && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700">{error}</div>}
       {rows.length === 0 ? (
-        <div className="py-10 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-lg">
+        <div className="py-10 text-center text-sm text-muted border border-dashed border-line rounded-lg">
           No innovation highlights yet. Click <strong>+ Add innovation</strong> to record one.
         </div>
       ) : (
@@ -131,7 +131,7 @@ export function InnovationTab({ accountId }: { accountId: string }) {
             const saving = savingIds.has(x.id);
             const blur = () => { if (x.title.trim()) void save(x); };
             return (
-              <li key={x.id} className="rounded-lg border border-slate-200 bg-white p-3 hover:border-amber-200 transition-colors">
+              <li key={x.id} className="rounded-lg border border-line bg-white p-3 hover:border-amber-200 transition-colors">
                 <div className="flex items-start gap-3">
                   <Lightbulb size={16} className="text-amber-500 flex-shrink-0 mt-1" />
                   <div className="flex-1 min-w-0 space-y-2">
@@ -140,7 +140,7 @@ export function InnovationTab({ accountId }: { accountId: string }) {
                       onChange={(e) => patch(x.id, { title: e.target.value })}
                       onBlur={blur}
                       placeholder="Title *"
-                      className="w-full text-sm font-semibold text-slate-900 border border-transparent hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1"
+                      className="w-full text-sm font-semibold text-ink border border-transparent hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1"
                     />
                     <textarea
                       value={x.description}
@@ -148,7 +148,7 @@ export function InnovationTab({ accountId }: { accountId: string }) {
                       onBlur={blur}
                       placeholder="What was the innovation? (technical approach, novel solution, automation, etc.)"
                       rows={2}
-                      className="w-full text-xs text-slate-700 border border-slate-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1.5 resize-y"
+                      className="w-full text-xs text-ink/80 border border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1.5 resize-y"
                     />
                     <textarea
                       value={x.impact}
@@ -156,22 +156,22 @@ export function InnovationTab({ accountId }: { accountId: string }) {
                       onBlur={blur}
                       placeholder="Impact — savings, speed, NPS, story-worthy outcome…"
                       rows={2}
-                      className="w-full text-xs text-slate-700 border border-slate-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1.5 resize-y"
+                      className="w-full text-xs text-ink/80 border border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded px-2 py-1.5 resize-y"
                     />
                     <div className="flex items-center gap-2">
-                      <Calendar size={11} className="text-slate-400" />
+                      <Calendar size={11} className="text-muted/70" />
                       <input type="date"
                              value={x.datedAt ?? ''}
                              onChange={(e) => patch(x.id, { datedAt: e.target.value || null })}
                              onBlur={blur}
-                             className="text-[11px] px-2 py-1 border border-slate-200 rounded" />
+                             className="text-[11px] px-2 py-1 border border-line rounded" />
                     </div>
                   </div>
                   <div className="flex-shrink-0">
-                    {saving ? <Loader2 size={12} className="animate-spin text-slate-400" /> : (
+                    {saving ? <Loader2 size={12} className="animate-spin text-muted/70" /> : (
                       <button type="button"
                               onClick={() => { if (confirm(`Remove "${x.title || 'this innovation'}"?`)) void remove(x.id); }}
-                              className="text-slate-300 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                              className="text-line hover:text-red-600 p-1 rounded hover:bg-red-50"
                               title="Remove">
                         <Trash2 size={12} />
                       </button>

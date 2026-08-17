@@ -31,7 +31,7 @@ const CAPACITY = 160; // hrs / person / month
 /** Map a utilization percentage (0..N+) to a Tailwind class for the heatmap cell.
  *  Caps at 100% for color (over-utilized cells get red regardless of value). */
 function utilColor(pct: number): { bg: string; text: string } {
-  if (pct === 0) return { bg: 'bg-slate-50', text: 'text-slate-300' };
+  if (pct === 0) return { bg: 'bg-surface-2/70', text: 'text-line' };
   if (pct > 110) return { bg: 'bg-red-500', text: 'text-white' };           // over-allocated
   if (pct >= 90)  return { bg: 'bg-emerald-600', text: 'text-white' };       // fully loaded
   if (pct >= 70)  return { bg: 'bg-emerald-500', text: 'text-white' };
@@ -170,12 +170,12 @@ export default function ForecastingPage() {
       {/* Monthly stacked-bar chart with capacity reference line */}
       <Card className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-700">Monthly Team Mix</h3>
-          <div className="flex items-center gap-3 text-[10px] text-slate-500">
+          <h3 className="text-sm font-bold text-ink/80">Monthly Team Mix</h3>
+          <div className="flex items-center gap-3 text-[10px] text-muted">
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500" />Fully (90%+)</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-400" />Moderate (50-89%)</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-rose-300" />Low (1-49%)</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-300" />Bench</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-line" />Bench</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={260}>
@@ -200,7 +200,7 @@ export default function ForecastingPage() {
 
       {/* Avg-utilization line — separate clean chart for the team trend */}
       <Card className="mb-6">
-        <h3 className="text-sm font-bold text-slate-700 mb-3">Average Team Utilization by Month</h3>
+        <h3 className="text-sm font-bold text-ink/80 mb-3">Average Team Utilization by Month</h3>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={monthlyStats}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -222,8 +222,8 @@ export default function ForecastingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-700">Per-person Utilization Heatmap</h3>
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <h3 className="text-sm font-bold text-ink/80">Per-person Utilization Heatmap</h3>
+            <div className="flex items-center gap-1.5 text-[10px] text-muted">
               <span className="inline-block w-3 h-3 rounded-sm bg-rose-200" />
               <span className="inline-block w-3 h-3 rounded-sm bg-amber-300" />
               <span className="inline-block w-3 h-3 rounded-sm bg-emerald-400" />
@@ -235,20 +235,20 @@ export default function ForecastingPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="pb-2 pr-3 text-left font-semibold text-slate-600 sticky left-0 bg-white">Member</th>
-                  <th className="pb-2 pr-3 text-left font-semibold text-slate-600">Role</th>
+                <tr className="border-b border-line/60">
+                  <th className="pb-2 pr-3 text-left font-semibold text-muted sticky left-0 bg-white">Member</th>
+                  <th className="pb-2 pr-3 text-left font-semibold text-muted">Role</th>
                   {MONTHS.map((m) => (
-                    <th key={m} className="pb-2 px-1 text-center font-semibold text-slate-600 w-10">{m}</th>
+                    <th key={m} className="pb-2 px-1 text-center font-semibold text-muted w-10">{m}</th>
                   ))}
-                  <th className="pb-2 pl-3 text-right font-semibold text-slate-600">Avg</th>
+                  <th className="pb-2 pl-3 text-right font-semibold text-muted">Avg</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedEmpUtil.map((e) => (
-                  <tr key={e.name} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="py-1 pr-3 font-medium text-slate-700 sticky left-0 bg-white whitespace-nowrap">{e.name}</td>
-                    <td className="py-1 pr-3 text-slate-500 text-[10px] whitespace-nowrap">{e.role || '—'}</td>
+                  <tr key={e.name} className="border-b border-line/40 hover:bg-surface-2/50">
+                    <td className="py-1 pr-3 font-medium text-ink/80 sticky left-0 bg-white whitespace-nowrap">{e.name}</td>
+                    <td className="py-1 pr-3 text-muted text-[10px] whitespace-nowrap">{e.role || '—'}</td>
                     {MONTHS.map((m) => {
                       const pct = e.monthly[m];
                       const c = utilColor(pct);
@@ -279,10 +279,10 @@ export default function ForecastingPage() {
           <Card>
             <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-2">Most Utilized</h4>
             <div className="space-y-1.5">
-              {top5.length === 0 && <p className="text-xs text-slate-400 italic">No data yet</p>}
+              {top5.length === 0 && <p className="text-xs text-muted/70 italic">No data yet</p>}
               {top5.map((e) => (
                 <div key={e.name} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-700 truncate" title={e.name}>{e.name}</span>
+                  <span className="text-ink/80 truncate" title={e.name}>{e.name}</span>
                   <span className="font-bold text-emerald-700 tabular-nums">{e.avg}%</span>
                 </div>
               ))}
@@ -292,16 +292,16 @@ export default function ForecastingPage() {
           <Card>
             <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2">Least Utilized</h4>
             <div className="space-y-1.5">
-              {bottom5.length === 0 && <p className="text-xs text-slate-400 italic">No data yet</p>}
+              {bottom5.length === 0 && <p className="text-xs text-muted/70 italic">No data yet</p>}
               {bottom5.map((e) => (
                 <div key={e.name} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-700 truncate" title={e.name}>{e.name}</span>
+                  <span className="text-ink/80 truncate" title={e.name}>{e.name}</span>
                   <span className="font-bold text-amber-700 tabular-nums">{e.avg}%</span>
                 </div>
               ))}
             </div>
             {bottom5.length > 0 && (
-              <p className="text-[10px] text-slate-400 mt-2 italic">
+              <p className="text-[10px] text-muted/70 mt-2 italic">
                 Headroom for new project allocation
               </p>
             )}
@@ -312,7 +312,7 @@ export default function ForecastingPage() {
               <h4 className="text-xs font-bold text-red-700 uppercase tracking-wide mb-2 flex items-center gap-1">
                 <AlertTriangle size={11} /> Over-Allocated
               </h4>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-muted">
                 <strong>{overAllocated}</strong> {overAllocated === 1 ? 'person hits' : 'people hit'} &gt;110% in at least one month — possible burnout risk.
               </p>
             </Card>
@@ -329,18 +329,18 @@ export default function ForecastingPage() {
     if (hrs >= 80)  return 'bg-emerald-200 text-emerald-900';
     if (hrs >= 40)  return 'bg-amber-100 text-amber-800';
     if (hrs > 0)    return 'bg-amber-50 text-amber-600';
-    return 'bg-slate-50 text-slate-300';
+    return 'bg-surface-2/70 text-line';
   };
 
   const renderDetail = () => (
     <>
       <Card className="mb-4">
         <div className="flex gap-3">
-          <select className="rounded-lg border border-slate-300 px-3 py-2 text-sm" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
+          <select className="rounded-lg border border-line px-3 py-2 text-sm" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
             <option value="">All Projects</option>
             {allProjects.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
-          <select className="rounded-lg border border-slate-300 px-3 py-2 text-sm" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value as Month | '')}>
+          <select className="rounded-lg border border-line px-3 py-2 text-sm" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value as Month | '')}>
             <option value="">All Months</option>
             {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
@@ -350,13 +350,13 @@ export default function ForecastingPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left">
-                <th className="pb-3 pr-4 font-semibold text-slate-600">Employee</th>
-                <th className="pb-3 pr-4 font-semibold text-slate-600">Project</th>
+              <tr className="border-b border-line text-left">
+                <th className="pb-3 pr-4 font-semibold text-muted">Employee</th>
+                <th className="pb-3 pr-4 font-semibold text-muted">Project</th>
                 {MONTHS.filter((m) => !monthFilter || m === monthFilter).map((m) => (
-                  <th key={m} className="pb-3 font-semibold text-slate-600 text-center w-20">{m}</th>
+                  <th key={m} className="pb-3 font-semibold text-muted text-center w-20">{m}</th>
                 ))}
-                <th className="pb-3 font-semibold text-slate-600 text-right">Total</th>
+                <th className="pb-3 font-semibold text-muted text-right">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -365,9 +365,9 @@ export default function ForecastingPage() {
                 const total = fm.reduce((s, m) => s + row.monthly[m], 0);
                 if (monthFilter && total === 0) return null;
                 return (
-                  <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="py-2 pr-4 font-medium text-slate-700">{row.employee}</td>
-                    <td className="py-2 pr-4 text-slate-500 text-xs">{row.project}</td>
+                  <tr key={i} className="border-b border-line/40 hover:bg-surface-2/50">
+                    <td className="py-2 pr-4 font-medium text-ink/80">{row.employee}</td>
+                    <td className="py-2 pr-4 text-muted text-xs">{row.project}</td>
                     {fm.map((m) => (
                       <td key={m} className="py-2 text-center">
                         <span className={`inline-block w-14 px-1 py-0.5 rounded text-xs font-medium tabular-nums ${heatColor(row.monthly[m])}`}>
@@ -375,7 +375,7 @@ export default function ForecastingPage() {
                         </span>
                       </td>
                     ))}
-                    <td className="py-2 text-right font-semibold tabular-nums text-slate-700">{total > 0 ? total : '—'}</td>
+                    <td className="py-2 text-right font-semibold tabular-nums text-ink/80">{total > 0 ? total : '—'}</td>
                   </tr>
                 );
               })}
@@ -403,7 +403,7 @@ export default function ForecastingPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
-              tab === t.key ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-50'
+              tab === t.key ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2/70'
             }`}
           >
             <t.icon size={14} /> {t.label}

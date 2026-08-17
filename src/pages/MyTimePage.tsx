@@ -230,7 +230,7 @@ export default function MyTimePage() {
 
   if (!currentUser) {
     return (
-      <div className="max-w-3xl mx-auto py-12 text-center text-slate-500">
+      <div className="max-w-3xl mx-auto py-12 text-center text-muted">
         Sign in to enter time.
       </div>
     );
@@ -257,13 +257,13 @@ export default function MyTimePage() {
                     d.setMonth(d.getMonth() - 1);
                     setCalendarAnchor(toIsoDate(d));
                   }}
-                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70"
                   title="Previous month"
                 >‹ Prev</button>
                 <button
                   type="button"
                   onClick={() => setCalendarAnchor(toIsoDate(new Date()))}
-                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70"
                   title="This month"
                 >Today</button>
                 <button
@@ -273,7 +273,7 @@ export default function MyTimePage() {
                     d.setMonth(d.getMonth() + 1);
                     setCalendarAnchor(toIsoDate(d));
                   }}
-                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70"
                   title="Next month"
                 >Next ›</button>
               </>
@@ -282,19 +282,19 @@ export default function MyTimePage() {
                 <button
                   type="button"
                   onClick={() => setWeekStart(isoAddDays(weekStart, -7))}
-                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70"
                   title="Previous week"
                 >‹ Prev</button>
                 <button
                   type="button"
                   onClick={() => setWeekStart(toIsoDate(startOfWeek(toIsoDate(new Date()))))}
-                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70"
                   title="This week"
                 >Today</button>
                 <button
                   type="button"
                   onClick={() => setWeekStart(isoAddDays(weekStart, 7))}
-                  className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+                  className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70"
                   title="Next week"
                 >Next ›</button>
               </>
@@ -305,12 +305,12 @@ export default function MyTimePage() {
 
       {/* View toggle + Copy actions */}
       <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 text-xs font-semibold">
+        <div className="inline-flex rounded-lg border border-line bg-white p-1 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setViewMode('list')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-              viewMode === 'list' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+              viewMode === 'list' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
             }`}
           >
             <ListIcon size={12} /> Week list
@@ -319,7 +319,7 @@ export default function MyTimePage() {
             type="button"
             onClick={() => setViewMode('grid')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-              viewMode === 'grid' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+              viewMode === 'grid' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
             }`}
           >
             <LayoutGrid size={12} /> Grid
@@ -328,7 +328,7 @@ export default function MyTimePage() {
             type="button"
             onClick={() => setViewMode('calendar')}
             className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-              viewMode === 'calendar' ? 'bg-primary text-white' : 'text-slate-600 hover:text-slate-900'
+              viewMode === 'calendar' ? 'bg-primary text-white' : 'text-muted hover:text-ink'
             }`}
           >
             <CalendarDays size={12} /> Calendar
@@ -349,7 +349,7 @@ export default function MyTimePage() {
             <button
               type="button"
               onClick={copyLastWeek}
-              className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 inline-flex items-center gap-1.5"
+              className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70 inline-flex items-center gap-1.5"
               title="Copy last week's entries forward (skips days that already have entries)"
             >
               <Copy size={12} /> Copy last week
@@ -392,24 +392,24 @@ export default function MyTimePage() {
               <button
                 type="button"
                 onClick={() => setOpenDay(isOpen ? null : d.iso)}
-                className="w-full -m-6 px-6 py-4 flex items-center justify-between text-left hover:bg-slate-50 rounded-xl transition-colors"
+                className="w-full -m-6 px-6 py-4 flex items-center justify-between text-left hover:bg-surface-2/70 rounded-xl transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  {isOpen ? <ChevronDown size={16} className="text-slate-400 flex-shrink-0" /> : <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />}
+                  {isOpen ? <ChevronDown size={16} className="text-muted/70 flex-shrink-0" /> : <ChevronRight size={16} className="text-muted/70 flex-shrink-0" />}
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-ink">
                       {d.label}
                       {d.isToday && <span className="ml-2 text-[10px] uppercase tracking-wider text-primary font-bold">Today</span>}
                     </div>
                     {entries.length > 0 && (
-                      <div className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="text-[11px] text-muted mt-0.5">
                         {entries.length} entr{entries.length === 1 ? 'y' : 'ies'}
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`text-sm font-bold tabular-nums ${dayTotal === 0 ? 'text-slate-300' : dayTotal >= 8 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                  <div className={`text-sm font-bold tabular-nums ${dayTotal === 0 ? 'text-line' : dayTotal >= 8 ? 'text-emerald-600' : 'text-ink'}`}>
                     {dayTotal.toFixed(2)}h
                   </div>
                 </div>
@@ -457,7 +457,7 @@ export default function MyTimePage() {
                           <button
                             type="button"
                             onClick={() => copyDay(yesterdayIso, d.iso)}
-                            className="text-[11px] text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100"
+                            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-2"
                             title={`Copy entries from ${yesterdayIso}`}
                           >
                             <Copy size={11} /> Copy yesterday
@@ -467,7 +467,7 @@ export default function MyTimePage() {
                           <button
                             type="button"
                             onClick={() => copyDay(lastWeekIso, d.iso)}
-                            className="text-[11px] text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100"
+                            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-2"
                             title={`Copy same day last week (${lastWeekIso})`}
                           >
                             <Copy size={11} /> Copy last {parseIsoDate(d.iso).toLocaleDateString(undefined, { weekday: 'long' })}
@@ -495,15 +495,15 @@ export default function MyTimePage() {
       </div>
 
       {/* Sticky bottom mini stat */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-white border-t border-slate-200 shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
+      <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-white border-t border-line shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
         <div className="flex items-center gap-4">
           <div>
-            <span className="font-semibold text-slate-900 tabular-nums">{weekStats.logged.toFixed(2)}h</span>
-            <span className="text-slate-500"> logged</span>
+            <span className="font-semibold text-ink tabular-nums">{weekStats.logged.toFixed(2)}h</span>
+            <span className="text-muted"> logged</span>
           </div>
           <div>
             <span className="font-semibold text-emerald-600 tabular-nums">{weekStats.billable.toFixed(2)}h</span>
-            <span className="text-slate-500"> billable</span>
+            <span className="text-muted"> billable</span>
           </div>
           {/* Shortfall vs the standard 40-hour week. Goes green at ≥40, amber
               below, hidden once you cross the target so it doesn't nag. */}
@@ -520,12 +520,12 @@ export default function MyTimePage() {
             return (
               <div className="tabular-nums">
                 <span className="font-semibold text-amber-700">{remaining.toFixed(2)}h short</span>
-                <span className="text-slate-400"> of {TARGET}h</span>
+                <span className="text-muted/70"> of {TARGET}h</span>
               </div>
             );
           })()}
         </div>
-        <div className="text-slate-400 text-[10px]">{niceWeek}</div>
+        <div className="text-muted/70 text-[10px]">{niceWeek}</div>
       </div>
     </div>
   );
@@ -533,7 +533,7 @@ export default function MyTimePage() {
 
 /* ── Existing entry — inline editable ── */
 const STATUS_BADGE: Record<TimeEntry['status'], { label: string; cls: string }> = {
-  draft:     { label: 'Draft',     cls: 'bg-slate-100 text-slate-600' },
+  draft:     { label: 'Draft',     cls: 'bg-surface-2 text-muted' },
   submitted: { label: 'Submitted', cls: 'bg-sky-100 text-sky-800' },
   approved:  { label: 'Approved',  cls: 'bg-emerald-100 text-emerald-800' },
   rejected:  { label: 'Rejected',  cls: 'bg-red-100 text-red-800' },
@@ -575,7 +575,7 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
 
   const statusBadge = STATUS_BADGE[entry.status];
   return (
-    <div className="border border-slate-200 rounded-lg p-3 bg-white">
+    <div className="border border-line rounded-lg p-3 bg-white">
       <div className="flex items-center justify-between mb-2">
         <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusBadge.cls}`}>
           {statusBadge.label}
@@ -586,7 +586,7 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
           </span>
         )}
         {entry.status === 'approved' && entry.approvedBy && (
-          <span className="text-[10px] text-slate-400 truncate ml-2">
+          <span className="text-[10px] text-muted/70 truncate ml-2">
             ✓ {entry.approvedBy}
           </span>
         )}
@@ -597,12 +597,12 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
           type="number" step={0.25} min={0} max={24}
           value={hours}
           onChange={(e) => setHours(Math.max(0, Math.min(24, Number(e.target.value) || 0)))}
-          className="w-20 border border-slate-300 rounded-md px-2 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="w-20 border border-line rounded-md px-2 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <button
           type="button"
           onClick={() => setBillable(!billable)}
-          className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-md whitespace-nowrap ${billable ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-md whitespace-nowrap ${billable ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-surface-2 text-muted hover:bg-line/60'}`}
           title="Toggle billable"
         >
           {billable ? 'Billable' : 'Non-billable'}
@@ -621,7 +621,7 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         placeholder="Notes (optional)"
-        className="mt-2 w-full text-xs text-slate-700 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="mt-2 w-full text-xs text-ink/80 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
       {dirty && (
         <div className="mt-2 flex justify-end">
@@ -718,7 +718,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="w-full border border-dashed border-slate-300 rounded-lg p-3 text-xs text-slate-500 hover:text-slate-800 hover:border-slate-400 hover:bg-slate-50 flex items-center justify-center gap-1"
+        className="w-full border border-dashed border-line rounded-lg p-3 text-xs text-muted hover:text-ink hover:border-slate-400 hover:bg-surface-2/70 flex items-center justify-center gap-1"
       >
         <Plus size={12} /> Add time entry
       </button>
@@ -742,12 +742,12 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
           onChange={(e) => setHours(Math.max(0, Math.min(24, Number(e.target.value) || 0)))}
           onKeyDown={handleKey}
           placeholder="Hours"
-          className="w-20 border border-slate-300 rounded-md px-2 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="w-20 border border-line rounded-md px-2 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <button
           type="button"
           onClick={() => setBillable(!billable)}
-          className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-md whitespace-nowrap ${billable ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-md whitespace-nowrap ${billable ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-surface-2 text-muted hover:bg-line/60'}`}
         >
           {billable ? 'Billable' : 'Non-billable'}
         </button>
@@ -758,15 +758,15 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         onChange={(e) => setNotes(e.target.value)}
         onKeyDown={handleKey}
         placeholder="Notes (optional) — Enter or Tab to save & add another"
-        className="mt-2 w-full text-xs text-slate-700 bg-white border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="mt-2 w-full text-xs text-ink/80 bg-white border border-line rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-[10px] text-slate-500 italic">Enter or Tab = save &amp; add another · Esc = close</span>
+        <span className="text-[10px] text-muted italic">Enter or Tab = save &amp; add another · Esc = close</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={closeRow}
-            className="text-[11px] text-slate-500 hover:text-slate-700 flex items-center gap-1"
+            className="text-[11px] text-muted hover:text-ink/80 flex items-center gap-1"
           >
             <X size={11} /> Done
           </button>
@@ -774,7 +774,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
             type="button"
             onClick={() => handleAdd({ keepOpen: false, asDraft: true })}
             disabled={!projectName || hours <= 0 || saving}
-            className="text-[11px] font-semibold border border-slate-300 text-slate-700 bg-white px-3 py-1 rounded-md hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+            className="text-[11px] font-semibold border border-line text-ink/80 bg-white px-3 py-1 rounded-md hover:bg-surface-2/70 disabled:opacity-40 flex items-center gap-1"
             title="Save without submitting for approval"
           >
             <Save size={11} /> Save as draft
@@ -826,7 +826,7 @@ function ProjectPicker({ value, onChange, options, autoFocus = false, onEnter }:
       value={value}
       onChange={(e) => { onChange(e.target.value); onEnter?.(); }}
       autoFocus={autoFocus}
-      className="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+      className="border border-line rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
     >
       <option value="" disabled>— pick a project —</option>
       {(['current', 'concierge', 'roster', 'internal', 'other'] as const).map((k) => {
@@ -852,8 +852,8 @@ function CalendarGrid({ cells, onPickDay }: {
 
   /** Pick a background tone for each cell based on hours logged. */
   const cellTone = (hours: number, inMonth: boolean) => {
-    if (!inMonth) return 'bg-slate-50 text-slate-300';
-    if (hours === 0) return 'bg-white text-slate-700 hover:bg-slate-50';
+    if (!inMonth) return 'bg-surface-2/70 text-line';
+    if (hours === 0) return 'bg-white text-ink/80 hover:bg-surface-2/70';
     if (hours < 4) return 'bg-amber-50 text-amber-900 hover:bg-amber-100';
     if (hours < 8) return 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100';
     return 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200';
@@ -862,7 +862,7 @@ function CalendarGrid({ cells, onPickDay }: {
   return (
     <Card>
       {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 gap-1 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
+      <div className="grid grid-cols-7 gap-1 mb-1 text-[10px] font-bold uppercase tracking-wider text-muted/70 text-center">
         {dayHeaders.map((h) => <div key={h} className="py-1">{h}</div>)}
       </div>
       {/* Cells */}
@@ -875,7 +875,7 @@ function CalendarGrid({ cells, onPickDay }: {
               key={c.iso}
               type="button"
               onClick={() => onPickDay(c.iso)}
-              className={`relative rounded-md border ${isToday ? 'border-primary ring-1 ring-primary/40' : 'border-slate-200'} px-2 py-3 text-left transition-colors ${cellTone(c.hours, c.inMonth)} min-h-[68px] flex flex-col justify-between`}
+              className={`relative rounded-md border ${isToday ? 'border-primary ring-1 ring-primary/40' : 'border-line'} px-2 py-3 text-left transition-colors ${cellTone(c.hours, c.inMonth)} min-h-[68px] flex flex-col justify-between`}
               title={`${c.iso} — ${c.hours.toFixed(2)}h logged`}
             >
               <div className="flex items-center justify-between">
@@ -889,8 +889,8 @@ function CalendarGrid({ cells, onPickDay }: {
           );
         })}
       </div>
-      <div className="mt-3 flex items-center gap-3 text-[10px] text-slate-500">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white border border-slate-200" /> 0h</span>
+      <div className="mt-3 flex items-center gap-3 text-[10px] text-muted">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white border border-line" /> 0h</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-50 border border-amber-200" /> &lt; 4h</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-50 border border-emerald-200" /> 4–8h</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200" /> 8h+</span>
@@ -1097,14 +1097,14 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
       <div className="overflow-x-auto -mx-2 px-2">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="text-[11px] uppercase tracking-wider text-slate-400">
+            <tr className="text-[11px] uppercase tracking-wider text-muted/70">
               <th className="text-left font-bold py-2 pr-3 min-w-[10rem] sticky left-0 bg-white">Project</th>
               {days.map((d) => {
                 const dt = parseIsoDate(d.iso);
                 return (
                   <th key={d.iso} className={`text-center font-bold px-1 py-2 min-w-[3.75rem] ${d.isToday ? 'text-primary' : ''}`}>
                     <div>{dt.toLocaleDateString(undefined, { weekday: 'short' })}</div>
-                    <div className="text-slate-500 font-semibold">{dt.getDate()}</div>
+                    <div className="text-muted font-semibold">{dt.getDate()}</div>
                   </th>
                 );
               })}
@@ -1114,17 +1114,17 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
           <tbody>
             {rowNames.length === 0 && (
               <tr>
-                <td colSpan={days.length + 2} className="text-center text-slate-400 italic py-6 text-xs">
+                <td colSpan={days.length + 2} className="text-center text-muted/70 italic py-6 text-xs">
                   No projects yet. Add a project row below to start filling in hours.
                 </td>
               </tr>
             )}
             {rowNames.map((name, ri) => (
-              <tr key={name} className="border-t border-slate-100">
-                <td className="py-1.5 pr-3 text-slate-800 font-medium sticky left-0 bg-white">
+              <tr key={name} className="border-t border-line/60">
+                <td className="py-1.5 pr-3 text-ink font-medium sticky left-0 bg-white">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate max-w-[12rem]" title={name}>{name}</span>
-                    {!billableFor(name) && <span className="text-[9px] uppercase tracking-wide text-slate-400">non-bill</span>}
+                    {!billableFor(name) && <span className="text-[9px] uppercase tracking-wide text-muted/70">non-bill</span>}
                   </div>
                 </td>
                 {days.map((d) => {
@@ -1137,7 +1137,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
                           readOnly
                           tabIndex={-1}
                           title="Multiple entries this day — edit in list view"
-                          className="w-14 border border-slate-200 rounded-md px-1 py-1 text-sm tabular-nums text-right bg-slate-100 text-slate-400 cursor-not-allowed"
+                          className="w-14 border border-line rounded-md px-1 py-1 text-sm tabular-nums text-right bg-surface-2 text-muted/70 cursor-not-allowed"
                         />
                       </td>
                     );
@@ -1150,23 +1150,23 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
                         onChange={(e) => setCell(name, d.iso, e.target.value)}
                         placeholder="0"
                         className={`w-14 border rounded-md px-1 py-1 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-primary/40 ${
-                          `${name}${CELL_SEP}${d.iso}` in edits ? 'border-primary/60 bg-primary/5' : 'border-slate-300'
+                          `${name}${CELL_SEP}${d.iso}` in edits ? 'border-primary/60 bg-primary/5' : 'border-line'
                         }`}
                       />
                     </td>
                   );
                 })}
-                <td className="px-2 py-1 text-center font-bold tabular-nums text-slate-900">
+                <td className="px-2 py-1 text-center font-bold tabular-nums text-ink">
                   {rowTotals[ri].toFixed(2)}
                 </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-slate-200 text-slate-900">
-              <td className="py-2 pr-3 text-[11px] uppercase tracking-wider font-bold text-slate-500 sticky left-0 bg-white">Day total</td>
+            <tr className="border-t-2 border-line text-ink">
+              <td className="py-2 pr-3 text-[11px] uppercase tracking-wider font-bold text-muted sticky left-0 bg-white">Day total</td>
               {dayTotals.map((t, i) => (
-                <td key={days[i].iso} className={`px-1 py-2 text-center font-bold tabular-nums ${t >= 8 ? 'text-emerald-600' : t === 0 ? 'text-slate-300' : ''}`}>
+                <td key={days[i].iso} className={`px-1 py-2 text-center font-bold tabular-nums ${t >= 8 ? 'text-emerald-600' : t === 0 ? 'text-line' : ''}`}>
                   {t.toFixed(2)}
                 </td>
               ))}
@@ -1177,22 +1177,22 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
       </div>
 
       {/* Add a project row */}
-      <div className="mt-4 flex items-center gap-2 flex-wrap border-t border-slate-100 pt-3">
-        <span className="text-[11px] text-slate-500">Add project row:</span>
+      <div className="mt-4 flex items-center gap-2 flex-wrap border-t border-line/60 pt-3">
+        <span className="text-[11px] text-muted">Add project row:</span>
         <ProjectPicker value={newRow} onChange={setNewRow} options={projectOptions} onEnter={addRow} />
         <button
           type="button"
           onClick={addRow}
           disabled={!newRow.trim()}
-          className="text-[11px] font-semibold px-2.5 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1"
+          className="text-[11px] font-semibold px-2.5 py-1.5 border border-line rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1"
         >
           <Plus size={11} /> Add row
         </button>
       </div>
 
       {/* Save actions */}
-      <div className="mt-4 flex items-center justify-between gap-2 flex-wrap border-t border-slate-100 pt-3">
-        <span className="text-[11px] text-slate-500">
+      <div className="mt-4 flex items-center justify-between gap-2 flex-wrap border-t border-line/60 pt-3">
+        <span className="text-[11px] text-muted">
           {dirtyCount > 0 ? `${dirtyCount} unsaved cell${dirtyCount === 1 ? '' : 's'}` : 'All changes saved'}
           {savedMsg && <span className="ml-2 text-emerald-600 font-semibold">{savedMsg}</span>}
         </span>
@@ -1201,7 +1201,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
             type="button"
             onClick={saveDraft}
             disabled={dirtyCount === 0 || saving !== null}
-            className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 inline-flex items-center gap-1.5"
+            className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1.5"
           >
             {saving === 'draft' ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save draft
           </button>

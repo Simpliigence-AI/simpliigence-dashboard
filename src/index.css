@@ -1,28 +1,110 @@
 @import "tailwindcss";
 
+/**
+ * Design tokens.
+ *
+ * Keeps the Simpliigence palette — brand blue on navy, slate neutrals — and
+ * borrows the STRUCTURE of the Victoria analytics site rather than its
+ * colours: a tinted ground so white cards lift on their own, one long soft
+ * shadow instead of hard borders, oversized tightly-tracked display type, and
+ * small uppercase kickers doing the labelling work.
+ *
+ * The old theme wasn't wrong, it was flat: page and cards were nearly the same
+ * value, every element sat at the same visual weight, and hierarchy came from
+ * borders. Here the ground is a step darker than the cards, which frees the
+ * borders to go quiet and lets the data carry the strongest ink on screen.
+ *
+ * Tailwind v4 reads these, so `bg-paper`, `text-ink`, `border-line`,
+ * `text-brand` etc. exist as utilities everywhere.
+ */
 @theme {
+  /* Grounds — cool neutrals, a touch deeper than before so cards separate */
+  --color-paper: #f4f6f9;        /* page background */
+  --color-surface: #ffffff;      /* cards */
+  --color-surface-2: #eef1f6;    /* table headers, inset panels */
+  --color-line: #dde3ec;         /* borders — quiet, the shadow does the lifting */
+
+  /* Ink */
+  --color-ink: #0f1b2d;          /* primary text — navy-black, never pure black */
+  --color-muted: #64748b;        /* secondary text, labels */
+
+  /* Brand — unchanged */
+  --color-brand: #3b82f6;
+  --color-brand-dark: #2563eb;
+  --color-brand-soft: #dbeafe;
+  --color-navy: #1e293b;         /* sidebar, hero blocks */
+  --color-navy-2: #334155;
+
+  /* Categorical — our existing semantics, held at one saturation so a table
+   * of them reads as a set rather than a rainbow */
+  --color-teal: #0d9488;
+  --color-gold: #d97706;
+  --color-green: #059669;
+  --color-violet: #7c3aed;
+  --color-rose: #e11d48;
+
+  /* Existing names kept so nothing breaks mid-migration */
   --color-primary: #3b82f6;
   --color-primary-dark: #2563eb;
   --color-primary-light: #93c5fd;
-  --color-accent: #10b981;
-  --color-accent-dark: #059669;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-surface: #f8fafc;
-  --color-surface-dark: #f1f5f9;
+  --color-accent: #059669;
+  --color-accent-dark: #047857;
+  --color-warning: #d97706;
+  --color-danger: #e11d48;
+  --color-surface-dark: #eef1f6;
   --color-sidebar: #1e293b;
   --color-sidebar-hover: #334155;
   --color-sidebar-active: #3b82f6;
+
+  /* One shadow, used everywhere. Long, soft, navy-tinted — a grey shadow on a
+   * tinted ground reads as smudge. */
+  --shadow-card: 0 16px 48px #0f1b2d14;
+}
+
+/**
+ * Display type. The reference gets its hierarchy from scale, not chrome — and
+ * at these sizes tracking has to go negative or the words drift apart.
+ */
+.display-xl { font-size: clamp(2.25rem, 5vw, 4rem); font-weight: 750; line-height: 0.98; letter-spacing: -0.045em; }
+.display-lg { font-size: clamp(1.625rem, 3vw, 2.375rem); font-weight: 720; line-height: 1.05; letter-spacing: -0.035em; }
+.display-md { font-size: 1.375rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.022em; }
+
+/** The small uppercase kicker above a heading — does the labelling so the
+ *  heading itself never has to shrink to carry context. */
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--color-muted);
 }
 
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--color-surface);
-  color: #1e293b;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/**
+ * Display type. The reference leans on very large, tightly-tracked headings
+ * for hierarchy instead of borders and boxes — at 88px the tracking has to go
+ * negative or the words drift apart.
+ */
+.display-xl { font-size: clamp(2.5rem, 6vw, 5.5rem); font-weight: 750; line-height: 0.95; letter-spacing: -0.065em; }
+.display-lg { font-size: clamp(1.75rem, 3.2vw, 2.75rem); font-weight: 720; line-height: 1.02; letter-spacing: -0.04em; }
+.display-md { font-size: 1.5rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.025em; }
+
+/** The small uppercase kicker above a heading — the reference's signature. */
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-muted);
 }
 
 * {

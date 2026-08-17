@@ -132,6 +132,8 @@ export default function GtmListPage() {
   return (
     <div>
       <PageHeader
+        eyebrow="Account management"
+        tone="brand"
         title="GTM List"
         subtitle="Strategic accounts we're pursuing partnerships with — assignees, contacts, action items"
         action={
@@ -143,11 +145,11 @@ export default function GtmListPage() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-        <StatCard label="Total" value={stats.total} icon={<Handshake size={20} />} subtitle={`${stats.active} active`} />
-        <StatCard label="High Priority" value={stats.highPri} icon={<Target size={20} />} subtitle="Active only" />
-        <StatCard label="In Flight" value={stats.inFlight} icon={<TrendingUp size={20} />} subtitle="Engaged → Proposal" />
-        <StatCard label="Won" value={stats.won} icon={<ClipboardCheck size={20} />} subtitle="Partnerships closed" />
-        <StatCard label="Pipeline Value" value={fmtUsdCompact(stats.pipelineValue)} icon={<DollarSign size={20} />} subtitle="Est. annual" />
+        <StatCard tone="navy" label="Total" value={stats.total} icon={<Handshake size={22} />} subtitle={`${stats.active} active`} />
+        <StatCard tone="rose" label="High Priority" value={stats.highPri} icon={<Target size={22} />} subtitle="Active only" />
+        <StatCard tone="gold" label="In Flight" value={stats.inFlight} icon={<TrendingUp size={22} />} subtitle="Engaged → Proposal" />
+        <StatCard tone="green" label="Won" value={stats.won} icon={<ClipboardCheck size={22} />} subtitle="Partnerships closed" />
+        <StatCard tone="teal" label="Pipeline Value" value={fmtUsdCompact(stats.pipelineValue)} icon={<DollarSign size={22} />} subtitle="Est. annual" />
       </div>
 
       {/* Filters */}

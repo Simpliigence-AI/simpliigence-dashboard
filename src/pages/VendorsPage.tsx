@@ -95,6 +95,8 @@ export default function VendorsPage() {
   return (
     <div className="w-full">
       <PageHeader
+        eyebrow="Talent acquisition"
+        tone="violet"
         title="Vendors"
         subtitle={`${vendors.length} vendor${vendors.length === 1 ? '' : 's'} · ${outreach.length} outreach event${outreach.length === 1 ? '' : 's'}`}
         action={

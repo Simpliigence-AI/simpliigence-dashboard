@@ -587,6 +587,8 @@ export default function DialerPage() {
   return (
     <div>
       <PageHeader
+        eyebrow="Account management"
+        tone="brand"
         title="Dialer"
         subtitle="Call contacts from Salesforce / ZoomInfo or dial any number — calls are recorded, transcribed and summarized by AI."
       />

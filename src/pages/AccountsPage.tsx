@@ -27,7 +27,10 @@ import {
   Sparkles, RefreshCw, Loader2, Mic, Square, Upload, Link as LinkIcon,
   DollarSign, Lock, Unlock, Flame, MessageSquare, Handshake,
   Search, Lightbulb, PanelsTopLeft, Rows3, Building2, ArrowLeft,
+  UserCheck, UserCog, Factory, Activity, CalendarClock, Type, StickyNote,
+  AlignLeft, Flag, AtSign, Tags,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card } from '../components/ui';
 import { QuickIdeaModal } from './accounts/QuickIdeaModal';
 import { supabase } from '../lib/supabase';
@@ -1910,10 +1913,52 @@ function AddAccountForm({ onCancel, onAdd }: {
 }
 
 /* ── Small reusable field wrapper ── */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+
+/**
+ * Icon per field label.
+ *
+ * Matched on the label text rather than passed in at each call site: the
+ * labels are already the source of truth for what a field means, so keying
+ * off them means every existing <Field> gains an icon without touching 18
+ * call sites, and a new field gets one for free if it's named conventionally.
+ *
+ * Matching is on lowercase substrings, longest-first, so "Sales owner" picks
+ * the owner icon rather than falling through to a generic one.
+ */
+const FIELD_ICONS: Array<[string, LucideIcon]> = [
+  ['account name', Building2],
+  ['sales owner', UserCheck],
+  ['delivery owner', UserCog],
+  ['attendees', Users],
+  ['owner', UserCheck],
+  ['industry', Factory],
+  ['status', Activity],
+  ['due date', CalendarClock],
+  ['date', Calendar],
+  ['title', Type],
+  ['name', Building2],
+  ['notes', StickyNote],
+  ['description', AlignLeft],
+  ['discussed', MessageSquare],
+  ['outcome', Flag],
+  ['email domains', AtSign],
+  ['aliases', Tags],
+];
+
+function iconForLabel(label: string): LucideIcon | null {
+  const l = label.toLowerCase();
+  for (const [key, Icon] of FIELD_ICONS) if (l.includes(key)) return Icon;
+  return null;
+}
+
+function Field({ label, children, icon }: { label: string; children: React.ReactNode; icon?: LucideIcon }) {
+  const Icon = icon ?? iconForLabel(label);
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">{label}</label>
+      <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted mb-1.5">
+        {Icon && <Icon size={13} className="text-muted/70 shrink-0" />}
+        {label}
+      </label>
       {children}
     </div>
   );

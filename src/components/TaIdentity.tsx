@@ -38,7 +38,7 @@ export function TaIdentity({
 }: Props) {
   const directory = useAuthStore((s) => s.directory);
   if (!email) {
-    return <span className={`text-slate-400 italic ${nameSize} ${className}`}>—</span>;
+    return <span className={`text-muted/70 italic ${nameSize} ${className}`}>—</span>;
   }
   const profile = lookupProfile(email, directory);
   const displayName = profile.fullName || profile.email;
@@ -60,9 +60,9 @@ export function TaIdentity({
     <span className={`${wrapperClasses} ${className}`}>
       <UserAvatar email={profile.email} name={profile.fullName} avatarUrl={profile.avatarUrl} size={avatarSize} />
       <span className="min-w-0">
-        <span className={`block font-bold text-slate-900 truncate ${nameSize}`}>{firstName}</span>
+        <span className={`block font-bold text-ink truncate ${nameSize}`}>{firstName}</span>
         {showEmail && (
-          <span className="block text-[10px] text-slate-400 truncate">{profile.email}</span>
+          <span className="block text-[10px] text-muted/70 truncate">{profile.email}</span>
         )}
       </span>
     </span>

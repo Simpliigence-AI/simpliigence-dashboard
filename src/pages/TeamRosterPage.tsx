@@ -36,12 +36,14 @@ export default function TeamRosterPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Delivery"
+        tone="brand"
         title="Project Team"
         subtitle={`${memberCount} team members · ${projectCount} projects · ${assignments.length} allocations`}
       />
 
       <Card>
-        <div className="flex items-center gap-1 mb-4 border-b border-slate-200 -mx-5 px-5">
+        <div className="flex items-center gap-1 mb-4 border-b border-line -mx-5 px-5">
           <TabButton active={tab === 'people'} onClick={() => setTab('people')}>People</TabButton>
           <TabButton active={tab === 'projects'} onClick={() => setTab('projects')}>Projects</TabButton>
           <TabButton active={tab === 'pods'} onClick={() => setTab('pods')}>Pod utilization</TabButton>
@@ -72,7 +74,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={`relative px-3.5 py-2 text-sm font-medium transition-colors ${
-        active ? 'text-primary' : 'text-slate-500 hover:text-slate-700'
+        active ? 'text-primary' : 'text-muted hover:text-ink/80'
       }`}
     >
       {children}

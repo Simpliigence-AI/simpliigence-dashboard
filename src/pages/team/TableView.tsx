@@ -116,36 +116,36 @@ export function AddResourceForm({
 
   return (
     <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-4">
-      <h3 className="text-sm font-semibold text-slate-700 mb-3">Add New Resource</h3>
+      <h3 className="text-sm font-semibold text-ink/80 mb-3">Add New Resource</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Name *</label>
-          <input className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} />
+          <label className="block text-xs text-muted mb-1">Name *</label>
+          <input className="w-full rounded-lg border border-line px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Role</label>
-          <select className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" value={role} onChange={(e) => setRole(e.target.value)}>
+          <label className="block text-xs text-muted mb-1">Role</label>
+          <select className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="">Select...</option>
             {roles.map((r) => <option key={r} value={r}>{r}</option>)}
             <option value="__custom__">+ Custom role</option>
           </select>
-          {role === '__custom__' && <input className="w-full mt-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="Custom role..." value={customRole} onChange={(e) => setCustomRole(e.target.value)} />}
+          {role === '__custom__' && <input className="w-full mt-1 rounded-lg border border-line px-2 py-1.5 text-sm" placeholder="Custom role..." value={customRole} onChange={(e) => setCustomRole(e.target.value)} />}
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Rate ($/hr)</label>
-          <input type="number" className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="0" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <label className="block text-xs text-muted mb-1">Rate ($/hr)</label>
+          <input type="number" className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" placeholder="0" value={rate} onChange={(e) => setRate(e.target.value)} />
         </div>
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Type</label>
-          <select className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" value={type} onChange={(e) => setType(e.target.value as 'employee' | 'si' | 'contractor')}>
+          <label className="block text-xs text-muted mb-1">Type</label>
+          <select className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" value={type} onChange={(e) => setType(e.target.value as 'employee' | 'si' | 'contractor')}>
             <option value="employee">Employee</option>
             <option value="si">SI</option>
             <option value="contractor">Contractor</option>
           </select>
         </div>
         <div className="col-span-2">
-          <label className="block text-xs text-slate-500 mb-1">Project *</label>
-          <select className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" value={project} onChange={(e) => setProject(e.target.value)}>
+          <label className="block text-xs text-muted mb-1">Project *</label>
+          <select className="w-full rounded-lg border border-line px-2 py-1.5 text-sm" value={project} onChange={(e) => setProject(e.target.value)}>
             <option value="">Select...</option>
             {(['current', 'pipeline', 'legacy'] as ProjectSource[]).map((src) =>
               grouped[src].length > 0 ? (
@@ -160,26 +160,26 @@ export function AddResourceForm({
             )}
             <option value="__custom__">+ Custom project</option>
           </select>
-          {project === '__custom__' && <input className="w-full mt-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="Custom project..." value={customProject} onChange={(e) => setCustomProject(e.target.value)} />}
-          <p className="mt-1 text-[10px] text-slate-400">
+          {project === '__custom__' && <input className="w-full mt-1 rounded-lg border border-line px-2 py-1.5 text-sm" placeholder="Custom project..." value={customProject} onChange={(e) => setCustomProject(e.target.value)} />}
+          <p className="mt-1 text-[10px] text-muted/70">
             Pick from Zoho/Pipeline so hours join to the project card for cost calculation.
           </p>
         </div>
         <div className="col-span-2 flex items-end gap-2">
           <button onClick={handleSubmit} disabled={!canSubmit} className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed">Add Resource</button>
-          <button onClick={onCancel} className="px-4 py-1.5 text-sm font-medium rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button onClick={onCancel} className="px-4 py-1.5 text-sm font-medium rounded-lg border border-line text-muted hover:bg-surface-2/70">Cancel</button>
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-primary/10">
-        <label className="block text-xs text-slate-500 mb-2">Monthly Hours (optional)</label>
+        <label className="block text-xs text-muted mb-2">Monthly Hours (optional)</label>
         <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
           {MONTHS.map((mo) => (
             <div key={mo} className="text-center">
-              <span className="block text-[10px] text-slate-400 mb-0.5">{mo}</span>
+              <span className="block text-[10px] text-muted/70 mb-0.5">{mo}</span>
               <input
                 type="number"
                 min="0"
-                className="w-full rounded border border-slate-300 px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="w-full rounded border border-line px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary/50"
                 placeholder="0"
                 value={monthlyHrs[mo]}
                 onChange={(e) => setMonthlyHrs((prev) => ({ ...prev, [mo]: e.target.value }))}
@@ -353,12 +353,12 @@ export default function TableView() {
     <>
       {/* Toolbar */}
       <div className="flex flex-wrap gap-3 mb-4">
-        <input type="text" placeholder="Search by name..." className="flex-1 min-w-[160px] rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="rounded-lg border border-slate-300 px-3 py-2 text-sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+        <input type="text" placeholder="Search by name..." className="flex-1 min-w-[160px] rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select className="rounded-lg border border-line px-3 py-2 text-sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
           <option value="">All Roles</option>
           {roles.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
-        <select className="rounded-lg border border-slate-300 px-3 py-2 text-sm" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
+        <select className="rounded-lg border border-line px-3 py-2 text-sm" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
           <option value="">All Projects</option>
           {allProjects.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
@@ -367,7 +367,7 @@ export default function TableView() {
           className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
             groupByRole
               ? 'bg-primary/10 border-primary/40 text-primary font-semibold'
-              : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+              : 'bg-white border-line text-muted hover:bg-surface-2/70'
           }`}
           title="Group rows into sections by role"
         >
@@ -383,7 +383,7 @@ export default function TableView() {
         <button
           onClick={() => setSelectedMonthIdx(Math.max(0, selectedMonthIdx - 1))}
           disabled={selectedMonthIdx === 0}
-          className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"
+          className="p-1 rounded hover:bg-surface-2 disabled:opacity-30"
         >
           <ChevronLeft size={16} />
         </button>
@@ -397,7 +397,7 @@ export default function TableView() {
                   ? 'bg-primary text-white'
                   : i === currentMonthIdx
                     ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                    : 'text-slate-500 hover:bg-slate-100'
+                    : 'text-muted hover:bg-surface-2'
               }`}
             >
               {m}
@@ -407,13 +407,13 @@ export default function TableView() {
         <button
           onClick={() => setSelectedMonthIdx(Math.min(11, selectedMonthIdx + 1))}
           disabled={selectedMonthIdx === 11}
-          className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"
+          className="p-1 rounded hover:bg-surface-2 disabled:opacity-30"
         >
           <ChevronRight size={16} />
         </button>
       </div>
 
-      <p className="text-xs text-slate-400 mb-3">
+      <p className="text-xs text-muted/70 mb-3">
         Showing weeks in <strong>{selectedMonth} {currentYear}</strong>. Click any hour cell to edit. Expand a resource to see hours by project.
       </p>
 
@@ -422,7 +422,7 @@ export default function TableView() {
           <span className="text-sm text-red-700">Remove <strong>{confirmDelete}</strong> and all their project assignments?</span>
           <div className="flex gap-2">
             <button onClick={() => handleDeleteEmployee(confirmDelete)} className="px-3 py-1 text-sm font-medium rounded bg-red-600 text-white hover:bg-red-700">Delete</button>
-            <button onClick={() => setConfirmDelete(null)} className="px-3 py-1 text-sm font-medium rounded border border-slate-300 text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button onClick={() => setConfirmDelete(null)} className="px-3 py-1 text-sm font-medium rounded border border-line text-muted hover:bg-surface-2/70">Cancel</button>
           </div>
         </div>
       )}
@@ -430,21 +430,21 @@ export default function TableView() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left">
+            <tr className="border-b border-line text-left">
               <th className="pb-3 pr-2 w-6" />
-              <th className="pb-3 pr-3 font-semibold text-slate-600 min-w-[140px]">Name</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600 min-w-[100px]">Role</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600 w-16">Rate</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600 w-20">Type</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600 w-16">Projects</th>
+              <th className="pb-3 pr-3 font-semibold text-muted min-w-[140px]">Name</th>
+              <th className="pb-3 pr-3 font-semibold text-muted min-w-[100px]">Role</th>
+              <th className="pb-3 pr-3 font-semibold text-muted w-16">Rate</th>
+              <th className="pb-3 pr-3 font-semibold text-muted w-20">Type</th>
+              <th className="pb-3 pr-3 font-semibold text-muted w-16">Projects</th>
               {weekDates.map((w) => (
-                <th key={w} className="pb-3 pr-1 font-semibold text-slate-600 text-center w-16">
+                <th key={w} className="pb-3 pr-1 font-semibold text-muted text-center w-16">
                   <div className="text-[10px] leading-tight">{formatWeekLabel(w)}</div>
                 </th>
               ))}
-              <th className="pb-3 font-semibold text-slate-600 text-right w-16">{selectedMonth}</th>
-              <th className="pb-3 font-semibold text-slate-600 text-right w-16">Util %</th>
-              <th className="pb-3 font-semibold text-slate-600 text-right w-16">Year</th>
+              <th className="pb-3 font-semibold text-muted text-right w-16">{selectedMonth}</th>
+              <th className="pb-3 font-semibold text-muted text-right w-16">Util %</th>
+              <th className="pb-3 font-semibold text-muted text-right w-16">Year</th>
               <th className="pb-3 w-8" />
             </tr>
           </thead>
@@ -472,22 +472,22 @@ export default function TableView() {
                 <Fragment key={g.name}>
                   {showSectionHeader && (
                     <tr className="bg-gradient-to-r from-slate-100 to-slate-50">
-                      <td colSpan={totalCols} className="py-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                      <td colSpan={totalCols} className="py-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-ink/80">
                         {currentBucket}
-                        <span className="ml-2 text-slate-400 font-normal text-[10px]">
+                        <span className="ml-2 text-muted/70 font-normal text-[10px]">
                           {sectionMemberCount} {sectionMemberCount === 1 ? 'member' : 'members'}
                         </span>
                       </td>
                     </tr>
                   )}
-                  <tr className="border-b border-slate-100 hover:bg-slate-50 group">
+                  <tr className="border-b border-line/60 hover:bg-surface-2/70 group">
                     <td className="py-2 pr-2">
-                      <button onClick={() => toggleExpand(g.name)} className="text-slate-400 hover:text-slate-600">
+                      <button onClick={() => toggleExpand(g.name)} className="text-muted/70 hover:text-muted">
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
                     </td>
 
-                    <td className="py-2 pr-3 font-medium text-slate-800 cursor-pointer"
+                    <td className="py-2 pr-3 font-medium text-ink cursor-pointer"
                       onClick={() => setEditing({ empName: g.name, project: '', field: 'name' })}
                     >
                       {isEditing(g.name, '', 'name') ? (
@@ -497,7 +497,7 @@ export default function TableView() {
                       )}
                     </td>
 
-                    <td className="py-2 pr-3 text-slate-600 text-xs cursor-pointer"
+                    <td className="py-2 pr-3 text-muted text-xs cursor-pointer"
                       onClick={() => setEditing({ empName: g.name, project: '', field: 'role' })}
                     >
                       {isEditing(g.name, '', 'role') ? (
@@ -507,7 +507,7 @@ export default function TableView() {
                       )}
                     </td>
 
-                    <td className="py-2 pr-3 text-slate-600 cursor-pointer text-xs"
+                    <td className="py-2 pr-3 text-muted cursor-pointer text-xs"
                       onClick={() => setEditing({ empName: g.name, project: '', field: 'rate' })}
                     >
                       {isEditing(g.name, '', 'rate') ? (
@@ -523,7 +523,7 @@ export default function TableView() {
                       </button>
                     </td>
 
-                    <td className="py-2 pr-3 text-xs text-slate-500">
+                    <td className="py-2 pr-3 text-xs text-muted">
                       {g.assignments.length}
                     </td>
 
@@ -544,7 +544,7 @@ export default function TableView() {
                         <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
                           empWeeklyTotals[w] > 0
                             ? empWeeklyTotals[w] >= 40 ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
-                            : 'text-slate-300'
+                            : 'text-line'
                         }`}>
                           {empWeeklyTotals[w] > 0 ? empWeeklyTotals[w] : '—'}
                         </span>
@@ -553,7 +553,7 @@ export default function TableView() {
 
                     <td className="py-2 text-right">
                       <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${
-                        monthTotal >= 160 ? 'text-green-600 bg-green-50' : monthTotal > 0 ? 'text-blue-600 bg-blue-50' : 'text-slate-300'
+                        monthTotal >= 160 ? 'text-green-600 bg-green-50' : monthTotal > 0 ? 'text-blue-600 bg-blue-50' : 'text-line'
                       }`}>
                         {monthTotal > 0 ? monthTotal : '—'}
                       </span>
@@ -564,7 +564,7 @@ export default function TableView() {
                         const util = monthTotal > 0 ? Math.round((monthTotal / 160) * 100) : 0;
                         return (
                           <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${
-                            util > 100 ? 'text-red-600 bg-red-50' : util >= 80 ? 'text-green-600 bg-green-50' : util >= 50 ? 'text-blue-600 bg-blue-50' : util > 0 ? 'text-amber-600 bg-amber-50' : 'text-slate-300'
+                            util > 100 ? 'text-red-600 bg-red-50' : util >= 80 ? 'text-green-600 bg-green-50' : util >= 50 ? 'text-blue-600 bg-blue-50' : util > 0 ? 'text-amber-600 bg-amber-50' : 'text-line'
                           }`}>
                             {util > 0 ? `${util}%` : '—'}
                           </span>
@@ -574,14 +574,14 @@ export default function TableView() {
 
                     <td className="py-2 text-right">
                       <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${
-                        g.totalHours >= 800 ? 'text-green-600 bg-green-50' : g.totalHours >= 400 ? 'text-blue-600 bg-blue-50' : g.totalHours > 0 ? 'text-amber-600 bg-amber-50' : 'text-slate-300'
+                        g.totalHours >= 800 ? 'text-green-600 bg-green-50' : g.totalHours >= 400 ? 'text-blue-600 bg-blue-50' : g.totalHours > 0 ? 'text-amber-600 bg-amber-50' : 'text-line'
                       }`}>
                         {g.totalHours > 0 ? g.totalHours.toLocaleString() : '—'}
                       </span>
                     </td>
 
                     <td className="py-2 text-center">
-                      <button onClick={() => setConfirmDelete(g.name)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-opacity" title="Remove resource">
+                      <button onClick={() => setConfirmDelete(g.name)} className="opacity-0 group-hover:opacity-100 text-line hover:text-red-500 transition-opacity" title="Remove resource">
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -593,13 +593,13 @@ export default function TableView() {
                     const projYearTotal = MONTHS.reduce((s, m) => s + (a.monthlyTotals[m] ?? 0), 0);
 
                     return (
-                      <tr key={`${g.name}-${a.project}`} className="border-b border-slate-50 bg-slate-50/50">
+                      <tr key={`${g.name}-${a.project}`} className="border-b border-line/40 bg-surface-2/50">
                         <td />
                         <td colSpan={4} className="py-1.5 pl-6 pr-3">
                           <div className="flex items-center gap-2">
                             <span className="inline-block bg-primary/10 text-primary text-xs px-2 py-0.5 rounded font-medium">{a.project}</span>
                             {g.assignments.length > 1 && (
-                              <button onClick={() => handleRemoveAssignment(g.name, a.project)} className="text-slate-300 hover:text-red-400" title="Remove this project allocation">
+                              <button onClick={() => handleRemoveAssignment(g.name, a.project)} className="text-line hover:text-red-400" title="Remove this project allocation">
                                 <Trash2 size={12} />
                               </button>
                             )}
@@ -622,7 +622,7 @@ export default function TableView() {
                               />
                             ) : (
                               <span className={`inline-block px-1 py-0.5 rounded text-[11px] hover:ring-1 hover:ring-primary/30 ${
-                                (weeklyForA[w] ?? 0) > 0 ? 'text-slate-600' : 'text-slate-300'
+                                (weeklyForA[w] ?? 0) > 0 ? 'text-muted' : 'text-line'
                               }`}>
                                 {(weeklyForA[w] ?? 0) > 0 ? weeklyForA[w] : '—'}
                               </span>
@@ -631,11 +631,11 @@ export default function TableView() {
                         ))}
 
                         <td className="py-1.5 text-right">
-                          <span className="text-xs text-slate-500 font-medium">{projMonthTotal > 0 ? projMonthTotal : '—'}</span>
+                          <span className="text-xs text-muted font-medium">{projMonthTotal > 0 ? projMonthTotal : '—'}</span>
                         </td>
                         <td />
                         <td className="py-1.5 text-right">
-                          <span className="text-xs text-slate-400">{projYearTotal > 0 ? projYearTotal : '—'}</span>
+                          <span className="text-xs text-muted/70">{projYearTotal > 0 ? projYearTotal : '—'}</span>
                         </td>
                         <td />
                       </tr>
@@ -643,13 +643,13 @@ export default function TableView() {
                   })}
 
                   {isExpanded && (
-                    <tr className="border-b border-slate-100 bg-slate-50/30">
+                    <tr className="border-b border-line/60 bg-surface-2/30">
                       <td />
                       <td colSpan={5} className="py-1.5 pl-6">
                         {addingProjectFor === g.name ? (
                           <div className="flex items-center gap-2">
                             <select
-                              className="rounded border border-slate-300 px-1.5 py-0.5 text-xs min-w-[220px]"
+                              className="rounded border border-line px-1.5 py-0.5 text-xs min-w-[220px]"
                               defaultValue=""
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -679,7 +679,7 @@ export default function TableView() {
                               })}
                               <option value="__new__">+ New project (custom)</option>
                             </select>
-                            <button onClick={() => setAddingProjectFor(null)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                            <button onClick={() => setAddingProjectFor(null)} className="text-xs text-muted/70 hover:text-muted">Cancel</button>
                           </div>
                         ) : (
                           <button onClick={() => setAddingProjectFor(g.name)} className="text-xs text-primary/60 hover:text-primary font-medium flex items-center gap-1">
@@ -708,28 +708,28 @@ export default function TableView() {
                 grandYear += g.totalHours;
               }
               return (
-                <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                <tr className="border-t-2 border-line bg-surface-2/70 font-bold">
                   <td />
-                  <td className="py-2.5 pr-3 text-slate-700">Total ({filtered.length})</td>
+                  <td className="py-2.5 pr-3 text-ink/80">Total ({filtered.length})</td>
                   <td /><td /><td /><td />
                   {weekDates.map((w) => (
                     <td key={w} className="py-2.5 pr-1 text-center tabular-nums">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${grandWeekly[w] > 0 ? 'text-slate-800 bg-slate-200' : 'text-slate-300'}`}>
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${grandWeekly[w] > 0 ? 'text-ink bg-line/60' : 'text-line'}`}>
                         {grandWeekly[w] > 0 ? grandWeekly[w] : '—'}
                       </span>
                     </td>
                   ))}
                   <td className="py-2.5 text-right">
-                    <span className="inline-block px-1.5 py-0.5 rounded text-xs font-bold text-slate-800 bg-slate-200">{grandMonth > 0 ? grandMonth.toLocaleString() : '—'}</span>
+                    <span className="inline-block px-1.5 py-0.5 rounded text-xs font-bold text-ink bg-line/60">{grandMonth > 0 ? grandMonth.toLocaleString() : '—'}</span>
                   </td>
                   <td className="py-2.5 text-right">
                     {(() => {
                       const avgUtil = filtered.length > 0 ? Math.round((grandMonth / (filtered.length * 160)) * 100) : 0;
-                      return <span className="inline-block px-1.5 py-0.5 rounded text-xs font-bold text-slate-800 bg-slate-200">{avgUtil > 0 ? `${avgUtil}%` : '—'}</span>;
+                      return <span className="inline-block px-1.5 py-0.5 rounded text-xs font-bold text-ink bg-line/60">{avgUtil > 0 ? `${avgUtil}%` : '—'}</span>;
                     })()}
                   </td>
                   <td className="py-2.5 text-right">
-                    <span className="inline-block px-1.5 py-0.5 rounded text-xs font-bold text-slate-800 bg-slate-200">{grandYear > 0 ? grandYear.toLocaleString() : '—'}</span>
+                    <span className="inline-block px-1.5 py-0.5 rounded text-xs font-bold text-ink bg-line/60">{grandYear > 0 ? grandYear.toLocaleString() : '—'}</span>
                   </td>
                   <td />
                 </tr>
@@ -739,7 +739,7 @@ export default function TableView() {
         </table>
 
         {filtered.length === 0 && (
-          <div className="text-center py-8 text-slate-400 text-sm">
+          <div className="text-center py-8 text-muted/70 text-sm">
             {groups.length === 0 ? 'No team data yet. Import a spreadsheet or add resources manually.' : 'No matches for the current filters.'}
           </div>
         )}

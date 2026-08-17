@@ -137,7 +137,7 @@ export function AccountInfoTab({ account }: { account: Account }) {
   };
 
   if (loading) return (
-    <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+    <div className="py-8 text-center text-xs text-muted/70 flex items-center justify-center gap-2">
       <Loader2 size={14} className="animate-spin" /> Loading account info…
     </div>
   );
@@ -146,10 +146,10 @@ export function AccountInfoTab({ account }: { account: Account }) {
   if (!data) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center">
+        <div className="rounded-lg border border-dashed border-line p-6 text-center">
           <Sparkles size={20} className="text-violet-400 mx-auto mb-2" />
-          <div className="text-sm font-semibold text-slate-800 mb-1">No research cached yet</div>
-          <div className="text-xs text-slate-500 mb-3">
+          <div className="text-sm font-semibold text-ink mb-1">No research cached yet</div>
+          <div className="text-xs text-muted mb-3">
             Click <strong>Refresh from ZoomInfo</strong> to pull company profile, scoops, news, and key contacts.
           </div>
           <button type="button" onClick={triggerRefresh} disabled={refreshing}
@@ -172,8 +172,8 @@ export function AccountInfoTab({ account }: { account: Account }) {
       {/* Header — name, link, refresh */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <Briefcase size={15} className="text-slate-500 flex-shrink-0" />
-          <h3 className="text-sm font-bold text-slate-900">{data.ziData.legal_name || account.name}</h3>
+          <Briefcase size={15} className="text-muted flex-shrink-0" />
+          <h3 className="text-sm font-bold text-ink">{data.ziData.legal_name || account.name}</h3>
           {data.websiteUrl && (
             <a href={data.websiteUrl} target="_blank" rel="noopener noreferrer"
                className="inline-flex items-center gap-1 text-xs text-sky-700 hover:underline">
@@ -183,12 +183,12 @@ export function AccountInfoTab({ account }: { account: Account }) {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {data.refreshedAt && (
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-muted/70">
               Updated {new Date(data.refreshedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
             </span>
           )}
           <button type="button" onClick={triggerRefresh} disabled={refreshing}
-                  className="text-[11px] font-semibold text-slate-700 hover:bg-slate-100 px-2 py-1 rounded inline-flex items-center gap-1 disabled:opacity-50">
+                  className="text-[11px] font-semibold text-ink/80 hover:bg-surface-2 px-2 py-1 rounded inline-flex items-center gap-1 disabled:opacity-50">
             {refreshing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
@@ -203,10 +203,10 @@ export function AccountInfoTab({ account }: { account: Account }) {
       {error && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700">{error}</div>}
 
       {/* Profile facts */}
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Company profile</div>
+      <div className="rounded-lg border border-line bg-white p-4">
+        <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">Company profile</div>
         {data.ziData.description && (
-          <p className="text-xs text-slate-700 mb-3 leading-relaxed">{String(data.ziData.description)}</p>
+          <p className="text-xs text-ink/80 mb-3 leading-relaxed">{String(data.ziData.description)}</p>
         )}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
           {data.ziData.industry && <Fact label="Industry" value={String(data.ziData.industry)} icon={<Briefcase size={11} />} />}
@@ -219,15 +219,15 @@ export function AccountInfoTab({ account }: { account: Account }) {
 
       {/* Key people */}
       {data.keyPeople.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2 inline-flex items-center gap-1">
+        <div className="rounded-lg border border-line bg-white p-4">
+          <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 inline-flex items-center gap-1">
             <Users size={11} /> Key people ({data.keyPeople.length})
           </div>
           <ul className="space-y-2">
             {data.keyPeople.map((p, i) => (
               <li key={i} className="text-xs flex items-baseline gap-2 flex-wrap">
-                <span className="font-semibold text-slate-900">{p.name || '—'}</span>
-                {p.title && <span className="text-slate-500">{p.title}</span>}
+                <span className="font-semibold text-ink">{p.name || '—'}</span>
+                {p.title && <span className="text-muted">{p.title}</span>}
                 {p.seniority && <span className="text-[10px] uppercase tracking-wider text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">{p.seniority}</span>}
                 {p.email && (
                   <a href={`mailto:${p.email}`} className="text-sky-600 hover:underline inline-flex items-center gap-0.5">
@@ -248,16 +248,16 @@ export function AccountInfoTab({ account }: { account: Account }) {
 
       {/* Scoops */}
       {data.scoops.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2 inline-flex items-center gap-1">
+        <div className="rounded-lg border border-line bg-white p-4">
+          <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 inline-flex items-center gap-1">
             <Sparkles size={11} className="text-amber-500" /> Recent scoops ({data.scoops.length})
           </div>
           <ul className="space-y-2">
             {data.scoops.map((s, i) => (
               <li key={i} className="text-xs flex items-baseline gap-2 flex-wrap">
-                {s.date && <span className="text-[10px] tabular-nums text-slate-400 flex-shrink-0">{s.date}</span>}
+                {s.date && <span className="text-[10px] tabular-nums text-muted/70 flex-shrink-0">{s.date}</span>}
                 {s.topic && <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">{s.topic}</span>}
-                <span className="text-slate-700 flex-1 min-w-0">{s.summary || '—'}</span>
+                <span className="text-ink/80 flex-1 min-w-0">{s.summary || '—'}</span>
               </li>
             ))}
           </ul>
@@ -266,16 +266,16 @@ export function AccountInfoTab({ account }: { account: Account }) {
 
       {/* News */}
       {data.news.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2 inline-flex items-center gap-1">
+        <div className="rounded-lg border border-line bg-white p-4">
+          <div className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 inline-flex items-center gap-1">
             <Newspaper size={11} className="text-sky-500" /> Recent news ({data.news.length})
           </div>
           <ul className="space-y-2">
             {data.news.map((n, i) => (
               <li key={i} className="text-xs flex items-baseline gap-2 flex-wrap">
-                {n.date && <span className="text-[10px] tabular-nums text-slate-400 flex-shrink-0">{n.date}</span>}
+                {n.date && <span className="text-[10px] tabular-nums text-muted/70 flex-shrink-0">{n.date}</span>}
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-slate-900">
+                  <div className="font-semibold text-ink">
                     {n.url ? (
                       <a href={n.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                         {n.title || n.url} <ExternalLink size={10} className="inline -mt-0.5" />
@@ -284,8 +284,8 @@ export function AccountInfoTab({ account }: { account: Account }) {
                       n.title || '—'
                     )}
                   </div>
-                  {n.summary && <div className="text-[11px] text-slate-600 mt-0.5">{n.summary}</div>}
-                  {n.source && <div className="text-[10px] text-slate-400 mt-0.5">{n.source}</div>}
+                  {n.summary && <div className="text-[11px] text-muted mt-0.5">{n.summary}</div>}
+                  {n.source && <div className="text-[10px] text-muted/70 mt-0.5">{n.source}</div>}
                 </div>
               </li>
             ))}
@@ -299,10 +299,10 @@ export function AccountInfoTab({ account }: { account: Account }) {
 function Fact({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider inline-flex items-center gap-1">
+      <div className="text-[10px] font-semibold text-muted/70 uppercase tracking-wider inline-flex items-center gap-1">
         {icon} {label}
       </div>
-      <div className="text-xs text-slate-800 mt-0.5">{value}</div>
+      <div className="text-xs text-ink mt-0.5">{value}</div>
     </div>
   );
 }

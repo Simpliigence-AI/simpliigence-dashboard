@@ -67,12 +67,12 @@ export function DocumentsPanel({ employeeEmail, periodStart, periodEnd, uploaded
   return (
     <Card>
       <div className="flex items-center gap-2 mb-3">
-        <Paperclip size={15} className="text-slate-400" />
-        <h3 className="text-sm font-semibold text-slate-900">Documents for this week</h3>
-        <span className="text-[11px] text-slate-400">Attach the client-approved timesheet (PDF, image, Word, Excel)</span>
+        <Paperclip size={15} className="text-muted/70" />
+        <h3 className="text-sm font-semibold text-ink">Documents for this week</h3>
+        <span className="text-[11px] text-muted/70">Attach the client-approved timesheet (PDF, image, Word, Excel)</span>
       </div>
 
-      <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50 flex flex-wrap items-center gap-2">
+      <div className="border-2 border-dashed border-line rounded-lg p-3 bg-surface-2/50 flex flex-wrap items-center gap-2">
         <input
           ref={fileInput}
           type="file"
@@ -90,7 +90,7 @@ export function DocumentsPanel({ employeeEmail, periodStart, periodEnd, uploaded
           {uploading ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />}
           {uploading ? 'Uploading…' : 'Upload document'}
         </button>
-        <span className="text-[11px] text-slate-500">PDF, PNG/JPG/GIF/WebP, DOC/DOCX, XLS/XLSX/CSV · max 15 MB</span>
+        <span className="text-[11px] text-muted">PDF, PNG/JPG/GIF/WebP, DOC/DOCX, XLS/XLSX/CSV · max 15 MB</span>
       </div>
 
       {error && (
@@ -100,30 +100,30 @@ export function DocumentsPanel({ employeeEmail, periodStart, periodEnd, uploaded
       )}
 
       {loading && docs.length === 0 ? (
-        <div className="text-center text-slate-500 py-4 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
+        <div className="text-center text-muted py-4 text-sm"><Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading…</div>
       ) : docs.length === 0 ? (
-        <div className="text-center text-slate-400 py-4 text-sm italic">No documents uploaded for this week yet.</div>
+        <div className="text-center text-muted/70 py-4 text-sm italic">No documents uploaded for this week yet.</div>
       ) : (
         <div className="mt-3 space-y-2">
           {docs.map((d) => (
-            <div key={d.id} className="rounded-lg border border-slate-200 bg-white p-2.5 flex items-center gap-3">
-              <FileText size={16} className="text-slate-400 flex-shrink-0" />
+            <div key={d.id} className="rounded-lg border border-line bg-white p-2.5 flex items-center gap-3">
+              <FileText size={16} className="text-muted/70 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-slate-900 truncate" title={d.filename}>{d.filename}</div>
-                <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-2">
+                <div className="text-sm font-medium text-ink truncate" title={d.filename}>{d.filename}</div>
+                <div className="text-[11px] text-muted flex flex-wrap gap-x-2">
                   {d.sizeBytes && <span>{humanFileSize(d.sizeBytes)}</span>}
                   <span>uploaded {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   {d.uploadedBy && <span>by {d.uploadedBy}</span>}
                 </div>
               </div>
-              <button type="button" onClick={() => download(d)} title="Download" className="p-1.5 text-slate-400 hover:text-slate-700">
+              <button type="button" onClick={() => download(d)} title="Download" className="p-1.5 text-muted/70 hover:text-ink/80">
                 <Download size={15} />
               </button>
               <button
                 type="button"
                 onClick={() => { if (confirm(`Delete "${d.filename}"?`)) void remove(employeeEmail, periodStart, d); }}
                 title="Delete"
-                className="p-1.5 text-slate-400 hover:text-rose-600"
+                className="p-1.5 text-muted/70 hover:text-rose-600"
               >
                 <Trash2 size={15} />
               </button>

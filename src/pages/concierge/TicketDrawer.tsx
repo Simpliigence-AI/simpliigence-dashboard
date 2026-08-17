@@ -50,7 +50,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
     const map: Record<string, string> = {
       urgent: 'bg-red-100 text-red-800 border-red-300',
       high: 'bg-orange-100 text-orange-800 border-orange-300',
-      medium: 'bg-slate-100 text-slate-700 border-slate-300',
+      medium: 'bg-surface-2 text-ink/80 border-line',
       low: 'bg-emerald-100 text-emerald-800 border-emerald-300',
     };
     return `inline-block px-2 py-0.5 text-xs font-semibold rounded border ${map[val] || map.medium}`;
@@ -62,10 +62,10 @@ export function TicketDrawer({ ticket, onClose }: Props) {
     <Drawer open={true} onClose={onClose} title={`#${ticket.ticketNumber} — ${ticket.subject}`} width="max-w-3xl">
       <div className="space-y-6">
         {/* Header meta */}
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
           <span className={priorityChip(ticket.priority)}>{ticket.priority ?? 'medium'}</span>
-          <span className="px-2 py-0.5 rounded border border-slate-300 bg-white font-medium">{ticket.status}</span>
-          {ticket.source && <span className="text-slate-400">via {ticket.source}</span>}
+          <span className="px-2 py-0.5 rounded border border-line bg-white font-medium">{ticket.status}</span>
+          {ticket.source && <span className="text-muted/70">via {ticket.source}</span>}
           {ticket.senderEmail && <span>from {ticket.senderName ?? ticket.senderEmail}</span>}
           <span className="ml-auto">Created {fmt(ticket.createdTime)}</span>
         </div>
@@ -118,8 +118,8 @@ export function TicketDrawer({ ticket, onClose }: Props) {
 
         {ticket.description && (
           <section>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Description</label>
-            <div className="mt-1 whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Description</label>
+            <div className="mt-1 whitespace-pre-wrap rounded border border-line bg-surface-2/70 p-3 text-sm text-ink">
               {ticket.description}
             </div>
           </section>
@@ -138,11 +138,11 @@ export function TicketDrawer({ ticket, onClose }: Props) {
         </section>
 
         {/* Time tracker */}
-        <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <section className="rounded-lg border border-line bg-white p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink/80">
               <Clock size={16} /> Hours logged
-              <span className="ml-2 font-normal text-slate-500">total {ticket.hoursLogged.toFixed(1)}h</span>
+              <span className="ml-2 font-normal text-muted">total {ticket.hoursLogged.toFixed(1)}h</span>
             </div>
           </div>
           <div className="grid grid-cols-[80px_1fr_auto] gap-2 items-end">
@@ -161,12 +161,12 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             >Log</Button>
           </div>
           {entries.length > 0 && (
-            <ul className="mt-3 space-y-1 text-xs text-slate-600 max-h-40 overflow-auto">
+            <ul className="mt-3 space-y-1 text-xs text-muted max-h-40 overflow-auto">
               {entries.map((e) => (
                 <li key={e.id} className="flex gap-2">
                   <span className="font-mono w-14">{e.hours.toFixed(2)}h</span>
-                  <span className="flex-1 truncate">{e.notes || <em className="text-slate-400">no notes</em>}</span>
-                  <span className="text-slate-400">{e.userEmail} · {fmt(e.loggedAt)}</span>
+                  <span className="flex-1 truncate">{e.notes || <em className="text-muted/70">no notes</em>}</span>
+                  <span className="text-muted/70">{e.userEmail} · {fmt(e.loggedAt)}</span>
                 </li>
               ))}
             </ul>
@@ -175,28 +175,28 @@ export function TicketDrawer({ ticket, onClose }: Props) {
 
         {/* Timeline */}
         <section>
-          <div className="text-sm font-semibold text-slate-700 mb-2">Timeline</div>
+          <div className="text-sm font-semibold text-ink/80 mb-2">Timeline</div>
           {messages.length === 0 ? (
-            <div className="text-xs text-slate-500 italic">No messages yet.</div>
+            <div className="text-xs text-muted italic">No messages yet.</div>
           ) : (
             <ul className="space-y-2">
               {messages.map((m) => {
                 const icon = m.direction === 'internal_note' ? <StickyNote size={14} className="text-amber-600" />
                   : m.direction === 'outbound' ? <Mail size={14} className="text-primary" />
-                  : m.direction === 'system' ? <Check size={14} className="text-slate-400" />
-                  : <Mail size={14} className="text-slate-600" />;
+                  : m.direction === 'system' ? <Check size={14} className="text-muted/70" />
+                  : <Mail size={14} className="text-muted" />;
                 const bg = m.direction === 'internal_note' ? 'bg-amber-50 border-amber-200'
                   : m.direction === 'outbound' ? 'bg-primary/5 border-primary/20'
-                  : 'bg-white border-slate-200';
+                  : 'bg-white border-line';
                 return (
                   <li key={m.id} className={`rounded border p-3 ${bg}`}>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                    <div className="flex items-center gap-2 text-xs text-muted mb-1">
                       {icon}
-                      <span className="font-medium text-slate-700">{m.fromName || m.fromEmail || 'unknown'}</span>
-                      <span className="text-slate-400">{fmt(m.receivedAt)}</span>
+                      <span className="font-medium text-ink/80">{m.fromName || m.fromEmail || 'unknown'}</span>
+                      <span className="text-muted/70">{fmt(m.receivedAt)}</span>
                       <span className="ml-auto uppercase tracking-wide text-[10px]">{m.direction.replace('_', ' ')}</span>
                     </div>
-                    <div className="text-sm text-slate-800 whitespace-pre-wrap">{m.bodyText || <em className="text-slate-400">(empty)</em>}</div>
+                    <div className="text-sm text-ink whitespace-pre-wrap">{m.bodyText || <em className="text-muted/70">(empty)</em>}</div>
                   </li>
                 );
               })}
@@ -225,7 +225,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
         </section>
 
         {/* Resolve / reopen */}
-        <section className="pt-2 border-t border-slate-200">
+        <section className="pt-2 border-t border-line">
           {isResolved ? (
             <div className="flex items-center justify-between">
               <div className="text-sm text-emerald-700">
@@ -260,8 +260,8 @@ export function TicketDrawer({ ticket, onClose }: Props) {
           )}
 
           {/* Delete — separated visually so it's obviously destructive */}
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-            <span className="text-[11px] text-slate-500">
+          <div className="mt-4 pt-3 border-t border-line/60 flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted">
               Permanently delete this ticket and all its messages/notes/hours.
             </span>
             <button

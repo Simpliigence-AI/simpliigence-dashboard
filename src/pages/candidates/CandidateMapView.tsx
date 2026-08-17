@@ -60,7 +60,7 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       {/* Map */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-line overflow-hidden">
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ center: [82, 22], scale: 800 }}
@@ -126,7 +126,7 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
       </div>
 
       {/* Side panel */}
-      <aside className="bg-white rounded-xl border border-slate-200 p-4 min-h-[300px]">
+      <aside className="bg-white rounded-xl border border-line p-4 min-h-[300px]">
         {selected ? (
           <SelectedCityPanel cluster={selected} onClose={() => setSelected(null)} />
         ) : (
@@ -137,22 +137,22 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
       {/* Unmapped list (full-width row below) */}
       {unmapped.length > 0 && (
         <div className="lg:col-span-2 mt-2">
-          <details className="rounded-xl bg-white border border-slate-200 p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-700 hover:text-slate-900">
+          <details className="rounded-xl bg-white border border-line p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-ink/80 hover:text-ink">
               {unmapped.length} candidate{unmapped.length === 1 ? '' : 's'} not on the map
-              <span className="text-[11px] text-slate-400 font-normal ml-2">
+              <span className="text-[11px] text-muted/70 font-normal ml-2">
                 (no recognizable Indian city in their location)
               </span>
             </summary>
-            <ul className="mt-3 divide-y divide-slate-100">
+            <ul className="mt-3 divide-y divide-line/60">
               {unmapped.slice(0, 50).map((c) => (
                 <li key={c.id} className="py-2 flex items-center justify-between gap-3">
-                  <div className="text-sm text-slate-900 font-medium truncate">{c.name}</div>
-                  <div className="text-[11px] text-slate-500 truncate ml-2">{c.location || <em>no location</em>}</div>
+                  <div className="text-sm text-ink font-medium truncate">{c.name}</div>
+                  <div className="text-[11px] text-muted truncate ml-2">{c.location || <em>no location</em>}</div>
                 </li>
               ))}
               {unmapped.length > 50 && (
-                <li className="py-2 text-[11px] text-slate-400 italic">+ {unmapped.length - 50} more not shown</li>
+                <li className="py-2 text-[11px] text-muted/70 italic">+ {unmapped.length - 50} more not shown</li>
               )}
             </ul>
           </details>
@@ -169,34 +169,34 @@ function SelectedCityPanel({ cluster, onClose }: { cluster: ClusterInfo; onClose
     <div>
       <div className="flex items-center justify-between mb-3">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">City</div>
-          <div className="text-lg font-bold text-slate-900 truncate inline-flex items-center gap-1.5">
+          <div className="text-[10px] uppercase tracking-wider font-bold text-muted/70">City</div>
+          <div className="text-lg font-bold text-ink truncate inline-flex items-center gap-1.5">
             <MapPin size={16} className="text-primary" /> {cluster.city}
           </div>
-          <div className="text-[11px] text-slate-500">
+          <div className="text-[11px] text-muted">
             {cluster.candidates.length} candidate{cluster.candidates.length === 1 ? '' : 's'}
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-700"
+          className="text-muted/70 hover:text-ink/80"
           aria-label="Close panel"
         >
           <X size={16} />
         </button>
       </div>
-      <ul className="divide-y divide-slate-100 max-h-[540px] overflow-y-auto -mx-1">
+      <ul className="divide-y divide-line/60 max-h-[540px] overflow-y-auto -mx-1">
         {cluster.candidates.map((c) => (
           <li key={c.id} className="py-2.5 px-1">
             <div className="flex items-center justify-between gap-2 min-w-0">
-              <div className="text-sm font-semibold text-slate-900 truncate">{c.name}</div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">{c.stage}</span>
+              <div className="text-sm font-semibold text-ink truncate">{c.name}</div>
+              <span className="text-[10px] font-semibold uppercase tracking-wider bg-surface-2 text-ink/80 px-1.5 py-0.5 rounded-full whitespace-nowrap">{c.stage}</span>
             </div>
             {c.experience && (
-              <div className="text-[11px] text-slate-500 truncate mt-0.5">{c.experience}</div>
+              <div className="text-[11px] text-muted truncate mt-0.5">{c.experience}</div>
             )}
-            <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500 flex-wrap">
+            <div className="flex items-center gap-3 mt-1 text-[11px] text-muted flex-wrap">
               {c.email && (
                 <span className="inline-flex items-center gap-1 truncate"><Mail size={10} /> {c.email}</span>
               )}
@@ -233,10 +233,10 @@ function CityList({ clusters, maxCount, onPick, unmappedCount }: {
   return (
     <div>
       <div className="mb-3">
-        <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Cities on map</div>
-        <div className="text-xl font-bold text-slate-900 tabular-nums">
+        <div className="text-[10px] uppercase tracking-wider font-bold text-muted/70">Cities on map</div>
+        <div className="text-xl font-bold text-ink tabular-nums">
           {clusters.length}
-          <span className="text-sm font-normal text-slate-500 ml-2">
+          <span className="text-sm font-normal text-muted ml-2">
             · {clusters.reduce((s, c) => s + c.candidates.length, 0)} candidates
           </span>
         </div>
@@ -247,7 +247,7 @@ function CityList({ clusters, maxCount, onPick, unmappedCount }: {
         )}
       </div>
       {clusters.length === 0 ? (
-        <div className="text-sm text-slate-400 italic text-center py-8">
+        <div className="text-sm text-muted/70 italic text-center py-8">
           No candidates with a recognizable Indian city yet.
           <br />
           Set <strong>Location</strong> on a candidate (e.g. "Bangalore, India") and the pin appears here.
@@ -263,13 +263,13 @@ function CityList({ clusters, maxCount, onPick, unmappedCount }: {
                   <button
                     type="button"
                     onClick={() => onPick(cl)}
-                    className="w-full text-left px-2 py-1.5 rounded-md hover:bg-slate-50 group"
+                    className="w-full text-left px-2 py-1.5 rounded-md hover:bg-surface-2/70 group"
                   >
                     <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-semibold text-slate-900 truncate">{cl.city}</span>
+                      <span className="font-semibold text-ink truncate">{cl.city}</span>
                       <span className="font-bold text-primary tabular-nums">{cl.candidates.length}</span>
                     </div>
-                    <div className="mt-1 h-1 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="mt-1 h-1 rounded-full bg-surface-2 overflow-hidden">
                       <div className="h-full bg-primary/40 group-hover:bg-primary/60 transition-colors" style={{ width: `${widthPct}%` }} />
                     </div>
                   </button>

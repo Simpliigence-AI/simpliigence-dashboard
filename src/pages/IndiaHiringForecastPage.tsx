@@ -113,10 +113,10 @@ export default function IndiaHiringForecastPage() {
         <div className="px-4 py-3 border-b border-violet-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles size={15} className="text-violet-600" />
-            <span className="text-sm font-bold text-slate-800">AI Hiring Forecast</span>
+            <span className="text-sm font-bold text-ink">AI Hiring Forecast</span>
             <span className="bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">CLAUDE</span>
             {prediction?.generatedAt && (
-              <span className="text-[10px] text-slate-400">
+              <span className="text-[10px] text-muted/70">
                 · updated {new Date(prediction.generatedAt).toLocaleDateString()} {new Date(prediction.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -133,13 +133,13 @@ export default function IndiaHiringForecastPage() {
 
         <div className="px-4 py-4">
           {loadingAI && !prediction && (
-            <div className="text-xs text-slate-400 italic flex items-center gap-2">
+            <div className="text-xs text-muted/70 italic flex items-center gap-2">
               <Loader2 size={12} className="animate-spin" /> Claude is analyzing your roster + demand trends...
             </div>
           )}
           {prediction && (
             <>
-              <div className="text-[12.5px] leading-relaxed text-slate-700 [&_strong]:text-slate-900 mb-4">
+              <div className="text-[12.5px] leading-relaxed text-ink/80 [&_strong]:text-ink mb-4">
                 {prediction.summary.split('\n').map((line, i) => {
                   const trimmed = line.trim();
                   if (!trimmed) return null;
@@ -158,13 +158,13 @@ export default function IndiaHiringForecastPage() {
 
               {prediction.recommendations.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <div className="text-[10px] font-bold text-muted/70 uppercase tracking-widest">
                     Recommended hires
                   </div>
                   {prediction.recommendations.map((rec, i) => {
                     const u = URGENCY_LABEL[rec.urgency] || URGENCY_LABEL.watchlist;
                     return (
-                      <div key={i} className="rounded-lg border border-slate-200 bg-white p-3 flex items-start gap-3">
+                      <div key={i} className="rounded-lg border border-line bg-white p-3 flex items-start gap-3">
                         <span
                           className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded flex-shrink-0 whitespace-nowrap"
                           style={{ background: u.bg, color: u.color }}
@@ -172,11 +172,11 @@ export default function IndiaHiringForecastPage() {
                           {u.label}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-slate-800">
+                          <div className="text-sm font-bold text-ink">
                             <strong>{rec.count}×</strong> {rec.role}
-                            {rec.skill && <span className="text-slate-500 font-normal"> · {rec.skill}</span>}
+                            {rec.skill && <span className="text-muted font-normal"> · {rec.skill}</span>}
                           </div>
-                          <div className="text-[12px] text-slate-600 mt-0.5">{rec.rationale}</div>
+                          <div className="text-[12px] text-muted mt-0.5">{rec.rationale}</div>
                           {rec.drivenBy.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1.5">
                               {rec.drivenBy.map((acct, j) => (
@@ -194,7 +194,7 @@ export default function IndiaHiringForecastPage() {
               )}
 
               {prediction.recommendations.length === 0 && !loadingAI && (
-                <p className="text-xs text-slate-400 italic">
+                <p className="text-xs text-muted/70 italic">
                   Claude found no actionable signals. Either demand is balanced with current capacity, or there's not enough historical data yet.
                 </p>
               )}
@@ -234,7 +234,7 @@ export default function IndiaHiringForecastPage() {
       {/* Charts: roster growth + closures */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <Card>
-          <h3 className="text-sm font-bold text-slate-700 mb-3">Roster Growth (last 6 months)</h3>
+          <h3 className="text-sm font-bold text-ink/80 mb-3">Roster Growth (last 6 months)</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={monthlyGrowthChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -249,7 +249,7 @@ export default function IndiaHiringForecastPage() {
         </Card>
 
         <Card>
-          <h3 className="text-sm font-bold text-slate-700 mb-3">Closures vs Losses (last 12 weeks)</h3>
+          <h3 className="text-sm font-bold text-ink/80 mb-3">Closures vs Losses (last 12 weeks)</h3>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={closureChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -267,9 +267,9 @@ export default function IndiaHiringForecastPage() {
       {/* Skill demand + per-account demand */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <Card>
-          <h3 className="text-sm font-bold text-slate-700 mb-3">Top Skills in Demand</h3>
+          <h3 className="text-sm font-bold text-ink/80 mb-3">Top Skills in Demand</h3>
           {metrics.demand.topSkills.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">No skill signals from active reqs.</p>
+            <p className="text-xs text-muted/70 italic">No skill signals from active reqs.</p>
           ) : (() => {
               // Group Salesforce sub-clouds under a single parent header so a TA
               // Manager planning the bench can see "Salesforce: 52 open" with
@@ -304,16 +304,16 @@ export default function IndiaHiringForecastPage() {
                       {/* Salesforce sub-cloud breakdown */}
                       {salesforce.map((s) => (
                         <div key={s.skill} className="flex items-center gap-2 text-xs">
-                          <span className="w-32 text-slate-700 text-[11px] font-medium truncate pl-3" title={s.skill}>
-                            <span className="text-slate-300 mr-1">└</span>
+                          <span className="w-32 text-ink/80 text-[11px] font-medium truncate pl-3" title={s.skill}>
+                            <span className="text-line mr-1">└</span>
                             {s.skill.replace(/^Salesforce — /, '')}
                           </span>
-                          <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden relative">
+                          <div className="flex-1 bg-surface-2 rounded-full h-5 overflow-hidden relative">
                             <div className="bg-sky-500/70 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${Math.max(6, (s.positions / max) * 100)}%` }}>
                               <span className="text-[10px] font-bold text-white">{s.positions} pos</span>
                             </div>
                           </div>
-                          <span className="text-[10px] text-slate-500 w-20 text-right">
+                          <span className="text-[10px] text-muted w-20 text-right">
                             {s.reqCount} {s.reqCount === 1 ? 'req' : 'reqs'} · {s.accountCount} acct
                           </span>
                         </div>
@@ -326,13 +326,13 @@ export default function IndiaHiringForecastPage() {
                       {salesforce.length > 0 && <div className="h-1" />}
                       {others.map((s) => (
                         <div key={s.skill} className="flex items-center gap-2 text-xs">
-                          <span className="w-32 text-slate-700 font-medium truncate" title={s.skill}>{s.skill}</span>
-                          <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden relative">
+                          <span className="w-32 text-ink/80 font-medium truncate" title={s.skill}>{s.skill}</span>
+                          <div className="flex-1 bg-surface-2 rounded-full h-5 overflow-hidden relative">
                             <div className="bg-blue-500/70 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${(s.positions / max) * 100}%` }}>
                               <span className="text-[10px] font-bold text-white">{s.positions} pos</span>
                             </div>
                           </div>
-                          <span className="text-[10px] text-slate-500 w-20 text-right">
+                          <span className="text-[10px] text-muted w-20 text-right">
                             {s.reqCount} {s.reqCount === 1 ? 'req' : 'reqs'} · {s.accountCount} acct
                           </span>
                         </div>
@@ -341,8 +341,8 @@ export default function IndiaHiringForecastPage() {
                   )}
                   {/* Bench planning hint */}
                   {sfTotal > 0 && (
-                    <p className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed">
-                      <strong className="text-slate-700">Bench mix recommendation:</strong> based on current open demand,
+                    <p className="mt-3 pt-3 border-t border-line/60 text-[11px] text-muted leading-relaxed">
+                      <strong className="text-ink/80">Bench mix recommendation:</strong> based on current open demand,
                       a 10-person Salesforce bench should over-index on{' '}
                       {salesforce.slice(0, 3).map((s, i) => (
                         <span key={s.skill}>
@@ -360,14 +360,14 @@ export default function IndiaHiringForecastPage() {
         </Card>
 
         <Card>
-          <h3 className="text-sm font-bold text-slate-700 mb-3">Demand by Client</h3>
+          <h3 className="text-sm font-bold text-ink/80 mb-3">Demand by Client</h3>
           {metrics.demand.byAccount.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">No active demand right now.</p>
+            <p className="text-xs text-muted/70 italic">No active demand right now.</p>
           ) : (
             <div className="overflow-y-auto max-h-72">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-500 uppercase tracking-wide text-[10px]">
+                  <tr className="border-b border-line/60 text-muted uppercase tracking-wide text-[10px]">
                     <th className="text-left pb-1.5 font-semibold">Account</th>
                     <th className="text-right pb-1.5 font-semibold">Active Reqs</th>
                     <th className="text-right pb-1.5 font-semibold">Open Pos</th>
@@ -376,10 +376,10 @@ export default function IndiaHiringForecastPage() {
                 </thead>
                 <tbody>
                   {metrics.demand.byAccount.map((a) => (
-                    <tr key={a.account} className="border-b border-slate-50">
-                      <td className="py-1 text-slate-700 font-medium">{accountNameById[a.account] || a.account}</td>
+                    <tr key={a.account} className="border-b border-line/40">
+                      <td className="py-1 text-ink/80 font-medium">{accountNameById[a.account] || a.account}</td>
                       <td className="py-1 text-right tabular-nums">{a.activeReqs}</td>
-                      <td className="py-1 text-right tabular-nums font-bold text-slate-700">{a.positions}</td>
+                      <td className="py-1 text-right tabular-nums font-bold text-ink/80">{a.positions}</td>
                       <td className="py-1 text-right tabular-nums text-emerald-700">{a.recentClosures || '—'}</td>
                     </tr>
                   ))}
@@ -393,19 +393,19 @@ export default function IndiaHiringForecastPage() {
       {/* Role mix — collapsible */}
       <Card>
         <button onClick={() => setShowRoleMix((v) => !v)} className="w-full flex items-center justify-between text-left">
-          <h3 className="text-sm font-bold text-slate-700">Current Role Mix</h3>
+          <h3 className="text-sm font-bold text-ink/80">Current Role Mix</h3>
           {showRoleMix ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
         {showRoleMix && (
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
             {metrics.roster.roleMix.map((r) => (
-              <div key={r.role} className="flex items-center justify-between text-xs px-3 py-2 rounded bg-slate-50">
-                <span className="text-slate-700 truncate" title={r.role}>{r.role}</span>
-                <span className="font-bold text-slate-900 tabular-nums">{r.count}</span>
+              <div key={r.role} className="flex items-center justify-between text-xs px-3 py-2 rounded bg-surface-2/70">
+                <span className="text-ink/80 truncate" title={r.role}>{r.role}</span>
+                <span className="font-bold text-ink tabular-nums">{r.count}</span>
               </div>
             ))}
             {metrics.roster.roleMix.length === 0 && (
-              <p className="text-xs text-slate-400 italic col-span-full">
+              <p className="text-xs text-muted/70 italic col-span-full">
                 No roster members yet — add team members on the India Roster tab to enable this view.
               </p>
             )}

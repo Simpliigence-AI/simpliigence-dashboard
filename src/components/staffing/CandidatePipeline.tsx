@@ -92,8 +92,8 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
       {/* Header row */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <UsersIcon size={12} className="text-slate-400" />
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+          <UsersIcon size={12} className="text-muted/70" />
+          <span className="text-[10px] font-bold text-muted/70 uppercase tracking-wide">
             Candidates ({candidates.length})
             {active.length > 0 && <span className="ml-1 text-emerald-500">· {active.length} active</span>}
           </span>
@@ -130,7 +130,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
       {/* Picker — pick from existing candidates */}
       {showPicker && (
         <div className="mb-3 p-3 rounded-lg border border-blue-200 bg-blue-50/40">
-          <div className="text-[11px] text-slate-700 mb-2">
+          <div className="text-[11px] text-ink/80 mb-2">
             Pick an existing candidate to add to this requisition. Don't see them?{' '}
             <Link
               to="/candidates"
@@ -141,17 +141,17 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
             </Link>
           </div>
           <div className="relative mb-2">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
             <input
               autoFocus
               value={pickerQuery}
               onChange={(e) => setPickerQuery(e.target.value)}
               placeholder="Search name / email / skill / location…"
-              className="w-full pl-7 pr-2 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full pl-7 pr-2 py-1.5 text-xs border border-line rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
           {pickerCandidates.length === 0 ? (
-            <div className="text-xs text-slate-500 italic py-3 text-center">
+            <div className="text-xs text-muted italic py-3 text-center">
               {allCandidates.length === 0 ? (
                 <>No candidates in the database yet. <Link to="/candidates" target="_blank" className="text-primary font-semibold hover:underline">Add one in Candidates tab</Link>.</>
               ) : pickerQuery ? (
@@ -161,7 +161,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
               )}
             </div>
           ) : (
-            <ul className="max-h-72 overflow-y-auto -mx-1 px-1 divide-y divide-slate-100">
+            <ul className="max-h-72 overflow-y-auto -mx-1 px-1 divide-y divide-line/60">
               {pickerCandidates.map((c) => (
                 <li key={c.id}>
                   <button
@@ -172,9 +172,9 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-900">{c.name}</span>
-                        {c.experience && <span className="text-[10px] text-slate-500">{c.experience}</span>}
-                        {c.location && <span className="text-[10px] text-slate-400">· {c.location}</span>}
+                        <span className="text-xs font-semibold text-ink">{c.name}</span>
+                        {c.experience && <span className="text-[10px] text-muted">{c.experience}</span>}
+                        {c.location && <span className="text-[10px] text-muted/70">· {c.location}</span>}
                         {c.currentReqTitle ? (
                           <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full" title="Currently on another req — clicking moves them">
                             on: {c.currentReqTitle}
@@ -185,7 +185,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted mt-0.5">
                         {c.email && <span className="inline-flex items-center gap-0.5"><Mail size={9} /> {c.email}</span>}
                         {c.phone && <span className="inline-flex items-center gap-0.5"><Phone size={9} /> {c.phone}</span>}
                         {c.linkedin_url && <span className="inline-flex items-center gap-0.5"><Linkedin size={9} /> LinkedIn</span>}
@@ -195,10 +195,10 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                       {Array.isArray(c.skills) && c.skills.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {c.skills.slice(0, 6).map((s: string) => (
-                            <span key={s} className="text-[9px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">{s}</span>
+                            <span key={s} className="text-[9px] bg-surface-2 text-ink/80 px-1.5 py-0.5 rounded-full whitespace-nowrap">{s}</span>
                           ))}
                           {c.skills.length > 6 && (
-                            <span className="text-[9px] text-slate-400">+{c.skills.length - 6}</span>
+                            <span className="text-[9px] text-muted/70">+{c.skills.length - 6}</span>
                           )}
                         </div>
                       )}
@@ -216,7 +216,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
 
       {/* Empty state */}
       {candidates.length === 0 && !showPicker && (
-        <p className="text-xs text-slate-400 italic py-2">
+        <p className="text-xs text-muted/70 italic py-2">
           No candidates tracked yet. Click <strong>Add Candidate</strong> to pick from the Candidates database.
         </p>
       )}
@@ -231,7 +231,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
               <div
                 key={c.id}
                 className={`group flex items-start gap-2 p-2 rounded-lg border transition-all ${
-                  isArchived ? 'border-slate-200 bg-slate-50/50 opacity-70' : 'border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm'
+                  isArchived ? 'border-line bg-surface-2/50 opacity-70' : 'border-line bg-white hover:border-blue-200 hover:shadow-sm'
                 }`}
               >
                 {/* Stage pill */}
@@ -260,21 +260,21 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                     ) : (
                       <span
                         onClick={() => setEditingId(c.id)}
-                        className="text-xs font-bold text-slate-800 cursor-pointer hover:text-primary"
+                        className="text-xs font-bold text-ink cursor-pointer hover:text-primary"
                       >
                         {c.name}
                       </span>
                     )}
-                    {c.experience && <span className="text-[10px] text-slate-500">{c.experience}</span>}
-                    {c.submit_date && <span className="text-[10px] text-slate-400">· submitted {c.submit_date}</span>}
-                    {c.source && <span className="text-[10px] text-slate-400">· {c.source}</span>}
+                    {c.experience && <span className="text-[10px] text-muted">{c.experience}</span>}
+                    {c.submit_date && <span className="text-[10px] text-muted/70">· submitted {c.submit_date}</span>}
+                    {c.source && <span className="text-[10px] text-muted/70">· {c.source}</span>}
                     {c.email && (
                       <a href={`mailto:${c.email}`} className="text-[10px] text-blue-500 hover:underline inline-flex items-center gap-0.5">
                         <Mail size={9} /> {c.email}
                       </a>
                     )}
                     {c.phone && (
-                      <span className="text-[10px] text-slate-500 inline-flex items-center gap-0.5">
+                      <span className="text-[10px] text-muted inline-flex items-center gap-0.5">
                         <Phone size={9} /> {c.phone}
                       </span>
                     )}
@@ -284,7 +284,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                     value={c.feedback}
                     onChange={(e) => onUpdate(c.id, { feedback: e.target.value })}
                     placeholder="Add feedback / interview notes..."
-                    className="mt-1 w-full px-1.5 py-0.5 text-[11px] text-slate-600 border border-transparent rounded focus:outline-none focus:border-blue-300 focus:bg-blue-50 hover:border-slate-200"
+                    className="mt-1 w-full px-1.5 py-0.5 text-[11px] text-muted border border-transparent rounded focus:outline-none focus:border-blue-300 focus:bg-blue-50 hover:border-line"
                   />
                 </div>
 
@@ -297,7 +297,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                       onUpdate(c.id, { requisition_id: '' });
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500 transition-all flex-shrink-0"
+                  className="opacity-0 group-hover:opacity-100 p-1 text-line hover:text-red-500 transition-all flex-shrink-0"
                   title="Detach from requisition (candidate stays in database)"
                 >
                   <Trash2 size={11} />
@@ -313,9 +313,9 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
         const selected = candidates.filter((c) => ['Selected', 'Offer Extended', 'Offer Accepted', 'Joined'].includes(c.stage)).length;
         const rate = Math.round((selected / candidates.length) * 100);
         return (
-          <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
+          <div className="mt-2 text-[10px] text-muted/70 flex items-center gap-1">
             <TrendingUp size={10} />
-            Conversion: <span className="font-bold text-slate-600">{selected}</span> of <span className="font-bold">{candidates.length}</span> selected ({rate}%)
+            Conversion: <span className="font-bold text-muted">{selected}</span> of <span className="font-bold">{candidates.length}</span> selected ({rate}%)
           </div>
         );
       })()}

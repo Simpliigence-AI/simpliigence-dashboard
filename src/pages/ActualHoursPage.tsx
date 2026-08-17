@@ -72,7 +72,7 @@ export default function ActualHoursPage() {
 
       <Card>
         {/* Sub-tabs — mirrors TeamRosterPage */}
-        <div className="flex items-center justify-between gap-3 mb-4 border-b border-slate-200 -mx-5 px-5">
+        <div className="flex items-center justify-between gap-3 mb-4 border-b border-line -mx-5 px-5">
           <div className="flex items-center gap-1">
             <TabButton active={tab === 'people'} onClick={() => setTab('people')}>People</TabButton>
             <TabButton active={tab === 'projects'} onClick={() => setTab('projects')}>Projects</TabButton>
@@ -81,7 +81,7 @@ export default function ActualHoursPage() {
           </div>
           <div className="flex items-center gap-2 pb-1">
             {lastSync && (
-              <span className="text-[11px] text-slate-400 hidden md:flex items-center gap-1">
+              <span className="text-[11px] text-muted/70 hidden md:flex items-center gap-1">
                 <Clock size={12} />
                 Last synced {new Date(lastSync).toLocaleString()}
               </span>
@@ -130,7 +130,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     <button
       onClick={onClick}
       className={`relative px-3.5 py-2 text-sm font-medium transition-colors ${
-        active ? 'text-primary' : 'text-slate-500 hover:text-slate-700'
+        active ? 'text-primary' : 'text-muted hover:text-ink/80'
       }`}
     >
       {children}
@@ -147,8 +147,8 @@ function EmptyState({ onSync, syncing }: { onSync: () => void; syncing: boolean 
       <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
         <Clock size={26} />
       </div>
-      <h3 className="text-base font-bold text-slate-800 mb-1">No actuals synced yet</h3>
-      <p className="text-sm text-slate-500 max-w-md mb-4">
+      <h3 className="text-base font-bold text-ink mb-1">No actuals synced yet</h3>
+      <p className="text-sm text-muted max-w-md mb-4">
         Click <strong>Sync from Zoho People</strong> to pull this year's timesheet entries.
       </p>
       <button

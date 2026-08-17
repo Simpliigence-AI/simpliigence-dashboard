@@ -56,134 +56,155 @@ interface LeaveState {
 
 export const useLeaveStore = create<LeaveState>()(
   persist(
-    (set, get) => ({
-      types: [],
-      requests: [],
-      allocations: [],
-
-      hydrate: (types, requests, allocations) => set({ types, requests, allocations }),
-
-      submitRequest: async ({ employeeEmail, leaveTypeId, startDate, endDate, days, reason, managerEmail }) => {
-        const now = new Date().toISOString();
-        const computedDays = days ?? countDaysInclusive(startDate, endDate);
-        const req: LeaveRequest = {
-          id: nanoid(),
-          employeeEmail: employeeEmail.toLowerCase(),
-          leaveTypeId,
-          startDate,
-          endDate,
-          days: computedDays,
-          reason: reason?.trim() || null,
-          status: 'pending',
-          managerEmail: managerEmail ? managerEmail.toLowerCase() : null,
-          decidedAt: null,
-          decidedBy: null,
-          decisionComment: null,
-          createdAt: now,
-          updatedAt: now,
-        };
-        set((s) => ({ requests: [req, ...s.requests] }));
-        await leaveDb.upsertRequest(req);
-        // Fire-and-forget email to manager — don't block the UI on it.
-        void notifyLeaveRequest(req.id, 'submitted');
-        return req;
-      },
-
-      decideRequest: async (id, decision, deciderEmail, comment) => {
-        const current = get().requests.find((r) => r.id === id);
-        if (!current) return;
-        const updated: LeaveRequest = {
-          ...current,
-          status: decision as LeaveStatus,
-          decidedAt: new Date().toISOString(),
-          decidedBy: deciderEmail.toLowerCase(),
-          decisionComment: comment?.trim() || null,
-          updatedAt: new Date().toISOString(),
-        };
-        set((s) => ({ requests: s.requests.map((r) => (r.id === id ? updated : r)) }));
-        await leaveDb.upsertRequest(updated);
-        void notifyLeaveRequest(id, decision);
-      },
-
-      cancelRequest: async (id, deciderEmail) => {
-        const current = get().requests.find((r) => r.id === id);
-        if (!current) return;
-        const updated: LeaveRequest = {
-          ...current,
-          status: 'cancelled',
-          decidedAt: new Date().toISOString(),
-          decidedBy: deciderEmail.toLowerCase(),
-          updatedAt: new Date().toISOString(),
-        };
-        set((s) => ({ requests: s.requests.map((r) => (r.id === id ? updated : r)) }));
-        await leaveDb.upsertRequest(updated);
-      },
-
-      upsertType: async (t) => {
-        set((s) => {
-          const has = s.types.some((x) => x.id === t.id);
-          return { types: has ? s.types.map((x) => (x.id === t.id ? t : x)) : [...s.types, t] };
-        });
-        await leaveDb.upsertType(t);
-      },
-
-      removeType: async (id) => {
-        set((s) => ({ types: s.types.filter((t) => t.id !== id) }));
-        await leaveDb.deleteType(id);
-      },
-
-      upsertAllocation: async (a, actorEmail) => {
-        const now = new Date().toISOString();
-        const stamped: LeaveAllocation = {
-          ...a,
-          updatedBy: actorEmail.toLowerCase(),
-          createdBy: a.createdBy ?? actorEmail.toLowerCase(),
-          updatedAt: now,
-          createdAt: a.createdAt ?? now,
-        };
-        set((s) => {
-          const has = s.allocations.some((x) => x.id === stamped.id);
-          return {
-            allocations: has
-              ? s.allocations.map((x) => (x.id === stamped.id ? stamped : x))
-              : [...s.allocations, stamped],
-          };
-        });
-        await leaveDb.upsertAllocation(stamped);
-      },
-
-      removeAllocation: async (id) => {
-        set((s) => ({ allocations: s.allocations.filter((x) => x.id !== id) }));
-        await leaveDb.deleteAllocation(id);
-      },
-
-      bulkUpsertAllocations: async (rows, actorEmail, source = 'admin') => {
-        const now = new Date().toISOString();
-        const stamped: LeaveAllocation[] = rows.map((r) => ({
-          ...r,
-          id: nanoid(),
-          source: r.source ?? source,
-          createdBy: actorEmail.toLowerCase(),
-          updatedBy: actorEmail.toLowerCase(),
-          createdAt: now,
-          updatedAt: now,
-        }));
-        const res = await leaveDb.bulkUpsertAllocations(stamped);
-        if (res.failed === 0) {
-          // On success, refetch to pick up server-assigned timestamps + the
-          // DB-side merge that happened when (employee, type, year) already
-          // existed. We do this lazily — the App-level hydrate loop refreshes
-          // via realtime, but nudge the local store optimistically.
-          set((s) => {
-            const byKey = new Map<string, LeaveAllocation>();
-            for (const a of s.allocations) byKey.set(`${a.employeeEmail}|${a.leaveTypeId}|${a.year}`, a);
-            for (const a of stamped) byKey.set(`${a.employeeEmail}|${a.leaveTypeId}|${a.year}`, a);
-            return { allocations: Array.from(byKey.values()) };
+    (set, get) => {
+      /** Optimistic status flip with rollback, shared by decide/cancel: the
+       *  DB write is verified (0 rows changed under RLS = throw), so on
+       *  failure we restore the snapshot instead of showing a decision that
+       *  never landed. */
+      const applyDecision = async (updated: LeaveRequest) => {
+        const snapshot = get().requests;
+        set((s) => ({ requests: s.requests.map((r) => (r.id === updated.id ? updated : r)) }));
+        try {
+          await leaveDb.updateRequestDecision(updated.id, {
+            status: updated.status,
+            decidedAt: updated.decidedAt,
+            decidedBy: updated.decidedBy,
+            decisionComment: updated.decisionComment,
           });
+        } catch (e) {
+          set({ requests: snapshot });
+          throw e;
         }
-        return res;
-      },
-    }),
+      };
+
+      return {
+        types: [],
+        requests: [],
+        allocations: [],
+
+        hydrate: (types, requests, allocations) => set({ types, requests, allocations }),
+
+        submitRequest: async ({ employeeEmail, leaveTypeId, startDate, endDate, days, reason, managerEmail }) => {
+          const now = new Date().toISOString();
+          const computedDays = days ?? countDaysInclusive(startDate, endDate);
+          const req: LeaveRequest = {
+            id: nanoid(),
+            employeeEmail: employeeEmail.toLowerCase(),
+            leaveTypeId,
+            startDate,
+            endDate,
+            days: computedDays,
+            reason: reason?.trim() || null,
+            status: 'pending',
+            managerEmail: managerEmail ? managerEmail.toLowerCase() : null,
+            decidedAt: null,
+            decidedBy: null,
+            decisionComment: null,
+            createdAt: now,
+            updatedAt: now,
+          };
+          set((s) => ({ requests: [req, ...s.requests] }));
+          await leaveDb.upsertRequest(req);
+          // Fire-and-forget email to manager — don't block the UI on it.
+          void notifyLeaveRequest(req.id, 'submitted');
+          return req;
+        },
+
+        decideRequest: async (id, decision, deciderEmail, comment) => {
+          const current = get().requests.find((r) => r.id === id);
+          if (!current) return;
+          const updated: LeaveRequest = {
+            ...current,
+            status: decision as LeaveStatus,
+            decidedAt: new Date().toISOString(),
+            decidedBy: deciderEmail.toLowerCase(),
+            decisionComment: comment?.trim() || null,
+            updatedAt: new Date().toISOString(),
+          };
+          await applyDecision(updated);
+          void notifyLeaveRequest(id, decision);
+        },
+
+        cancelRequest: async (id, deciderEmail) => {
+          const current = get().requests.find((r) => r.id === id);
+          if (!current) return;
+          const updated: LeaveRequest = {
+            ...current,
+            status: 'cancelled',
+            decidedAt: new Date().toISOString(),
+            decidedBy: deciderEmail.toLowerCase(),
+            updatedAt: new Date().toISOString(),
+          };
+          // decisionComment rides along unchanged from `current` via the spread.
+          await applyDecision(updated);
+        },
+
+        upsertType: async (t) => {
+          set((s) => {
+            const has = s.types.some((x) => x.id === t.id);
+            return { types: has ? s.types.map((x) => (x.id === t.id ? t : x)) : [...s.types, t] };
+          });
+          await leaveDb.upsertType(t);
+        },
+
+        removeType: async (id) => {
+          set((s) => ({ types: s.types.filter((t) => t.id !== id) }));
+          await leaveDb.deleteType(id);
+        },
+
+        upsertAllocation: async (a, actorEmail) => {
+          const now = new Date().toISOString();
+          const stamped: LeaveAllocation = {
+            ...a,
+            updatedBy: actorEmail.toLowerCase(),
+            createdBy: a.createdBy ?? actorEmail.toLowerCase(),
+            updatedAt: now,
+            createdAt: a.createdAt ?? now,
+          };
+          set((s) => {
+            const has = s.allocations.some((x) => x.id === stamped.id);
+            return {
+              allocations: has
+                ? s.allocations.map((x) => (x.id === stamped.id ? stamped : x))
+                : [...s.allocations, stamped],
+            };
+          });
+          await leaveDb.upsertAllocation(stamped);
+        },
+
+        removeAllocation: async (id) => {
+          set((s) => ({ allocations: s.allocations.filter((x) => x.id !== id) }));
+          await leaveDb.deleteAllocation(id);
+        },
+
+        bulkUpsertAllocations: async (rows, actorEmail, source = 'admin') => {
+          const now = new Date().toISOString();
+          const stamped: LeaveAllocation[] = rows.map((r) => ({
+            ...r,
+            id: nanoid(),
+            source: r.source ?? source,
+            createdBy: actorEmail.toLowerCase(),
+            updatedBy: actorEmail.toLowerCase(),
+            createdAt: now,
+            updatedAt: now,
+          }));
+          const res = await leaveDb.bulkUpsertAllocations(stamped);
+          if (res.failed === 0) {
+            // On success, refetch to pick up server-assigned timestamps + the
+            // DB-side merge that happened when (employee, type, year) already
+            // existed. We do this lazily — the App-level hydrate loop refreshes
+            // via realtime, but nudge the local store optimistically.
+            set((s) => {
+              const byKey = new Map<string, LeaveAllocation>();
+              for (const a of s.allocations) byKey.set(`${a.employeeEmail}|${a.leaveTypeId}|${a.year}`, a);
+              for (const a of stamped) byKey.set(`${a.employeeEmail}|${a.leaveTypeId}|${a.year}`, a);
+              return { allocations: Array.from(byKey.values()) };
+            });
+          }
+          return res;
+        },
+      };
+    },
     { name: 'simpliigence-leave', version: 1 },
   ),
 );

@@ -257,9 +257,9 @@ export default function ProjectsView() {
             const collapsed = isCollapsed(card.name) && assigningTo !== card.name;
 
             return (
-              <div key={card.name} className={`bg-white rounded-xl border overflow-hidden ${muted ? 'border-slate-200 opacity-75 hover:opacity-100 transition-opacity' : 'border-slate-200'}`}>
+              <div key={card.name} className={`bg-white rounded-xl border overflow-hidden ${muted ? 'border-line opacity-75 hover:opacity-100 transition-opacity' : 'border-line'}`}>
                 <div
-                  className={`px-4 py-3 flex items-center justify-between gap-3 ${collapsed ? '' : 'border-b border-slate-100'}`}
+                  className={`px-4 py-3 flex items-center justify-between gap-3 ${collapsed ? '' : 'border-b border-line/60'}`}
                   style={{ backgroundColor: `hsl(${hue} 70% 97%)` }}
                 >
                   {/* The whole left side is the toggle — a 2px chevron is a mean
@@ -274,12 +274,12 @@ export default function ProjectsView() {
                       className="w-2 h-10 rounded-full shrink-0"
                       style={{ backgroundColor: `hsl(${hue} 60% 55%)` }}
                     />
-                    <span className="shrink-0 text-slate-400 group-hover:text-slate-600">
+                    <span className="shrink-0 text-muted/70 group-hover:text-muted">
                       {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                     </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-800 truncate">{card.name}</h3>
+                        <h3 className="text-base font-bold text-ink truncate">{card.name}</h3>
                         <SourceBadge source={card.source} />
                         {card.primaryPod && (
                           <span
@@ -290,18 +290,18 @@ export default function ProjectsView() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <div className="text-xs text-muted mt-0.5">
                         {card.assignments.length} {card.assignments.length === 1 ? 'person' : 'people'} ·{' '}
-                        <span className="font-semibold text-slate-700 tabular-nums">{card.totalHours.toLocaleString()} hrs/yr</span>
+                        <span className="font-semibold text-ink/80 tabular-nums">{card.totalHours.toLocaleString()} hrs/yr</span>
                         {collapsed && card.assignments.length > 0 && (
-                          <span className="text-slate-400"> · {card.assignments.map((a) => a.employeeName.split(' ')[0]).join(', ')}</span>
+                          <span className="text-muted/70"> · {card.assignments.map((a) => a.employeeName.split(' ')[0]).join(', ')}</span>
                         )}
                       </div>
                     </div>
                   </button>
                   <button
                     onClick={() => { expand(card.name); setAssigningTo(card.name); }}
-                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-200 hover:bg-slate-50 hover:border-primary/40 text-slate-700 flex items-center gap-1"
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-line hover:bg-surface-2/70 hover:border-primary/40 text-ink/80 flex items-center gap-1"
                   >
                     <Plus size={12} /> Assign
                   </button>
@@ -309,7 +309,7 @@ export default function ProjectsView() {
                 {!collapsed && (<>
 
                 {assigningTo === card.name && (
-                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                  <div className="px-4 py-3 bg-surface-2/70 border-b border-line/60 flex items-center gap-2">
                     <select
                       autoFocus
                       defaultValue=""
@@ -318,7 +318,7 @@ export default function ProjectsView() {
                         if (!v) return;
                         handleAssignPerson(card.name, v);
                       }}
-                      className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                      className="flex-1 rounded-lg border border-line px-2 py-1.5 text-sm"
                     >
                       <option value="">Pick someone to assign…</option>
                       {availablePeople.map((p) => (
@@ -329,16 +329,16 @@ export default function ProjectsView() {
                     </select>
                     <button
                       onClick={() => setAssigningTo(null)}
-                      className="text-xs text-slate-400 hover:text-slate-600"
+                      className="text-xs text-muted/70 hover:text-muted"
                     >
                       Cancel
                     </button>
                   </div>
                 )}
 
-                <div className="divide-y divide-slate-50">
+                <div className="divide-y divide-line/40">
                   {card.assignments.length === 0 ? (
-                    <div className="px-4 py-6 text-sm text-slate-400 text-center">
+                    <div className="px-4 py-6 text-sm text-muted/70 text-center">
                       No one assigned yet. Click <span className="font-semibold">+ Assign</span> to add a person.
                     </div>
                   ) : (
@@ -363,7 +363,7 @@ export default function ProjectsView() {
                               {getInitials(a.employeeName)}
                             </div>
                             <div className="w-40 shrink-0 min-w-0">
-                              <div className="text-sm font-medium text-slate-800 truncate flex items-center gap-1">
+                              <div className="text-sm font-medium text-ink truncate flex items-center gap-1">
                                 <span className="truncate">{a.employeeName}</span>
                                 {(() => {
                                   const pod = podByEmployee.get(a.employeeName.toLowerCase().trim());
@@ -385,7 +385,7 @@ export default function ProjectsView() {
                                   );
                                 })()}
                               </div>
-                              <div className="text-[11px] text-slate-500 truncate">{a.role || '—'}</div>
+                              <div className="text-[11px] text-muted truncate">{a.role || '—'}</div>
                             </div>
                             <div className="flex-1 min-w-0">
                               <AllocationStrip
@@ -400,13 +400,13 @@ export default function ProjectsView() {
                               />
                             </div>
                             <div className="w-14 shrink-0 text-right tabular-nums">
-                              <div className="text-sm font-bold text-slate-700">{total > 0 ? total : '—'}</div>
-                              <div className="text-[9px] text-slate-400 uppercase">hrs/yr</div>
+                              <div className="text-sm font-bold text-ink/80">{total > 0 ? total : '—'}</div>
+                              <div className="text-[9px] text-muted/70 uppercase">hrs/yr</div>
                             </div>
                             <div className="shrink-0 flex items-center gap-1">
                               <button
                                 onClick={() => setMovingFrom(isMoving ? null : { empName: a.employeeName, project: card.name })}
-                                className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                                className="p-1.5 rounded hover:bg-surface-2 text-muted/70 hover:text-muted"
                                 title="Move to another project"
                               >
                                 <ArrowRight size={14} />
@@ -418,7 +418,7 @@ export default function ProjectsView() {
                                   );
                                   if (idx >= 0) removeAssignment(idx);
                                 }}
-                                className="p-1.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-500"
+                                className="p-1.5 rounded hover:bg-red-50 text-line hover:text-red-500"
                                 title="Remove from project"
                               >
                                 <Trash2 size={14} />
@@ -427,7 +427,7 @@ export default function ProjectsView() {
                           </div>
                           {isMoving && (
                             <div className="mt-2 pl-10 flex items-center gap-2">
-                              <span className="text-xs text-slate-500">Move all hours to:</span>
+                              <span className="text-xs text-muted">Move all hours to:</span>
                               <select
                                 autoFocus
                                 defaultValue=""
@@ -442,7 +442,7 @@ export default function ProjectsView() {
                                     handleMoveAssignment(a.employeeName, card.name, target);
                                   }
                                 }}
-                                className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                                className="rounded-lg border border-line px-2 py-1 text-xs"
                               >
                                 <option value="">Pick a project…</option>
                                 {otherProjects.map((p) => (
@@ -466,7 +466,7 @@ export default function ProjectsView() {
                               </select>
                               <button
                                 onClick={() => setMovingFrom(null)}
-                                className="text-xs text-slate-400 hover:text-slate-600"
+                                className="text-xs text-muted/70 hover:text-muted"
                               >
                                 Cancel
                               </button>
@@ -487,19 +487,19 @@ export default function ProjectsView() {
       {/* Toolbar */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="flex-1 min-w-[200px] relative">
-          <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+          <Search size={14} className="absolute left-2.5 top-2.5 text-muted/70" />
           <input
             type="text"
             placeholder="Search projects..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="w-full rounded-lg border border-line pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
         <select
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value as '' | ProjectSource)}
-          className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+          className="rounded-lg border border-line px-2 py-1.5 text-sm"
         >
           <option value="">All sources</option>
           <option value="current">Current Projects (Zoho)</option>
@@ -511,7 +511,7 @@ export default function ProjectsView() {
         <button
           type="button"
           onClick={() => (anyExpanded ? collapseAll(visibleKeys) : expandAll(visibleKeys))}
-          className="shrink-0 px-3 py-1.5 text-sm rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+          className="shrink-0 px-3 py-1.5 text-sm rounded-lg border border-line bg-white text-ink/80 hover:bg-surface-2/70 flex items-center gap-1.5"
         >
           {anyExpanded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           {anyExpanded ? 'Collapse all' : 'Expand all'}
@@ -519,7 +519,7 @@ export default function ProjectsView() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+        <div className="text-center py-12 text-muted/70 text-sm border border-dashed border-line rounded-xl">
           {cards.length === 0 ? 'No projects with allocations yet.' : 'No projects match the filter.'}
         </div>
       ) : (
@@ -531,7 +531,7 @@ export default function ProjectsView() {
             </div>
           )}
           {activeCards.length === 0 && completedCards.length > 0 && (
-            <div className="text-center py-10 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+            <div className="text-center py-10 text-muted/70 text-sm border border-dashed border-line rounded-xl">
               No active projects — everything matching this filter has wrapped up.
             </div>
           )}
@@ -544,21 +544,21 @@ export default function ProjectsView() {
               <button
                 type="button"
                 onClick={() => setShowCompleted((v) => !v)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border border-line bg-surface-2/70 hover:bg-surface-2 transition-colors text-left"
                 aria-expanded={showCompleted}
               >
                 {showCompleted
-                  ? <ChevronDown size={16} className="text-slate-400 shrink-0" />
-                  : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
-                <CheckCircle2 size={15} className="text-slate-400 shrink-0" />
-                <span className="text-sm font-bold text-slate-700">Completed projects</span>
-                <span className="text-[11px] font-semibold bg-slate-200 text-slate-600 rounded-full px-2 py-0.5 tabular-nums">
+                  ? <ChevronDown size={16} className="text-muted/70 shrink-0" />
+                  : <ChevronRight size={16} className="text-muted/70 shrink-0" />}
+                <CheckCircle2 size={15} className="text-muted/70 shrink-0" />
+                <span className="text-sm font-bold text-ink/80">Completed projects</span>
+                <span className="text-[11px] font-semibold bg-line/60 text-muted rounded-full px-2 py-0.5 tabular-nums">
                   {completedCards.length}
                 </span>
-                <span className="text-[11px] text-slate-400 truncate">
+                <span className="text-[11px] text-muted/70 truncate">
                   no allocation since {cutoffLabel} — and none booked ahead
                 </span>
-                <span className="ml-auto text-[11px] text-slate-400 shrink-0">
+                <span className="ml-auto text-[11px] text-muted/70 shrink-0">
                   {showCompleted ? 'Hide' : 'Show'}
                 </span>
               </button>
@@ -582,9 +582,9 @@ export default function ProjectsView() {
         </>
       )}
 
-      <p className="mt-4 text-[11px] text-slate-400 leading-relaxed">
+      <p className="mt-4 text-[11px] text-muted/70 leading-relaxed">
         Tip — click any month bar to set hours. Use the arrow icon to move a person to another project (their hours come with them).
-        A project moves to <span className="font-semibold text-slate-500">Completed</span> automatically when it has no hours
+        A project moves to <span className="font-semibold text-muted">Completed</span> automatically when it has no hours
         in {cutoffLabel}, this month, or any month ahead — and moves straight back once you allocate to it again.
       </p>
     </div>
@@ -597,7 +597,7 @@ function SourceBadge({ source }: { source: ProjectSource }) {
       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
       : source === 'pipeline'
         ? 'bg-sky-50 text-sky-700 border-sky-200'
-        : 'bg-slate-100 text-slate-500 border-slate-200';
+        : 'bg-surface-2 text-muted border-line';
   const label = source === 'current' ? 'Current' : source === 'pipeline' ? 'Pipeline' : 'Legacy';
   return (
     <span className={`inline-block px-1.5 py-0.5 text-[10px] font-medium rounded border ${cls}`}>

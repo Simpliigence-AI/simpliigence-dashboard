@@ -34,12 +34,12 @@ interface Opportunity {
 }
 
 const STATUS_STYLES: Record<OppStatus, string> = {
-  identified: 'bg-slate-100 text-slate-700',
+  identified: 'bg-surface-2 text-ink/80',
   pursuing:   'bg-sky-100 text-sky-700',
   proposed:   'bg-amber-100 text-amber-800',
   won:        'bg-emerald-100 text-emerald-800',
   lost:       'bg-red-100 text-red-700',
-  paused:     'bg-slate-200 text-slate-500',
+  paused:     'bg-line/60 text-muted',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,7 +137,7 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
   };
 
   if (loading) return (
-    <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+    <div className="py-8 text-center text-xs text-muted/70 flex items-center justify-center gap-2">
       <Loader2 size={14} className="animate-spin" /> Loading opportunities…
     </div>
   );
@@ -146,7 +146,7 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
     <div className="space-y-3">
       <SalesforceIntegrationBar accountId={accountId} accountName={accountName} onSynced={refresh} />
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-slate-500">
+        <div className="text-[11px] text-muted">
           Cross-sell &amp; upsell opportunities we&apos;ve identified for this account. Track them from <em>identified</em> → <em>won</em> here.
         </div>
         <button type="button" onClick={addBlank}
@@ -156,14 +156,14 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
       </div>
       {error && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700">{error}</div>}
       {rows.length === 0 ? (
-        <div className="py-10 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-lg">
+        <div className="py-10 text-center text-sm text-muted border border-dashed border-line rounded-lg">
           No opportunities yet. Click <strong>+ Add opportunity</strong> to record one.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="overflow-x-auto rounded-lg border border-line">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-surface-2/70">
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted">
                 <th className="px-3 py-2 font-semibold">Type</th>
                 <th className="px-3 py-2 font-semibold">Title</th>
                 <th className="px-3 py-2 font-semibold">Value</th>
@@ -173,16 +173,16 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
                 <th className="px-3 py-2 font-semibold w-10"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line/60">
               {rows.map((o) => {
                 const saving = savingIds.has(o.id);
                 const blur = () => { if (o.title.trim()) void save(o); };
                 return (
-                  <tr key={o.id} className="hover:bg-slate-50/60 align-top">
+                  <tr key={o.id} className="hover:bg-surface-2/60 align-top">
                     <td className="px-2 py-1.5">
                       <select value={o.oppType}
                               onChange={(e) => { const v = e.target.value as OppType; patch(o.id, { oppType: v }); if (o.title.trim()) void save({ ...o, oppType: v }); }}
-                              className="text-[11px] px-1.5 py-1 border border-slate-200 rounded bg-white">
+                              className="text-[11px] px-1.5 py-1 border border-line rounded bg-white">
                         <option value="upsell">Upsell</option>
                         <option value="cross_sell">Cross-sell</option>
                       </select>
@@ -205,8 +205,8 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
                                title={o.source === 'salesforce' ? 'Synced from Salesforce — edit in SF instead' : undefined}
                                className={`w-full h-7 px-2 text-xs leading-tight border border-transparent rounded ${
                                  o.source === 'salesforce'
-                                   ? 'bg-sky-50/40 text-slate-700 cursor-not-allowed'
-                                   : 'hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30'
+                                   ? 'bg-sky-50/40 text-ink/80 cursor-not-allowed'
+                                   : 'hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30'
                                }`} />
                       </div>
                       {(o.description || o.notes) && (
@@ -215,14 +215,14 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
                                   onBlur={blur}
                                   placeholder="Description / notes"
                                   rows={2}
-                                  className="w-full mt-1 text-[11px] text-slate-600 border border-slate-200 rounded px-2 py-1 resize-y" />
+                                  className="w-full mt-1 text-[11px] text-muted border border-line rounded px-2 py-1 resize-y" />
                       )}
                       {!o.description && (
                         <input value={o.description}
                                onChange={(e) => patch(o.id, { description: e.target.value })}
                                onBlur={blur}
                                placeholder="+ notes…"
-                               className="w-full mt-1 text-[11px] text-slate-500 border border-transparent hover:border-slate-300 focus:border-primary focus:outline-none rounded px-2 py-1" />
+                               className="w-full mt-1 text-[11px] text-muted border border-transparent hover:border-line focus:border-primary focus:outline-none rounded px-2 py-1" />
                       )}
                     </td>
                     <td className="px-2 py-1.5">
@@ -230,14 +230,14 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
                              onChange={(e) => patch(o.id, { valueEstimate: e.target.value })}
                              onBlur={blur}
                              placeholder="$50k / 6 mo"
-                             className="w-[110px] h-7 px-2 text-xs border border-transparent hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded" />
+                             className="w-[110px] h-7 px-2 text-xs border border-transparent hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded" />
                     </td>
                     <td className="px-2 py-1.5">
                       <input value={o.ownerEmail ?? ''}
                              onChange={(e) => patch(o.id, { ownerEmail: e.target.value.toLowerCase() || null })}
                              onBlur={blur}
                              placeholder="owner@…"
-                             className="w-[160px] h-7 px-2 text-xs border border-transparent hover:border-slate-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded" />
+                             className="w-[160px] h-7 px-2 text-xs border border-transparent hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 rounded" />
                     </td>
                     <td className="px-2 py-1.5">
                       <select value={o.status}
@@ -253,19 +253,19 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
                     </td>
                     <td className="px-2 py-1.5">
                       <div className="inline-flex items-center gap-1">
-                        <Calendar size={10} className="text-slate-400" />
+                        <Calendar size={10} className="text-muted/70" />
                         <input type="date"
                                value={o.targetDate ?? ''}
                                onChange={(e) => patch(o.id, { targetDate: e.target.value || null })}
                                onBlur={blur}
-                               className="w-[130px] h-7 px-1.5 text-[11px] border border-slate-200 rounded bg-white" />
+                               className="w-[130px] h-7 px-1.5 text-[11px] border border-line rounded bg-white" />
                       </div>
                     </td>
                     <td className="px-2 py-1.5 text-right">
-                      {saving ? <Loader2 size={12} className="animate-spin text-slate-400 inline" /> : (
+                      {saving ? <Loader2 size={12} className="animate-spin text-muted/70 inline" /> : (
                         <button type="button"
                                 onClick={() => { if (confirm(`Remove "${o.title || 'this opportunity'}"?`)) void remove(o.id); }}
-                                className="text-slate-300 hover:text-red-600 p-1 rounded hover:bg-red-50">
+                                className="text-line hover:text-red-600 p-1 rounded hover:bg-red-50">
                           <Trash2 size={12} />
                         </button>
                       )}
@@ -277,7 +277,7 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
           </table>
         </div>
       )}
-      <div className="text-[10px] text-slate-400 italic flex items-center gap-1">
+      <div className="text-[10px] text-muted/70 italic flex items-center gap-1">
         <TrendingUp size={10} /> Rows commit on blur. Status + Type changes save immediately.
       </div>
     </div>

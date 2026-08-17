@@ -39,7 +39,7 @@ import {
 
 /* Tight native form controls — the shared Input/Select wrappers add labels
  * and margins that don't fit the dense dialog rows here. */
-const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
+const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm text-ink placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
@@ -134,16 +134,16 @@ export default function LeavePage() {
       />
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-white border border-line rounded-lg p-1 mb-6 w-fit">
         <button
           type="button"
           onClick={() => setTab('mine')}
           className={`px-3 py-1.5 rounded-md text-sm font-medium inline-flex items-center gap-1.5 ${
-            tab === 'mine' ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
+            tab === 'mine' ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2'
           }`}
         >
           <User size={14} /> My Requests
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === 'mine' ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}`}>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === 'mine' ? 'bg-white/25 text-white' : 'bg-surface-2 text-muted'}`}>
             {myRequests.length}
           </span>
         </button>
@@ -152,7 +152,7 @@ export default function LeavePage() {
             type="button"
             onClick={() => setTab('approvals')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium inline-flex items-center gap-1.5 ${
-              tab === 'approvals' ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
+              tab === 'approvals' ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2'
             }`}
           >
             <UsersIcon size={14} /> Approvals
@@ -198,8 +198,8 @@ export default function LeavePage() {
 
           {/* Manager info */}
           {currentUser?.managerEmail ? (
-            <div className="mb-4 flex items-center gap-2 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-fit">
-              <UsersIcon size={13} className="text-slate-400" />
+            <div className="mb-4 flex items-center gap-2 text-xs text-muted bg-surface-2/70 border border-line rounded-lg px-3 py-2 w-fit">
+              <UsersIcon size={13} className="text-muted/70" />
               Requests route to your manager <strong>{managerProfile?.fullName || currentUser.managerEmail}</strong>
             </div>
           ) : (
@@ -220,20 +220,20 @@ export default function LeavePage() {
             <Card>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-left">
-                    <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                    <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Dates</th>
-                    <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Days</th>
-                    <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Reason</th>
-                    <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                    <th className="py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide w-24"></th>
+                  <tr className="border-b border-line/60 text-left">
+                    <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Type</th>
+                    <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Dates</th>
+                    <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Days</th>
+                    <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Reason</th>
+                    <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Status</th>
+                    <th className="py-2 text-xs font-semibold text-muted uppercase tracking-wide w-24"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {myRequests.map((r) => {
                     const t = typeById.get(r.leaveTypeId);
                     return (
-                      <tr key={r.id} className="border-b border-slate-50 last:border-0">
+                      <tr key={r.id} className="border-b border-line/40 last:border-0">
                         <td className="py-2 pr-3">
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-white"
@@ -242,9 +242,9 @@ export default function LeavePage() {
                             {t?.name || '—'}
                           </span>
                         </td>
-                        <td className="py-2 pr-3 text-slate-700 whitespace-nowrap">{fmtRange(r.startDate, r.endDate)}</td>
-                        <td className="py-2 pr-3 text-slate-700 font-medium">{r.days}</td>
-                        <td className="py-2 pr-3 text-slate-500 max-w-xs truncate" title={r.reason ?? ''}>{r.reason || '—'}</td>
+                        <td className="py-2 pr-3 text-ink/80 whitespace-nowrap">{fmtRange(r.startDate, r.endDate)}</td>
+                        <td className="py-2 pr-3 text-ink/80 font-medium">{r.days}</td>
+                        <td className="py-2 pr-3 text-muted max-w-xs truncate" title={r.reason ?? ''}>{r.reason || '—'}</td>
                         <td className="py-2 pr-3">
                           <Badge className={LEAVE_STATUS_META[r.status].cls}>{LEAVE_STATUS_META[r.status].label}</Badge>
                         </td>
@@ -257,7 +257,7 @@ export default function LeavePage() {
                                   cancelRequest(r.id, email);
                                 }
                               }}
-                              className="text-xs text-slate-500 hover:text-rose-600 underline-offset-2 hover:underline"
+                              className="text-xs text-muted hover:text-rose-600 underline-offset-2 hover:underline"
                             >
                               Cancel
                             </button>
@@ -279,10 +279,10 @@ export default function LeavePage() {
           title={`Requests for your review (${toApprove.length})`}
           action={pendingApprovals.length > 0
             ? <span className="text-xs font-semibold text-rose-600">{pendingApprovals.length} awaiting decision</span>
-            : <span className="text-xs text-slate-500">All caught up</span>}
+            : <span className="text-xs text-muted">All caught up</span>}
         >
           {toApprove.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">
+            <p className="text-center text-muted py-8">
               {isAdminViewer
                 ? 'Nothing to approve — no pending requests anywhere right now.'
                 : 'Nothing to approve yet — pending requests from your reportees (and any routed to you) will show up here.'}
@@ -290,14 +290,14 @@ export default function LeavePage() {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left">
-                  <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Employee</th>
-                  <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                  <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Dates</th>
-                  <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Days</th>
-                  <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Reason</th>
-                  <th className="py-2 pr-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide w-44"></th>
+                <tr className="border-b border-line/60 text-left">
+                  <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Employee</th>
+                  <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Type</th>
+                  <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Dates</th>
+                  <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Days</th>
+                  <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Reason</th>
+                  <th className="py-2 pr-3 text-xs font-semibold text-muted uppercase tracking-wide">Status</th>
+                  <th className="py-2 text-xs font-semibold text-muted uppercase tracking-wide w-44"></th>
                 </tr>
               </thead>
               <tbody>
@@ -313,8 +313,8 @@ export default function LeavePage() {
                     const t = typeById.get(r.leaveTypeId);
                     const emp = directory[r.employeeEmail.toLowerCase()];
                     return (
-                      <tr key={r.id} className="border-b border-slate-50 last:border-0">
-                        <td className="py-2 pr-3 text-slate-800 font-medium">{emp?.fullName || r.employeeEmail}</td>
+                      <tr key={r.id} className="border-b border-line/40 last:border-0">
+                        <td className="py-2 pr-3 text-ink font-medium">{emp?.fullName || r.employeeEmail}</td>
                         <td className="py-2 pr-3">
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-white"
@@ -323,9 +323,9 @@ export default function LeavePage() {
                             {t?.name || '—'}
                           </span>
                         </td>
-                        <td className="py-2 pr-3 text-slate-700 whitespace-nowrap">{fmtRange(r.startDate, r.endDate)}</td>
-                        <td className="py-2 pr-3 text-slate-700 font-medium">{r.days}</td>
-                        <td className="py-2 pr-3 text-slate-500 max-w-xs truncate" title={r.reason ?? ''}>{r.reason || '—'}</td>
+                        <td className="py-2 pr-3 text-ink/80 whitespace-nowrap">{fmtRange(r.startDate, r.endDate)}</td>
+                        <td className="py-2 pr-3 text-ink/80 font-medium">{r.days}</td>
+                        <td className="py-2 pr-3 text-muted max-w-xs truncate" title={r.reason ?? ''}>{r.reason || '—'}</td>
                         <td className="py-2 pr-3">
                           <Badge className={LEAVE_STATUS_META[r.status].cls}>{LEAVE_STATUS_META[r.status].label}</Badge>
                         </td>
@@ -352,7 +352,7 @@ export default function LeavePage() {
                               /* Stale/NULL routing snapshot: RLS only lets the routed
                                * manager or an admin write the decision. */
                               <span
-                                className="text-[11px] text-slate-400"
+                                className="text-[11px] text-muted/70"
                                 title="This request's approval is routed by its manager_email snapshot — only that person or an admin can decide it."
                               >
                                 Routed to {r.managerEmail
@@ -361,10 +361,10 @@ export default function LeavePage() {
                               </span>
                             )
                           ) : r.decidedAt ? (
-                            <span className="text-[11px] text-slate-500">
+                            <span className="text-[11px] text-muted">
                               {r.status === 'approved' ? <CheckCircle2 size={11} className="inline mr-1 text-emerald-500" /> :
                                 r.status === 'rejected' ? <XCircle size={11} className="inline mr-1 text-rose-500" /> :
-                                <Clock size={11} className="inline mr-1 text-slate-400" />}
+                                <Clock size={11} className="inline mr-1 text-muted/70" />}
                               {fmtDate(r.decidedAt)}
                             </span>
                           ) : null}
@@ -464,18 +464,18 @@ function NewRequestDialog({
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <Calendar size={18} className="text-primary" />
-          <h3 className="text-base font-bold text-slate-900">Request Leave</h3>
+          <h3 className="text-base font-bold text-ink">Request Leave</h3>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</label>
+            <label className="text-xs font-semibold text-muted uppercase tracking-wider">Type</label>
             <Select value={leaveTypeId} onChange={(e) => setLeaveTypeId(e.target.value)} className="mt-1">
               {activeTypes.map((t) => (
                 <option key={t.id} value={t.id}>{t.name} ({t.code})</option>
               ))}
             </Select>
             {currentBalance && (
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-[11px] text-muted mt-1">
                 {currentBalance.remaining} of {currentBalance.quota} days remaining this year
                 {currentBalance.pending > 0 && ` (${currentBalance.pending} pending)`}
               </p>
@@ -483,11 +483,11 @@ function NewRequestDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Start</label>
+              <label className="text-xs font-semibold text-muted uppercase tracking-wider">Start</label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">End</label>
+              <label className="text-xs font-semibold text-muted uppercase tracking-wider">End</label>
               <Input
                 type="date"
                 value={endDate}
@@ -498,12 +498,12 @@ function NewRequestDialog({
             </div>
           </div>
           {days > 0 && (
-            <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 flex items-center gap-1.5">
+            <div className="text-xs text-muted bg-surface-2/70 border border-line rounded-md px-2 py-1.5 flex items-center gap-1.5">
               <Clock size={12} /> {days} day{days === 1 ? '' : 's'}
             </div>
           )}
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason (optional)</label>
+            <label className="text-xs font-semibold text-muted uppercase tracking-wider">Reason (optional)</label>
             <Textarea
               rows={3}
               value={reason}
@@ -568,15 +568,15 @@ function DecisionDialog({
           {isApprove
             ? <CheckCircle2 size={18} className="text-emerald-600" />
             : <XCircle size={18} className="text-rose-600" />}
-          <h3 className="text-base font-bold text-slate-900">
+          <h3 className="text-base font-bold text-ink">
             {isApprove ? 'Approve' : 'Reject'} leave request
           </h3>
         </div>
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-muted mb-4">
           <strong>{employeeName}</strong> · {typeName} · {fmtRange(request.startDate, request.endDate)} ({request.days} d)
-          {request.reason && <div className="text-slate-500 mt-1 italic">"{request.reason}"</div>}
+          {request.reason && <div className="text-muted mt-1 italic">"{request.reason}"</div>}
         </p>
-        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <label className="text-xs font-semibold text-muted uppercase tracking-wider">
           Comment {isApprove ? '(optional)' : '(recommended)'}
         </label>
         <Textarea

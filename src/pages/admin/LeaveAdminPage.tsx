@@ -31,7 +31,7 @@ import { Card, Button, Badge } from '../../components/ui';
 import { isTypeVisibleTo } from '../../types/leave';
 import type { LeaveType, LeaveAllocation, LeaveAuditEntry, AllocationSource } from '../../types/leave';
 
-const INPUT_CLS = 'w-full px-2 py-1 rounded border border-slate-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
+const INPUT_CLS = 'w-full px-2 py-1 rounded border border-line text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
@@ -46,7 +46,7 @@ const ColorField = ({ value, onChange }: { value: string; onChange: (v: string) 
       type="color"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-8 h-8 rounded border border-slate-300 cursor-pointer shrink-0"
+      className="w-8 h-8 rounded border border-line cursor-pointer shrink-0"
     />
     <Input value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
   </div>
@@ -69,7 +69,7 @@ export default function LeaveAdminPage() {
         subtitle="Set per-employee allocations, import from Zoho, and view the audit trail."
         action={
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Year</label>
+            <label className="text-xs font-semibold text-muted uppercase tracking-wider">Year</label>
             <Select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-24">
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </Select>
@@ -77,7 +77,7 @@ export default function LeaveAdminPage() {
         }
       />
 
-      <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-white border border-line rounded-lg p-1 mb-6 w-fit">
         {([
           { key: 'allocations', label: 'Allocations', icon: UsersIcon },
           { key: 'import',      label: 'Bulk Import', icon: Upload },
@@ -89,7 +89,7 @@ export default function LeaveAdminPage() {
             type="button"
             onClick={() => setTab(t.key)}
             className={`px-3 py-1.5 rounded-md text-sm font-medium inline-flex items-center gap-1.5 ${
-              tab === t.key ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
+              tab === t.key ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2'
             }`}
           >
             <t.icon size={14} /> {t.label}
@@ -203,15 +203,15 @@ function AllocationsTab({
     <Card>
       <div className="flex items-center gap-2 mb-3">
         <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search employee…" className="max-w-sm" />
-        <span className="text-xs text-slate-500 ml-auto">{filtered.length} of {employees.length} employees · {allocByKey.size} allocations for {year}</span>
+        <span className="text-xs text-muted ml-auto">{filtered.length} of {employees.length} employees · {allocByKey.size} allocations for {year}</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-slate-100">
-              <th className="text-left p-2 sticky left-0 bg-white text-slate-400 font-bold uppercase tracking-wide text-[10px]">Employee</th>
+            <tr className="border-b border-line/60">
+              <th className="text-left p-2 sticky left-0 bg-white text-muted/70 font-bold uppercase tracking-wide text-[10px]">Employee</th>
               {activeTypes.map((t) => (
-                <th key={t.id} className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px] whitespace-nowrap">
+                <th key={t.id} className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px] whitespace-nowrap">
                   <span
                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded"
                     style={{ background: t.color, color: 'white' }}
@@ -224,10 +224,10 @@ function AllocationsTab({
           </thead>
           <tbody>
             {filtered.map((emp) => (
-              <tr key={emp.email} className="border-b border-slate-50 hover:bg-slate-50/50">
+              <tr key={emp.email} className="border-b border-line/40 hover:bg-surface-2/50">
                 <td className="p-2 sticky left-0 bg-white">
-                  <div className="font-medium text-slate-800">{emp.fullName || emp.email.split('@')[0]}</div>
-                  <div className="text-[10px] text-slate-500">{emp.email}</div>
+                  <div className="font-medium text-ink">{emp.fullName || emp.email.split('@')[0]}</div>
+                  <div className="text-[10px] text-muted">{emp.email}</div>
                 </td>
                 {activeTypes.map((t) => {
                   // Gendered types (MAT/PAT) aren't allocatable to employees who
@@ -235,7 +235,7 @@ function AllocationsTab({
                   if (!isTypeVisibleTo(t, emp.gender)) {
                     return (
                       <td key={t.id} className="p-1 align-top text-center">
-                        <span className="text-slate-300 text-xs" title={`Not applicable — ${t.name} is ${t.eligibility}-only`}>—</span>
+                        <span className="text-line text-xs" title={`Not applicable — ${t.name} is ${t.eligibility}-only`}>—</span>
                       </td>
                     );
                   }
@@ -286,7 +286,7 @@ function AllocationCell({
   const hasAlloc = !!alloc;
 
   return (
-    <div className={`rounded border p-1 min-w-[130px] ${hasAlloc ? 'border-primary/30 bg-primary/5' : 'border-slate-200 bg-white'}`}>
+    <div className={`rounded border p-1 min-w-[130px] ${hasAlloc ? 'border-primary/30 bg-primary/5' : 'border-line bg-white'}`}>
       <div className="flex items-center gap-1">
         <input
           type="number"
@@ -295,10 +295,10 @@ function AllocationCell({
           onBlur={() => onCommit(quotaStr, carriedStr)}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           placeholder={String(fallback)}
-          className="w-14 px-1 py-0.5 text-xs text-center rounded border border-slate-200 focus:outline-none focus:ring-1 focus:ring-primary/50"
+          className="w-14 px-1 py-0.5 text-xs text-center rounded border border-line focus:outline-none focus:ring-1 focus:ring-primary/50"
           disabled={busy}
         />
-        <span className="text-[10px] text-slate-500">+</span>
+        <span className="text-[10px] text-muted">+</span>
         <input
           type="number"
           value={carriedStr}
@@ -307,15 +307,15 @@ function AllocationCell({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           placeholder="cf"
           title="Carried forward from prior year"
-          className="w-10 px-1 py-0.5 text-xs text-center rounded border border-slate-200 focus:outline-none focus:ring-1 focus:ring-primary/50"
+          className="w-10 px-1 py-0.5 text-xs text-center rounded border border-line focus:outline-none focus:ring-1 focus:ring-primary/50"
           disabled={busy}
         />
       </div>
-      <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
+      <div className="text-[10px] text-muted mt-0.5 flex items-center gap-1 whitespace-nowrap">
         {busy ? <Loader2 size={9} className="animate-spin" /> : hasAlloc ? <CheckCircle2 size={9} className="text-primary" /> : null}
         <span>{used}u · {remaining}r</span>
         {!hasAlloc && (
-          <span className="text-slate-400 italic" title={`Uses type default of ${fallback} days`}>(default)</span>
+          <span className="text-muted/70 italic" title={`Uses type default of ${fallback} days`}>(default)</span>
         )}
       </div>
     </div>
@@ -430,9 +430,9 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
   return (
     <Card>
       <div className="flex items-center gap-4 mb-3">
-        <div className="text-sm font-semibold text-slate-800">Paste rows to import into <strong>{year}</strong></div>
+        <div className="text-sm font-semibold text-ink">Paste rows to import into <strong>{year}</strong></div>
         <div className="ml-auto flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Source</label>
+          <label className="text-xs font-semibold text-muted uppercase tracking-wider">Source</label>
           <Select value={source} onChange={(e) => setSource(e.target.value as AllocationSource)} className="w-40">
             <option value="zoho_import">Zoho migration</option>
             <option value="csv_import">CSV import</option>
@@ -477,11 +477,11 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
         <button
           type="button"
           onClick={() => { setRaw(sample); setParsedRows([]); setResult(null); }}
-          className="text-xs text-slate-500 hover:text-slate-700 ml-2"
+          className="text-xs text-muted hover:text-ink/80 ml-2"
         >
           Load sample
         </button>
-        <div className="ml-auto text-xs text-slate-600 flex items-center gap-3">
+        <div className="ml-auto text-xs text-muted flex items-center gap-3">
           {insertCount > 0 && <span className="text-emerald-700">+{insertCount} new</span>}
           {updateCount > 0 && <span className="text-sky-700">{updateCount} update</span>}
           {errorCount > 0 && <span className="text-rose-700">{errorCount} error</span>}
@@ -505,13 +505,13 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-left">
-                <th className="p-2 font-semibold text-slate-500 uppercase text-[10px]">Employee</th>
-                <th className="p-2 font-semibold text-slate-500 uppercase text-[10px]">Type</th>
-                <th className="p-2 font-semibold text-slate-500 uppercase text-[10px]">Quota</th>
-                <th className="p-2 font-semibold text-slate-500 uppercase text-[10px]">Carry-forward</th>
-                <th className="p-2 font-semibold text-slate-500 uppercase text-[10px]">Diff</th>
-                <th className="p-2 font-semibold text-slate-500 uppercase text-[10px]">Status</th>
+              <tr className="border-b border-line/60 text-left">
+                <th className="p-2 font-semibold text-muted uppercase text-[10px]">Employee</th>
+                <th className="p-2 font-semibold text-muted uppercase text-[10px]">Type</th>
+                <th className="p-2 font-semibold text-muted uppercase text-[10px]">Quota</th>
+                <th className="p-2 font-semibold text-muted uppercase text-[10px]">Carry-forward</th>
+                <th className="p-2 font-semibold text-muted uppercase text-[10px]">Diff</th>
+                <th className="p-2 font-semibold text-muted uppercase text-[10px]">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -524,7 +524,7 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
                       : 'no change')
                   : 'new';
                 return (
-                  <tr key={i} className="border-b border-slate-50">
+                  <tr key={i} className="border-b border-line/40">
                     <td className="p-2">{r.employeeEmail}</td>
                     <td className="p-2">
                       {type ? (
@@ -534,8 +534,8 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
                       ) : r.leaveTypeCode}
                     </td>
                     <td className="p-2 font-medium">{r.quota}</td>
-                    <td className="p-2 text-slate-600">{r.carriedForward}</td>
-                    <td className="p-2 text-slate-600">{diff}</td>
+                    <td className="p-2 text-muted">{r.carriedForward}</td>
+                    <td className="p-2 text-muted">{diff}</td>
                     <td className="p-2">
                       {r.error ? (
                         <span title={r.error}><Badge className="bg-rose-100 text-rose-800">{r.error}</Badge></span>
@@ -565,7 +565,7 @@ function LeaveTypesTab({ types }: { types: LeaveType[] }) {
   return (
     <Card>
       <div className="flex items-start justify-between gap-3 mb-3">
-        <p className="text-xs text-slate-500 max-w-2xl">
+        <p className="text-xs text-muted max-w-2xl">
           These are the default annual quotas applied when an employee has no allocation row for the year.
           Once you've imported per-employee allocations, these defaults only matter for new joiners without a row.
         </p>
@@ -582,13 +582,13 @@ function LeaveTypesTab({ types }: { types: LeaveType[] }) {
       )}
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-100 text-left">
-            <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
-            <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Code</th>
-            <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Default Quota</th>
-            <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Color</th>
-            <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Eligibility</th>
-            <th className="p-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Active</th>
+          <tr className="border-b border-line/60 text-left">
+            <th className="p-2 text-xs font-semibold text-muted uppercase tracking-wide">Name</th>
+            <th className="p-2 text-xs font-semibold text-muted uppercase tracking-wide">Code</th>
+            <th className="p-2 text-xs font-semibold text-muted uppercase tracking-wide">Default Quota</th>
+            <th className="p-2 text-xs font-semibold text-muted uppercase tracking-wide">Color</th>
+            <th className="p-2 text-xs font-semibold text-muted uppercase tracking-wide">Eligibility</th>
+            <th className="p-2 text-xs font-semibold text-muted uppercase tracking-wide">Active</th>
             <th className="p-2 w-16"></th>
           </tr>
         </thead>
@@ -643,27 +643,27 @@ function AddLeaveTypeForm({
   return (
     <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted">
           <span className="block mb-1 font-medium">Name</span>
           <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Annual Leave" autoFocus />
         </label>
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted">
           <span className="block mb-1 font-medium">Code</span>
           <Input value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toUpperCase() })} placeholder="AL" className="uppercase" />
         </label>
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted">
           <span className="block mb-1 font-medium">Default quota</span>
           <Input type="number" value={draft.annualQuota} onChange={(e) => setDraft({ ...draft, annualQuota: Number(e.target.value) })} />
         </label>
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted">
           <span className="block mb-1 font-medium">Sort order</span>
           <Input type="number" value={draft.sortOrder} onChange={(e) => setDraft({ ...draft, sortOrder: Number(e.target.value) })} />
         </label>
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted">
           <span className="block mb-1 font-medium">Color</span>
           <ColorField value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
         </label>
-        <label className="text-xs text-slate-600">
+        <label className="text-xs text-muted">
           <span className="block mb-1 font-medium">Eligibility</span>
           <Select value={draft.eligibility} onChange={(e) => setDraft({ ...draft, eligibility: e.target.value as LeaveType['eligibility'] })}>
             <option value="all">Everyone</option>
@@ -673,7 +673,7 @@ function AddLeaveTypeForm({
         </label>
       </div>
       <div className="flex items-center gap-3 mt-3">
-        <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-slate-600">
+        <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted">
           <input
             type="checkbox"
             checked={draft.active}
@@ -705,7 +705,7 @@ function LeaveTypeRow({
   useEffect(() => setDraft(type), [type.id, type.updatedAt]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(type);
   return (
-    <tr className="border-b border-slate-50">
+    <tr className="border-b border-line/40">
       <td className="p-2">
         <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
       </td>
@@ -745,7 +745,7 @@ function LeaveTypeRow({
         <button
           type="button"
           onClick={() => confirm(`Delete "${type.name}"? Existing allocations + requests will remain, but no new ones can be created.`) && onDelete(type.id)}
-          className="text-slate-400 hover:text-rose-600 ml-1 p-1"
+          className="text-muted/70 hover:text-rose-600 ml-1 p-1"
           title="Delete"
         >
           <Trash2 size={13} />
@@ -784,33 +784,33 @@ function AuditTab() {
           <option value="leave_requests">Requests</option>
         </Select>
         <Input value={filterActor} onChange={(e) => setFilterActor(e.target.value)} placeholder="Filter by actor email…" className="max-w-sm" />
-        <button type="button" onClick={load} className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1">
+        <button type="button" onClick={load} className="text-xs text-muted hover:text-ink/80 flex items-center gap-1">
           <RefreshCw size={12} /> Reload
         </button>
-        <span className="ml-auto text-xs text-slate-500">{visible.length} entries</span>
+        <span className="ml-auto text-xs text-muted">{visible.length} entries</span>
       </div>
       {entries === null ? (
-        <p className="text-center text-slate-400 py-6 text-sm"><Loader2 size={14} className="animate-spin inline mr-1" /> Loading audit trail…</p>
+        <p className="text-center text-muted/70 py-6 text-sm"><Loader2 size={14} className="animate-spin inline mr-1" /> Loading audit trail…</p>
       ) : visible.length === 0 ? (
-        <p className="text-center text-slate-400 py-6 text-sm">No audit entries match the filter.</p>
+        <p className="text-center text-muted/70 py-6 text-sm">No audit entries match the filter.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-left">
-                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">When</th>
-                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Actor</th>
-                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Entity</th>
-                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Action</th>
-                <th className="p-2 text-slate-400 font-bold uppercase tracking-wide text-[10px]">Summary</th>
+              <tr className="border-b border-line/60 text-left">
+                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">When</th>
+                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Actor</th>
+                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Entity</th>
+                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Action</th>
+                <th className="p-2 text-muted/70 font-bold uppercase tracking-wide text-[10px]">Summary</th>
               </tr>
             </thead>
             <tbody>
               {visible.map((e) => (
-                <tr key={e.id} className="border-b border-slate-50 align-top">
-                  <td className="p-2 text-slate-500 whitespace-nowrap">{new Date(e.changedAt).toLocaleString()}</td>
-                  <td className="p-2 text-slate-700 whitespace-nowrap">{e.actorEmail || <span className="italic text-slate-400">system</span>}</td>
-                  <td className="p-2 text-slate-600 whitespace-nowrap">{e.entity.replace('leave_', '')}</td>
+                <tr key={e.id} className="border-b border-line/40 align-top">
+                  <td className="p-2 text-muted whitespace-nowrap">{new Date(e.changedAt).toLocaleString()}</td>
+                  <td className="p-2 text-ink/80 whitespace-nowrap">{e.actorEmail || <span className="italic text-muted/70">system</span>}</td>
+                  <td className="p-2 text-muted whitespace-nowrap">{e.entity.replace('leave_', '')}</td>
                   <td className="p-2">
                     <Badge className={
                       e.action === 'INSERT' ? 'bg-emerald-100 text-emerald-800'
@@ -818,7 +818,7 @@ function AuditTab() {
                         : 'bg-rose-100 text-rose-800'
                     }>{e.action}</Badge>
                   </td>
-                  <td className="p-2 text-slate-700">
+                  <td className="p-2 text-ink/80">
                     <AuditSummary entry={e} />
                   </td>
                 </tr>
@@ -841,7 +841,7 @@ function AuditSummary({ entry }: { entry: LeaveAuditEntry }) {
     const range = `${(after.start_date || before.start_date)} → ${(after.end_date || before.end_date)}`;
     const days = String(after.days || before.days);
     if (entry.action === 'UPDATE' && before.status !== after.status) {
-      return <span><strong>{employee}</strong> · {days}d · <span className="text-slate-500">{before.status as string} → </span><span className="font-semibold">{after.status as string}</span></span>;
+      return <span><strong>{employee}</strong> · {days}d · <span className="text-muted">{before.status as string} → </span><span className="font-semibold">{after.status as string}</span></span>;
     }
     return <span><strong>{employee}</strong> · {days}d · {range} · {status}</span>;
   }
@@ -853,9 +853,9 @@ function AuditSummary({ entry }: { entry: LeaveAuditEntry }) {
     if (entry.action === 'UPDATE') {
       const bq = `${before.quota}+${before.carried_forward}`;
       const aq = `${after.quota}+${after.carried_forward}`;
-      return <span><strong>{employee}</strong> · {type} · {year} · <span className="text-slate-500">{bq} → </span><span className="font-semibold">{aq}</span></span>;
+      return <span><strong>{employee}</strong> · {type} · {year} · <span className="text-muted">{bq} → </span><span className="font-semibold">{aq}</span></span>;
     }
-    return <span><strong>{employee}</strong> · {type} · {year} · {after.quota as number}+{after.carried_forward as number} · <span className="text-slate-400">{(after.source || 'admin') as string}</span></span>;
+    return <span><strong>{employee}</strong> · {type} · {year} · {after.quota as number}+{after.carried_forward as number} · <span className="text-muted/70">{(after.source || 'admin') as string}</span></span>;
   }
 
   if (entry.entity === 'leave_types') {
@@ -863,7 +863,7 @@ function AuditSummary({ entry }: { entry: LeaveAuditEntry }) {
     return <span><strong>{name}</strong> ({(after.code || before.code) as string}) · quota {(after.annual_quota || before.annual_quota) as number}</span>;
   }
 
-  return <code className="text-[10px] text-slate-500">{JSON.stringify({ before, after }).slice(0, 200)}</code>;
+  return <code className="text-[10px] text-muted">{JSON.stringify({ before, after }).slice(0, 200)}</code>;
 }
 
 /* Unused Download import silenced — leaving it in case the file gains an

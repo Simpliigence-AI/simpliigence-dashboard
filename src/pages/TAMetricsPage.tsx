@@ -172,7 +172,7 @@ export default function TAMetricsPage() {
   }, [candidates]);
 
   const trendIcon = (diff: number) => diff > 0 ? <TrendingUp size={11} /> : diff < 0 ? <TrendingDown size={11} /> : <Minus size={11} />;
-  const trendCls = (diff: number) => diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-slate-400';
+  const trendCls = (diff: number) => diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-muted/70';
 
   // ── Daily Log Explorer + By-Requisition rollup ──
   // List of months that have any data (always include the current month)
@@ -334,14 +334,14 @@ export default function TAMetricsPage() {
       {/* Per-TA leaderboard */}
       <Card title={`Team leaderboard · ${taLeaderboard.length} TAs`} className="mb-6">
         {taLeaderboard.length === 0 ? (
-          <div className="text-sm text-slate-500 text-center py-8">
+          <div className="text-sm text-muted text-center py-8">
             No TA activity logged yet. Open <strong>TA Daily Log</strong> and log a few entries.
           </div>
         ) : (
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
                   <th className="py-2 pr-3 font-semibold">TA</th>
                   <th className="py-2 pr-3 font-semibold text-right">This week</th>
                   <th className="py-2 pr-3 font-semibold text-right">Last week</th>
@@ -352,21 +352,21 @@ export default function TAMetricsPage() {
                   <th className="py-2 pr-3 font-semibold">Last activity</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line/60">
                 {taLeaderboard.map((r) => (
-                  <tr key={r.email} className="hover:bg-slate-50/60">
-                    <td className="py-2 pr-3 text-xs font-medium text-slate-900">{r.email}</td>
+                  <tr key={r.email} className="hover:bg-surface-2/60">
+                    <td className="py-2 pr-3 text-xs font-medium text-ink">{r.email}</td>
                     <td className="py-2 pr-3 text-right tabular-nums font-semibold">{r.thisWeek}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-500">{r.lastWeek}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-muted">{r.lastWeek}</td>
                     <td className={`py-2 pr-3 text-xs font-semibold ${trendCls(r.diff)}`}>
                       <span className="inline-flex items-center gap-0.5">
                         {trendIcon(r.diff)} {r.diff >= 0 ? '+' : ''}{r.diff}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{r.submitsThisWeek}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-ink/80">{r.submitsThisWeek}</td>
                     <td className="py-2 pr-3 text-right tabular-nums font-semibold text-emerald-700">{r.ownedActive}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-500">{r.ownedTotal}</td>
-                    <td className="py-2 pr-3 text-xs text-slate-500">{r.lastActivity ?? '—'}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-muted">{r.ownedTotal}</td>
+                    <td className="py-2 pr-3 text-xs text-muted">{r.lastActivity ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -379,7 +379,7 @@ export default function TAMetricsPage() {
         {/* Stage funnel */}
         <Card title="Candidate funnel (current snapshot)">
           {stageFunnel.every((s) => s.count === 0) ? (
-            <div className="text-sm text-slate-500 text-center py-8">
+            <div className="text-sm text-muted text-center py-8">
               No candidates yet. Add some from the <strong>Candidates</strong> page.
             </div>
           ) : (
@@ -404,7 +404,7 @@ export default function TAMetricsPage() {
         {/* Source breakdown */}
         <Card title="Where candidates come from">
           {sourceBreakdown.length === 0 ? (
-            <div className="text-sm text-slate-500 text-center py-8">No source data yet.</div>
+            <div className="text-sm text-muted text-center py-8">No source data yet.</div>
           ) : (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -443,7 +443,7 @@ export default function TAMetricsPage() {
         action={
           <div className="flex items-center gap-2 flex-wrap">
             <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}
-                    className="text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+                    className="text-xs border border-line rounded-md px-2 py-1.5 bg-white">
               {availableMonths.map((m) => {
                 const d = new Date(m + '-01T00:00:00');
                 const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -451,7 +451,7 @@ export default function TAMetricsPage() {
               })}
             </select>
             <select value={filterTa} onChange={(e) => setFilterTa(e.target.value)}
-                    className="text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+                    className="text-xs border border-line rounded-md px-2 py-1.5 bg-white">
               <option value="all">All recruiters</option>
               {availableTas.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -464,12 +464,12 @@ export default function TAMetricsPage() {
         }
       >
         {filteredLog.length === 0 ? (
-          <div className="text-sm text-slate-500 text-center py-8">No log entries for this month / recruiter.</div>
+          <div className="text-sm text-muted text-center py-8">No log entries for this month / recruiter.</div>
         ) : (
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full text-xs">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
                   <th className="py-2 pr-3 font-semibold">Date</th>
                   <th className="py-2 pr-3 font-semibold">Recruiter</th>
                   <th className="py-2 pr-3 font-semibold">Requisition / activity</th>
@@ -480,27 +480,27 @@ export default function TAMetricsPage() {
                   <th className="py-2 pr-3 font-semibold">Notes</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line/60">
                 {filteredLog.map((e) => {
                   const work = e.requisitionId
                     ? (reqTitleById.get(e.requisitionId) || e.requisitionId)
                     : (e.activityType ? `${e.activityType}${e.customerName ? ': ' + e.customerName : ''}` : '—');
                   return (
-                    <tr key={e.id} className="hover:bg-slate-50/60 align-top">
-                      <td className="py-2 pr-3 text-slate-600 whitespace-nowrap">{e.logDate}</td>
-                      <td className="py-2 pr-3 text-slate-900 font-medium whitespace-nowrap">{e.taEmail}</td>
-                      <td className="py-2 pr-3 text-slate-700">{work}</td>
+                    <tr key={e.id} className="hover:bg-surface-2/60 align-top">
+                      <td className="py-2 pr-3 text-muted whitespace-nowrap">{e.logDate}</td>
+                      <td className="py-2 pr-3 text-ink font-medium whitespace-nowrap">{e.taEmail}</td>
+                      <td className="py-2 pr-3 text-ink/80">{work}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{fmtHours(e.minutesSpent)}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{e.sourcedOutreach || '—'}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{e.screensCompleted || '—'}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{e.submissionsInterviews || '—'}</td>
-                      <td className="py-2 pr-3 text-slate-600 max-w-md">{e.notes || '—'}</td>
+                      <td className="py-2 pr-3 text-muted max-w-md">{e.notes || '—'}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            <div className="text-[10px] text-slate-400 mt-2">
+            <div className="text-[10px] text-muted/70 mt-2">
               {filteredLog.length} entries · {fmtHours(filteredLog.reduce((s, e) => s + (e.minutesSpent || 0), 0))} total time logged
             </div>
           </div>
@@ -520,12 +520,12 @@ export default function TAMetricsPage() {
         }
       >
         {byRequisition.length === 0 ? (
-          <div className="text-sm text-slate-500 text-center py-8">No requisition-tagged log entries for this filter. (Pure activity entries are excluded from this view.)</div>
+          <div className="text-sm text-muted text-center py-8">No requisition-tagged log entries for this filter. (Pure activity entries are excluded from this view.)</div>
         ) : (
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full text-xs">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-muted border-b border-line/60">
                   <th className="py-2 pr-3 font-semibold">Requisition</th>
                   <th className="py-2 pr-3 font-semibold text-right">Days</th>
                   <th className="py-2 pr-3 font-semibold text-right">Hours</th>
@@ -536,14 +536,14 @@ export default function TAMetricsPage() {
                   <th className="py-2 pr-3 font-semibold text-right">Submits</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line/60">
                 {byRequisition.map((r) => (
-                  <tr key={r.reqId} className="hover:bg-slate-50/60">
-                    <td className="py-2 pr-3 text-slate-900 font-medium">{r.title}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">{r.days.size}</td>
+                  <tr key={r.reqId} className="hover:bg-surface-2/60">
+                    <td className="py-2 pr-3 text-ink font-medium">{r.title}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-ink/80">{r.days.size}</td>
                     <td className="py-2 pr-3 text-right tabular-nums font-semibold text-emerald-700">{(r.minutes / 60).toFixed(1)}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-600">{r.entries}</td>
-                    <td className="py-2 pr-3 text-slate-600">{Array.from(r.recruiters).join(' · ')}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-muted">{r.entries}</td>
+                    <td className="py-2 pr-3 text-muted">{Array.from(r.recruiters).join(' · ')}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{r.sourced}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{r.screens}</td>
                     <td className="py-2 pr-3 text-right tabular-nums font-semibold text-indigo-700">{r.submits}</td>
@@ -551,14 +551,14 @@ export default function TAMetricsPage() {
                 ))}
               </tbody>
             </table>
-            <div className="text-[10px] text-slate-400 mt-2">
+            <div className="text-[10px] text-muted/70 mt-2">
               {byRequisition.length} requisitions worked · {fmtHours(byRequisition.reduce((s, r) => s + r.minutes, 0))} total time on requisitions
             </div>
           </div>
         )}
       </Card>
 
-      <div className="text-[10px] text-slate-400 flex items-center gap-1">
+      <div className="text-[10px] text-muted/70 flex items-center gap-1">
         <Filter size={10} /> KPIs read from <code className="font-mono">ta_daily_log</code> + <code className="font-mono">india_staffing_candidates</code>. Realtime — updates without refresh.
       </div>
     </div>

@@ -502,10 +502,10 @@ function AuthenticatedApp() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-2/70">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Loading dashboard...</p>
+          <p className="text-sm text-muted">Loading dashboard...</p>
         </div>
       </div>
     );

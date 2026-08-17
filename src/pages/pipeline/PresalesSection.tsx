@@ -159,10 +159,10 @@ export function PresalesSection() {
       {/* Section header */}
       <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
             <Sparkles size={18} className="text-violet-600" /> Presales Activities
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Track POCs, demos, points of view, capability builds, and research the SE team is committed to.
             Log a meeting to have Claude extract activities automatically.
           </p>
@@ -187,25 +187,25 @@ export function PresalesSection() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">Open</div>
-          <div className="text-xl font-extrabold text-slate-800">{openCount}</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">of {activities.length} total</div>
+        <div className="rounded-xl border border-line bg-white p-3">
+          <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1">Open</div>
+          <div className="text-xl font-extrabold text-ink">{openCount}</div>
+          <div className="text-[10px] text-muted mt-0.5">of {activities.length} total</div>
         </div>
-        <div className={`rounded-xl border p-3 ${highPriorityOpen > 0 ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-white'}`}>
-          <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${highPriorityOpen > 0 ? 'text-rose-700' : 'text-slate-400'}`}>High priority</div>
-          <div className={`text-xl font-extrabold ${highPriorityOpen > 0 ? 'text-rose-700' : 'text-slate-800'}`}>{highPriorityOpen}</div>
-          <div className={`text-[10px] mt-0.5 ${highPriorityOpen > 0 ? 'text-rose-600' : 'text-slate-500'}`}>still open</div>
+        <div className={`rounded-xl border p-3 ${highPriorityOpen > 0 ? 'border-rose-300 bg-rose-50/40' : 'border-line bg-white'}`}>
+          <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${highPriorityOpen > 0 ? 'text-rose-700' : 'text-muted/70'}`}>High priority</div>
+          <div className={`text-xl font-extrabold ${highPriorityOpen > 0 ? 'text-rose-700' : 'text-ink'}`}>{highPriorityOpen}</div>
+          <div className={`text-[10px] mt-0.5 ${highPriorityOpen > 0 ? 'text-rose-600' : 'text-muted'}`}>still open</div>
         </div>
-        <div className={`rounded-xl border p-3 ${overdue > 0 ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200 bg-white'}`}>
-          <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${overdue > 0 ? 'text-amber-700' : 'text-slate-400'}`}>Overdue</div>
-          <div className={`text-xl font-extrabold ${overdue > 0 ? 'text-amber-700' : 'text-slate-800'}`}>{overdue}</div>
-          <div className={`text-[10px] mt-0.5 ${overdue > 0 ? 'text-amber-600' : 'text-slate-500'}`}>past due date</div>
+        <div className={`rounded-xl border p-3 ${overdue > 0 ? 'border-amber-300 bg-amber-50/40' : 'border-line bg-white'}`}>
+          <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${overdue > 0 ? 'text-amber-700' : 'text-muted/70'}`}>Overdue</div>
+          <div className={`text-xl font-extrabold ${overdue > 0 ? 'text-amber-700' : 'text-ink'}`}>{overdue}</div>
+          <div className={`text-[10px] mt-0.5 ${overdue > 0 ? 'text-amber-600' : 'text-muted'}`}>past due date</div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">Revenue impact</div>
-          <div className="text-xl font-extrabold text-slate-800"><Sensitive>{fmtMoney(revenueImpactOpen)}</Sensitive></div>
-          <div className="text-[10px] text-slate-500 mt-0.5">across open items</div>
+        <div className="rounded-xl border border-line bg-white p-3">
+          <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1">Revenue impact</div>
+          <div className="text-xl font-extrabold text-ink"><Sensitive>{fmtMoney(revenueImpactOpen)}</Sensitive></div>
+          <div className="text-[10px] text-muted mt-0.5">across open items</div>
         </div>
       </div>
 
@@ -213,23 +213,23 @@ export function PresalesSection() {
       <Card className="mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={12} className="absolute left-2.5 top-2.5 text-slate-400" />
+            <Search size={12} className="absolute left-2.5 top-2.5 text-muted/70" />
             <input
               placeholder="Search title / description / account / owner…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full border border-slate-300 rounded-md pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full border border-line rounded-md pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as 'all' | ActivityStatus)} className="border border-slate-300 rounded-md px-2 py-1.5 text-xs">
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as 'all' | ActivityStatus)} className="border border-line rounded-md px-2 py-1.5 text-xs">
             <option value="all">All statuses</option>
             {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
           </select>
-          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value as 'all' | Priority)} className="border border-slate-300 rounded-md px-2 py-1.5 text-xs">
+          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value as 'all' | Priority)} className="border border-line rounded-md px-2 py-1.5 text-xs">
             <option value="all">All priorities</option>
             {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
           </select>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value as 'all' | ActivityType)} className="border border-slate-300 rounded-md px-2 py-1.5 text-xs">
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value as 'all' | ActivityType)} className="border border-line rounded-md px-2 py-1.5 text-xs">
             <option value="all">All types</option>
             {ACTIVITY_TYPES.map((t) => <option key={t} value={t}>{ACTIVITY_TYPE_META[t].label}</option>)}
           </select>
@@ -237,21 +237,21 @@ export function PresalesSection() {
             type="button"
             onClick={() => setShowFilters((v) => !v)}
             className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1.5 rounded-md border transition-colors ${
-              showFilters ? 'border-primary text-primary bg-primary/5' : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+              showFilters ? 'border-primary text-primary bg-primary/5' : 'border-line text-muted hover:bg-surface-2/70'
             }`}
           >
             <ListFilter size={11} /> {showFilters ? 'Less' : 'More filters'}
           </button>
         </div>
         {showFilters && (
-          <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-slate-100">
-            <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Owner</label>
-            <select value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-xs">
+          <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-line/60">
+            <label className="text-[10px] uppercase tracking-wider font-bold text-muted/70">Owner</label>
+            <select value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} className="border border-line rounded-md px-2 py-1.5 text-xs">
               <option value="">Any</option>
               {owners.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
-            <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 ml-3">Project</label>
-            <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="border border-slate-300 rounded-md px-2 py-1.5 text-xs">
+            <label className="text-[10px] uppercase tracking-wider font-bold text-muted/70 ml-3">Project</label>
+            <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="border border-line rounded-md px-2 py-1.5 text-xs">
               <option value="all">Any</option>
               <option value="__none__">— No project link —</option>
               {projectsForLookup.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -261,7 +261,7 @@ export function PresalesSection() {
               onClick={() => {
                 setSearch(''); setFilterType('all'); setFilterPriority('all'); setFilterStatus('open'); setFilterOwner(''); setFilterProject('all');
               }}
-              className="text-[10px] text-slate-500 hover:text-primary ml-2"
+              className="text-[10px] text-muted hover:text-primary ml-2"
             >
               Reset all
             </button>
@@ -293,11 +293,11 @@ export function PresalesSection() {
 
       {/* Activity list */}
       {loading ? (
-        <div className="py-8 text-center text-xs text-slate-400 inline-flex items-center gap-2 justify-center w-full">
+        <div className="py-8 text-center text-xs text-muted/70 inline-flex items-center gap-2 justify-center w-full">
           <Loader2 size={12} className="animate-spin" /> Loading presales activities…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="py-10 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
+        <div className="py-10 text-center text-sm text-muted border border-dashed border-line rounded-xl bg-surface-2/40">
           {activities.length === 0
             ? <>No presales activities yet. Log a meeting or add one manually to get started.</>
             : <>No activities match the current filters.</>}
@@ -323,20 +323,20 @@ export function PresalesSection() {
       {/* Recent meetings strip */}
       {meetings.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Recent meetings ({meetings.length})</h3>
+          <h3 className="text-xs uppercase tracking-wider font-bold text-muted/70 mb-2">Recent meetings ({meetings.length})</h3>
           <div className="space-y-1">
             {meetings.slice(0, 5).map((m) => {
               const linked = activities.filter((a) => a.meetingId === m.id).length;
               return (
-                <div key={m.id} className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                <div key={m.id} className="flex items-center justify-between text-xs bg-white border border-line rounded-lg px-3 py-1.5">
                   <span className="inline-flex items-center gap-2 truncate">
-                    <Calendar size={11} className="text-slate-400" />
-                    <span className="font-semibold text-slate-700">{m.meetingDate}</span>
-                    {m.title && <span className="text-slate-500 truncate">· {m.title}</span>}
-                    {m.attendees && <span className="text-slate-400 truncate">· {m.attendees}</span>}
+                    <Calendar size={11} className="text-muted/70" />
+                    <span className="font-semibold text-ink/80">{m.meetingDate}</span>
+                    {m.title && <span className="text-muted truncate">· {m.title}</span>}
+                    {m.attendees && <span className="text-muted/70 truncate">· {m.attendees}</span>}
                   </span>
                   <span className="inline-flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] text-slate-500">{linked} activit{linked === 1 ? 'y' : 'ies'}</span>
+                    <span className="text-[10px] text-muted">{linked} activit{linked === 1 ? 'y' : 'ies'}</span>
                     {m.sourceUrl && (
                       <a href={m.sourceUrl} target="_blank" rel="noreferrer" className="text-sky-600 hover:text-sky-800" title="Open source link">
                         <LinkIcon size={11} />
@@ -379,21 +379,21 @@ function ActivityRow({ activity, projectName, meetingDate, isExpanded, onToggleE
   const urgentBorder = activity.priority === 'high' && (activity.status === 'open' || activity.status === 'in_progress');
 
   return (
-    <div className={`rounded-xl border bg-white transition-all ${urgentBorder ? 'border-rose-300' : 'border-slate-200 hover:border-primary/30'}`}>
+    <div className={`rounded-xl border bg-white transition-all ${urgentBorder ? 'border-rose-300' : 'border-line hover:border-primary/30'}`}>
       <button
         type="button"
         onClick={onToggleExpand}
         className="w-full text-left p-3 flex items-start gap-3"
       >
-        {isExpanded ? <ChevronDown size={14} className="text-slate-500 mt-0.5 flex-shrink-0" /> : <ChevronRight size={14} className="text-slate-400 mt-0.5 flex-shrink-0" />}
+        {isExpanded ? <ChevronDown size={14} className="text-muted mt-0.5 flex-shrink-0" /> : <ChevronRight size={14} className="text-muted/70 mt-0.5 flex-shrink-0" />}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${typeMeta.cls}`}>{typeMeta.label}</span>
             <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${prioMeta.cls}`}>{prioMeta.label}</span>
             <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${statusMeta.cls}`}>{statusMeta.label}</span>
-            <span className="font-semibold text-sm text-slate-800 truncate">{activity.title}</span>
+            <span className="font-semibold text-sm text-ink truncate">{activity.title}</span>
           </div>
-          <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500 flex-wrap">
+          <div className="flex items-center gap-3 mt-1 text-[11px] text-muted flex-wrap">
             {projectName && (
               <span className="inline-flex items-center gap-1">
                 <Briefcase size={10} /> {projectName}
@@ -411,7 +411,7 @@ function ActivityRow({ activity, projectName, meetingDate, isExpanded, onToggleE
               <span className={`inline-flex items-center gap-1 ${overdue ? 'text-rose-600 font-semibold' : ''}`}>
                 <Calendar size={10} /> {activity.dueDate}
                 {days != null && (
-                  <span className={overdue ? 'text-rose-600' : 'text-slate-400'}>
+                  <span className={overdue ? 'text-rose-600' : 'text-muted/70'}>
                     ({days === 0 ? 'today' : days > 0 ? `in ${days}d` : `${-days}d overdue`})
                   </span>
                 )}
@@ -423,7 +423,7 @@ function ActivityRow({ activity, projectName, meetingDate, isExpanded, onToggleE
               </span>
             )}
             {meetingDate && (
-              <span className="inline-flex items-center gap-1 text-slate-400">
+              <span className="inline-flex items-center gap-1 text-muted/70">
                 <Sparkles size={10} /> from {meetingDate} meeting
               </span>
             )}
@@ -431,7 +431,7 @@ function ActivityRow({ activity, projectName, meetingDate, isExpanded, onToggleE
         </div>
       </button>
       {isExpanded && (
-        <div className="px-3 pb-3 border-t border-slate-100 pt-3">
+        <div className="px-3 pb-3 border-t border-line/60 pt-3">
           <ActivityForm
             projects={projects}
             createdBy={activity.createdBy ?? ''}
@@ -510,30 +510,30 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
   };
 
   return (
-    <div className={`rounded-xl ${initial ? '' : 'bg-white border border-slate-200 p-3 mb-3'}`}>
+    <div className={`rounded-xl ${initial ? '' : 'bg-white border border-line p-3 mb-3'}`}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
         <div className="md:col-span-3">
           <Field label="Title *">
             <input value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })}
               placeholder="e.g. POC: claims-routing agent for Carrier"
-              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+              className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
           </Field>
         </div>
         <Field label="Type">
           <select value={d.activityType} onChange={(e) => setD({ ...d, activityType: e.target.value as ActivityType })}
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
             {ACTIVITY_TYPES.map((t) => <option key={t} value={t}>{ACTIVITY_TYPE_META[t].label}</option>)}
           </select>
         </Field>
         <Field label="Priority">
           <select value={d.priority} onChange={(e) => setD({ ...d, priority: e.target.value as Priority })}
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
             {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
           </select>
         </Field>
         <Field label="Status">
           <select value={d.status} onChange={(e) => setD({ ...d, status: e.target.value as ActivityStatus })}
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
             {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
           </select>
         </Field>
@@ -546,16 +546,16 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
         </Field>
         <Field label="Due date">
           <input type="date" value={d.dueDate ?? ''} onChange={(e) => setD({ ...d, dueDate: e.target.value || null })}
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
         </Field>
         <Field label="Revenue impact ($)">
           <input type="number" min={0} step={1000} value={d.revenueImpact ?? ''} onChange={(e) => setD({ ...d, revenueImpact: e.target.value === '' ? null : Number(e.target.value) })}
             placeholder="e.g. 250000"
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
         </Field>
         <Field label="Pipeline project">
           <select value={d.pipelineProjectId ?? ''} onChange={(e) => setD({ ...d, pipelineProjectId: e.target.value || null })}
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
             <option value="">— None —</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -563,14 +563,14 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
         <Field label="Client / account">
           <input value={d.accountName ?? ''} onChange={(e) => setD({ ...d, accountName: e.target.value || null })}
             placeholder="e.g. Carrier"
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
         </Field>
         <div className="md:col-span-3">
           <Field label="Description">
             <textarea value={d.description ?? ''} onChange={(e) => setD({ ...d, description: e.target.value || null })}
               rows={3}
               placeholder="What's the deliverable, the why, and any constraints?"
-              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+              className="w-full border border-line rounded-md px-2 py-1.5 text-xs resize-y" />
           </Field>
         </div>
         <div className="md:col-span-3">
@@ -578,7 +578,7 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
             <textarea value={d.notes ?? ''} onChange={(e) => setD({ ...d, notes: e.target.value || null })}
               rows={2}
               placeholder="Status updates, blockers, links…"
-              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+              className="w-full border border-line rounded-md px-2 py-1.5 text-xs resize-y" />
           </Field>
         </div>
       </div>
@@ -591,7 +591,7 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
         ) : <span />}
         <div className="flex items-center gap-2">
           <button type="button" onClick={onCancel}
-            className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+            className="text-xs text-muted hover:text-ink inline-flex items-center gap-1">
             <X size={12} /> Cancel
           </button>
           <button type="button" onClick={submit} disabled={!d.title.trim()}
@@ -750,12 +750,12 @@ function MeetingModal({ projects, createdBy, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl my-6">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-violet-600" />
-            <h2 className="text-base font-bold text-slate-800">Log presales meeting</h2>
+            <h2 className="text-base font-bold text-ink">Log presales meeting</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700">
+          <button type="button" onClick={onClose} className="text-muted/70 hover:text-ink/80">
             <X size={16} />
           </button>
         </div>
@@ -764,32 +764,32 @@ function MeetingModal({ projects, createdBy, onClose }: {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <Field label="Date *">
               <input type="date" value={d.meetingDate} onChange={(e) => setD({ ...d, meetingDate: e.target.value })}
-                className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </Field>
             <Field label="Title">
               <input value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })}
                 placeholder="e.g. Sales ↔ SE weekly"
-                className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </Field>
             <Field label="Attendees">
               <input value={d.attendees} onChange={(e) => setD({ ...d, attendees: e.target.value })}
                 placeholder="Scott, Raghu, Manjunath…"
-                className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </Field>
           </div>
 
           {/* Three input modes: link / upload / paste */}
-          <div className="rounded-md border border-dashed border-slate-300 p-3 bg-slate-50/60 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-md border border-dashed border-line p-3 bg-surface-2/60 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
+              <label className="block text-[11px] font-semibold text-muted mb-1 flex items-center gap-1">
                 <LinkIcon size={11} /> Read.AI / Fireflies / Zoom link
               </label>
               <input value={d.sourceUrl} onChange={(e) => setD({ ...d, sourceUrl: e.target.value })}
                 placeholder="https://app.read.ai/…"
-                className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs" />
+                className="w-full border border-line rounded-md px-2 py-1.5 text-xs" />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
+              <label className="block text-[11px] font-semibold text-muted mb-1 flex items-center gap-1">
                 <Upload size={11} /> Upload meeting audio
               </label>
               <div className="flex items-center gap-2">
@@ -808,7 +808,7 @@ function MeetingModal({ projects, createdBy, onClose }: {
                   </button>
                 )}
               </div>
-              {uploading && <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Uploading…</div>}
+              {uploading && <div className="text-[10px] text-muted mt-1 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Uploading…</div>}
               {d.recordingPath && !uploading && <div className="text-[10px] text-emerald-700 mt-1 truncate">✓ {d.recordingPath.split('/').pop()}</div>}
             </div>
           </div>
@@ -826,7 +826,7 @@ function MeetingModal({ projects, createdBy, onClose }: {
             <textarea value={d.rawNotes} onChange={(e) => setD({ ...d, rawNotes: e.target.value })}
               rows={4}
               placeholder="Paste the Read.AI summary / meeting transcript / your messy notes. Claude will extract discrete presales activities below."
-              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs resize-y" />
+              className="w-full border border-line rounded-md px-2 py-1.5 text-xs resize-y" />
           </div>
 
           {error && (
@@ -837,7 +837,7 @@ function MeetingModal({ projects, createdBy, onClose }: {
 
           {/* Summary + suggested activities */}
           {summary && (
-            <div className="rounded-md border border-violet-200 bg-violet-50/50 p-3 text-xs text-slate-700">
+            <div className="rounded-md border border-violet-200 bg-violet-50/50 p-3 text-xs text-ink/80">
               <div className="text-[10px] uppercase tracking-wider font-bold text-violet-700 mb-1">Meeting summary</div>
               {summary}
             </div>
@@ -862,9 +862,9 @@ function MeetingModal({ projects, createdBy, onClose }: {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200 bg-slate-50/40 rounded-b-2xl">
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line bg-surface-2/40 rounded-b-2xl">
           <button type="button" onClick={onClose}
-            className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+            className="text-xs text-muted hover:text-ink inline-flex items-center gap-1">
             <X size={12} /> Cancel
           </button>
           <button type="button" onClick={saveAll} disabled={saving}
@@ -885,41 +885,41 @@ function SuggestedActivityRow({ value, projects, onChange }: {
 }) {
   const set = <K extends keyof SuggestedActivity>(k: K, v: SuggestedActivity[K]) => onChange({ ...value, [k]: v });
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-2.5">
+    <div className="rounded-md border border-line bg-white p-2.5">
       <div className="flex items-start gap-2">
         <input type="checkbox" checked={value.selected} onChange={(e) => set('selected', e.target.checked)} className="mt-1" />
         <div className="flex-1 min-w-0">
           <input value={value.title} onChange={(e) => set('title', e.target.value)}
-            className="w-full text-xs font-semibold border border-slate-200 rounded px-1.5 py-0.5" />
+            className="w-full text-xs font-semibold border border-line rounded px-1.5 py-0.5" />
           <textarea value={value.description} onChange={(e) => set('description', e.target.value)}
             rows={2}
-            className="w-full text-[11px] text-slate-700 border border-slate-200 rounded px-1.5 py-0.5 mt-1 resize-y" />
+            className="w-full text-[11px] text-ink/80 border border-line rounded px-1.5 py-0.5 mt-1 resize-y" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 mt-1.5">
             <select value={value.activity_type} onChange={(e) => set('activity_type', e.target.value as ActivityType)}
-              className="text-[10px] border border-slate-200 rounded px-1 py-0.5 bg-white">
+              className="text-[10px] border border-line rounded px-1 py-0.5 bg-white">
               {ACTIVITY_TYPES.map((t) => <option key={t} value={t}>{ACTIVITY_TYPE_META[t].label}</option>)}
             </select>
             <select value={value.priority} onChange={(e) => set('priority', e.target.value as Priority)}
-              className="text-[10px] border border-slate-200 rounded px-1 py-0.5 bg-white">
+              className="text-[10px] border border-line rounded px-1 py-0.5 bg-white">
               {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
             </select>
             <select value={value.pipeline_project_id ?? ''} onChange={(e) => set('pipeline_project_id', e.target.value || null)}
-              className="text-[10px] border border-slate-200 rounded px-1 py-0.5 bg-white">
+              className="text-[10px] border border-line rounded px-1 py-0.5 bg-white">
               <option value="">— No project —</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <input type="date" value={value.due_date ?? ''} onChange={(e) => set('due_date', e.target.value || null)}
-              className="text-[10px] border border-slate-200 rounded px-1 py-0.5" />
+              className="text-[10px] border border-line rounded px-1 py-0.5" />
             <input value={value.owner_email ?? ''} onChange={(e) => set('owner_email', e.target.value || null)}
               placeholder="owner@simpliigence.com"
-              className="text-[10px] border border-slate-200 rounded px-1 py-0.5" />
+              className="text-[10px] border border-line rounded px-1 py-0.5" />
             <input value={value.account_name ?? ''} onChange={(e) => set('account_name', e.target.value || null)}
               placeholder="Client name"
-              className="text-[10px] border border-slate-200 rounded px-1 py-0.5" />
+              className="text-[10px] border border-line rounded px-1 py-0.5" />
             <input type="number" min={0} step={1000} value={value.revenue_impact ?? ''}
               onChange={(e) => set('revenue_impact', e.target.value === '' ? null : Number(e.target.value))}
               placeholder="Revenue $"
-              className="text-[10px] border border-slate-200 rounded px-1 py-0.5" />
+              className="text-[10px] border border-line rounded px-1 py-0.5" />
           </div>
         </div>
       </div>
@@ -930,7 +930,7 @@ function SuggestedActivityRow({ value, projects, onChange }: {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{label}</label>
+      <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">{label}</label>
       {children}
     </div>
   );

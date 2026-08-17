@@ -54,18 +54,18 @@ export const ACTIVITY_TYPE_META: Record<ActivityType, { label: string; cls: stri
   POV:        { label: 'Point of View', cls: 'bg-indigo-100 text-indigo-800' },
   Capability: { label: 'Capability',   cls: 'bg-emerald-100 text-emerald-800' },
   Research:   { label: 'Research',     cls: 'bg-amber-100 text-amber-800' },
-  Other:      { label: 'Other',        cls: 'bg-slate-100 text-slate-700' },
+  Other:      { label: 'Other',        cls: 'bg-surface-2 text-ink/80' },
 };
 
 export const PRIORITY_META: Record<Priority, { label: string; cls: string; rank: number; }> = {
   high:   { label: 'High',   cls: 'bg-rose-100 text-rose-800',     rank: 0 },
   medium: { label: 'Medium', cls: 'bg-amber-100 text-amber-800',   rank: 1 },
-  low:    { label: 'Low',    cls: 'bg-slate-100 text-slate-600',   rank: 2 },
+  low:    { label: 'Low',    cls: 'bg-surface-2 text-muted',   rank: 2 },
 };
 
 export const STATUS_META: Record<ActivityStatus, { label: string; cls: string; rank: number; }> = {
   open:        { label: 'Open',        cls: 'bg-sky-100 text-sky-800',         rank: 0 },
   in_progress: { label: 'In progress', cls: 'bg-amber-100 text-amber-800',     rank: 1 },
   done:        { label: 'Done',        cls: 'bg-emerald-100 text-emerald-800', rank: 2 },
-  cancelled:   { label: 'Cancelled',   cls: 'bg-slate-100 text-slate-500',     rank: 3 },
+  cancelled:   { label: 'Cancelled',   cls: 'bg-surface-2 text-muted',     rank: 3 },
 };

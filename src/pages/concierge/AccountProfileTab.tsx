@@ -126,10 +126,10 @@ export function AccountProfileTab({ accountId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+          <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
             <Sparkles size={14} className="text-purple-600" /> AI Account Profile
           </h3>
-          <div className="text-[11px] text-slate-500 mt-0.5">
+          <div className="text-[11px] text-muted mt-0.5">
             Synthesized from {doneCount} document{doneCount !== 1 ? 's' : ''} + tracked features + Salesforce opps
             {profile?.generatedAt && ` · last rebuilt ${new Date(profile.generatedAt).toLocaleString()}`}
           </div>
@@ -147,7 +147,7 @@ export function AccountProfileTab({ accountId }: Props) {
             <h4 className="text-[11px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1">
               <MessageSquare size={11} /> Refinements
             </h4>
-            <div className="text-[11px] text-slate-600 mt-0.5">
+            <div className="text-[11px] text-muted mt-0.5">
               Corrections here <span className="font-semibold">override the documents</span> on the next rebuild. Use them to mark old info as stale, note the current priority, or add context the docs miss.
             </div>
           </div>
@@ -165,7 +165,7 @@ export function AccountProfileTab({ accountId }: Props) {
               onChange={(e) => setRefineText(e.target.value)}
               placeholder={voiceActive ? 'Listening… speak your refinement.' : 'Type or click the mic. e.g. "Marketing Cloud is paused — focus is now Service Cloud rollout."'}
               rows={2}
-              className={`w-full px-3 py-1.5 pr-10 rounded border text-sm resize-y ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-slate-300'}`}
+              className={`w-full px-3 py-1.5 pr-10 rounded border text-sm resize-y ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-line'}`}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submitRefinement(); }}
             />
             {voiceSupported && (
@@ -176,14 +176,14 @@ export function AccountProfileTab({ accountId }: Props) {
                 className={`absolute top-1.5 right-1.5 p-1.5 rounded-full transition-colors ${
                   voiceActive
                     ? 'bg-rose-600 text-white animate-pulse'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-surface-2 text-muted hover:bg-line/60'
                 }`}
               >
                 {voiceActive ? <MicOff size={14} /> : <Mic size={14} />}
               </button>
             )}
             {voiceInterim && (
-              <div className="text-[11px] text-slate-500 italic mt-1 px-1 flex items-center gap-1">
+              <div className="text-[11px] text-muted italic mt-1 px-1 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 {voiceInterim}
               </div>
@@ -195,7 +195,7 @@ export function AccountProfileTab({ accountId }: Props) {
           </Button>
         </div>
         {!voiceSupported && (
-          <div className="text-[10px] text-slate-500 mt-1 italic">Voice input needs Chrome, Edge, or Safari.</div>
+          <div className="text-[10px] text-muted mt-1 italic">Voice input needs Chrome, Edge, or Safari.</div>
         )}
         {voiceError && (
           <div className="text-[11px] text-amber-700 mt-1 flex items-center gap-1"><AlertTriangle size={10} /> {voiceError}</div>
@@ -209,15 +209,15 @@ export function AccountProfileTab({ accountId }: Props) {
             {profile.refinementNotes.map((n) => (
               <li key={n.id} className="rounded bg-white border border-purple-100 px-2.5 py-1.5 flex items-start gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-slate-800 whitespace-pre-wrap">{n.note}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-xs text-ink whitespace-pre-wrap">{n.note}</div>
+                  <div className="text-[10px] text-muted mt-0.5">
                     {n.author ?? 'unknown'} · {new Date(n.addedAt).toLocaleString()}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => { if (confirm('Remove this refinement?')) void removeRefinement(accountId, n.id); }}
-                  className="text-slate-400 hover:text-rose-600 p-1 flex-shrink-0"
+                  className="text-muted/70 hover:text-rose-600 p-1 flex-shrink-0"
                   title="Remove"
                 >
                   <Trash2 size={12} />
@@ -229,8 +229,8 @@ export function AccountProfileTab({ accountId }: Props) {
       </section>
 
       {!hasProfile && !building && (
-        <div className="text-center text-slate-500 text-sm py-8 border border-dashed border-slate-200 rounded-lg">
-          <Sparkles size={18} className="mx-auto text-slate-300 mb-2" />
+        <div className="text-center text-muted text-sm py-8 border border-dashed border-line rounded-lg">
+          <Sparkles size={18} className="mx-auto text-line mb-2" />
           {doneCount === 0
             ? 'Upload documents or meeting transcripts on the Documents / Meetings tabs, then click Build profile.'
             : 'Click Build profile to synthesize a summary from your uploads.'}
@@ -238,9 +238,9 @@ export function AccountProfileTab({ accountId }: Props) {
       )}
 
       {profile?.whatWeDo && (
-        <section className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-          <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">What we're delivering</h4>
-          <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">{profile.whatWeDo}</p>
+        <section className="rounded-lg bg-surface-2/70 border border-line p-3">
+          <h4 className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">What we're delivering</h4>
+          <p className="text-sm text-ink leading-relaxed whitespace-pre-line">{profile.whatWeDo}</p>
         </section>
       )}
 
@@ -251,8 +251,8 @@ export function AccountProfileTab({ accountId }: Props) {
           items={profile?.keyStakeholders ?? []}
           renderItem={(s) => (
             <>
-              <div className="font-semibold">{s.name}{s.role ? <span className="font-normal text-slate-500"> · {s.role}</span> : null}</div>
-              {s.notes && <div className="text-slate-600 mt-0.5">{s.notes}</div>}
+              <div className="font-semibold">{s.name}{s.role ? <span className="font-normal text-muted"> · {s.role}</span> : null}</div>
+              {s.notes && <div className="text-muted mt-0.5">{s.notes}</div>}
             </>
           )}
         />
@@ -270,7 +270,7 @@ export function AccountProfileTab({ accountId }: Props) {
           renderItem={(i) => (
             <>
               <div className="font-semibold">{i.title}</div>
-              {i.description && <div className="text-slate-600 mt-0.5">{i.description}</div>}
+              {i.description && <div className="text-muted mt-0.5">{i.description}</div>}
             </>
           )}
         />
@@ -285,10 +285,10 @@ export function AccountProfileTab({ accountId }: Props) {
                 {r.severity && <span className={`text-[9px] px-1 py-0.5 rounded ${
                   r.severity === 'high' ? 'bg-rose-100 text-rose-700' :
                   r.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
-                  'bg-slate-100 text-slate-600'
+                  'bg-surface-2 text-muted'
                 }`}>{r.severity}</span>}
               </div>
-              {r.notes && <div className="text-slate-600 mt-0.5">{r.notes}</div>}
+              {r.notes && <div className="text-muted mt-0.5">{r.notes}</div>}
             </>
           )}
         />
@@ -322,19 +322,19 @@ function ProfileList<T>({
   chips?: boolean;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3">
-      <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">{icon} {title}</h4>
+    <section className="rounded-lg border border-line bg-white p-3">
+      <h4 className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">{icon} {title}</h4>
       {items.length === 0 ? (
-        <div className="text-[11px] text-slate-400 italic">None extracted yet.</div>
+        <div className="text-[11px] text-muted/70 italic">None extracted yet.</div>
       ) : chips ? (
         <div className="flex flex-wrap gap-1">
           {items.map((it, i) => (
-            <span key={i} className="text-[11px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full">{renderItem(it)}</span>
+            <span key={i} className="text-[11px] bg-surface-2 text-ink/80 border border-line px-2 py-0.5 rounded-full">{renderItem(it)}</span>
           ))}
         </div>
       ) : (
         <ul className="space-y-1.5">
-          {items.map((it, i) => <li key={i} className="text-xs text-slate-800">{renderItem(it)}</li>)}
+          {items.map((it, i) => <li key={i} className="text-xs text-ink">{renderItem(it)}</li>)}
         </ul>
       )}
     </section>
@@ -347,19 +347,19 @@ function OppSection({ title, subtitle, items, icon, badgeCls }: {
 }) {
   if (items.length === 0) return null;
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3">
+    <section className="rounded-lg border border-line bg-white p-3">
       <div className="flex items-center justify-between mb-1.5">
-        <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">{icon} {title}</h4>
-        <span className="text-[10px] text-slate-400">{subtitle}</span>
+        <h4 className="text-[11px] font-bold text-muted uppercase tracking-wider flex items-center gap-1">{icon} {title}</h4>
+        <span className="text-[10px] text-muted/70">{subtitle}</span>
       </div>
       <div className="space-y-2">
         {items.map((o, i) => (
           <div key={i} className={`rounded border ${badgeCls} px-3 py-2`}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">{o.title}</div>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider flex flex-wrap gap-x-1.5">
-                  {o.service_area && <span className="font-semibold text-slate-700">{o.service_area}</span>}
+                <div className="text-sm font-semibold text-ink">{o.title}</div>
+                <div className="text-[10px] text-muted uppercase tracking-wider flex flex-wrap gap-x-1.5">
+                  {o.service_area && <span className="font-semibold text-ink/80">{o.service_area}</span>}
                   {o.service_area && o.cloud && <span>·</span>}
                   {o.cloud && <span>{o.cloud}</span>}
                 </div>
@@ -370,7 +370,7 @@ function OppSection({ title, subtitle, items, icon, badgeCls }: {
                 </span>
               ) : null}
             </div>
-            {o.rationale && <div className="text-xs text-slate-700 mt-1 leading-relaxed">{o.rationale}</div>}
+            {o.rationale && <div className="text-xs text-ink/80 mt-1 leading-relaxed">{o.rationale}</div>}
           </div>
         ))}
       </div>

@@ -49,7 +49,7 @@ export function DemandCapacityChart({ rows }: Props) {
             className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
               view === v
                 ? 'bg-primary text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-surface-2 text-muted hover:bg-line/60'
             }`}
           >
             {v === 'all' ? 'All Roles' : v === 'BA' ? 'BAs Only' : 'Devs Only'}

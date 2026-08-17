@@ -27,11 +27,11 @@ export function WeeklyDrilldown({
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={onBack}
-          className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+          className="text-xs text-muted hover:text-ink/80 flex items-center gap-1"
         >
           ← Back to month
         </button>
-        <span className="text-xs text-slate-400">{month} total: <strong className="text-slate-700">{monthTotal} hrs</strong></span>
+        <span className="text-xs text-muted/70">{month} total: <strong className="text-ink/80">{monthTotal} hrs</strong></span>
       </div>
 
       <div className="space-y-2">
@@ -45,7 +45,7 @@ export function WeeklyDrilldown({
         ))}
       </div>
 
-      <p className="mt-3 text-[10px] text-slate-400">
+      <p className="mt-3 text-[10px] text-muted/70">
         Adjust slider or type exact hours. Sum is the {month} monthly total.
       </p>
     </div>
@@ -65,7 +65,7 @@ function WeekRow({
 
   return (
     <div className="flex items-center gap-2">
-      <span className="w-14 text-xs text-slate-500">{label}</span>
+      <span className="w-14 text-xs text-muted">{label}</span>
       <input
         type="range"
         min={0}
@@ -89,9 +89,9 @@ function WeekRow({
           const v = parseFloat(draft);
           onChange(Number.isFinite(v) && v >= 0 ? v : 0);
         }}
-        className="w-14 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-right tabular-nums"
+        className="w-14 rounded border border-line px-1.5 py-0.5 text-xs text-right tabular-nums"
       />
-      <span className="text-[10px] text-slate-400 w-6">hrs</span>
+      <span className="text-[10px] text-muted/70 w-6">hrs</span>
     </div>
   );
 }

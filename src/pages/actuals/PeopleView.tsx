@@ -47,13 +47,13 @@ export default function ActualPeopleView() {
       <div className="lg:w-80 shrink-0 flex flex-col">
         <div className="flex gap-2 mb-3">
           <div className="flex-1 relative">
-            <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+            <Search size={14} className="absolute left-2.5 top-2.5 text-muted/70" />
             <input
               type="text"
               placeholder="Search people..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full rounded-lg border border-line pl-8 pr-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </div>
@@ -62,7 +62,7 @@ export default function ActualPeopleView() {
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+            className="w-full rounded-lg border border-line px-2 py-1 text-xs"
           >
             <option value="">All Projects</option>
             {projects.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -79,7 +79,7 @@ export default function ActualPeopleView() {
                 key={g.name}
                 onClick={() => setSelectedName(g.name)}
                 className={`w-full text-left p-2 rounded-lg flex items-center gap-2 transition-colors ${
-                  isSel ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-slate-50'
+                  isSel ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-surface-2/70'
                 }`}
               >
                 <div
@@ -93,19 +93,19 @@ export default function ActualPeopleView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-800 truncate">{g.name}</span>
-                    <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{Math.round(utilPct)}%</span>
+                    <span className="text-sm font-medium text-ink truncate">{g.name}</span>
+                    <span className="text-[10px] text-muted/70 tabular-nums shrink-0">{Math.round(utilPct)}%</span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] text-slate-500 truncate">{g.totalHours.toFixed(0)} hrs logged</span>
+                    <span className="text-[10px] text-muted truncate">{g.totalHours.toFixed(0)} hrs logged</span>
                     {g.assignments.length > 0 && (
-                      <span className="text-[9px] text-slate-400 shrink-0">· {g.assignments.length}p</span>
+                      <span className="text-[9px] text-muted/70 shrink-0">· {g.assignments.length}p</span>
                     )}
                   </div>
-                  <div className="mt-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="mt-1 h-1 bg-surface-2 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${
-                        utilPct >= 80 ? 'bg-emerald-500' : utilPct >= 50 ? 'bg-sky-500' : utilPct > 0 ? 'bg-amber-400' : 'bg-slate-200'
+                        utilPct >= 80 ? 'bg-emerald-500' : utilPct >= 50 ? 'bg-sky-500' : utilPct > 0 ? 'bg-amber-400' : 'bg-line/60'
                       }`}
                       style={{ width: `${Math.min(utilPct, 100)}%` }}
                     />
@@ -115,7 +115,7 @@ export default function ActualPeopleView() {
             );
           })}
           {filtered.length === 0 && (
-            <div className="text-center py-8 text-slate-400 text-sm">
+            <div className="text-center py-8 text-muted/70 text-sm">
               {groups.length === 0 ? 'No actuals synced yet.' : 'No matches.'}
             </div>
           )}
@@ -125,11 +125,11 @@ export default function ActualPeopleView() {
       {/* Detail pane */}
       <div className="flex-1 min-w-0">
         {!selected ? (
-          <div className="h-full flex items-center justify-center text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl py-16">
+          <div className="h-full flex items-center justify-center text-muted/70 text-sm border border-dashed border-line rounded-xl py-16">
             Sync from Zoho People, then pick someone to see their actuals.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="bg-white rounded-xl border border-line p-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-center gap-3">
@@ -143,8 +143,8 @@ export default function ActualPeopleView() {
                   {getInitials(selected.name)}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">{selected.name}</h2>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                  <h2 className="text-xl font-bold text-ink">{selected.name}</h2>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-muted">
                     {selected.email && <span>{selected.email}</span>}
                     {selected.email && <span>·</span>}
                     <span>{selected.assignments.length} {selected.assignments.length === 1 ? 'project' : 'projects'}</span>
@@ -163,7 +163,7 @@ export default function ActualPeopleView() {
             </div>
 
             {/* Year row */}
-            <div className="flex items-center gap-3 text-[10px] text-slate-400 uppercase tracking-wider mb-1 px-1">
+            <div className="flex items-center gap-3 text-[10px] text-muted/70 uppercase tracking-wider mb-1 px-1">
               <span className="w-40 shrink-0">Project</span>
               <span className="flex-1">
                 <span className="grid grid-cols-12 gap-0.5">
@@ -186,7 +186,7 @@ export default function ActualPeopleView() {
                     hue={colorHash(a.project)}
                     trailing={
                       <div className="w-16 text-right">
-                        <span className="text-xs font-bold tabular-nums text-slate-700">
+                        <span className="text-xs font-bold tabular-nums text-ink/80">
                           {total > 0 ? total.toFixed(0) : '—'}
                         </span>
                       </div>
@@ -205,7 +205,7 @@ export default function ActualPeopleView() {
               })}
             </div>
 
-            <p className="mt-5 text-[11px] text-slate-400 leading-relaxed">
+            <p className="mt-5 text-[11px] text-muted/70 leading-relaxed">
               Read-only view of timesheet entries from Zoho People. To edit forecast plans, head to the Project Team page.
             </p>
           </div>
@@ -218,10 +218,10 @@ export default function ActualPeopleView() {
 function StatBlock({ label, value, unit }: { label: string; value: number; unit: string }) {
   return (
     <div className="text-right">
-      <div className="text-[10px] text-slate-400 uppercase tracking-wider">{label}</div>
-      <div className="text-base font-bold tabular-nums text-slate-800">
+      <div className="text-[10px] text-muted/70 uppercase tracking-wider">{label}</div>
+      <div className="text-base font-bold tabular-nums text-ink">
         {value > 0 ? value.toLocaleString() : '—'}
-        <span className="text-[10px] text-slate-400 ml-0.5">{unit}</span>
+        <span className="text-[10px] text-muted/70 ml-0.5">{unit}</span>
       </div>
     </div>
   );

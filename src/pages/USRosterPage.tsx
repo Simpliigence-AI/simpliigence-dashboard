@@ -403,6 +403,8 @@ export default function USRosterPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Global T&M"
+        tone="teal"
         title="Global Roster"
         subtitle="Full FTE roster — billable allocations, bench, visa, location, margin"
         action={

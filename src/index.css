@@ -42,6 +42,14 @@
   --color-green: #059669;
   --color-violet: #7c3aed;
   --color-rose: #e11d48;
+  --color-coral: #ff8563;         /* GTM hero accent — used on dark navy grounds only */
+  --color-coral-soft: #ffe0d3;
+
+  /* Dark grounds used by the GTM page hero. Kept scoped in intent —
+   * everywhere else in the app stays light. */
+  --color-navy-deep: #0d1728;
+  --color-navy-mid: #172236;
+  --color-navy-panel: #1d2a41;
 
   /* Existing names kept so nothing breaks mid-migration */
   --color-primary: #3b82f6;
@@ -61,24 +69,6 @@
   --shadow-card: 0 16px 48px #0f1b2d14;
 }
 
-/**
- * Display type. The reference gets its hierarchy from scale, not chrome — and
- * at these sizes tracking has to go negative or the words drift apart.
- */
-.display-xl { font-size: clamp(2.25rem, 5vw, 4rem); font-weight: 750; line-height: 0.98; letter-spacing: -0.045em; }
-.display-lg { font-size: clamp(1.625rem, 3vw, 2.375rem); font-weight: 720; line-height: 1.05; letter-spacing: -0.035em; }
-.display-md { font-size: 1.375rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.022em; }
-
-/** The small uppercase kicker above a heading — does the labelling so the
- *  heading itself never has to shrink to carry context. */
-.eyebrow {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.13em;
-  color: var(--color-muted);
-}
-
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -90,9 +80,14 @@ body {
 }
 
 /**
- * Display type. The reference leans on very large, tightly-tracked headings
- * for hierarchy instead of borders and boxes — at 88px the tracking has to go
- * negative or the words drift apart.
+ * Display type. Hierarchy comes from scale rather than borders and boxes; at
+ * the top of this range (88px) the tracking has to go negative or the words
+ * drift apart.
+ *
+ * These sizes are the ones actually shipped and signed off. An earlier,
+ * smaller set used to be declared above this block and was silently
+ * overridden by it — the duplicate is gone, and these values are unchanged so
+ * nothing moves on screen.
  */
 .display-xl { font-size: clamp(2.5rem, 6vw, 5.5rem); font-weight: 750; line-height: 0.95; letter-spacing: -0.065em; }
 .display-lg { font-size: clamp(1.75rem, 3.2vw, 2.75rem); font-weight: 720; line-height: 1.02; letter-spacing: -0.04em; }

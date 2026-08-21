@@ -244,3 +244,43 @@ html { scroll-behavior: smooth; }
   color: var(--gtm-text-1);
 }
 .gtm-page .gtm-input::placeholder { color: var(--gtm-text-4); }
+
+/**
+ * Inbound email bodies (ticket drawer). The sanitizer strips every class and
+ * style attribute the sender set — see src/lib/sanitizeHtml.ts — so the
+ * surviving tags arrive unstyled and need base typography here. Scoped to
+ * .email-html so nothing leaks into the rest of the app.
+ */
+.email-html { font-size: 0.875rem; line-height: 1.6; color: var(--color-ink); overflow-wrap: anywhere; }
+.email-html p,
+.email-html blockquote,
+.email-html pre { margin: 0 0 0.6em; }
+.email-html > *:last-child { margin-bottom: 0; }
+.email-html h1, .email-html h2, .email-html h3,
+.email-html h4, .email-html h5, .email-html h6 {
+  margin: 0.9em 0 0.4em; font-weight: 650; line-height: 1.25;
+}
+.email-html h1 { font-size: 1.125rem; }
+.email-html h2 { font-size: 1.0625rem; }
+.email-html h3, .email-html h4, .email-html h5, .email-html h6 { font-size: 1rem; }
+.email-html ul, .email-html ol { margin: 0 0 0.6em; padding-left: 1.5rem; }
+.email-html ul { list-style: disc; }
+.email-html ol { list-style: decimal; }
+.email-html li { margin: 0.15em 0; }
+.email-html a { color: var(--color-primary); text-decoration: underline; }
+.email-html img { max-width: 100%; height: auto; border-radius: 0.25rem; display: block; margin: 0.4em 0; }
+.email-html blockquote {
+  border-left: 2px solid var(--color-line);
+  padding-left: 0.75rem;
+  color: var(--color-muted);
+}
+.email-html pre { white-space: pre-wrap; }
+.email-html pre, .email-html code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
+.email-html table { border-collapse: collapse; margin: 0 0 0.6em; max-width: 100%; }
+.email-html td, .email-html th {
+  border: 1px solid var(--color-line);
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+.email-html hr { border: 0; border-top: 1px solid var(--color-line); margin: 0.8em 0; }

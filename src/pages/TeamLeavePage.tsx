@@ -26,6 +26,7 @@ import { fetchAllLeaveRequests } from '../lib/supabaseSync';
 import { TaIdentity } from '../components/TaIdentity';
 import { LEAVE_STATUS_META } from '../types/leave';
 import type { LeaveRequest, LeaveStatus } from '../types/leave';
+import { csvDateStamp, exportRowsToCsv, type CsvColumn } from '../lib/exportCsv';
 
 type TabKey = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -100,7 +101,7 @@ export default function TeamLeavePage() {
   /** Build a CSV from the currently-visible requests and download it.
    *  Reflects exactly what the table shows — tab + filters both apply. */
   const exportCsv = () => {
-    const cols: { label: string; value: (r: LeaveRequest) => string }[] = [
+    const cols: CsvColumn<LeaveRequest>[] = [
       { label: 'Employee',   value: (r) => r.employeeEmail },
       { label: 'Leave type', value: (r) => typeById.get(r.leaveTypeId)?.name || r.leaveTypeId },
       { label: 'Start',      value: (r) => r.startDate },
@@ -113,20 +114,7 @@ export default function TeamLeavePage() {
       { label: 'Decided at', value: (r) => r.decidedAt ?? '' },
       { label: 'Comment',    value: (r) => r.decisionComment ?? '' },
     ];
-    const esc = (s: string) => (/[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-    const header = cols.map((c) => c.label).join(',');
-    const rows = visibleRequests.map((r) => cols.map((c) => esc(c.value(r))).join(','));
-    const csv = [header, ...rows].join('\r\n');
-    const today = new Date().toISOString().slice(0, 10);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `team-leave-${tab}-${today}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    exportRowsToCsv(`team-leave-${tab}-${csvDateStamp()}.csv`, visibleRequests, cols);
   };
 
   return (

@@ -25,6 +25,7 @@ import { db, formatDbError } from '../lib/supabaseSync';
 import { TaIdentity } from '../components/TaIdentity';
 import type { TimeEntry, TimeEntryAudit } from '../types/timeEntry';
 import { useTimeProjectOptions } from '../lib/useTimeProjectOptions';
+import { csvDateStamp, exportRowsToCsv, type CsvColumn } from '../lib/exportCsv';
 
 /** Parse YYYY-MM-DD as LOCAL midnight (avoids UTC day-shift). */
 function parseIsoDate(iso: string): Date {
@@ -259,7 +260,7 @@ export default function TeamTimePage() {
    *  Reflects exactly what the table shows — tab + filter both apply.
    *  Filename includes the tab + ISO date so accounting can identify the run. */
   const exportCsv = () => {
-    const cols: { label: string; value: (e: TimeEntry) => string }[] = [
+    const cols: CsvColumn<TimeEntry>[] = [
       { label: 'Date',        value: (e) => e.workDate },
       { label: 'Employee',    value: (e) => e.employeeEmail },
       { label: 'Project',     value: (e) => e.projectName },
@@ -272,26 +273,7 @@ export default function TeamTimePage() {
       { label: 'Reject reason', value: (e) => e.rejectReason ?? '' },
       { label: 'Notes',       value: (e) => e.notes ?? '' },
     ];
-    const esc = (s: string) => {
-      // RFC 4180: quote fields containing comma, quote, or newline; double internal quotes.
-      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-    const header = cols.map((c) => c.label).join(',');
-    const rows = visibleEntries.map((e) => cols.map((c) => esc(c.value(e))).join(','));
-    const csv = [header, ...rows].join('\r\n');
-
-    const today = new Date().toISOString().slice(0, 10);
-    const filename = `time-entries-${tab}-${today}.csv`;
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    exportRowsToCsv(`time-entries-${tab}-${csvDateStamp()}.csv`, visibleEntries, cols);
   };
 
   return (

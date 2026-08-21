@@ -7,15 +7,25 @@
  * desk-inbound so the existing ticket-creation logic runs unchanged.
  *
  * Input:
- *   { since?: string, mailbox?: string, dryRun?: boolean }
+ *   { since?: string, mailbox?: string, dryRun?: boolean, force?: boolean }
  *   since:   ISO datetime, defaults to 48 hours ago
  *   mailbox: default sfconsulting@simpliigence.com
+ *   force:   re-process messages that are ALREADY in ticket_messages, so
+ *            tickets ingested before a desk-inbound fix can be repaired.
+ *            Off by default; see the note below.
  *
  * Output:
- *   { ok, scanned, posted, skipped, errors, sinceUsed }
+ *   { ok, scanned, posted, skipped, errors, sinceUsed, force }
  *
- * Dedup: desk-inbound already skips messages whose graph_message_id is
- * already in ticket_messages, so re-running this is safe.
+ * Dedup: desk-inbound skips messages whose graph_message_id is already in
+ * ticket_messages, so re-running this is safe and repairs nothing.
+ *
+ * `force: true` opts out of that: this function stops pre-skipping known
+ * messages and sets `repair: true` on the synthetic notification, which makes
+ * desk-inbound update the existing ticket_messages row (body_text/body_html)
+ * plus the description of the ticket that message created, and pick up any
+ * attachment it does not already have. It never creates duplicates and never
+ * deletes anything, but it DOES overwrite those body fields — hence opt-in.
  */
 
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
@@ -66,11 +76,13 @@ Deno.serve(async (req: Request) => {
   let since = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
   let mailbox = 'sfconsulting@simpliigence.com';
   let dryRun = false;
+  let force = false;
   try {
     const body = req.body ? await req.json() : null;
     if (body?.since) since = String(body.since);
     if (body?.mailbox) mailbox = String(body.mailbox);
     dryRun = !!body?.dryRun;
+    force = !!body?.force;
   } catch { /* empty body ok */ }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
@@ -102,12 +114,16 @@ Deno.serve(async (req: Request) => {
 
     for (const m of messages) {
       // desk-inbound already dedupes on graph_message_id — but we can pre-
-      // check to save an HTTP roundtrip.
-      const { data: existing } = await supabase.from('ticket_messages').select('id').eq('graph_message_id', m.id).maybeSingle();
-      if (existing) { skipped += 1; continue; }
+      // check to save an HTTP roundtrip. Under `force` we deliberately do not
+      // skip: re-processing an already-ingested message is the whole point.
+      if (!force) {
+        const { data: existing } = await supabase.from('ticket_messages').select('id').eq('graph_message_id', m.id).maybeSingle();
+        if (existing) { skipped += 1; continue; }
+      }
       if (dryRun) { posted += 1; continue; }
 
       const notification = {
+        repair: force,
         value: [{
           subscriptionId: sub.id,
           changeType: 'created',
@@ -132,6 +148,7 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       ok: true,
       dryRun,
+      force,
       sinceUsed: since,
       mailbox,
       scanned: messages.length,

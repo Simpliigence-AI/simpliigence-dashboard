@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Textarea } from '../../components/ui/Input';
-import { useConciergeStore, type ConciergeTicket } from '../../store/useConciergeStore';
-import { useConciergeAccountsStore } from '../../store/useConciergeAccountsStore';
+import {
+  useConciergeStore,
+  type ConciergeAttachment,
+  type ConciergeTicket,
+  type ConciergeTicketMessage,
+  type ConciergeTimeEntry,
+} from '../../store/useConciergeStore';
+import { useAccountStore } from '../../store/useAccountStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Clock, Mail, StickyNote, Check, RotateCcw, Trash2, Loader2 } from 'lucide-react';
+import { EmailBody } from './EmailBody';
+import { Clock, Mail, StickyNote, Check, RotateCcw, Trash2, Loader2, Paperclip, Download } from 'lucide-react';
 
 interface Props {
   ticket: ConciergeTicket;
@@ -18,9 +25,45 @@ function fmt(iso: string | null): string {
   return isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
+function fmtSize(bytes: number | null): string {
+  if (bytes == null) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/* Stable empty arrays. Selectors below fall back to these rather than a fresh
+ * `[]`, so an unloaded ticket does not hand a new reference to every effect. */
+const NO_MESSAGES: ConciergeTicketMessage[] = [];
+const NO_ENTRIES: ConciergeTimeEntry[] = [];
+const NO_ATTACHMENTS: ConciergeAttachment[] = [];
+
 export function TicketDrawer({ ticket, onClose }: Props) {
-  const store = useConciergeStore();
-  const { accounts } = useConciergeAccountsStore();
+  /* Per-action / per-slice selectors, NOT `useConciergeStore()`.
+   * Subscribing to the whole store handed this component a new state object
+   * after every `set()` anywhere in the store; with `store` in the effect's
+   * dependency list below, and `loadMessages` itself calling `set()`, that was
+   * a fetch loop for as long as the drawer stayed open. Action identities are
+   * created once, so these deps are stable. */
+  const loadMessages = useConciergeStore((s) => s.loadMessages);
+  const loadTimeEntries = useConciergeStore((s) => s.loadTimeEntries);
+  const loadAttachments = useConciergeStore((s) => s.loadAttachments);
+  const updateTicket = useConciergeStore((s) => s.updateTicket);
+  const logHours = useConciergeStore((s) => s.logHours);
+  const addInternalNote = useConciergeStore((s) => s.addInternalNote);
+  const resolveTicket = useConciergeStore((s) => s.resolveTicket);
+  const reopenTicket = useConciergeStore((s) => s.reopenTicket);
+  const deleteTicket = useConciergeStore((s) => s.deleteTicket);
+  const attachmentDownloadUrl = useConciergeStore((s) => s.attachmentDownloadUrl);
+
+  /* Account Management accounts — the table `tickets.account_id` actually
+   * references. The drawer used to populate this control from
+   * `concierge_accounts`, whose ids live in a different namespace: a routed
+   * ticket's account_id matched no option (so the select showed "— none —"
+   * even when routing had worked), and picking an option wrote an id that
+   * violated tickets_account_id_fkey — a failure updateTicket only warns about.
+   * See the same note in NewTicketModal.tsx. */
+  const accounts = useAccountStore((s) => s.accounts);
   const directory = useAuthStore((s) => s.directory);
   const currentUser = useAuthStore((s) => s.currentUser);
   const users = Object.values(directory).sort((a, b) =>
@@ -37,13 +80,52 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   const [showResolve, setShowResolve] = useState(false);
   const [busy, setBusy] = useState<'note' | 'hours' | 'resolve' | 'delete' | null>(null);
 
-  const messages = store.messagesByTicket[ticket.id] ?? [];
-  const entries = store.timeEntriesByTicket[ticket.id] ?? [];
+  const messages = useConciergeStore((s) => s.messagesByTicket[ticket.id]) ?? NO_MESSAGES;
+  const entries = useConciergeStore((s) => s.timeEntriesByTicket[ticket.id]) ?? NO_ENTRIES;
+  const attachments = useConciergeStore((s) => s.attachmentsByTicket[ticket.id]) ?? NO_ATTACHMENTS;
 
   useEffect(() => {
-    void store.loadMessages(ticket.id);
-    void store.loadTimeEntries(ticket.id);
-  }, [ticket.id, store]);
+    void loadMessages(ticket.id);
+    void loadTimeEntries(ticket.id);
+    void loadAttachments(ticket.id);
+  }, [ticket.id, loadMessages, loadTimeEntries, loadAttachments]);
+
+  /* Inline images are referenced from the body as src="cid:<content_id>";
+   * everything else is offered as a download. Memoized because EmailBody takes
+   * the inline list as an effect dependency. */
+  const inlineAttachments = useMemo(() => attachments.filter((a) => a.isInline), [attachments]);
+  const fileAttachments = useMemo(() => attachments.filter((a) => !a.isInline), [attachments]);
+
+  /* cid: references are per-message, so scope each body to its own inline
+   * images. Rows written before message_id existed have none, so those fall
+   * back to the ticket's whole inline set. Both branches return a reference
+   * that is stable while `attachments` is — EmailBody depends on it. */
+  const inlineByMessage = useMemo(() => {
+    const m = new Map<string, ConciergeAttachment[]>();
+    for (const a of inlineAttachments) {
+      if (!a.messageId) continue;
+      const list = m.get(a.messageId);
+      if (list) list.push(a); else m.set(a.messageId, [a]);
+    }
+    return m;
+  }, [inlineAttachments]);
+  const inlineFor = (messageId: string | undefined) =>
+    (messageId ? inlineByMessage.get(messageId) : undefined) ?? inlineAttachments;
+
+  /* The rich body of the message this ticket was created from. desk-inbound
+   * stores it on the message row, so there is no second copy (and no extra
+   * migration) on `tickets`; `ticket.description` holds the plain-text
+   * flattening that the list view and search use. */
+  const firstInbound = useMemo(
+    () => messages.find((m) => m.direction === 'inbound' && (m.bodyHtml || m.bodyText)) ?? null,
+    [messages],
+  );
+
+  const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const openAttachment = async (storagePath: string) => {
+    const url = await attachmentDownloadUrl(storagePath);
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   const priorityChip = (p: string | null) => {
     const val = (p ?? 'medium').toLowerCase();
@@ -75,7 +157,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
           <Select label="Assignee" value={ticket.assigneeEmail ?? ''}
             placeholder="— unassigned —"
             options={users.map((u) => ({ value: u.email, label: u.fullName || u.email }))}
-            onChange={(e) => store.updateTicket(ticket.id, { assigneeEmail: e.target.value || null })}
+            onChange={(e) => updateTicket(ticket.id, { assigneeEmail: e.target.value || null })}
           />
           <Select label="Priority" value={ticket.priority ?? 'medium'}
             options={[
@@ -84,16 +166,39 @@ export function TicketDrawer({ ticket, onClose }: Props) {
               { value: 'high', label: 'High' },
               { value: 'urgent', label: 'Urgent' },
             ]}
-            onChange={(e) => store.updateTicket(ticket.id, { priority: e.target.value })}
+            onChange={(e) => updateTicket(ticket.id, { priority: e.target.value })}
           />
-          <Select label="Account" value={ticket.accountId ?? ''}
-            placeholder="— none —"
-            options={accounts.map((a) => ({ value: a.id, label: a.name }))}
-            onChange={(e) => {
-              const acct = accounts.find((a) => a.id === e.target.value);
-              store.updateTicket(ticket.id, { accountId: acct?.id ?? null, account: acct?.name ?? undefined });
-            }}
-          />
+          <div className="space-y-1.5">
+            {accounts.length === 0 ? (
+              /* Account Management has not hydrated (or is empty). Rather than
+               * offer a dropdown that can only write null, show what the ticket
+               * is already routed to. */
+              <>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider">Account</label>
+                <div className="w-full px-3 py-2 rounded-lg border border-line bg-surface-2/70 text-sm text-ink">
+                  {ticket.account || '— none —'}
+                </div>
+              </>
+            ) : (
+              <Select label="Account" value={ticket.accountId ?? ''}
+                placeholder="— none —"
+                options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+                onChange={(e) => {
+                  const acct = accounts.find((a) => a.id === e.target.value);
+                  updateTicket(ticket.id, { accountId: acct?.id ?? null, account: acct?.name ?? '' });
+                }}
+              />
+            )}
+            {/* The name desk-inbound resolved from the sender's domain. Shown
+              * always, because it is the answer to "which client is this?"
+              * even when account_id points at a row this client cannot see. */}
+            <div className="text-[11px] text-muted">
+              Routed to <span className="font-medium text-ink/80">{ticket.account || '—'}</span>
+              {ticket.accountId && !accountsById.has(ticket.accountId) && (
+                <span className="text-amber-700"> · id not in Account Management</span>
+              )}
+            </div>
+          </div>
           <Select label="Status" value={ticket.status}
             options={[
               { value: 'Open', label: 'Open' },
@@ -102,7 +207,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
               { value: 'Resolved', label: 'Resolved' },
               { value: 'Closed', label: 'Closed' },
             ]}
-            onChange={(e) => store.updateTicket(ticket.id, { status: e.target.value })}
+            onChange={(e) => updateTicket(ticket.id, { status: e.target.value })}
           />
           <Input label="Estimated hours" type="number" step="0.25" min="0"
             value={estHoursDraft}
@@ -110,18 +215,47 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             onBlur={() => {
               const next = estHoursDraft.trim() === '' ? null : Number(estHoursDraft);
               if (next !== null && !Number.isFinite(next)) return;
-              if (next !== ticket.estimatedHours) store.updateTicket(ticket.id, { estimatedHours: next });
+              if (next !== ticket.estimatedHours) updateTicket(ticket.id, { estimatedHours: next });
             }}
             placeholder="e.g. 4"
           />
         </section>
 
-        {ticket.description && (
+        {(firstInbound || ticket.description) && (
           <section>
             <label className="text-xs font-medium text-muted uppercase tracking-wider">Description</label>
-            <div className="mt-1 whitespace-pre-wrap rounded border border-line bg-surface-2/70 p-3 text-sm text-ink">
-              {ticket.description}
+            <div className="mt-1 rounded border border-line bg-surface-2/70 p-3 text-sm text-ink">
+              <EmailBody
+                html={firstInbound?.bodyHtml ?? null}
+                text={firstInbound?.bodyText ?? ticket.description}
+                inlineAttachments={inlineFor(firstInbound?.id)}
+              />
             </div>
+          </section>
+        )}
+
+        {/* Attachments — inline images render inside the body above, so only
+          * the real files are listed here. */}
+        {fileAttachments.length > 0 && (
+          <section>
+            <label className="text-xs font-medium text-muted uppercase tracking-wider flex items-center gap-1">
+              <Paperclip size={12} /> Attachments ({fileAttachments.length})
+            </label>
+            <ul className="mt-1 space-y-1">
+              {fileAttachments.map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => { void openAttachment(a.storagePath); }}
+                    className="w-full flex items-center gap-2 rounded border border-line bg-surface px-3 py-2 text-sm text-left hover:bg-surface-2/70 hover:border-primary/40"
+                  >
+                    <Download size={14} className="text-muted/70 shrink-0" />
+                    <span className="flex-1 truncate text-ink">{a.fileName}</span>
+                    <span className="text-xs text-muted shrink-0">{fmtSize(a.sizeBytes)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 
@@ -131,7 +265,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             onChange={(e) => setResolutionEdit(e.target.value)}
             onBlur={() => {
               const next = resolutionEdit.trim() === '' ? null : resolutionEdit;
-              if (next !== (ticket.resolution ?? null)) store.updateTicket(ticket.id, { resolution: next });
+              if (next !== (ticket.resolution ?? null)) updateTicket(ticket.id, { resolution: next });
             }}
             placeholder="Summary of how this ticket was resolved."
           />
@@ -154,7 +288,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                 const h = Number(hoursInput);
                 if (!Number.isFinite(h) || h <= 0) return;
                 setBusy('hours');
-                await store.logHours(ticket.id, h, hoursNotes, currentUser?.email ?? 'unknown');
+                await logHours(ticket.id, h, hoursNotes, currentUser?.email ?? 'unknown');
                 setHoursInput(''); setHoursNotes('');
                 setBusy(null);
               }}
@@ -196,7 +330,20 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                       <span className="text-muted/70">{fmt(m.receivedAt)}</span>
                       <span className="ml-auto uppercase tracking-wide text-[10px]">{m.direction.replace('_', ' ')}</span>
                     </div>
-                    <div className="text-sm text-ink whitespace-pre-wrap">{m.bodyText || <em className="text-muted/70">(empty)</em>}</div>
+                    {/* Internal notes are ours and plain text by construction;
+                      * inbound/outbound mail goes through the sanitizer. */}
+                    {m.direction === 'internal_note' ? (
+                      <div className="text-sm text-ink whitespace-pre-wrap">
+                        {m.bodyText || <em className="text-muted/70">(empty)</em>}
+                      </div>
+                    ) : (
+                      <EmailBody
+                        html={m.bodyHtml}
+                        text={m.bodyText}
+                        inlineAttachments={inlineFor(m.id)}
+                        className="text-sm text-ink"
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -216,7 +363,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
               disabled={busy === 'note' || !notesDraft.trim()}
               onClick={async () => {
                 setBusy('note');
-                await store.addInternalNote(ticket.id, notesDraft.trim(), currentUser?.email ?? 'unknown');
+                await addInternalNote(ticket.id, notesDraft.trim(), currentUser?.email ?? 'unknown');
                 setNotesDraft('');
                 setBusy(null);
               }}
@@ -232,7 +379,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                 <Check size={14} className="inline mr-1" />
                 Resolved {ticket.resolvedAt && `on ${fmt(ticket.resolvedAt)}`}
               </div>
-              <Button variant="secondary" onClick={() => store.reopenTicket(ticket.id)}>
+              <Button variant="secondary" onClick={() => reopenTicket(ticket.id)}>
                 <RotateCcw size={14} /> Reopen
               </Button>
             </div>
@@ -245,7 +392,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                   disabled={busy === 'resolve' || !resolutionDraft.trim()}
                   onClick={async () => {
                     setBusy('resolve');
-                    await store.resolveTicket(ticket.id, resolutionDraft.trim());
+                    await resolveTicket(ticket.id, resolutionDraft.trim());
                     setBusy(null);
                     setShowResolve(false);
                     onClose();
@@ -271,7 +418,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                 if (!confirm(`Delete ticket #${ticket.ticketNumber} — "${ticket.subject}"?\n\nThis is permanent and removes all messages, internal notes, and hours logs.`)) return;
                 setBusy('delete');
                 try {
-                  await store.deleteTicket(ticket.id);
+                  await deleteTicket(ticket.id);
                   onClose();
                 } catch (e) {
                   alert(`Delete failed: ${(e as Error).message}`);

@@ -3,7 +3,7 @@ import { Drawer } from '../../components/ui/Drawer';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import { useConciergeStore } from '../../store/useConciergeStore';
-import { useConciergeAccountsStore } from '../../store/useConciergeAccountsStore';
+import { useAccountStore } from '../../store/useAccountStore';
 
 interface Props {
   open: boolean;
@@ -12,8 +12,11 @@ interface Props {
 }
 
 export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
-  const { createTicket } = useConciergeStore();
-  const { accounts } = useConciergeAccountsStore();
+  const createTicket = useConciergeStore((s) => s.createTicket);
+  /* Account Management accounts — the table `tickets.account_id` references.
+   * This used to list `concierge_accounts`, whose ids belong to a different
+   * namespace, which is why accountId had to be hard-nulled below. */
+  const accounts = useAccountStore((s) => s.accounts);
 
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
@@ -36,11 +39,10 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
       description: description.trim() || undefined,
       priority,
       account: acct?.name ?? null,
-      // Do not persist concierge_accounts.id into tickets.account_id: the FK
-      // tickets_account_id_fkey points at a different parent table, so writing
-      // this id violates the constraint. Grouping uses the `account` name text,
-      // not account_id, so null is safe (inbound path also writes null on no-match).
-      accountId: null,
+      // Safe to persist now: these are `accounts` ids, the parent of
+      // tickets_account_id_fkey — the same ids desk-inbound writes when it
+      // routes an inbound email by sender domain.
+      accountId: acct?.id ?? null,
       assigneeEmail: assigneeEmail.trim() || null,
       estimatedHours: estimatedHours.trim() === '' ? null : Number(estimatedHours),
       senderEmail: senderEmail.trim() || null,

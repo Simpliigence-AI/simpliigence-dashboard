@@ -26,9 +26,14 @@ export type TicketStatusBucket = 'open' | 'closed' | 'unknown';
 const OPEN_STATUSES = new Set(['open', 'on hold', 'escalated']);
 const CLOSED_STATUSES = new Set(['resolved', 'closed']);
 
-/** Trim + lowercase. The only normalisation anyone should be doing. */
+/** Trim, lowercase, and collapse runs of whitespace/underscore/hyphen to a
+ *  single space. The only normalisation anyone should be doing — and it must
+ *  stay byte-for-byte equivalent to `statusBucket` in
+ *  supabase/functions/concierge-ai-query/index.ts, which does the same, so
+ *  Zoho's 'On-Hold' / 'on_hold' bucket as On Hold on both sides instead of
+ *  counting as open in the AI digest and as unknown on the dashboard. */
 export function normalizeTicketStatus(status: string | null | undefined): string {
-  return (status ?? '').trim().toLowerCase();
+  return (status ?? '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
 }
 
 export function ticketStatusBucket(status: string | null | undefined): TicketStatusBucket {

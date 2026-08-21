@@ -145,12 +145,15 @@ Deno.serve(async (req: Request) => {
       if (e) throw new Error(`upsert failed: ${e.message}`);
     }
 
-    // Drop tickets we no longer see (closed or moved out of our watched statuses).
-    if (collected.length > 0) {
-      const activeIds = rows.map((r) => r.id);
-      const { error: e } = await supabase.from('tickets').delete().not('id', 'in', `(${activeIds.map((x) => `"${x}"`).join(',')})`);
-      if (e) console.warn('[zoho-desk-sync] stale-cleanup delete failed:', e.message);
-    }
+    // NO reconciliation delete here, deliberately. This used to delete every
+    // `tickets` row whose id was absent from the Zoho page we just fetched.
+    // `public.tickets` is no longer Zoho-owned: tickets also arrive by email
+    // via the `desk-inbound` function and are created by hand in the UI, and
+    // none of those exist in Zoho — so absence from a Zoho response is not
+    // evidence that a ticket is stale, and the cleanup destroyed real data
+    // every time someone pressed the legacy Refresh button. Zoho-sourced rows
+    // that leave the watched statuses simply keep their last synced state;
+    // let them be closed/removed explicitly instead.
 
     const finishedAt = new Date();
     await supabase.from('sync_status').upsert({

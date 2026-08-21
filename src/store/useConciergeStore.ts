@@ -66,6 +66,21 @@ export interface ConciergeTicketMessage {
   createdBy: string | null;
 }
 
+export interface ConciergeAttachment {
+  id: string;
+  ticketId: string;
+  messageId: string | null;
+  fileName: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  storagePath: string;
+  /** True for images the HTML body references as `src="cid:<contentId>"`. */
+  isInline: boolean;
+  /** Graph's contentId, without angle brackets. Matches the body's `cid:`. */
+  contentId: string | null;
+  createdAt: string;
+}
+
 export interface ConciergeTimeEntry {
   id: string;
   ticketId: string;
@@ -87,6 +102,7 @@ interface ConciergeState {
   tickets: ConciergeTicket[];
   messagesByTicket: Record<string, ConciergeTicketMessage[]>;
   timeEntriesByTicket: Record<string, ConciergeTimeEntry[]>;
+  attachmentsByTicket: Record<string, ConciergeAttachment[]>;
   graphSubscriptions: GraphSubscription[];
   graphConfigured: boolean | null; // null = unknown, true/false after status check
   lastSynced: string | null;
@@ -98,6 +114,16 @@ interface ConciergeState {
   loadFromSupabase: () => Promise<void>;
   loadMessages: (ticketId: string) => Promise<void>;
   loadTimeEntries: (ticketId: string) => Promise<void>;
+  loadAttachments: (ticketId: string) => Promise<void>;
+  /** Every time entry logged in one calendar month (YYYY-MM), across all
+   *  tickets. Returned rather than cached: the only consumer is the EOM hours
+   *  report, which re-reads whenever the month changes. */
+  loadTimeEntriesForMonth: (month: string) => Promise<{ entries: ConciergeTimeEntry[]; error: string | null }>;
+  /** Short-lived signed URL for one stored object. */
+  attachmentDownloadUrl: (storagePath: string) => Promise<string | null>;
+  /** Signed URLs for many objects at once, keyed by storage path. Used to
+   *  resolve a body's inline `cid:` images in a single round-trip. */
+  attachmentSignedUrls: (storagePaths: string[]) => Promise<Record<string, string>>;
   checkGraphSubscription: () => Promise<{ ok: boolean; configured: boolean; message?: string }>;
   setupGraphSubscription: (mailbox?: string) => Promise<{ ok: boolean; message?: string }>;
   renewGraphSubscription: (id: string) => Promise<{ ok: boolean; message?: string }>;
@@ -181,6 +207,22 @@ function rowToMessage(row: any): ConciergeTicketMessage {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToAttachment(row: any): ConciergeAttachment {
+  return {
+    id: row.id,
+    ticketId: row.ticket_id,
+    messageId: row.message_id ?? null,
+    fileName: row.file_name ?? 'file',
+    contentType: row.content_type ?? null,
+    sizeBytes: row.size_bytes == null ? null : Number(row.size_bytes),
+    storagePath: row.storage_path,
+    isInline: row.is_inline === true,
+    contentId: row.content_id ?? null,
+    createdAt: row.created_at ?? '',
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToTimeEntry(row: any): ConciergeTimeEntry {
   return {
     id: row.id,
@@ -196,6 +238,7 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
   tickets: [],
   messagesByTicket: {},
   timeEntriesByTicket: {},
+  attachmentsByTicket: {},
   graphSubscriptions: [],
   graphConfigured: null,
   lastSynced: null,
@@ -211,8 +254,18 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
         supabase.from('tickets').select('*').order('created_time', { ascending: false }),
         supabase.from('sync_status').select('*').eq('source', 'zoho_desk_tickets').maybeSingle(),
       ]);
-      if (e1) console.warn('[concierge] load tickets failed:', e1.message);
       if (e2 && e2.code !== 'PGRST116') console.warn('[concierge] load sync_status failed:', e2.message);
+      if (e1) {
+        // Bail out WITHOUT touching `tickets`. `rows` is null on error, so the
+        // old code overwrote the list with [] on any transient failure — which
+        // emptied the table, unmounted the open ticket drawer, and lost the
+        // unsaved note/hours/resolution drafts held in its local state. The
+        // 30s poll made one expired JWT enough to do it. Now the list simply
+        // goes stale and lastSyncError says so.
+        console.warn('[concierge] load tickets failed:', e1.message);
+        set({ lastSyncOk: false, lastSyncError: e1.message });
+        return;
+      }
       set({
         tickets: (rows ?? []).map(rowToTicket),
         lastSynced: syncRow?.last_synced_at ?? null,
@@ -236,6 +289,50 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
       .eq('ticket_id', ticketId).order('logged_at', { ascending: false });
     if (error) { console.warn('[concierge] loadTimeEntries:', error.message); return; }
     set((s) => ({ timeEntriesByTicket: { ...s.timeEntriesByTicket, [ticketId]: (data ?? []).map(rowToTimeEntry) } }));
+  },
+
+  loadAttachments: async (ticketId) => {
+    const { data, error } = await supabase.from('ticket_attachments').select('*')
+      .eq('ticket_id', ticketId).order('created_at', { ascending: true });
+    // The table only exists once migration 029 has been run on the live DB, so
+    // a failure here must stay non-fatal: the rest of the drawer still works.
+    if (error) { console.warn('[concierge] loadAttachments:', error.message); return; }
+    set((s) => ({ attachmentsByTicket: { ...s.attachmentsByTicket, [ticketId]: (data ?? []).map(rowToAttachment) } }));
+  },
+
+  loadTimeEntriesForMonth: async (month) => {
+    const m = /^(\d{4})-(\d{2})$/.exec(month);
+    if (!m) return { entries: [], error: `invalid month "${month}"` };
+    // Month bounds are the browser's local calendar month; logged_at is a
+    // timestamptz, so the cut-off follows whoever runs the report.
+    const start = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+    const end = new Date(Number(m[1]), Number(m[2]), 1);
+    const { data, error } = await supabase.from('ticket_time_entries').select('*')
+      .gte('logged_at', start.toISOString())
+      .lt('logged_at', end.toISOString())
+      .order('logged_at', { ascending: true });
+    if (error) { console.warn('[concierge] loadTimeEntriesForMonth:', error.message); return { entries: [], error: error.message }; }
+    return { entries: (data ?? []).map(rowToTimeEntry), error: null };
+  },
+
+  attachmentDownloadUrl: async (storagePath) => {
+    const { data, error } = await supabase.storage.from('ticket-attachments')
+      .createSignedUrl(storagePath, 60 * 60); // 1h
+    if (error || !data?.signedUrl) { console.warn('[concierge] signedUrl:', error?.message); return null; }
+    return data.signedUrl;
+  },
+
+  attachmentSignedUrls: async (storagePaths) => {
+    const paths = Array.from(new Set(storagePaths.filter(Boolean)));
+    if (paths.length === 0) return {};
+    const { data, error } = await supabase.storage.from('ticket-attachments')
+      .createSignedUrls(paths, 60 * 60);
+    if (error) { console.warn('[concierge] signedUrls:', error.message); return {}; }
+    const out: Record<string, string> = {};
+    for (const row of (data ?? [])) {
+      if (row.path && row.signedUrl) out[row.path] = row.signedUrl;
+    }
+    return out;
   },
 
   checkGraphSubscription: async () => {

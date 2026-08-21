@@ -19,6 +19,7 @@ import { useVendorStore } from '../store/useVendorStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { VENDOR_SKILL_PRESETS } from '../types/vendor';
 import type { Vendor, VendorOutreach, VendorOutreachStatus } from '../types/vendor';
+import { csvDateStamp, exportRowsToCsv, type CsvColumn } from '../lib/exportCsv';
 
 export default function VendorsPage() {
   const { vendors, outreach, addVendor, updateVendor, removeVendor } = useVendorStore();
@@ -555,7 +556,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
    *  `recent`) so accounting/operations can run a monthly vendor report
    *  matching the same view they see on screen. */
   const exportCsv = () => {
-    const cols: { label: string; value: (o: VendorOutreach) => string }[] = [
+    const cols: CsvColumn<VendorOutreach>[] = [
       { label: 'When',        value: (o) => o.sentAt },
       { label: 'Vendor',      value: (o) => vendorNameById(o.vendorId) },
       { label: 'Requisition', value: (o) => reqTitleById(o.requisitionId) },
@@ -564,18 +565,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
       { label: 'Status',      value: (o) => o.sendStatus },
       { label: 'Error',       value: (o) => o.sendError ?? '' },
     ];
-    const esc = (s: string) => /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    const header = cols.map((c) => c.label).join(',');
-    const rows = recent.map((o) => cols.map((c) => esc(c.value(o))).join(','));
-    const csv = [header, ...rows].join('\r\n');
-    const today = new Date().toISOString().slice(0, 10);
-    const filename = `vendor-outreach-${statusFilter}-${today}.csv`;
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    exportRowsToCsv(`vendor-outreach-${statusFilter}-${csvDateStamp()}.csv`, recent, cols);
   };
 
   return (

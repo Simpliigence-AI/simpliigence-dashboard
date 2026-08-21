@@ -11,7 +11,8 @@
  *      feature, ranked by upsell revenue potential.
  *   4. Billing  — monthly billing history per account with sparkline trend.
  */
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, JSX } from 'react';
 import { useConciergeStore } from '../store/useConciergeStore';
 import type { ConciergeTicket } from '../store/useConciergeStore';
@@ -25,6 +26,7 @@ import { AccountProfileTab } from './concierge/AccountProfileTab';
 import { AccountOpportunitiesTab } from './concierge/AccountOpportunitiesTab';
 import { ConciergeAskAI } from './concierge/ConciergeAskAI';
 import { IgnoredSendersModal } from './concierge/IgnoredSendersModal';
+import { EomHoursReport } from './concierge/EomHoursReport';
 import { NewTicketModal } from './concierge/NewTicketModal';
 import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
@@ -43,6 +45,7 @@ import {
   FEATURE_PRIORITY_META,
   STANDARD_FEATURE_CATALOG,
 } from '../types/concierge';
+import { isTicketOpen, isTicketStatus } from '../lib/ticketStatus';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, Badge, Button, EmptyState, Drawer } from '../components/ui';
 
@@ -106,7 +109,9 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 function ticketStatusVariant(status: string): 'danger' | 'warning' {
-  return status === 'Open' ? 'danger' : 'warning';
+  // Per-status colour, not the open/closed bucket — the badge shows the literal
+  // status text, so On Hold must stay amber. Normalised so Zoho's 'OPEN' matches.
+  return isTicketStatus(status, 'Open') ? 'danger' : 'warning';
 }
 function priorityVariant(priority: string | null): 'danger' | 'warning' | 'neutral' {
   if (priority === 'High') return 'danger';
@@ -200,6 +205,33 @@ function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl:
 }
 
 type Tab = 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog';
+
+const TAB_KEYS: readonly Tab[] = ['overview', 'tickets', 'backlog', 'billing', 'catalog'];
+const DEFAULT_TAB: Tab = 'overview';
+function isTab(v: unknown): v is Tab {
+  return typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v);
+}
+
+/* Open ticket + active tab live in the URL (?ticket=&tab=), so the drawer and
+ * the tab survive back/forward and a reload, and a link is shareable.
+ *
+ * The URL alone is not enough for the reported complaint, though: the sidebar
+ * links navigate to a bare `/concierge`, so leaving the page and coming back
+ * arrives with no query at all. So the view is also mirrored into
+ * sessionStorage and restored once, on an arrival that carries no params.
+ * sessionStorage (not localStorage) is the point: a link pasted into a new tab
+ * has no mirror and still opens clean. ActualHoursPage uses localStorage for
+ * its tab; this needs to forget across sessions, hence the narrower store. */
+const VIEW_MIRROR_KEY = 'concierge-view';
+
+function readViewMirror(): { tab?: string; ticket?: string } {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.sessionStorage.getItem(VIEW_MIRROR_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed as { tab?: string; ticket?: string } : {};
+  } catch { return {}; }
+}
 
 /* ── Ticket group card (preserved from old page) ── */
 
@@ -979,16 +1011,68 @@ function NewAccountForm({ onClose, defaultName }: { onClose: () => void; default
 
 export default function ConciergePage() {
   const {
-    tickets, lastSynced, lastSyncOk, lastSyncError, refreshing,
+    tickets, lastSynced, lastSyncOk, lastSyncError, refreshing, loading,
     loadFromSupabase, refreshFromZoho,
     graphSubscriptions, checkGraphSubscription, setupGraphSubscription,
   } = useConciergeStore();
-  const [openTicketId, setOpenTicketId] = useState<string | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: Tab = isTab(tabParam) ? tabParam : DEFAULT_TAB;
+  const openTicketId = searchParams.get('ticket');
+
+  /** Opening/closing a ticket pushes, so Back closes the drawer. */
+  const setOpenTicketId = useCallback((id: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (id) next.set('ticket', id); else next.delete('ticket');
+      return next;
+    });
+  }, [setSearchParams]);
+
+  /** Tab switches replace, so they don't fill the history stack. */
+  const setTab = useCallback((next: Tab) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (next === DEFAULT_TAB) p.delete('tab'); else p.set('tab', next);
+      return p;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Restore the mirrored view, but only on an arrival that carries no params of
+  // its own (a bare /concierge from the sidebar). Strictly one-shot: closing
+  // the drawer on the default tab also leaves the URL param-free, and that must
+  // not be mistaken for a fresh arrival and re-open what the user just closed.
+  const hasViewParams = tabParam !== null || openTicketId !== null;
+  const restoredViewRef = useRef(false);
+  useEffect(() => {
+    if (restoredViewRef.current) return;
+    restoredViewRef.current = true;
+    if (hasViewParams) return;
+    const m = readViewMirror();
+    const next = new URLSearchParams();
+    if (isTab(m.tab)) next.set('tab', m.tab);
+    if (m.ticket) next.set('ticket', m.ticket);
+    if (Array.from(next.keys()).length > 0) setSearchParams(next, { replace: true });
+  }, [hasViewParams, setSearchParams]);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(VIEW_MIRROR_KEY, JSON.stringify({
+        tab: tab === DEFAULT_TAB ? undefined : tab,
+        ticket: openTicketId ?? undefined,
+      }));
+    } catch { /* private mode / quota — the URL still works */ }
+  }, [tab, openTicketId]);
+
   const [showNewTicket, setShowNewTicket] = useState(false);
   const [showIgnoredSenders, setShowIgnoredSenders] = useState(false);
   const [graphSetupBusy, setGraphSetupBusy] = useState(false);
   const [graphMsg, setGraphMsg] = useState<string | null>(null);
-  const openTicket = useMemo(() => tickets.find((t) => t.id === openTicketId) ?? null, [tickets, openTicketId]);
+  const openTicket = useMemo(
+    () => (openTicketId ? tickets.find((t) => t.id === openTicketId) ?? null : null),
+    [tickets, openTicketId],
+  );
   const activeGraphSub = graphSubscriptions.find((s) => s.active);
   const { accounts, features, billing } = useConciergeAccountsStore();
   // Hoisted to top-level so hook order is stable regardless of which tab is
@@ -1026,7 +1110,6 @@ export default function ConciergePage() {
   // stripped this down for role='employee'; product decision was to give
   // everyone the full surface so they can work tickets end-to-end.)
   const employeeMode = false;
-  const [tab, setTab] = useState<Tab>('overview');
   const [includeDormantInCoverage, setIncludeDormantInCoverage] = useState(false);
   const [openAccountId, setOpenAccountId] = useState<string | null>(null);
   const [showNewAccount, setShowNewAccount] = useState(false);
@@ -1087,7 +1170,10 @@ export default function ConciergePage() {
     const mrr = activeAccounts
       .filter((a) => a.billingModel !== 'hourly')
       .reduce((sum, a) => sum + (a.monthlyRate ?? 0), 0);
-    const openTickets = tickets.filter((t) => t.status === 'Open').length;
+    // Shared definition (src/lib/ticketStatus.ts): Open + On Hold + Escalated.
+    // The old `status === 'Open'` excluded the other two, so this tile
+    // disagreed with the ticket list and with the AI digest.
+    const openTickets = tickets.filter((t) => isTicketOpen(t.status)).length;
     const upsellPipeline = features
       .filter((f) => f.status !== 'implemented')
       .reduce((sum, f) => sum + (f.upsellEstimate ?? 0), 0);
@@ -1132,8 +1218,10 @@ export default function ConciergePage() {
       .map(([account, ts]) => ({
         account,
         tickets: ts,
-        openCount: ts.filter((t) => t.status === 'Open').length,
-        onHoldCount: ts.filter((t) => t.status === 'On Hold').length,
+        // Per-status badges, so these stay literal counts (not the open
+        // bucket) — otherwise On Hold would be counted twice.
+        openCount: ts.filter((t) => isTicketStatus(t.status, 'Open')).length,
+        onHoldCount: ts.filter((t) => isTicketStatus(t.status, 'On Hold')).length,
       }))
       .sort((a, b) => b.tickets.length - a.tickets.length);
   }, [ticketsByAccount]);
@@ -1235,8 +1323,8 @@ export default function ConciergePage() {
               {!lastSyncOk && lastSyncError && (
                 <span
                   className="text-red-500 cursor-help underline decoration-dotted"
-                  title={lastSyncError}
-                >(error)</span>
+                  title={`${lastSyncError} — the list below is the last data that loaded successfully.`}
+                >(stale)</span>
               )}
             </div>
             <button
@@ -1304,7 +1392,7 @@ export default function ConciergePage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <StatCard label="Accounts" value={stats.accountCount} icon={<Building2 size={20} />} />
         <StatCard label="MRR" value={fmtUSD(stats.mrr, { compact: true })} subtitle="Active retainers" icon={<DollarSign size={20} />} />
-        <StatCard label="Open Tickets" value={stats.openTickets} icon={<Headset size={20} />} />
+        <StatCard label="Open Tickets" value={stats.openTickets} subtitle="Open · On Hold · Escalated" icon={<Headset size={20} />} />
         <StatCard label="Upsell Pipeline" value={fmtUSD(stats.upsellPipeline, { compact: true })} subtitle="From backlog" icon={<TrendingUp size={20} />} />
         <StatCard label="At Risk" value={stats.atRisk} subtitle={stats.atRisk > 0 ? 'Need attention' : 'All healthy'} icon={<AlertTriangle size={20} />} />
         <StatCard label="Dormant" value={stats.dormantCount} subtitle={stats.dormantCount > 0 ? 'Re-engage' : 'None'} icon={<AlertTriangle size={20} />} />
@@ -1352,7 +1440,7 @@ export default function ConciergePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAccounts.map((a) => {
-                const acctTickets = (ticketsByAccount.get(a.name) ?? []).filter((t) => t.status === 'Open');
+                const acctTickets = (ticketsByAccount.get(a.name) ?? []).filter((t) => isTicketOpen(t.status));
                 const monthEntry = (billingByAccount.get(a.id) ?? []).find((b) => b.month === nowMonth);
                 return (
                   <AccountCard
@@ -1439,6 +1527,7 @@ export default function ConciergePage() {
       })()}
 
       {/* ── BILLING ──────────────────────────── */}
+      {tab === 'billing' && <EomHoursReport tickets={tickets} />}
       {tab === 'billing' && (
         <Card
           title={`Monthly Billing — ${billingMatrix.year} (YTD + Forecast)`}
@@ -1604,9 +1693,22 @@ export default function ConciergePage() {
       {showNewTicket && (
         <NewTicketModal open={showNewTicket} onClose={() => setShowNewTicket(false)} />
       )}
-      {openTicket && (
+      {/* Visibility comes from the URL param alone, never from whether the
+        * ticket is in the current list — a refetch (or a poll that returned
+        * fewer rows) must not be able to yank the drawer away mid-edit. */}
+      {openTicketId && (openTicket ? (
         <TicketDrawer ticket={openTicket} onClose={() => setOpenTicketId(null)} />
-      )}
+      ) : (
+        <Drawer open={true} onClose={() => setOpenTicketId(null)} title="Ticket" width="max-w-3xl">
+          <div className="flex items-center gap-2 text-sm text-muted py-6">
+            {loading ? (
+              <><Loader2 size={16} className="animate-spin" /> Loading ticket…</>
+            ) : (
+              <>This ticket isn’t in the current list. It may have been deleted, or the last refresh failed — check the freshness chip above.</>
+            )}
+          </div>
+        </Drawer>
+      ))}
     </div>
   );
 }

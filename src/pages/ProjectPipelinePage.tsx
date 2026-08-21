@@ -5,8 +5,9 @@ import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
 import { GovernanceSyncModal } from './projects/GovernanceSyncModal';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
+import { supabase } from '../lib/supabase';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore, Link2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore, Link2, Upload, Loader2 } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -472,6 +473,99 @@ export default function ProjectPipelinePage() {
     return stamps[stamps.length - 1] ?? null;
   }, [zohoProjects]);
 
+  // Push team + phase + financials data to Delivery Governance. This
+  // is the OTHER direction from the sync modal above — that one PULLS
+  // the plan; this PUSHES what only the dashboard knows (rate cards,
+  // allocated hours, revenue). Governance renders it on the Overview
+  // page via /api/cockpit/sync.
+  const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle');
+  const [pushMsg, setPushMsg] = useState<string>('');
+
+  async function pushToGovernance() {
+    setPushState('pushing');
+    setPushMsg('');
+    // Build one payload row per active project the dashboard tracks.
+    // Governance matches by name (case-insensitive) — external_id is
+    // sent as the dashboard's own id so subsequent syncs stay pinned
+    // even if the name is edited on either side.
+    const rows = currentProjects.map((p) => {
+      const ps = teamByProject.get((p.forecastName ?? p.name).toLowerCase())
+             ?? teamByProject.get(p.name.toLowerCase());
+      const team = (ps?.employees ?? []).map((e) => ({
+        employee_name: e.name,
+        role: e.role,
+        rate_per_hr: e.rateCard,
+        currency: 'USD',
+        total_hrs: Math.round(e.totalHours),
+      }));
+      const phases = (p.phases ?? []).map((ph) => ({
+        name: ph.name,
+        start: ph.startDate,
+        end: ph.endDate,
+        status: ph.isClosed ? 'Completed' : (ph.status || 'Upcoming'),
+      }));
+      const rev = p.revenue ?? 0;
+      const ccy = p.revenueCurrency ?? 'USD';
+      // Governance renders margin colour-coded — send USD as the
+      // canonical since it applies its own comparison thresholds.
+      const revUsd = ccy === 'CAD' ? rev * cadToUsdRate : rev;
+      const loaded = ps?.loadedCost ?? 0;
+      const margin = revUsd - loaded;
+      const marginPct = revUsd > 0 ? Math.round((margin / revUsd) * 100) : 0;
+      return {
+        external_id: p.id,
+        name: p.name,
+        status_label: p.status,
+        owner: p.owner ?? '',
+        current_phase: (p.phases ?? []).find((ph) => !ph.isClosed)?.name ?? '',
+        phases_done: (p.phases ?? []).filter((ph) => ph.isClosed).length,
+        phases_total: (p.phases ?? []).length,
+        go_live: getGoLiveDate(p) ?? null,
+        financials: {
+          currency: ccy,
+          revenue: rev,
+          expected_cost: Math.round(loaded),
+          expected_margin: Math.round(margin),
+          expected_margin_pct: marginPct,
+        },
+        phases,
+        team_allocation: team,
+      };
+    });
+    try {
+      const { data, error } = await supabase.functions.invoke<
+        { updated?: string[]; unmatched?: { name: string }[]; error?: string }
+      >('governance-sync', {
+        body: {
+          action: 'push',
+          payload: { synced_at: new Date().toISOString(), projects: rows },
+        },
+      });
+      if (error) {
+        setPushState('error');
+        setPushMsg(error.message || 'Push failed');
+        return;
+      }
+      if (data?.error) {
+        setPushState('error');
+        setPushMsg(data.error);
+        return;
+      }
+      const updated = data?.updated?.length ?? 0;
+      const unmatched = data?.unmatched ?? [];
+      setPushState('done');
+      setPushMsg(
+        `Pushed ${updated} project${updated === 1 ? '' : 's'}` +
+        (unmatched.length
+          ? ` · ${unmatched.length} unmatched (${unmatched.slice(0, 3).map((u) => u.name).join(', ')}${unmatched.length > 3 ? '…' : ''})`
+          : ''),
+      );
+    } catch (e) {
+      setPushState('error');
+      setPushMsg((e as Error).message || 'Push failed');
+    }
+  }
+
   const archive = (id: string) => updateProject(id, { status: 'Archived' });
   // 'In Progress' is the neutral re-entry status — the real one would have to
   // come back from Zoho, and that sync no longer runs.
@@ -497,16 +591,33 @@ export default function ProjectPipelinePage() {
         title="Current Projects"
         subtitle={`${currentProjects.length} current projects`}
         action={
-          <div className="flex flex-col items-end gap-0.5">
-            <button
-              type="button"
-              onClick={() => setGovSyncOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-            >
-              <Link2 size={14} />
-              Sync with Delivery Governance
-            </button>
-            {lastGovSync && (
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={pushToGovernance}
+                disabled={pushState === 'pushing'}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-blue-600 text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-60"
+                title="Push this dashboard's team allocation, phases, and financials to the Governance Overview page"
+              >
+                {pushState === 'pushing' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                Push team &amp; $ to Governance
+              </button>
+              <button
+                type="button"
+                onClick={() => setGovSyncOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <Link2 size={14} />
+                Sync with Delivery Governance
+              </button>
+            </div>
+            {pushMsg && (
+              <span className={`text-[10px] ${pushState === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>
+                {pushMsg}
+              </span>
+            )}
+            {lastGovSync && !pushMsg && (
               <span className="text-[10px] text-muted/70">
                 Last synced {new Date(lastGovSync).toLocaleString(undefined, {
                   day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',

@@ -49,10 +49,22 @@ export function EmailBody({ html, text, inlineAttachments, className = '' }: Pro
   }, [inlineAttachments, attachmentSignedUrls]);
 
   // Rewrite cid: first, then sanitize — see sanitizeHtml.ts.
-  const cleanHtml = useMemo(
-    () => (html ? sanitizeEmailHtml(rewriteCidReferences(html, cidUrls)) : ''),
-    [html, cidUrls],
-  );
+  //
+  // Only THIS body's own inline attachments may resolve a `cid:`. `cidUrls` can
+  // still hold the map resolved for a previous body — this component instance is
+  // reused when the drawer switches ticket, and the effect above leaves the last
+  // map in place when the new body has no inline attachments at all — so it is
+  // scoped to the current attachments here rather than trusted wholesale.
+  // Outlook `cid:` values ("image001.png@01D...") are not unique across senders,
+  // so an unscoped map can render one ticket's image inside another's body.
+  const cleanHtml = useMemo(() => {
+    if (!html) return '';
+    const allowed = new Set<string>();
+    for (const a of inlineAttachments) if (a.contentId) allowed.add(a.contentId);
+    const scoped: Record<string, string> = {};
+    for (const [cid, url] of Object.entries(cidUrls)) if (allowed.has(cid)) scoped[cid] = url;
+    return sanitizeEmailHtml(rewriteCidReferences(html, scoped));
+  }, [html, cidUrls, inlineAttachments]);
 
   if (cleanHtml.trim()) {
     return (

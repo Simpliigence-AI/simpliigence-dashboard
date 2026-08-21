@@ -231,11 +231,55 @@ export function fallbackSanitize(html: string): string {
   return out.join('');
 }
 
-/** Force every surviving link to open safely. `target`/`rel` are not in
- *  ALLOWED_ATTR, so both sanitizers have already stripped whatever the sender
- *  set — which is what makes this substitution unambiguous. */
+/**
+ * Force every surviving link to open safely — `fallbackSanitize` output ONLY.
+ *
+ * That output escapes `<` to `&lt;` in every attribute value (`escapeAttr`) and
+ * in every text node (`escapeText`), so the only `<a` left in the string is an
+ * anchor tag this file emitted itself, and the substitution is unambiguous.
+ *
+ * It must NEVER be run over DOMPurify's output. HTML serialization does not
+ * escape `<` inside an attribute value, so a sender's
+ * `<a title="x<a onmouseover=alert(1) y">` survives sanitizing intact; matching
+ * that inner `<a ` and inserting `target="_blank" rel="..."` there closes the
+ * `title` value early and hands the remainder of the sender's own value to the
+ * parser as attributes — event handler included. The DOMPurify path uses
+ * `installDomPurifyHooks` instead, which sets the attributes on parsed nodes
+ * where quoting cannot be confused.
+ */
 function hardenLinks(html: string): string {
   return html.replace(/<a(\s|>)/gi, '<a target="_blank" rel="noopener noreferrer nofollow"$1');
+}
+
+/**
+ * The DOMPurify equivalent of `hardenLinks`, installed once.
+ *
+ * `afterSanitizeAttributes` runs at the end of DOMPurify's own per-node
+ * attribute pass, so what it sets here is final and is not re-filtered by
+ * FORBID_ATTR (which is still what strips whatever `target`/`rel` the sender
+ * supplied). Working on nodes rather than on serialized text is the point.
+ *
+ * It also re-checks href/src against SAFE_URL: DOMPurify allows ANY `data:`
+ * URL on `img` regardless of ALLOWED_URI_REGEXP — its DATA_URI_TAGS escape
+ * hatch, which no config option can switch off — while this file's policy
+ * allows only the raster types in SAFE_URL. That keeps the two sanitizers'
+ * URL policy identical.
+ */
+let domPurifyHooksInstalled = false;
+function installDomPurifyHooks(): void {
+  if (domPurifyHooksInstalled) return;
+  domPurifyHooksInstalled = true;
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (typeof node.getAttribute !== 'function') return;
+    for (const name of ['href', 'src']) {
+      const value = node.getAttribute(name);
+      if (value !== null && !isSafeUrl(value)) node.removeAttribute(name);
+    }
+    if (node.nodeName === 'A') {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noopener noreferrer nofollow');
+    }
+  });
 }
 
 /**
@@ -246,23 +290,25 @@ export function sanitizeEmailHtml(html: string | null | undefined): string {
   if (!html) return '';
   // DOMPurify silently passes input through when it cannot find a DOM, so the
   // fallback is not an optimisation — it is the only safe branch there.
-  const clean = DOMPurify.isSupported
-    ? DOMPurify.sanitize(html, {
-        ALLOWED_TAGS,
-        ALLOWED_ATTR,
-        ALLOWED_URI_REGEXP: SAFE_URL,
-        ALLOW_DATA_ATTR: false,
-        ALLOW_ARIA_ATTR: false,
-        ALLOW_UNKNOWN_PROTOCOLS: false,
-        FORBID_TAGS: DROP_WITH_CONTENT,
-        FORBID_ATTR: ['style', 'class', 'id', 'target', 'rel'],
-        KEEP_CONTENT: true,
-        RETURN_DOM: false,
-        RETURN_DOM_FRAGMENT: false,
-        RETURN_TRUSTED_TYPE: false,
-      })
-    : fallbackSanitize(html);
-  return hardenLinks(String(clean));
+  // `hardenLinks` is applied to the fallback's output only; the DOMPurify path
+  // hardens on nodes instead, because a string rewrite of its serialized
+  // output is an attribute-injection hole (see `hardenLinks`).
+  if (!DOMPurify.isSupported) return hardenLinks(fallbackSanitize(html));
+  installDomPurifyHooks();
+  return String(DOMPurify.sanitize(html, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
+    ALLOWED_URI_REGEXP: SAFE_URL,
+    ALLOW_DATA_ATTR: false,
+    ALLOW_ARIA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+    FORBID_TAGS: DROP_WITH_CONTENT,
+    FORBID_ATTR: ['style', 'class', 'id', 'target', 'rel'],
+    KEEP_CONTENT: true,
+    RETURN_DOM: false,
+    RETURN_DOM_FRAGMENT: false,
+    RETURN_TRUSTED_TYPE: false,
+  }));
 }
 
 /**

@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { DemoBanner } from '../components/DemoBanner';
 import { RouteTracker } from '../components/RouteTracker';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTimeMode } from '../hooks/useTimeMode';
 
 /** Paths that role='employee' is allowed to visit. Anything else redirects
  *  them to /my-time. Keeps the URL-typing escape hatch closed without having
@@ -22,6 +23,11 @@ const SIDEBAR_KEY = 'sidebar-collapsed';
  *    Main content has no left margin and uses the full viewport width.
  */
 export default function AppLayout() {
+  // App-wide time-of-day theme: light 06:00–18:00, dark otherwise.
+  // The hook sets `<html data-mode="…">` and CSS in index.css takes care of
+  // flipping every semantic token (--color-paper / --color-surface / …).
+  useTimeMode();
+
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === 'true'; } catch { return false; }
   });
@@ -68,7 +74,7 @@ export default function AppLayout() {
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          className="md:hidden fixed top-3 left-3 z-20 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white shadow-md border border-line text-ink/80 hover:bg-surface-2/70"
+          className="md:hidden fixed top-3 left-3 z-20 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-surface shadow-md border border-line text-ink/80 hover:bg-surface-2/70"
           aria-label="Open menu"
         >
           <Menu size={18} />

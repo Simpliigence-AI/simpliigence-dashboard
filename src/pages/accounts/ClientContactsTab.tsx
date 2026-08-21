@@ -310,7 +310,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                             value={c.lastContactAt ?? ''}
                             onChange={(e) => patchLocal(c.id, { lastContactAt: e.target.value || null })}
                             onBlur={blur}
-                            className="w-[130px] h-7 px-2 text-xs leading-tight border border-line rounded bg-white hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            className="w-[130px] h-7 px-2 text-xs leading-tight border border-line rounded bg-surface hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                           {c.lastContactAt && (() => {
                             const days = Math.floor((Date.now() - new Date(c.lastContactAt).getTime()) / 86_400_000);
@@ -342,7 +342,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                           value={c.giftDate ?? ''}
                           onChange={(e) => patchLocal(c.id, { giftDate: e.target.value || null })}
                           onBlur={blur}
-                          className="w-[130px] h-7 px-2 text-xs leading-tight border border-line rounded bg-white hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-[130px] h-7 px-2 text-xs leading-tight border border-line rounded bg-surface hover:border-line focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </td>
                       <td className="px-2 py-1.5 text-right">
@@ -373,7 +373,7 @@ export function ClientContactsTab({ accountId, accountName }: { accountId: strin
                             onBlur={blur}
                             placeholder="Anything worth remembering — preferences, family details, history, internal notes…"
                             rows={3}
-                            className="w-full text-xs leading-relaxed px-2 py-1.5 border border-line rounded bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            className="w-full text-xs leading-relaxed px-2 py-1.5 border border-line rounded bg-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                           />
                         </td>
                       </tr>

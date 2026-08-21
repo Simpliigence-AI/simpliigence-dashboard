@@ -98,7 +98,7 @@ export function IgnoredSendersModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">
           <div>
             <div className="text-sm font-bold text-ink flex items-center gap-1.5">
@@ -117,7 +117,7 @@ export function IgnoredSendersModal({ onClose }: { onClose: () => void }) {
           <div className="rounded-lg border border-line bg-surface-2/70 p-3 space-y-2">
             <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">Add rule</div>
             <div className="grid grid-cols-4 gap-2">
-              <select value={addKind} onChange={(e) => setAddKind(e.target.value as IgnoredKind)} className="px-2 py-1.5 rounded border border-line text-xs bg-white">
+              <select value={addKind} onChange={(e) => setAddKind(e.target.value as IgnoredKind)} className="px-2 py-1.5 rounded border border-line text-xs bg-surface">
                 <option value="substring">Contains</option>
                 <option value="domain">Domain</option>
                 <option value="email">Exact email</option>
@@ -157,7 +157,7 @@ export function IgnoredSendersModal({ onClose }: { onClose: () => void }) {
           ) : (
             <ul className="space-y-1.5">
               {rules.map((r) => (
-                <li key={r.id} className={`rounded-lg border p-2.5 ${r.isActive ? 'border-line bg-white' : 'border-line bg-surface-2/70 opacity-70'}`}>
+                <li key={r.id} className={`rounded-lg border p-2.5 ${r.isActive ? 'border-line bg-surface' : 'border-line bg-surface-2/70 opacity-70'}`}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"

@@ -57,7 +57,7 @@ export function StageFunnel({ summary }: Props) {
                     title={`${row.stage} — ${row.everReached} reqs reached, ${row.currentlyHere} currently here, ${row.stalledLost} stalled & lost`}
                   >
                     <span className="truncate">{row.stage}</span>
-                    <span className="ml-auto bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                    <span className="ml-auto bg-surface/20 px-1.5 py-0.5 rounded text-[10px] font-bold">
                       {row.everReached}
                     </span>
                   </div>

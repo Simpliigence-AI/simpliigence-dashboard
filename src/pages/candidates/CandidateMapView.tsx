@@ -60,7 +60,7 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       {/* Map */}
-      <div className="bg-white rounded-xl border border-line overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ center: [82, 22], scale: 800 }}
@@ -126,7 +126,7 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
       </div>
 
       {/* Side panel */}
-      <aside className="bg-white rounded-xl border border-line p-4 min-h-[300px]">
+      <aside className="bg-surface rounded-xl border border-line p-4 min-h-[300px]">
         {selected ? (
           <SelectedCityPanel cluster={selected} onClose={() => setSelected(null)} />
         ) : (
@@ -137,7 +137,7 @@ export function CandidateMapView({ candidates }: { candidates: StaffingCandidate
       {/* Unmapped list (full-width row below) */}
       {unmapped.length > 0 && (
         <div className="lg:col-span-2 mt-2">
-          <details className="rounded-xl bg-white border border-line p-4">
+          <details className="rounded-xl bg-surface border border-line p-4">
             <summary className="cursor-pointer text-sm font-semibold text-ink/80 hover:text-ink">
               {unmapped.length} candidate{unmapped.length === 1 ? '' : 's'} not on the map
               <span className="text-[11px] text-muted/70 font-normal ml-2">

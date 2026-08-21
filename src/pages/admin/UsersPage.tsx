@@ -252,7 +252,7 @@ export default function UsersPage() {
                     setDraftRole(v);
                     setDraftAdmin(v === 'admin');
                   }}
-                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-white"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-surface"
                 >
                   <option value="employee">Employee</option>
                   <option value="manager">Manager</option>
@@ -264,7 +264,7 @@ export default function UsersPage() {
                 <select
                   value={draftManager}
                   onChange={(e) => setDraftManager(e.target.value)}
-                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-white"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-surface"
                 >
                   <option value="">— No manager —</option>
                   {rows.filter((r) => r.role === 'admin' || r.role === 'manager').map((r) => (
@@ -277,7 +277,7 @@ export default function UsersPage() {
                 <select
                   value={draftGender}
                   onChange={(e) => setDraftGender(e.target.value)}
-                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-white"
+                  className="w-full rounded-lg border border-line px-2 py-1.5 text-sm bg-surface"
                   title="Gates gender-specific leave types (Maternity / Paternity)"
                 >
                   <option value="">—</option>
@@ -378,7 +378,7 @@ export default function UsersPage() {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}
                       title="Press Enter or click away to save"
-                      className="text-sm text-ink/80 bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
+                      className="text-sm text-ink/80 bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
                     />
                   </td>
                   <td className="py-2.5 pr-3">
@@ -386,7 +386,7 @@ export default function UsersPage() {
                       value={r.role}
                       onChange={(e) => patchRow(r.email, { role: e.target.value as UserRole })}
                       style={{ borderLeft: `3px solid ${r.role === 'admin' ? '#f59e0b' : r.role === 'manager' ? '#3b82f6' : '#94a3b8'}` }}
-                      className="text-xs border border-line rounded px-2 py-1 bg-white"
+                      className="text-xs border border-line rounded px-2 py-1 bg-surface"
                     >
                       <option value="employee">Employee</option>
                       <option value="manager">Manager</option>
@@ -412,7 +412,7 @@ export default function UsersPage() {
                           setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, manager_email: value || null } : x));
                           patchRow(r.email, { manager_email: value });
                         }}
-                        className="text-xs border border-line rounded px-2 py-1 bg-white max-w-[200px]"
+                        className="text-xs border border-line rounded px-2 py-1 bg-surface max-w-[200px]"
                         title="Pick this user's manager — changes save immediately"
                       >
                         <option value="">— No manager —</option>
@@ -438,7 +438,7 @@ export default function UsersPage() {
                         setRows((rs) => rs.map((x) => x.email === r.email ? { ...x, gender: value || null } : x));
                         patchRow(r.email, { gender: value });
                       }}
-                      className="text-xs border border-line rounded px-2 py-1 bg-white"
+                      className="text-xs border border-line rounded px-2 py-1 bg-surface"
                       title="Gates gender-specific leave types (Maternity / Paternity) — saves immediately"
                     >
                       <option value="">—</option>
@@ -459,7 +459,7 @@ export default function UsersPage() {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}
                       title="Press Enter or click away to save"
-                      className="text-xs bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-24"
+                      className="text-xs bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 w-24"
                     />
                   </td>
                   <td className="py-2.5 pr-3">
@@ -475,7 +475,7 @@ export default function UsersPage() {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                       }}
                       title="Press Enter or click away to save"
-                      className="text-xs text-muted bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
+                      className="text-xs text-muted bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 w-40"
                     />
                   </td>
                   <td className="py-2.5 pr-3 text-xs text-muted">

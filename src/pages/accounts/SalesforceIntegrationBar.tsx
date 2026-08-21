@@ -242,7 +242,7 @@ export function SalesforceIntegrationBar({ accountId, accountName, onSynced }: P
             type="button"
             onClick={doSync}
             disabled={syncing}
-            className="text-xs font-semibold inline-flex items-center gap-1.5 bg-white border border-sky-300 text-sky-700 px-2.5 py-1 rounded-md hover:bg-sky-100 disabled:opacity-50"
+            className="text-xs font-semibold inline-flex items-center gap-1.5 bg-surface border border-sky-300 text-sky-700 px-2.5 py-1 rounded-md hover:bg-sky-100 disabled:opacity-50"
           >
             {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             {syncing ? 'Syncing…' : 'Refresh'}

@@ -106,7 +106,7 @@ export function DocumentsPanel({ employeeEmail, periodStart, periodEnd, uploaded
       ) : (
         <div className="mt-3 space-y-2">
           {docs.map((d) => (
-            <div key={d.id} className="rounded-lg border border-line bg-white p-2.5 flex items-center gap-3">
+            <div key={d.id} className="rounded-lg border border-line bg-surface p-2.5 flex items-center gap-3">
               <FileText size={16} className="text-muted/70 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-ink truncate" title={d.filename}>{d.filename}</div>

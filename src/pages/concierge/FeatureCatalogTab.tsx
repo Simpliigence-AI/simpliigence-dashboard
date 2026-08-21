@@ -65,7 +65,7 @@ export function FeatureCatalogTab() {
           type="button"
           onClick={load}
           disabled={loading}
-          className="text-xs font-semibold inline-flex items-center gap-1.5 bg-white border border-line text-ink/80 px-3 py-1.5 rounded-md hover:bg-surface-2/70 disabled:opacity-50"
+          className="text-xs font-semibold inline-flex items-center gap-1.5 bg-surface border border-line text-ink/80 px-3 py-1.5 rounded-md hover:bg-surface-2/70 disabled:opacity-50"
         >
           {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
           Refresh
@@ -85,7 +85,7 @@ export function FeatureCatalogTab() {
         <select
           value={cloud}
           onChange={(e) => setCloud(e.target.value)}
-          className="px-3 py-2 text-sm border border-line rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="px-3 py-2 text-sm border border-line rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
         >
           <option value="">All clouds</option>
           {clouds.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -93,7 +93,7 @@ export function FeatureCatalogTab() {
         <select
           value={industry}
           onChange={(e) => setIndustry(e.target.value)}
-          className="px-3 py-2 text-sm border border-line rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="px-3 py-2 text-sm border border-line rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
           title="Show only features relevant to this industry (universal features always included)"
         >
           <option value="">All industries</option>
@@ -129,7 +129,7 @@ export function FeatureCatalogTab() {
 
       <div className="space-y-4">
         {grouped.map(([cloudName, list]) => (
-          <div key={cloudName} className="rounded-lg border border-line bg-white overflow-hidden">
+          <div key={cloudName} className="rounded-lg border border-line bg-surface overflow-hidden">
             <div className="bg-gradient-to-r from-sky-50 to-blue-50 px-4 py-2 border-b border-line flex items-center justify-between">
               <h3 className="text-sm font-bold text-ink">{cloudName}</h3>
               <span className="text-[11px] font-semibold text-muted">{list.length} features</span>

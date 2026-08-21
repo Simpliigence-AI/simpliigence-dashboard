@@ -624,7 +624,7 @@ export default function USStaffingPage() {
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <select value={filterStage} onChange={e => setFilterStage(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Stages</option>
           {ALL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -730,12 +730,12 @@ export default function USStaffingPage() {
         return (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-xl border border-line bg-white p-3">
+              <div className="rounded-xl border border-line bg-surface p-3">
                 <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><Building2 size={11} /> Accounts</div>
                 <div className="text-xl font-extrabold text-ink">{all.length}</div>
                 <div className="text-[10px] text-muted mt-0.5">{matched.length} in sales plan</div>
               </div>
-              <div className="rounded-xl border border-line bg-white p-3">
+              <div className="rounded-xl border border-line bg-surface p-3">
                 <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1 flex items-center gap-1"><DollarSign size={11} /> Forecast 2026</div>
                 <div className="text-xl font-extrabold text-ink"><Sensitive>{fmtMoney(totalForecast)}</Sensitive></div>
                 <div className="text-[10px] text-muted mt-0.5">across {matched.length} accounts</div>
@@ -812,7 +812,7 @@ export default function USStaffingPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+                activeTab === tab.key ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               {tab.label}
@@ -825,7 +825,7 @@ export default function USStaffingPage() {
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+                viewMode === 'table' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Rows3 size={12} /> Table
@@ -834,7 +834,7 @@ export default function USStaffingPage() {
               type="button"
               onClick={() => setViewMode('split')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
-                viewMode === 'split' ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+                viewMode === 'split' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
               }`}
             >
               <Columns3 size={12} /> Split view
@@ -861,11 +861,11 @@ export default function USStaffingPage() {
                 { label: 'Conservative', val: fConservative, color: '#f59e0b', conf: 90, desc: 'Prob >= 75%' },
                 { label: 'At Risk', val: fAtRisk, color: '#ef4444', conf: 85, desc: 'High risk' },
               ].map((s) => (
-                <div key={s.label} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <div key={s.label} className="bg-surface/5 border border-white/10 rounded-lg p-4">
                   <h4 className="text-blue-300 text-xs font-semibold mb-2">{s.label}</h4>
                   <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val} <span className="text-sm text-muted/70 font-normal">of {fTotalReqs}</span></div>
                   {s.desc && <p className="text-[10px] text-muted">{s.desc}</p>}
-                  <div className="h-1 bg-white/10 rounded mt-2 overflow-hidden"><div className="h-full rounded" style={{ width: `${s.conf}%`, background: s.color }} /></div>
+                  <div className="h-1 bg-surface/10 rounded mt-2 overflow-hidden"><div className="h-full rounded" style={{ width: `${s.conf}%`, background: s.color }} /></div>
                 </div>
               ))}
             </div>
@@ -940,7 +940,7 @@ export default function USStaffingPage() {
             className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40"
             onClick={(e) => { if (e.target === e.currentTarget) closeJdDrawer(); }}
           >
-            <div className="bg-white w-full max-w-2xl h-full flex flex-col shadow-xl">
+            <div className="bg-surface w-full max-w-2xl h-full flex flex-col shadow-xl">
               <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-ink flex items-center gap-2">
@@ -985,7 +985,7 @@ export default function USStaffingPage() {
                   <button onClick={copyJd} disabled={!jdText || jdState === 'loading'}
                           className="text-xs font-semibold text-muted hover:text-ink px-3 py-2 disabled:opacity-40">Copy</button>
                   <button onClick={() => openJdDrawer(jdReqId, { regenerate: true })} disabled={jdState === 'loading'}
-                          className="text-xs font-semibold bg-white border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2 disabled:opacity-40 inline-flex items-center gap-1"
+                          className="text-xs font-semibold bg-surface border border-line text-ink/80 px-3 py-2 rounded-md hover:bg-surface-2 disabled:opacity-40 inline-flex items-center gap-1"
                           title="Throw away current JD and ask Claude for a fresh draft">
                     <RefreshCw size={12} /> Regenerate
                   </button>

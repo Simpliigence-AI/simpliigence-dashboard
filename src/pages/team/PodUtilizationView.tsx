@@ -194,7 +194,7 @@ export default function PodUtilizationView() {
         <button
           type="button"
           onClick={() => setShowEarlier((v) => !v)}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-line bg-white text-ink/80 hover:bg-surface-2/70"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-line bg-surface text-ink/80 hover:bg-surface-2/70"
         >
           {showEarlier ? 'Hide earlier months' : 'Show earlier months'}
         </button>
@@ -217,7 +217,7 @@ export default function PodUtilizationView() {
         </div>
       )}
 
-      <div className="overflow-x-auto border border-line rounded-xl bg-white">
+      <div className="overflow-x-auto border border-line rounded-xl bg-surface">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-surface-2/70">
@@ -246,7 +246,7 @@ export default function PodUtilizationView() {
               return (
                 <Fragment key={row.pod}>
                   <tr className="hover:bg-surface-2/70">
-                    <td className="sticky left-0 z-10 bg-white px-2 py-2 border-b border-line/60">
+                    <td className="sticky left-0 z-10 bg-surface px-2 py-2 border-b border-line/60">
                       <button
                         type="button"
                         onClick={() => toggle(row.pod)}

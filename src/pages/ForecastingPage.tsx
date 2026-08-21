@@ -236,7 +236,7 @@ export default function ForecastingPage() {
             <table className="w-full text-[11px]">
               <thead>
                 <tr className="border-b border-line/60">
-                  <th className="pb-2 pr-3 text-left font-semibold text-muted sticky left-0 bg-white">Member</th>
+                  <th className="pb-2 pr-3 text-left font-semibold text-muted sticky left-0 bg-surface">Member</th>
                   <th className="pb-2 pr-3 text-left font-semibold text-muted">Role</th>
                   {MONTHS.map((m) => (
                     <th key={m} className="pb-2 px-1 text-center font-semibold text-muted w-10">{m}</th>
@@ -247,7 +247,7 @@ export default function ForecastingPage() {
               <tbody>
                 {sortedEmpUtil.map((e) => (
                   <tr key={e.name} className="border-b border-line/40 hover:bg-surface-2/50">
-                    <td className="py-1 pr-3 font-medium text-ink/80 sticky left-0 bg-white whitespace-nowrap">{e.name}</td>
+                    <td className="py-1 pr-3 font-medium text-ink/80 sticky left-0 bg-surface whitespace-nowrap">{e.name}</td>
                     <td className="py-1 pr-3 text-muted text-[10px] whitespace-nowrap">{e.role || '—'}</td>
                     {MONTHS.map((m) => {
                       const pct = e.monthly[m];
@@ -394,7 +394,7 @@ export default function ForecastingPage() {
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white p-1 rounded-lg shadow-sm mb-6 w-fit">
+      <div className="flex gap-1 bg-surface p-1 rounded-lg shadow-sm mb-6 w-fit">
         {[
           { key: 'visual' as const, label: 'Visual', icon: LayoutGrid },
           { key: 'detail' as const, label: 'Detail (by Project)', icon: TableIcon },

@@ -170,7 +170,7 @@ export default function ActivityPage() {
             className={`px-3 py-1 rounded-lg border transition-colors ${
               rangeDays === opt.days
                 ? 'bg-primary/10 border-primary/40 text-primary font-semibold'
-                : 'bg-white border-line text-muted hover:bg-surface-2/70'
+                : 'bg-surface border-line text-muted hover:bg-surface-2/70'
             }`}
           >
             {opt.label}

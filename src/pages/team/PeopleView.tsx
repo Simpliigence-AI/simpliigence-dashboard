@@ -174,7 +174,7 @@ export default function PeopleView() {
           <button
             onClick={() => setGroupByRole((v) => !v)}
             className={`px-2 py-1 rounded-lg border text-xs transition-colors ${
-              groupByRole ? 'bg-primary/10 border-primary/40 text-primary font-semibold' : 'bg-white border-line text-muted'
+              groupByRole ? 'bg-primary/10 border-primary/40 text-primary font-semibold' : 'bg-surface border-line text-muted'
             }`}
             title="Group by role"
           >
@@ -262,7 +262,7 @@ export default function PeopleView() {
             Select a person to view and edit their allocations.
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-line p-5">
+          <div className="bg-surface rounded-xl border border-line p-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-center gap-3">
@@ -540,7 +540,7 @@ function EditableField({
             setEditing(false);
           }
         }}
-        className={`rounded border border-primary/40 bg-white px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
+        className={`rounded border border-primary/40 bg-surface px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
       />
     );
   }
@@ -584,7 +584,7 @@ function PodInlineEditor({ currentPod, onCommit, knownPods }: {
         placeholder="—"
         list="team-people-pod-suggestions"
         title="Press Enter or click away to save · Esc to cancel"
-        className="w-20 text-xs bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="w-20 text-xs bg-transparent border border-transparent hover:border-line focus:border-primary px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
       <datalist id="team-people-pod-suggestions">
         {knownPods.map((p) => <option key={p} value={p} />)}

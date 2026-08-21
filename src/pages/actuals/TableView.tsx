@@ -67,7 +67,7 @@ export default function ActualTableView() {
           <thead>
             <tr className="border-b border-line text-left">
               <th className="pb-3 pr-2 w-6" />
-              <th className="pb-3 pr-3 font-semibold text-muted min-w-[180px] sticky left-0 bg-white">Name</th>
+              <th className="pb-3 pr-3 font-semibold text-muted min-w-[180px] sticky left-0 bg-surface">Name</th>
               <th className="pb-3 pr-3 font-semibold text-muted w-16 text-center">Projects</th>
               {MONTHS.map((m) => (
                 <th key={m} className="pb-3 pr-1 font-semibold text-muted text-center text-xs w-14">{m}</th>
@@ -91,7 +91,7 @@ export default function ActualTableView() {
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
                     </td>
-                    <td className="py-2 pr-3 font-medium text-ink sticky left-0 bg-white">
+                    <td className="py-2 pr-3 font-medium text-ink sticky left-0 bg-surface">
                       {g.name}
                       {g.email && <div className="text-[10px] text-muted/70">{g.email}</div>}
                     </td>

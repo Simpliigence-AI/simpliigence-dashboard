@@ -131,7 +131,7 @@ export function InnovationTab({ accountId }: { accountId: string }) {
             const saving = savingIds.has(x.id);
             const blur = () => { if (x.title.trim()) void save(x); };
             return (
-              <li key={x.id} className="rounded-lg border border-line bg-white p-3 hover:border-amber-200 transition-colors">
+              <li key={x.id} className="rounded-lg border border-line bg-surface p-3 hover:border-amber-200 transition-colors">
                 <div className="flex items-start gap-3">
                   <Lightbulb size={16} className="text-amber-500 flex-shrink-0 mt-1" />
                   <div className="flex-1 min-w-0 space-y-2">

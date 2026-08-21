@@ -182,7 +182,7 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
                     <td className="px-2 py-1.5">
                       <select value={o.oppType}
                               onChange={(e) => { const v = e.target.value as OppType; patch(o.id, { oppType: v }); if (o.title.trim()) void save({ ...o, oppType: v }); }}
-                              className="text-[11px] px-1.5 py-1 border border-line rounded bg-white">
+                              className="text-[11px] px-1.5 py-1 border border-line rounded bg-surface">
                         <option value="upsell">Upsell</option>
                         <option value="cross_sell">Cross-sell</option>
                       </select>
@@ -258,7 +258,7 @@ export function OpportunitiesTab({ accountId, accountName }: { accountId: string
                                value={o.targetDate ?? ''}
                                onChange={(e) => patch(o.id, { targetDate: e.target.value || null })}
                                onBlur={blur}
-                               className="w-[130px] h-7 px-1.5 text-[11px] border border-line rounded bg-white" />
+                               className="w-[130px] h-7 px-1.5 text-[11px] border border-line rounded bg-surface" />
                       </div>
                     </td>
                     <td className="px-2 py-1.5 text-right">

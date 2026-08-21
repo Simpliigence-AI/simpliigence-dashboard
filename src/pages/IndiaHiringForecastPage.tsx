@@ -164,7 +164,7 @@ export default function IndiaHiringForecastPage() {
                   {prediction.recommendations.map((rec, i) => {
                     const u = URGENCY_LABEL[rec.urgency] || URGENCY_LABEL.watchlist;
                     return (
-                      <div key={i} className="rounded-lg border border-line bg-white p-3 flex items-start gap-3">
+                      <div key={i} className="rounded-lg border border-line bg-surface p-3 flex items-start gap-3">
                         <span
                           className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded flex-shrink-0 whitespace-nowrap"
                           style={{ background: u.bg, color: u.color }}

@@ -221,7 +221,7 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={sending ? undefined : onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-4xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div className="min-w-0">
@@ -255,7 +255,7 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Filter vendors…"
-                  className="w-full pl-7 pr-2 py-1.5 text-xs border border-line rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full pl-7 pr-2 py-1.5 text-xs border border-line rounded bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="flex items-center justify-between mb-2">
@@ -287,7 +287,7 @@ export function SendToVendorDialog({ requisition, accountName, onClose }: Props)
                           onClick={() => toggle(v.id)}
                           disabled={sending}
                           className={`w-full text-left px-2 py-1.5 rounded border disabled:cursor-default ${
-                            checked ? 'border-primary bg-primary/5' : 'border-line hover:border-line bg-white'
+                            checked ? 'border-primary bg-primary/5' : 'border-line hover:border-line bg-surface'
                           }`}
                         >
                           <div className="flex items-start gap-2">

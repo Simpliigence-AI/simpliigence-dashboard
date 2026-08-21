@@ -187,22 +187,22 @@ export function PresalesSection() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div className="rounded-xl border border-line bg-white p-3">
+        <div className="rounded-xl border border-line bg-surface p-3">
           <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1">Open</div>
           <div className="text-xl font-extrabold text-ink">{openCount}</div>
           <div className="text-[10px] text-muted mt-0.5">of {activities.length} total</div>
         </div>
-        <div className={`rounded-xl border p-3 ${highPriorityOpen > 0 ? 'border-rose-300 bg-rose-50/40' : 'border-line bg-white'}`}>
+        <div className={`rounded-xl border p-3 ${highPriorityOpen > 0 ? 'border-rose-300 bg-rose-50/40' : 'border-line bg-surface'}`}>
           <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${highPriorityOpen > 0 ? 'text-rose-700' : 'text-muted/70'}`}>High priority</div>
           <div className={`text-xl font-extrabold ${highPriorityOpen > 0 ? 'text-rose-700' : 'text-ink'}`}>{highPriorityOpen}</div>
           <div className={`text-[10px] mt-0.5 ${highPriorityOpen > 0 ? 'text-rose-600' : 'text-muted'}`}>still open</div>
         </div>
-        <div className={`rounded-xl border p-3 ${overdue > 0 ? 'border-amber-300 bg-amber-50/40' : 'border-line bg-white'}`}>
+        <div className={`rounded-xl border p-3 ${overdue > 0 ? 'border-amber-300 bg-amber-50/40' : 'border-line bg-surface'}`}>
           <div className={`text-[10px] uppercase tracking-wider font-bold mb-1 ${overdue > 0 ? 'text-amber-700' : 'text-muted/70'}`}>Overdue</div>
           <div className={`text-xl font-extrabold ${overdue > 0 ? 'text-amber-700' : 'text-ink'}`}>{overdue}</div>
           <div className={`text-[10px] mt-0.5 ${overdue > 0 ? 'text-amber-600' : 'text-muted'}`}>past due date</div>
         </div>
-        <div className="rounded-xl border border-line bg-white p-3">
+        <div className="rounded-xl border border-line bg-surface p-3">
           <div className="text-[10px] uppercase tracking-wider text-muted/70 font-bold mb-1">Revenue impact</div>
           <div className="text-xl font-extrabold text-ink"><Sensitive>{fmtMoney(revenueImpactOpen)}</Sensitive></div>
           <div className="text-[10px] text-muted mt-0.5">across open items</div>
@@ -328,7 +328,7 @@ export function PresalesSection() {
             {meetings.slice(0, 5).map((m) => {
               const linked = activities.filter((a) => a.meetingId === m.id).length;
               return (
-                <div key={m.id} className="flex items-center justify-between text-xs bg-white border border-line rounded-lg px-3 py-1.5">
+                <div key={m.id} className="flex items-center justify-between text-xs bg-surface border border-line rounded-lg px-3 py-1.5">
                   <span className="inline-flex items-center gap-2 truncate">
                     <Calendar size={11} className="text-muted/70" />
                     <span className="font-semibold text-ink/80">{m.meetingDate}</span>
@@ -379,7 +379,7 @@ function ActivityRow({ activity, projectName, meetingDate, isExpanded, onToggleE
   const urgentBorder = activity.priority === 'high' && (activity.status === 'open' || activity.status === 'in_progress');
 
   return (
-    <div className={`rounded-xl border bg-white transition-all ${urgentBorder ? 'border-rose-300' : 'border-line hover:border-primary/30'}`}>
+    <div className={`rounded-xl border bg-surface transition-all ${urgentBorder ? 'border-rose-300' : 'border-line hover:border-primary/30'}`}>
       <button
         type="button"
         onClick={onToggleExpand}
@@ -510,7 +510,7 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
   };
 
   return (
-    <div className={`rounded-xl ${initial ? '' : 'bg-white border border-line p-3 mb-3'}`}>
+    <div className={`rounded-xl ${initial ? '' : 'bg-surface border border-line p-3 mb-3'}`}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
         <div className="md:col-span-3">
           <Field label="Title *">
@@ -521,19 +521,19 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
         </div>
         <Field label="Type">
           <select value={d.activityType} onChange={(e) => setD({ ...d, activityType: e.target.value as ActivityType })}
-            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-surface">
             {ACTIVITY_TYPES.map((t) => <option key={t} value={t}>{ACTIVITY_TYPE_META[t].label}</option>)}
           </select>
         </Field>
         <Field label="Priority">
           <select value={d.priority} onChange={(e) => setD({ ...d, priority: e.target.value as Priority })}
-            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-surface">
             {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
           </select>
         </Field>
         <Field label="Status">
           <select value={d.status} onChange={(e) => setD({ ...d, status: e.target.value as ActivityStatus })}
-            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-surface">
             {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
           </select>
         </Field>
@@ -555,7 +555,7 @@ function ActivityForm({ projects, createdBy, initial, onSubmit, onCancel, onRemo
         </Field>
         <Field label="Pipeline project">
           <select value={d.pipelineProjectId ?? ''} onChange={(e) => setD({ ...d, pipelineProjectId: e.target.value || null })}
-            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-white">
+            className="w-full border border-line rounded-md px-2 py-1.5 text-xs bg-surface">
             <option value="">— None —</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -749,7 +749,7 @@ function MeetingModal({ projects, createdBy, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl my-6">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-3xl my-6">
         <div className="flex items-center justify-between px-5 py-3 border-b border-line">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-violet-600" />
@@ -885,7 +885,7 @@ function SuggestedActivityRow({ value, projects, onChange }: {
 }) {
   const set = <K extends keyof SuggestedActivity>(k: K, v: SuggestedActivity[K]) => onChange({ ...value, [k]: v });
   return (
-    <div className="rounded-md border border-line bg-white p-2.5">
+    <div className="rounded-md border border-line bg-surface p-2.5">
       <div className="flex items-start gap-2">
         <input type="checkbox" checked={value.selected} onChange={(e) => set('selected', e.target.checked)} className="mt-1" />
         <div className="flex-1 min-w-0">
@@ -896,15 +896,15 @@ function SuggestedActivityRow({ value, projects, onChange }: {
             className="w-full text-[11px] text-ink/80 border border-line rounded px-1.5 py-0.5 mt-1 resize-y" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 mt-1.5">
             <select value={value.activity_type} onChange={(e) => set('activity_type', e.target.value as ActivityType)}
-              className="text-[10px] border border-line rounded px-1 py-0.5 bg-white">
+              className="text-[10px] border border-line rounded px-1 py-0.5 bg-surface">
               {ACTIVITY_TYPES.map((t) => <option key={t} value={t}>{ACTIVITY_TYPE_META[t].label}</option>)}
             </select>
             <select value={value.priority} onChange={(e) => set('priority', e.target.value as Priority)}
-              className="text-[10px] border border-line rounded px-1 py-0.5 bg-white">
+              className="text-[10px] border border-line rounded px-1 py-0.5 bg-surface">
               {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
             </select>
             <select value={value.pipeline_project_id ?? ''} onChange={(e) => set('pipeline_project_id', e.target.value || null)}
-              className="text-[10px] border border-line rounded px-1 py-0.5 bg-white">
+              className="text-[10px] border border-line rounded px-1 py-0.5 bg-surface">
               <option value="">— No project —</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>

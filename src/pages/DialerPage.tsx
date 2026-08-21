@@ -587,6 +587,8 @@ export default function DialerPage() {
   return (
     <div>
       <PageHeader
+        eyebrow="Account management"
+        tone="brand"
         title="Dialer"
         subtitle="Call contacts from Salesforce / ZoomInfo or dial any number — calls are recorded, transcribed and summarized by AI."
       />
@@ -645,7 +647,7 @@ export default function DialerPage() {
                     <button
                       key={cc}
                       className={`px-2.5 py-2 text-xs font-bold transition-colors ${
-                        country === cc ? 'bg-primary text-white' : 'bg-white text-muted hover:bg-surface-2/70'
+                        country === cc ? 'bg-primary text-white' : 'bg-surface text-muted hover:bg-surface-2/70'
                       }`}
                       onClick={() => setCountry(cc)}
                       disabled={inCall}

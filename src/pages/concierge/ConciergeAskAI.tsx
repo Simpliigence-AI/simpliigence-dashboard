@@ -145,7 +145,7 @@ export function ConciergeAskAI() {
             placeholder={voiceActive ? 'Listening…' : 'Ask anything — e.g. "Which accounts have Sales Cloud but not Marketing Cloud?"'}
             rows={2}
             disabled={busy}
-            className={`w-full px-3 py-2 pr-10 rounded-lg border text-sm resize-y bg-white ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-line'} disabled:opacity-70`}
+            className={`w-full px-3 py-2 pr-10 rounded-lg border text-sm resize-y bg-surface ${voiceActive ? 'border-rose-300 bg-rose-50/40' : 'border-line'} disabled:opacity-70`}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); void ask(); } }}
           />
           {voiceSupported && (
@@ -187,7 +187,7 @@ export function ConciergeAskAI() {
               key={p}
               type="button"
               onClick={() => ask(p)}
-              className="text-[11px] px-2 py-1 rounded-full border border-line bg-white text-ink/80 hover:border-purple-300 hover:text-purple-700 transition-colors"
+              className="text-[11px] px-2 py-1 rounded-full border border-line bg-surface text-ink/80 hover:border-purple-300 hover:text-purple-700 transition-colors"
             >
               {p}
             </button>
@@ -201,7 +201,7 @@ export function ConciergeAskAI() {
           {history.map((entry, idx) => (
             <div
               key={entry.id}
-              className={`rounded-lg border ${idx === 0 ? 'border-purple-200 bg-white shadow-sm' : 'border-line bg-surface-2/50'} p-3`}
+              className={`rounded-lg border ${idx === 0 ? 'border-purple-200 bg-surface shadow-sm' : 'border-line bg-surface-2/50'} p-3`}
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-start gap-2 min-w-0">

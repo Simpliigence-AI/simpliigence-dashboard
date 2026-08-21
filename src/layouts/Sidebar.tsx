@@ -36,11 +36,15 @@ import {
   ShieldCheck,
   BriefcaseBusiness,
   PhoneCall,
+  Sun,
+  Moon,
+  SunMoon,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeStore, type ThemePreference } from '../store/useThemeStore';
 
 /** Nav entry. If `href` is set the item renders as an external <a> that opens
  *  a new tab. Otherwise `to` renders as an internal React Router NavLink. */
@@ -309,7 +313,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         <button
           type="button"
           onClick={onMobileClose}
-          className="md:hidden absolute top-3 right-3 z-10 inline-flex items-center justify-center w-8 h-8 rounded text-slate-400 hover:text-white hover:bg-sidebar-hover"
+          className="md:hidden absolute top-3 right-3 z-10 inline-flex items-center justify-center w-8 h-8 rounded text-muted hover:text-white hover:bg-sidebar-hover"
           aria-label="Close menu"
         >
           ×
@@ -346,7 +350,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                         `flex items-center justify-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-sidebar-active text-white'
-                            : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                            : 'text-muted hover:text-white hover:bg-sidebar-hover'
                         }`
                       }
                     />
@@ -365,14 +369,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                 onClick={() => toggleSection(section.label)}
                 aria-expanded={expanded}
                 className={`w-full flex items-center justify-between gap-2 px-3 pb-1 pt-1 rounded-md text-[9px] font-bold uppercase tracking-widest hover:bg-sidebar-hover transition-colors ${
-                  isActiveSection ? 'text-slate-300' : 'text-slate-500 hover:text-slate-300'
+                  isActiveSection ? 'text-muted/70' : 'text-muted hover:text-muted/70'
                 }`}
                 title={expanded ? 'Collapse section' : 'Expand section'}
               >
                 <span className="truncate">{section.label}</span>
                 <span className="flex items-center gap-1.5">
                   {!expanded && (
-                    <span className="text-[9px] font-normal tracking-normal text-slate-500 normal-case">
+                    <span className="text-[9px] font-normal tracking-normal text-muted normal-case">
                       {section.items.length}
                     </span>
                   )}
@@ -391,7 +395,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-sidebar-active text-white'
-                            : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                            : 'text-muted hover:text-white hover:bg-sidebar-hover'
                         }`
                       }
                     />
@@ -411,7 +415,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                 for (const s of visibleSections) next[s.label] = !allExpanded;
                 setExpandedSections(next);
               }}
-              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-[10px] text-muted hover:text-muted/70 transition-colors"
             >
               {visibleSections.every((s) => isSectionExpanded(s.label)) ? 'Collapse all' : 'Expand all'}
             </button>
@@ -427,7 +431,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
               type="button"
               onClick={() => signOut()}
               title={`Signed in as ${email} — click to sign out`}
-              className="flex items-center justify-center w-full py-2 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-hover transition-colors"
+              className="flex items-center justify-center w-full py-2 rounded-lg text-muted hover:text-white hover:bg-sidebar-hover transition-colors"
             >
               <span className="w-7 h-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center uppercase">
                 {email.charAt(0)}
@@ -439,11 +443,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
                 {email.charAt(0)}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-slate-300 truncate" title={email}>{email}</div>
+                <div className="text-[11px] text-muted/70 truncate" title={email}>{email}</div>
                 <button
                   type="button"
                   onClick={() => signOut()}
-                  className="text-[10px] text-slate-500 hover:text-white inline-flex items-center gap-1 mt-0.5 transition-colors"
+                  className="text-[10px] text-muted hover:text-white inline-flex items-center gap-1 mt-0.5 transition-colors"
                 >
                   <LogOut size={10} /> Sign out
                 </button>
@@ -453,8 +457,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         </div>
       )}
 
-      {/* Bottom: Settings + Toggle */}
+      {/* Bottom: Theme + Settings + Toggle */}
       <div className={`${eff ? 'px-2' : 'px-3'} pb-3 pt-2 space-y-1`}>
+        <ThemeToggle collapsed={eff} />
+
         <NavLink
           to="/settings"
           title={eff ? 'Settings' : undefined}
@@ -462,7 +468,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
             `flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isActive
                 ? 'bg-sidebar-active text-white'
-                : 'text-slate-400 hover:text-white hover:bg-sidebar-hover'
+                : 'text-muted hover:text-white hover:bg-sidebar-hover'
             }`
           }
         >
@@ -475,12 +481,55 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
           type="button"
           onClick={onToggle}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={`hidden md:flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
+          className={`hidden md:flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-muted hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           {!eff && <span>Collapse</span>}
         </button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Sidebar theme toggle. Three-state cycle: auto → light → dark → auto.
+ * The current selection is shown as its own icon (SunMoon for auto,
+ * Sun for forced-light, Moon for forced-dark). In auto mode the label also
+ * notes what the clock is resolving to right now.
+ */
+function ThemeToggle({ collapsed }: { collapsed: boolean }) {
+  const preference = useThemeStore((s) => s.preference);
+  const mode = useThemeStore((s) => s.mode);
+  const setPreference = useThemeStore((s) => s.setPreference);
+
+  const cycle: ThemePreference[] = ['auto', 'light', 'dark'];
+  const next = cycle[(cycle.indexOf(preference) + 1) % cycle.length];
+
+  const Icon =
+    preference === 'auto' ? SunMoon : preference === 'light' ? Sun : Moon;
+  const label =
+    preference === 'auto' ? `Theme: auto (${mode})`
+    : preference === 'light' ? 'Theme: light'
+    : 'Theme: dark';
+  const title = `${label} — click to switch to ${next}`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setPreference(next)}
+      title={title}
+      aria-label={title}
+      className={`flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-muted hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
+    >
+      <Icon size={18} className="flex-shrink-0" />
+      {!collapsed && (
+        <span className="flex-1 text-left">
+          {preference === 'auto' ? 'Auto' : preference === 'light' ? 'Light' : 'Dark'}
+          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted/60">
+            {preference === 'auto' ? `${mode}` : ''}
+          </span>
+        </span>
+      )}
+    </button>
   );
 }

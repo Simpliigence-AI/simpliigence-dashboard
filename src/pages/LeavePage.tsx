@@ -37,7 +37,7 @@ const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm text-i
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
-  <select className={`${INPUT_CLS} bg-white ${className}`} {...p}>{children}</select>;
+  <select className={`${INPUT_CLS} bg-surface ${className}`} {...p}>{children}</select>;
 const Textarea = ({ className = '', ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) =>
   <textarea className={`${INPUT_CLS} ${className}`} {...p} />;
 
@@ -104,7 +104,7 @@ export default function LeavePage() {
       />
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-white border border-line rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-surface border border-line rounded-lg p-1 mb-6 w-fit">
         <button
           type="button"
           onClick={() => setTab('mine')}
@@ -113,7 +113,7 @@ export default function LeavePage() {
           }`}
         >
           <User size={14} /> My Requests
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === 'mine' ? 'bg-white/25 text-white' : 'bg-surface-2 text-muted'}`}>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === 'mine' ? 'bg-surface/25 text-white' : 'bg-surface-2 text-muted'}`}>
             {myRequests.length}
           </span>
         </button>
@@ -414,7 +414,7 @@ function NewRequestDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <Calendar size={18} className="text-primary" />
           <h3 className="text-base font-bold text-ink">Request Leave</h3>
@@ -500,7 +500,7 @@ function DecisionDialog({
   const isApprove = decision === 'approved';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-2">
           {isApprove
             ? <CheckCircle2 size={18} className="text-emerald-600" />

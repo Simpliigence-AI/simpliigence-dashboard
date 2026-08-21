@@ -543,7 +543,7 @@ function InlineEdit({ value, onSave, type = 'text', prefix = '', placeholder = '
       <input
         ref={ref}
         type={type}
-        className={`rounded border border-primary/40 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
+        className={`rounded border border-primary/40 bg-surface px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 ${className}`}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -610,7 +610,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
               placeholder="e.g. Acme Corp Phase 2"
             />
           </div>
@@ -620,7 +620,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
               type="text"
               value={owner}
               onChange={(e) => setOwner(e.target.value)}
-              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Project owner"
             />
           </div>
@@ -629,7 +629,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {PIPELINE_STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -642,7 +642,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
           <div>
@@ -651,7 +651,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
           <div>
@@ -660,7 +660,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
               <select
                 value={revCurrency}
                 onChange={(e) => setRevCurrency(e.target.value as 'USD' | 'CAD')}
-                className="rounded border border-line bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="rounded border border-line bg-surface px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="USD">USD</option>
                 <option value="CAD">CAD</option>
@@ -669,7 +669,7 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
                 type="number"
                 value={revenue}
                 onChange={(e) => setRevenue(e.target.value)}
-                className="flex-1 rounded border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="flex-1 rounded border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="0"
                 min="0"
               />
@@ -686,17 +686,17 @@ function NewProjectForm({ onAdd, onCancel }: { onAdd: (p: ZohoPipelineProject) =
             <div>
               <label className="text-[10px] text-muted/70 block mb-1">Business Analysts</label>
               <input type="number" min={0} value={baCount} onChange={(e) => setBaCount(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full rounded border border-line bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                className="w-full rounded border border-line bg-surface px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div>
               <label className="text-[10px] text-muted/70 block mb-1">Junior Developers</label>
               <input type="number" min={0} value={jdCount} onChange={(e) => setJdCount(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full rounded border border-line bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                className="w-full rounded border border-line bg-surface px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div>
               <label className="text-[10px] text-muted/70 block mb-1">Senior Developers</label>
               <input type="number" min={0} value={sdCount} onChange={(e) => setSdCount(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full rounded border border-line bg-white px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                className="w-full rounded border border-line bg-surface px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
           </div>
         </div>
@@ -862,7 +862,7 @@ function PipelineProjectCard({
               <select
                 value={project.status}
                 onChange={(e) => onUpdate(project.id, { status: e.target.value })}
-                className="rounded border border-line bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="rounded border border-line bg-surface px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
               >
                 {PIPELINE_STATUSES.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -875,7 +875,7 @@ function PipelineProjectCard({
                 <select
                   value={curr}
                   onChange={(e) => onUpdate(project.id, { revenueCurrency: e.target.value as 'USD' | 'CAD' })}
-                  className="rounded border border-line bg-white px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="rounded border border-line bg-surface px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
                 >
                   <option value="USD">USD</option>
                   <option value="CAD">CAD</option>
@@ -936,7 +936,7 @@ function PipelineProjectCard({
                   <input
                     type="number"
                     min={0}
-                    className="w-16 rounded border border-line bg-white px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    className="w-16 rounded border border-line bg-surface px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary/50"
                     value={getHeadcount(project.resources, role)}
                     onChange={(e) => {
                       const val = Math.max(0, Number(e.target.value) || 0);
@@ -1102,7 +1102,7 @@ function SowHistory({ projectId, refreshKey, onEdit }: {
                   type="button"
                   onClick={() => onEdit(r.id)}
                   disabled={isBusy}
-                  className="px-2 py-1 text-[11px] font-medium text-ink/80 bg-white border border-line rounded hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1"
+                  className="px-2 py-1 text-[11px] font-medium text-ink/80 bg-surface border border-line rounded hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1"
                   title="Open in wizard to tweak and save as next version"
                 >
                   Edit
@@ -1460,8 +1460,8 @@ function SowWizard({ project, onClose, initialSowId }: { project: ZohoPipelinePr
       {/* Backdrop click DOES NOT close the modal. The wizard is a long form
        *  with many edit fields; an accidental click on whitespace used to
        *  trash the user's inputs. Close via the ✕ button or Escape only. */}
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-4">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-line sticky top-0 bg-white rounded-t-xl">
+      <div className="bg-surface rounded-xl shadow-2xl w-full max-w-3xl my-4">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line sticky top-0 bg-surface rounded-t-xl">
           <div>
             <div className="text-sm font-bold text-ink">Generate Statement of Work</div>
             <div className="text-[11px] text-muted">{project.name} · Step {step} of 4</div>
@@ -1835,7 +1835,7 @@ export default function PipelinePage() {
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
                   showArchived
                     ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200'
-                    : 'bg-white text-muted border-line hover:border-slate-400'
+                    : 'bg-surface text-muted border-line hover:border-line'
                 }`}
                 title={showArchived ? 'Hide archived projects' : `Show ${archivedCount} archived project${archivedCount === 1 ? '' : 's'}`}
               >
@@ -1856,19 +1856,19 @@ export default function PipelinePage() {
 
       {/* Summary stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-line p-4">
+        <div className="bg-surface rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-ink">{pipelineProjects.length}</div>
           <div className="text-xs text-muted">Total Pipeline</div>
         </div>
-        <div className="bg-white rounded-lg border border-line p-4">
+        <div className="bg-surface rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-amber-600">{proposed}</div>
           <div className="text-xs text-muted">Proposed</div>
         </div>
-        <div className="bg-white rounded-lg border border-line p-4">
+        <div className="bg-surface rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-blue-600">{negotiation}</div>
           <div className="text-xs text-muted">In Negotiation</div>
         </div>
-        <div className="bg-white rounded-lg border border-line p-4">
+        <div className="bg-surface rounded-lg border border-line p-4">
           <div className="text-2xl font-bold text-emerald-600">
             {totalRevenueUsd > 0 ? `$${(totalRevenueUsd / 1000).toFixed(0)}k` : '—'}
           </div>
@@ -1925,7 +1925,7 @@ export default function PipelinePage() {
       {pipelineProjects.length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-semibold text-ink mb-3">Pipeline Funnel</h2>
-          <div className="bg-white rounded-lg border border-line p-6">
+          <div className="bg-surface rounded-lg border border-line p-6">
             <div className="flex items-end gap-6">
               {PIPELINE_STATUSES.map((status) => {
                 const count = pipelineProjects.filter((p) => p.status === status).length;

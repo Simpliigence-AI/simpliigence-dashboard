@@ -257,7 +257,7 @@ export default function ProjectsView() {
             const collapsed = isCollapsed(card.name) && assigningTo !== card.name;
 
             return (
-              <div key={card.name} className={`bg-white rounded-xl border overflow-hidden ${muted ? 'border-line opacity-75 hover:opacity-100 transition-opacity' : 'border-line'}`}>
+              <div key={card.name} className={`bg-surface rounded-xl border overflow-hidden ${muted ? 'border-line opacity-75 hover:opacity-100 transition-opacity' : 'border-line'}`}>
                 <div
                   className={`px-4 py-3 flex items-center justify-between gap-3 ${collapsed ? '' : 'border-b border-line/60'}`}
                   style={{ backgroundColor: `hsl(${hue} 70% 97%)` }}
@@ -301,7 +301,7 @@ export default function ProjectsView() {
                   </button>
                   <button
                     onClick={() => { expand(card.name); setAssigningTo(card.name); }}
-                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-line hover:bg-surface-2/70 hover:border-primary/40 text-ink/80 flex items-center gap-1"
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-line hover:bg-surface-2/70 hover:border-primary/40 text-ink/80 flex items-center gap-1"
                   >
                     <Plus size={12} /> Assign
                   </button>
@@ -511,7 +511,7 @@ export default function ProjectsView() {
         <button
           type="button"
           onClick={() => (anyExpanded ? collapseAll(visibleKeys) : expandAll(visibleKeys))}
-          className="shrink-0 px-3 py-1.5 text-sm rounded-lg border border-line bg-white text-ink/80 hover:bg-surface-2/70 flex items-center gap-1.5"
+          className="shrink-0 px-3 py-1.5 text-sm rounded-lg border border-line bg-surface text-ink/80 hover:bg-surface-2/70 flex items-center gap-1.5"
         >
           {anyExpanded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           {anyExpanded ? 'Collapse all' : 'Expand all'}

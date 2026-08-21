@@ -106,7 +106,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
               type="button"
               onClick={() => setSort(m)}
               className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
-                sort === m ? 'bg-primary text-white' : 'bg-white border border-line text-muted hover:bg-surface-2/70'
+                sort === m ? 'bg-primary text-white' : 'bg-surface border border-line text-muted hover:bg-surface-2/70'
               }`}
             >
               {m === 'overall' ? 'Coverage %' : m === 'name' ? 'Name' : 'Biggest gap'}
@@ -116,7 +116,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
       </div>
 
       {/* Matrix */}
-      <div className="overflow-x-auto rounded-lg border border-line bg-white">
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
         <table className="min-w-full text-xs">
           <thead className="bg-surface-2/70 sticky top-0">
             <tr>
@@ -134,7 +134,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
           <tbody className="divide-y divide-line/60">
             {rows.map((r) => (
               <tr key={r.account.id} className="hover:bg-surface-2/60">
-                <td className="px-3 py-2 sticky left-0 bg-white hover:bg-surface-2/60">
+                <td className="px-3 py-2 sticky left-0 bg-surface hover:bg-surface-2/60">
                   <button
                     type="button"
                     onClick={() => onAccountClick?.(r.account.id)}
@@ -194,7 +194,7 @@ export function FeatureCoverageMatrix({ accounts, featuresByAccount, catalog, on
       {drilldown && drilldownRow && drilldownScore && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDrilldown(null)}>
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+            className="bg-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between">

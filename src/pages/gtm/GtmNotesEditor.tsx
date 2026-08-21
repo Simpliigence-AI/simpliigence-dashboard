@@ -135,7 +135,7 @@ export function GtmNotesEditor({ account, existingActions }: Props) {
               className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded border transition-colors ${
                 voiceActive
                   ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
-                  : 'bg-white text-ink/80 border-line hover:border-slate-400'
+                  : 'bg-surface text-ink/80 border-line hover:border-line'
               }`}
             >
               {voiceActive ? <MicOff size={11} /> : <Mic size={11} />}
@@ -253,7 +253,7 @@ function StructuredReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-sm font-bold text-ink flex items-center gap-1.5">
@@ -285,7 +285,7 @@ function StructuredReviewModal({
               </div>
               <ul className="space-y-1.5">
                 {actionItems.map((a, i) => (
-                  <li key={i} className="rounded border border-line bg-white px-2.5 py-1.5 flex items-start gap-2">
+                  <li key={i} className="rounded border border-line bg-surface px-2.5 py-1.5 flex items-start gap-2">
                     <input
                       type="checkbox"
                       checked={!!checked[i]}

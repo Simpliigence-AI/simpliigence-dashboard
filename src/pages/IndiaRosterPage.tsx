@@ -312,15 +312,15 @@ export default function IndiaRosterPage() {
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, skill, project, role..."
-            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-white w-64" />
+            className="text-xs border border-line rounded-lg pl-8 pr-3 py-1.5 bg-surface w-64" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Statuses</option>
           {INDIA_ROSTER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
-          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-white">
+          className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Roles</option>
           {ROSTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
@@ -329,7 +329,7 @@ export default function IndiaRosterPage() {
           className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${
             groupByAccount
               ? 'border-blue-300 bg-blue-50 text-blue-700 font-semibold'
-              : 'border-line bg-white text-muted hover:bg-surface-2/70'
+              : 'border-line bg-surface text-muted hover:bg-surface-2/70'
           }`}
           title="Group rows under bold account-name banners"
         >
@@ -694,7 +694,7 @@ function renderMemberRow(
   const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
   return (
     <tr key={m.id} className="border-t border-line/60 hover:bg-blue-50/30 group">
-      <td className="px-3 py-2 font-medium text-ink sticky left-0 bg-white group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+      <td className="px-3 py-2 font-medium text-ink sticky left-0 bg-surface group-hover:bg-blue-50/60 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
         <EditableCell value={m.name} onSave={(v) => handleCellSave(m.id, 'name', v)} />
       </td>
       <td className="px-3 py-2">
@@ -791,7 +791,7 @@ function PlanningSyncBanner() {
           <RefreshCw size={13} className="text-sky-600" /> Sync from Sales Planning 2026
         </div>
         <div className="text-[11px] text-muted mt-0.5">
-          Pulls India + active positions from planning-2026 and updates <code className="text-[10px] bg-white border border-line px-1 rounded">source=planning-2026</code> rows only.
+          Pulls India + active positions from planning-2026 and updates <code className="text-[10px] bg-surface border border-line px-1 rounded">source=planning-2026</code> rows only.
           Bench rows and manual entries stay untouched.
         </div>
         {result && (
@@ -809,7 +809,7 @@ function PlanningSyncBanner() {
           type="button"
           onClick={() => run(true)}
           disabled={!!busy}
-          className="text-xs px-3 py-1.5 rounded-md border border-line bg-white text-ink/80 hover:bg-surface-2/70 disabled:opacity-50 inline-flex items-center gap-1"
+          className="text-xs px-3 py-1.5 rounded-md border border-line bg-surface text-ink/80 hover:bg-surface-2/70 disabled:opacity-50 inline-flex items-center gap-1"
         >
           {busy === 'dry' ? <Loader2 size={12} className="animate-spin" /> : null}
           Preview

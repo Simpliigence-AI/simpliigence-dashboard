@@ -95,6 +95,8 @@ export default function VendorsPage() {
   return (
     <div className="w-full">
       <PageHeader
+        eyebrow="Talent acquisition"
+        tone="violet"
         title="Vendors"
         subtitle={`${vendors.length} vendor${vendors.length === 1 ? '' : 's'} · ${outreach.length} outreach event${outreach.length === 1 ? '' : 's'}`}
         action={
@@ -120,7 +122,7 @@ export default function VendorsPage() {
           <select
             value={filterSkill}
             onChange={(e) => setFilterSkill(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
           >
             <option value="">All skills</option>
             {VENDOR_SKILL_PRESETS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -128,7 +130,7 @@ export default function VendorsPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'name' | 'last' | 'outreach')}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-white"
+            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
             title="Sort vendors"
           >
             <option value="name">Sort: Name (A→Z)</option>
@@ -233,7 +235,7 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
             <input
               value={vendor.companyName}
               onChange={(e) => onPatch({ companyName: e.target.value })}
-              className="w-full text-sm font-semibold text-ink bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
+              className="w-full text-sm font-semibold text-ink bg-transparent border-0 px-0 py-0.5 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
             />
           </div>
           <div>
@@ -242,7 +244,7 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
               value={vendor.spocName ?? ''}
               onChange={(e) => onPatch({ spocName: e.target.value || null })}
               placeholder="—"
-              className="w-full text-sm text-ink/80 bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
+              className="w-full text-sm text-ink/80 bg-transparent border-0 px-0 py-0.5 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
             />
           </div>
           <div>
@@ -253,7 +255,7 @@ function VendorRow({ vendor, outreachCount, lastContactedAt, needsFollowupDays, 
                 value={vendor.spocEmail ?? ''}
                 onChange={(e) => onPatch({ spocEmail: e.target.value.toLowerCase() || null })}
                 placeholder="spoc@vendor.com"
-                className="flex-1 text-sm text-ink/80 bg-transparent border-0 px-0 py-0.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
+                className="flex-1 text-sm text-ink/80 bg-transparent border-0 px-0 py-0.5 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
               />
             </div>
           </div>
@@ -363,7 +365,7 @@ export function SkillsMultiSelect({ value, onChange }: {
                   key={s}
                   type="button"
                   onClick={() => toggle(s)}
-                  className="text-[11px] bg-white border border-line text-ink/80 hover:border-primary hover:text-primary px-2 py-0.5 rounded-full"
+                  className="text-[11px] bg-surface border border-line text-ink/80 hover:border-primary hover:text-primary px-2 py-0.5 rounded-full"
                 >
                   + {s}
                 </button>
@@ -628,7 +630,7 @@ function RecentOutreachCard({ outreach, vendorNameById }: {
           type="button"
           onClick={exportCsv}
           disabled={recent.length === 0}
-          className="ml-auto text-[10px] font-semibold bg-white border border-line text-ink/80 px-2 py-0.5 rounded-full hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1"
+          className="ml-auto text-[10px] font-semibold bg-surface border border-line text-ink/80 px-2 py-0.5 rounded-full hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1"
           title={`Download ${recent.length} event${recent.length === 1 ? '' : 's'} as CSV`}
         >
           <Download size={10} /> Export

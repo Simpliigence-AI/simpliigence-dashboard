@@ -27,7 +27,10 @@ import {
   Sparkles, RefreshCw, Loader2, Mic, Square, Upload, Link as LinkIcon,
   DollarSign, Lock, Unlock, Flame, MessageSquare, Handshake,
   Search, Lightbulb, PanelsTopLeft, Rows3, Building2, ArrowLeft,
+  UserCheck, UserCog, Factory, Activity, CalendarClock, Type, StickyNote,
+  AlignLeft, Flag, AtSign, Tags,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card } from '../components/ui';
 import { QuickIdeaModal } from './accounts/QuickIdeaModal';
 import { supabase } from '../lib/supabase';
@@ -406,12 +409,12 @@ export default function AccountsPage() {
           </div>
           <div className="flex items-center gap-2">
             {/* View toggle — split (default) vs the legacy full-width accordion */}
-            <div className="flex gap-0.5 bg-white/15 rounded-lg p-0.5">
+            <div className="flex gap-0.5 bg-surface/15 rounded-lg p-0.5">
               <button
                 type="button"
                 onClick={() => setViewMode('split')}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                  viewMode === 'split' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-100 hover:text-white'
+                  viewMode === 'split' ? 'bg-surface text-indigo-700 shadow-sm' : 'text-indigo-100 hover:text-white'
                 }`}
                 title="Account rail + detail pane"
               >
@@ -421,7 +424,7 @@ export default function AccountsPage() {
                 type="button"
                 onClick={() => setViewMode('list')}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                  viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-100 hover:text-white'
+                  viewMode === 'list' ? 'bg-surface text-indigo-700 shadow-sm' : 'text-indigo-100 hover:text-white'
                 }`}
                 title="Full-width accordion list"
               >
@@ -439,7 +442,7 @@ export default function AccountsPage() {
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="text-sm font-semibold bg-white text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 shadow-sm inline-flex items-center gap-1.5"
+              className="text-sm font-semibold bg-surface text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 shadow-sm inline-flex items-center gap-1.5"
             >
               <Plus size={14} /> Add account
             </button>
@@ -562,7 +565,7 @@ export default function AccountsPage() {
             className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 transition-colors ${
               filterUrgent
                 ? 'bg-rose-600 border-rose-600 text-white'
-                : 'bg-white border-line text-ink/80 hover:bg-surface-2/70'
+                : 'bg-surface border-line text-ink/80 hover:bg-surface-2/70'
             }`}
           >
             <Flame size={12} /> {filterUrgent ? 'Showing urgent only' : `Urgent only (${urgentCount})`}
@@ -573,7 +576,7 @@ export default function AccountsPage() {
             className={`text-xs font-semibold px-3 py-2 rounded-md border inline-flex items-center gap-1.5 transition-colors ${
               filterStale
                 ? 'bg-red-50 border-red-300 text-red-800'
-                : 'bg-white border-line text-ink/80 hover:bg-surface-2/70'
+                : 'bg-surface border-line text-ink/80 hover:bg-surface-2/70'
             }`}
           >
             <AlertTriangle size={12} /> {filterStale ? 'Showing stale only' : `Stale only (${staleCount})`}
@@ -707,21 +710,21 @@ export default function AccountsPage() {
                         <button
                           type="button"
                           onClick={() => quickLogConnect(acc.id, 'sales')}
-                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors"
                         >
                           <Handshake size={11} /> Log sales connect
                         </button>
                         <button
                           type="button"
                           onClick={() => quickLogConnect(acc.id, 'delivery')}
-                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 transition-colors"
+                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface border border-sky-300 text-sky-700 hover:bg-sky-50 transition-colors"
                         >
                           <MessageSquare size={11} /> Log delivery connect
                         </button>
                         <button
                           type="button"
                           onClick={() => setQuickIdeaOpen(true)}
-                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
+                          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
                           title="Capture an idea for this account (press i)"
                         >
                           <Lightbulb size={11} /> Add idea
@@ -731,7 +734,7 @@ export default function AccountsPage() {
                             href="https://simpliigence-sales-planning-2026.vercel.app/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-line text-muted hover:text-primary hover:border-primary/40 transition-colors"
+                            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface border border-dashed border-line text-muted hover:text-primary hover:border-primary/40 transition-colors"
                           >
                             <DollarSign size={11} /> Add to sales plan ↗
                           </a>
@@ -1006,7 +1009,7 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onQuickLog('sales'); }}
-          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors"
+          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors"
           title="Log a sales connect for this account"
         >
           <Handshake size={11} /> Log sales connect
@@ -1014,7 +1017,7 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onQuickLog('delivery'); }}
-          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 transition-colors"
+          className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface border border-sky-300 text-sky-700 hover:bg-sky-50 transition-colors"
           title="Log a delivery connect for this account"
         >
           <MessageSquare size={11} /> Log delivery connect
@@ -1025,7 +1028,7 @@ function AccountRow({ serialNo, account, derived, isOpen, onToggle, onQuickLog }
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-dashed border-line text-muted hover:text-primary hover:border-primary/40 transition-colors"
+            className="text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface border border-dashed border-line text-muted hover:text-primary hover:border-primary/40 transition-colors"
             title="Open 2026 Sales Plan to add a forecast for this account"
           >
             <DollarSign size={11} /> Add to sales plan ↗
@@ -1116,7 +1119,7 @@ function AccountDetail(props: {
     <div className="px-6 py-4 bg-surface-2/50 border-t border-line/60">
       {/* Forecast / connects summary header — quick context above the tabs */}
       {derived.forecast > 0 && (
-        <div className={`mb-3 rounded-lg p-2.5 border ${derived.isUrgent ? 'bg-rose-50/60 border-rose-200' : 'bg-white border-line'} grid grid-cols-2 md:grid-cols-4 gap-3 text-xs`}>
+        <div className={`mb-3 rounded-lg p-2.5 border ${derived.isUrgent ? 'bg-rose-50/60 border-rose-200' : 'bg-surface border-line'} grid grid-cols-2 md:grid-cols-4 gap-3 text-xs`}>
           <div>
             <div className="text-[9px] uppercase tracking-wider text-muted/70 font-bold mb-0.5 flex items-center gap-1"><DollarSign size={10} /> Forecast '26</div>
             <div className="font-bold text-ink"><Sensitive>{fmtMoney(derived.forecast)}</Sensitive></div>
@@ -1288,7 +1291,7 @@ function OverviewTab({ account, onPatch, onRemove }: {
       <div className="space-y-3">
         <Field label="Status">
           <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as AccountStatus })}
-                  className="w-full border border-line rounded-md px-3 py-1.5 text-sm bg-white">
+                  className="w-full border border-line rounded-md px-3 py-1.5 text-sm bg-surface">
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="churned">Churned</option>
@@ -1478,7 +1481,7 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
         </button>
       )}
       {adding && (
-        <div className="border border-line rounded-lg p-3 bg-white space-y-3">
+        <div className="border border-line rounded-lg p-3 bg-surface space-y-3">
           {/* Row 1: date + attendees */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <Field label="Date">
@@ -1613,7 +1616,7 @@ function ConnectsTab({ accountId, accountName, connects, connectType, autoOpen, 
       ) : (
         <ul className="space-y-2">
           {connects.map((c) => (
-            <li key={c.id} className="border border-line rounded-lg p-3 bg-white">
+            <li key={c.id} className="border border-line rounded-lg p-3 bg-surface">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 text-xs">
                   <Calendar size={12} className="text-muted/70" />
@@ -1706,7 +1709,7 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
         </button>
       )}
       {adding && (
-        <div className="border border-line rounded-lg p-3 bg-white">
+        <div className="border border-line rounded-lg p-3 bg-surface">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
             <Field label="Title">
               <input value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })}
@@ -1750,7 +1753,7 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
             const meta = ACTION_STATUS_META[a.status];
             const overdue = a.dueDate && a.status !== 'done' && a.status !== 'cancelled' && a.dueDate < new Date().toISOString().slice(0, 10);
             return (
-              <li key={a.id} className="border border-line rounded-lg p-2.5 bg-white flex items-start gap-3">
+              <li key={a.id} className="border border-line rounded-lg p-2.5 bg-surface flex items-start gap-3">
                 <button type="button"
                         onClick={() => onSetStatus(a.id, a.status === 'done' ? 'open' : 'done')}
                         className="mt-0.5 flex-shrink-0"
@@ -1762,7 +1765,7 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
                     <input
                       value={a.title}
                       onChange={(e) => onUpdate(a.id, { title: e.target.value })}
-                      className={`text-xs font-medium bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 flex-1 min-w-[200px] ${
+                      className={`text-xs font-medium bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 flex-1 min-w-[200px] ${
                         a.status === 'done' ? 'line-through text-muted/70' : 'text-ink'
                       }`}
                     />
@@ -1788,7 +1791,7 @@ function ActionsTab({ actions, connects: _connects, onAdd, onUpdate, onRemove, o
                       type="date"
                       value={a.dueDate ?? ''}
                       onChange={(e) => onUpdate(a.id, { dueDate: e.target.value || null })}
-                      className={`text-[11px] bg-transparent border-0 px-1 py-0.5 rounded focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 ${overdue ? 'text-red-700 font-semibold' : ''}`}
+                      className={`text-[11px] bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40 ${overdue ? 'text-red-700 font-semibold' : ''}`}
                     />
                     {overdue && <span className="text-[10px] text-red-700 font-semibold">overdue</span>}
                   </div>
@@ -1835,7 +1838,7 @@ function TeamTab({ account, team }: { account: Account; team: TeamMemberLite[] }
         </thead>
         <tbody className="divide-y divide-line/60">
           {team.map((m, idx) => (
-            <tr key={`${m.name}-${idx}`} className="hover:bg-white">
+            <tr key={`${m.name}-${idx}`} className="hover:bg-surface">
               <td className="py-1.5 pr-3 font-medium text-ink">{m.name}</td>
               <td className="py-1.5 pr-3 text-muted">{m.role}</td>
               <td className="py-1.5 pr-3 text-muted">{m.project}</td>
@@ -1910,10 +1913,52 @@ function AddAccountForm({ onCancel, onAdd }: {
 }
 
 /* ── Small reusable field wrapper ── */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+
+/**
+ * Icon per field label.
+ *
+ * Matched on the label text rather than passed in at each call site: the
+ * labels are already the source of truth for what a field means, so keying
+ * off them means every existing <Field> gains an icon without touching 18
+ * call sites, and a new field gets one for free if it's named conventionally.
+ *
+ * Matching is on lowercase substrings, longest-first, so "Sales owner" picks
+ * the owner icon rather than falling through to a generic one.
+ */
+const FIELD_ICONS: Array<[string, LucideIcon]> = [
+  ['account name', Building2],
+  ['sales owner', UserCheck],
+  ['delivery owner', UserCog],
+  ['attendees', Users],
+  ['owner', UserCheck],
+  ['industry', Factory],
+  ['status', Activity],
+  ['due date', CalendarClock],
+  ['date', Calendar],
+  ['title', Type],
+  ['name', Building2],
+  ['notes', StickyNote],
+  ['description', AlignLeft],
+  ['discussed', MessageSquare],
+  ['outcome', Flag],
+  ['email domains', AtSign],
+  ['aliases', Tags],
+];
+
+function iconForLabel(label: string): LucideIcon | null {
+  const l = label.toLowerCase();
+  for (const [key, Icon] of FIELD_ICONS) if (l.includes(key)) return Icon;
+  return null;
+}
+
+function Field({ label, children, icon }: { label: string; children: React.ReactNode; icon?: LucideIcon }) {
+  const Icon = icon ?? iconForLabel(label);
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted mb-1">{label}</label>
+      <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted mb-1.5">
+        {Icon && <Icon size={13} className="text-muted/70 shrink-0" />}
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -1934,7 +1979,7 @@ function HeroStat({ label, value, valueStr, sensitive, subtitle, tone = 'mute' }
     'text-white';
   const display = valueStr ?? (value != null ? String(value) : '');
   return (
-    <div className="bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2.5 ring-1 ring-white/20">
+    <div className="bg-surface/15 backdrop-blur-sm rounded-lg px-4 py-2.5 ring-1 ring-white/20">
       <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-100/90">
         {label}
       </div>

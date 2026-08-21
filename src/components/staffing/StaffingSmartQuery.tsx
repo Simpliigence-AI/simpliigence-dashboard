@@ -68,7 +68,7 @@ export function StaffingSmartQuery({ input }: Props) {
             onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
             placeholder="e.g. Which reqs are stuck in Client Round? What moved this week?"
             disabled={!hasKey || loading}
-            className="w-full pl-9 pr-9 py-2 text-sm rounded-lg border border-line bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-surface-2 disabled:text-muted/70"
+            className="w-full pl-9 pr-9 py-2 text-sm rounded-lg border border-line bg-surface focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-surface-2 disabled:text-muted/70"
           />
           {query && !loading && (
             <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/70 hover:text-muted" title="Clear">
@@ -85,7 +85,7 @@ export function StaffingSmartQuery({ input }: Props) {
                 key={sq}
                 onClick={() => submit(sq)}
                 disabled={!hasKey}
-                className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-line text-muted hover:bg-surface-2/70 hover:border-blue-300 transition-colors disabled:opacity-50"
+                className="text-[11px] px-2 py-0.5 rounded-full bg-surface border border-line text-muted hover:bg-surface-2/70 hover:border-blue-300 transition-colors disabled:opacity-50"
               >
                 {sq}
               </button>
@@ -102,7 +102,7 @@ export function StaffingSmartQuery({ input }: Props) {
 
         {/* Result */}
         {result && !loading && expanded && (
-          <div className="mt-3 bg-white rounded-lg border border-line p-3">
+          <div className="mt-3 bg-surface rounded-lg border border-line p-3">
             <div className="text-[12px] leading-relaxed text-ink/80 [&_strong]:text-ink">
               {result.answer.split('\n').map((line, i) => {
                 const trimmed = line.trim();

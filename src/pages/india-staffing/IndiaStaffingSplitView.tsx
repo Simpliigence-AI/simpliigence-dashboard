@@ -23,7 +23,7 @@ const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm focus:
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
-  <select className={`${INPUT_CLS} bg-white ${className}`} {...p}>{children}</select>;
+  <select className={`${INPUT_CLS} bg-surface ${className}`} {...p}>{children}</select>;
 const Textarea = ({ className = '', ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) =>
   <textarea className={`${INPUT_CLS} ${className}`} {...p} />;
 

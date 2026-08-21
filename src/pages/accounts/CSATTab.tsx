@@ -130,7 +130,7 @@ export function CSATTab({ accountId }: { accountId: string }) {
       {error && <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700">{error}</div>}
 
       {/* CSAT rating — emoji stars */}
-      <div className="rounded-lg border border-line bg-white p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <label className="text-[10px] font-semibold text-muted uppercase tracking-wider inline-flex items-center gap-1 mb-2">
           <Smile size={11} className="text-emerald-500" /> CSAT rating (overall)
         </label>
@@ -153,7 +153,7 @@ export function CSATTab({ accountId }: { accountId: string }) {
       </div>
 
       {/* Survey */}
-      <div className="rounded-lg border border-line bg-white p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <label className="flex items-center gap-2 text-sm font-semibold text-ink mb-3">
           <ClipboardCheck size={14} className="text-sky-500" />
           <input type="checkbox" checked={state.surveyDone}
@@ -181,7 +181,7 @@ export function CSATTab({ accountId }: { accountId: string }) {
       </div>
 
       {/* QBR */}
-      <div className="rounded-lg border border-line bg-white p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <label className="flex items-center gap-2 text-sm font-semibold text-ink mb-3">
           <ClipboardCheck size={14} className="text-violet-500" />
           <input type="checkbox" checked={state.qbrDone}
@@ -210,7 +210,7 @@ export function CSATTab({ accountId }: { accountId: string }) {
       </div>
 
       {/* Testimonial */}
-      <div className="rounded-lg border border-line bg-white p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <label className="flex items-center gap-2 text-sm font-semibold text-ink mb-3">
           <MessageSquareQuote size={14} className="text-emerald-500" />
           Testimonial
@@ -231,7 +231,7 @@ export function CSATTab({ accountId }: { accountId: string }) {
       </div>
 
       {/* Free notes */}
-      <div className="rounded-lg border border-line bg-white p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <label className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 block">Free-form notes</label>
         <textarea value={state.notes} onChange={(e) => patch({ notes: e.target.value })} onBlur={blur}
                   rows={3}

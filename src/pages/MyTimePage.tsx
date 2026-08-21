@@ -305,7 +305,7 @@ export default function MyTimePage() {
 
       {/* View toggle + Copy actions */}
       <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
-        <div className="inline-flex rounded-lg border border-line bg-white p-1 text-xs font-semibold">
+        <div className="inline-flex rounded-lg border border-line bg-surface p-1 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setViewMode('list')}
@@ -495,7 +495,7 @@ export default function MyTimePage() {
       </div>
 
       {/* Sticky bottom mini stat */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-white border-t border-line shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
+      <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-surface border-t border-line shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
         <div className="flex items-center gap-4">
           <div>
             <span className="font-semibold text-ink tabular-nums">{weekStats.logged.toFixed(2)}h</span>
@@ -575,7 +575,7 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
 
   const statusBadge = STATUS_BADGE[entry.status];
   return (
-    <div className="border border-line rounded-lg p-3 bg-white">
+    <div className="border border-line rounded-lg p-3 bg-surface">
       <div className="flex items-center justify-between mb-2">
         <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusBadge.cls}`}>
           {statusBadge.label}
@@ -718,7 +718,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="w-full border border-dashed border-line rounded-lg p-3 text-xs text-muted hover:text-ink hover:border-slate-400 hover:bg-surface-2/70 flex items-center justify-center gap-1"
+        className="w-full border border-dashed border-line rounded-lg p-3 text-xs text-muted hover:text-ink hover:border-line hover:bg-surface-2/70 flex items-center justify-center gap-1"
       >
         <Plus size={12} /> Add time entry
       </button>
@@ -758,7 +758,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         onChange={(e) => setNotes(e.target.value)}
         onKeyDown={handleKey}
         placeholder="Notes (optional) — Enter or Tab to save & add another"
-        className="mt-2 w-full text-xs text-ink/80 bg-white border border-line rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="mt-2 w-full text-xs text-ink/80 bg-surface border border-line rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className="text-[10px] text-muted italic">Enter or Tab = save &amp; add another · Esc = close</span>
@@ -774,7 +774,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
             type="button"
             onClick={() => handleAdd({ keepOpen: false, asDraft: true })}
             disabled={!projectName || hours <= 0 || saving}
-            className="text-[11px] font-semibold border border-line text-ink/80 bg-white px-3 py-1 rounded-md hover:bg-surface-2/70 disabled:opacity-40 flex items-center gap-1"
+            className="text-[11px] font-semibold border border-line text-ink/80 bg-surface px-3 py-1 rounded-md hover:bg-surface-2/70 disabled:opacity-40 flex items-center gap-1"
             title="Save without submitting for approval"
           >
             <Save size={11} /> Save as draft
@@ -826,7 +826,7 @@ function ProjectPicker({ value, onChange, options, autoFocus = false, onEnter }:
       value={value}
       onChange={(e) => { onChange(e.target.value); onEnter?.(); }}
       autoFocus={autoFocus}
-      className="border border-line rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+      className="border border-line rounded-md px-2 py-1.5 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
     >
       <option value="" disabled>— pick a project —</option>
       {(['current', 'concierge', 'roster', 'internal', 'other'] as const).map((k) => {
@@ -853,7 +853,7 @@ function CalendarGrid({ cells, onPickDay }: {
   /** Pick a background tone for each cell based on hours logged. */
   const cellTone = (hours: number, inMonth: boolean) => {
     if (!inMonth) return 'bg-surface-2/70 text-line';
-    if (hours === 0) return 'bg-white text-ink/80 hover:bg-surface-2/70';
+    if (hours === 0) return 'bg-surface text-ink/80 hover:bg-surface-2/70';
     if (hours < 4) return 'bg-amber-50 text-amber-900 hover:bg-amber-100';
     if (hours < 8) return 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100';
     return 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200';
@@ -890,7 +890,7 @@ function CalendarGrid({ cells, onPickDay }: {
         })}
       </div>
       <div className="mt-3 flex items-center gap-3 text-[10px] text-muted">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white border border-line" /> 0h</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-surface border border-line" /> 0h</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-50 border border-amber-200" /> &lt; 4h</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-50 border border-emerald-200" /> 4–8h</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200" /> 8h+</span>
@@ -1098,7 +1098,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="text-[11px] uppercase tracking-wider text-muted/70">
-              <th className="text-left font-bold py-2 pr-3 min-w-[10rem] sticky left-0 bg-white">Project</th>
+              <th className="text-left font-bold py-2 pr-3 min-w-[10rem] sticky left-0 bg-surface">Project</th>
               {days.map((d) => {
                 const dt = parseIsoDate(d.iso);
                 return (
@@ -1121,7 +1121,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
             )}
             {rowNames.map((name, ri) => (
               <tr key={name} className="border-t border-line/60">
-                <td className="py-1.5 pr-3 text-ink font-medium sticky left-0 bg-white">
+                <td className="py-1.5 pr-3 text-ink font-medium sticky left-0 bg-surface">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate max-w-[12rem]" title={name}>{name}</span>
                     {!billableFor(name) && <span className="text-[9px] uppercase tracking-wide text-muted/70">non-bill</span>}
@@ -1164,7 +1164,7 @@ function GridView({ days, projectOptions, entries, myEmail, addEntry, updateEntr
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-line text-ink">
-              <td className="py-2 pr-3 text-[11px] uppercase tracking-wider font-bold text-muted sticky left-0 bg-white">Day total</td>
+              <td className="py-2 pr-3 text-[11px] uppercase tracking-wider font-bold text-muted sticky left-0 bg-surface">Day total</td>
               {dayTotals.map((t, i) => (
                 <td key={days[i].iso} className={`px-1 py-2 text-center font-bold tabular-nums ${t >= 8 ? 'text-emerald-600' : t === 0 ? 'text-line' : ''}`}>
                   {t.toFixed(2)}

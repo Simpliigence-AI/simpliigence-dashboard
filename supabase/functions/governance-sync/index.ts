@@ -31,7 +31,16 @@
  *           name, startDate, endDate, phases: ZohoPhase[], taskCount } } }
  *     Tasks are grouped into phases — see toPhases() for why.
  *
- * This function NEVER writes to Governance. It only reads.
+ *   { action: 'push', payload: { synced_at, projects: [...] } }
+ *     → whatever Governance's /api/cockpit/sync returns:
+ *       { updated: string[], unmatched: {external_id, name}[], synced_at }
+ *     Sends the dashboard's team allocation + phase state + financials
+ *     to Governance so its Overview page can render our numbers.
+ *     Uses the bearer-token auth on that endpoint (GOVERNANCE_SYNC_TOKEN),
+ *     which is distinct from the JWT login used by 'list' / 'plan' — the
+ *     new endpoint was built for machine-to-machine.
+ *
+ * The 'push' action WRITES to Governance. 'list' / 'plan' still don't.
  */
 
 /// <reference lib="deno.ns" />
@@ -198,7 +207,10 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({})) as { action?: string; projectIds?: string[] };
     const action = body.action ?? 'list';
-    const token = await login();
+    // login() only needed for the read paths ('list'/'plan') that use
+    // the JWT flow. 'push' has its own bearer-token secret and would
+    // fail if we required GOVERNANCE_EMAIL/PASSWORD too.
+    const token = action === 'push' ? '' : await login();
 
     if (action === 'list') {
       const projects = await govGet<GovProject[]>(token, '/api/projects');
@@ -221,6 +233,43 @@ Deno.serve(async (req: Request) => {
           taskCount: counts[i],
         })),
       }), { headers: corsHeaders });
+    }
+
+    if (action === 'push') {
+      // Push dashboard-side data (team allocation, phase state,
+      // financials) into Governance. Auth: bearer token stored as a
+      // separate secret because /api/cockpit/sync doesn't accept the
+      // JWT flow above. Never falls back — a missing secret is a
+      // config error, not a permission we can guess our way around.
+      // @ts-expect-error Deno global
+      const syncToken = Deno.env.get('GOVERNANCE_SYNC_TOKEN');
+      if (!syncToken) {
+        return new Response(JSON.stringify({
+          error: 'GOVERNANCE_SYNC_TOKEN not set on this edge function. Set it in supabase → project settings → edge functions → secrets (same value as COCKPIT_SYNC_TOKEN on the governance side).',
+        }), { status: 500, headers: corsHeaders });
+      }
+      const payload = (body as { payload?: unknown }).payload;
+      if (!payload || typeof payload !== 'object'
+          || !Array.isArray((payload as { projects?: unknown }).projects)) {
+        return new Response(JSON.stringify({
+          error: 'body.payload.projects[] required',
+        }), { status: 400, headers: corsHeaders });
+      }
+      const r = await fetch(`${BASE}/api/cockpit/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${syncToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const text = await r.text();
+      // Pass Governance's status + body through verbatim — the client
+      // wants to see "unmatched" specifically so a human can act on it.
+      return new Response(text, {
+        status: r.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (action === 'plan') {

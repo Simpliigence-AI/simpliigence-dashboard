@@ -18,12 +18,13 @@ import type { StaffingAccount as IndiaAccount, StaffingRequisition as IndiaRequi
 import type { USStaffingAccount, USStaffingRequisition, AccountCategory } from '../types/usStaffing';
 import type { BenchResource, BenchUpdate, VisaCategory, JobPriority, BenchUpdateType } from '../types/openBench';
 import type { IndiaRosterMember, IndiaRosterStatus } from '../types/indiaRoster';
-import type { USRosterMember, USRosterStatus } from '../types/usRoster';
+import type { USRosterMember, USRosterStatus, USRosterAssignment } from '../types/usRoster';
 import type { ActualHourEntry } from '../types/actualHours';
 import type { TADailyLogEntry, TeamMember } from '../types/taLog';
 import type { TimeEntry, TimesheetDocument, TimeEntryAudit } from '../types/timeEntry';
 import type { Account, AccountConnect, AccountActionItem } from '../types/accountMgmt';
 import type { Vendor, VendorOutreach } from '../types/vendor';
+import type { TnmAccount, TnmAccountContact } from '../types/tnmAccount';
 import type {
   PresalesActivity, PresalesMeeting, ActivityType, Priority, ActivityStatus,
 } from '../types/presales';
@@ -821,6 +822,83 @@ function rowToVendorOutreach(row: any): VendorOutreach {
   };
 }
 
+// ─── TNM Account converters ─────────────────────────────────────────
+
+function tnmAccountToRow(a: TnmAccount) {
+  return {
+    id: a.id,
+    name: a.name.trim(),
+    entity: a.entity,
+    work_type: a.workType,
+    region: a.region,
+    status: a.status,
+    key_contact: a.keyContact,
+    staffing_consultant: a.staffingConsultant,
+    owner_note: a.ownerNote,
+    notes: a.notes,
+    created_by: a.createdBy,
+    updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTnmAccount(row: any): TnmAccount {
+  return {
+    id: row.id,
+    name: row.name,
+    entity: row.entity,
+    workType: row.work_type ?? null,
+    region: row.region,
+    status: row.status,
+    keyContact: row.key_contact ?? null,
+    staffingConsultant: row.staffing_consultant ?? null,
+    ownerNote: row.owner_note ?? null,
+    notes: row.notes ?? null,
+    createdBy: row.created_by ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+function tnmContactToRow(c: TnmAccountContact) {
+  return {
+    id: c.id,
+    account_id: c.accountId,
+    name: c.name.trim(),
+    email: c.email?.trim().toLowerCase() || null,
+    phone: c.phone?.trim() || null,
+    title: c.title?.trim() || null,
+    notes: c.notes ?? null,
+    updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToTnmContact(row: any): TnmAccountContact {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    name: row.name,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    title: row.title ?? null,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchTnmAccounts(): Promise<{
+  accounts: TnmAccount[]; contacts: TnmAccountContact[];
+} | null> {
+  const [aRes, cRes] = await Promise.all([
+    supabase.from('tnm_accounts').select('*').order('name', { ascending: true }),
+    supabase.from('tnm_account_contacts').select('*'),
+  ]);
+  if (aRes.error) { console.warn('[supabase] fetch tnm_accounts failed:', aRes.error); return null; }
+  return {
+    accounts: (aRes.data || []).map(rowToTnmAccount),
+    contacts: (cRes.data || []).map(rowToTnmContact),
+  };
+}
+
 export async function fetchVendors(): Promise<{
   vendors: Vendor[]; outreach: VendorOutreach[];
 } | null> {
@@ -1166,6 +1244,53 @@ function rowToUSRoster(row: any): USRosterMember {
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+// ─── US Roster Assignments converters ─────────────────────────────
+
+function usRosterAssignmentToRow(a: USRosterAssignment) {
+  return {
+    id: a.id,
+    roster_id: a.roster_id,
+    si: a.si,
+    end_client: a.end_client,
+    project: a.project,
+    cost_per_hour: a.cost_per_hour,
+    bill_rate: a.bill_rate,
+    start_date: a.start_date,
+    end_date: a.end_date,
+    allocation_pct: a.allocation_pct,
+    notes: a.notes,
+    created_at: a.created_at,
+    updated_at: a.updated_at,
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToUSRosterAssignment(row: any): USRosterAssignment {
+  return {
+    id: row.id,
+    roster_id: row.roster_id,
+    si: row.si ?? null,
+    end_client: row.end_client ?? null,
+    project: row.project ?? null,
+    cost_per_hour: row.cost_per_hour ?? 0,
+    bill_rate: row.bill_rate ?? 0,
+    start_date: row.start_date ?? null,
+    end_date: row.end_date ?? null,
+    allocation_pct: row.allocation_pct ?? null,
+    notes: row.notes ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export async function fetchUSRosterAssignments(): Promise<USRosterAssignment[] | null> {
+  const { data, error } = await supabase.from('us_roster_assignments').select('*');
+  if (error) {
+    console.warn('[supabase] fetch us_roster_assignments failed (table may be missing):', error.message);
+    return null;
+  }
+  return (data || []).map(rowToUSRosterAssignment);
 }
 
 // ─── US Staffing fetchers ─────────────────────────────────────────
@@ -1577,6 +1702,16 @@ export const db = {
     if (members.length) await supabase.from('us_roster').insert(members.map(usRosterToRow));
   },
 
+  // --- US Roster Assignments ---
+  async upsertUSRosterAssignment(a: USRosterAssignment) {
+    const { error } = await supabase.from('us_roster_assignments').upsert(usRosterAssignmentToRow(a), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert us_roster_assignments failed:', error);
+  },
+  async deleteUSRosterAssignment(id: string) {
+    const { error } = await supabase.from('us_roster_assignments').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete us_roster_assignments failed:', error);
+  },
+
   // --- Account Management ---
   async upsertAccount(a: Account) {
     const { error } = await supabase.from('accounts').upsert(accountToRow(a), { onConflict: 'id' });
@@ -1686,6 +1821,24 @@ export const db = {
   async upsertVendorOutreach(o: VendorOutreach) {
     const { error } = await supabase.from('vendor_outreach').upsert(vendorOutreachToRow(o), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert vendor_outreach failed:', error);
+  },
+
+  // --- TNM Accounts ---
+  async upsertTnmAccount(a: TnmAccount) {
+    const { error } = await supabase.from('tnm_accounts').upsert(tnmAccountToRow(a), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert tnm_account failed:', error);
+  },
+  async deleteTnmAccount(id: string) {
+    const { error } = await supabase.from('tnm_accounts').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete tnm_account failed:', error);
+  },
+  async upsertTnmContact(c: TnmAccountContact) {
+    const { error } = await supabase.from('tnm_account_contacts').upsert(tnmContactToRow(c), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert tnm_account_contact failed:', error);
+  },
+  async deleteTnmContact(id: string) {
+    const { error } = await supabase.from('tnm_account_contacts').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete tnm_account_contact failed:', error);
   },
 
   // --- Candidate AI calls ---
@@ -2785,6 +2938,7 @@ type StoreSetters = {
   setOpenBench: (resources: BenchResource[], updates: BenchUpdate[]) => void;
   setIndiaRoster: (members: IndiaRosterMember[]) => void;
   setUSRoster: (members: USRosterMember[]) => void;
+  setUSRosterAssignments?: (assignments: USRosterAssignment[]) => void;
   setTaDailyLog?: (entries: TADailyLogEntry[]) => void;
   setTeamMembers?: (members: TeamMember[]) => void;
   setTimeEntries?: (entries: TimeEntry[]) => void;
@@ -3013,6 +3167,17 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       if (row?.updated_by === CLIENT_ID) return;
       fetchUSRoster().then((members) => {
         if (members) setters.setUSRoster(members);
+      });
+    },
+  );
+
+  // --- US Roster Assignments ---
+  channel.on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'us_roster_assignments' },
+    () => {
+      fetchUSRosterAssignments().then((assignments) => {
+        if (assignments) setters.setUSRosterAssignments?.(assignments);
       });
     },
   );

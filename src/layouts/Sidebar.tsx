@@ -103,6 +103,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/us-staffing', icon: Globe, label: 'Global Demand' },
       { to: '/us-roster', icon: Users, label: 'Global Roster' },
+      { to: '/tnm-accounts', icon: Building2, label: 'TNM Accounts' },
     ],
   },
   {

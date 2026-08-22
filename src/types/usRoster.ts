@@ -63,3 +63,42 @@ export function calcUSMarginPercent(m: Pick<USRosterMember, 'cost_per_hour' | 'b
 export function calcUSMarginAbsolute(m: Pick<USRosterMember, 'cost_per_hour' | 'bill_rate'>): number {
   return Math.round((m.bill_rate - m.cost_per_hour) * 100) / 100;
 }
+
+/**
+ * A single contract a consultant is on. One consultant → many assignments,
+ * each with its own SI, end client, and cost/bill. This is the source of
+ * truth going forward; the deprecated `project` / `cost_per_hour` / `bill_rate`
+ * fields on `USRosterMember` are kept only for rollback safety and are
+ * ignored by the client-view and consultant-view UIs.
+ */
+export interface USRosterAssignment {
+  id: string;
+  roster_id: string;
+  /** System integrator we bill (Ciklum, Cognizant, …). Null when direct. */
+  si: string | null;
+  /** Where the consultant actually sits (the SI's client). */
+  end_client: string | null;
+  /** Contract / project label */
+  project: string | null;
+  cost_per_hour: number;
+  bill_rate: number;
+  start_date: string | null;
+  end_date: string | null;
+  /** % of the consultant's time on this contract (null = unspecified). */
+  allocation_pct: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function calcAssignmentMarginPercent(a: Pick<USRosterAssignment, 'cost_per_hour' | 'bill_rate'>): number {
+  if (!a.bill_rate || a.bill_rate <= 0) return 0;
+  return Math.round(((a.bill_rate - a.cost_per_hour) / a.bill_rate) * 100);
+}
+export function calcAssignmentMarginAbsolute(a: Pick<USRosterAssignment, 'cost_per_hour' | 'bill_rate'>): number {
+  return Math.round((a.bill_rate - a.cost_per_hour) * 100) / 100;
+}
+/** Monthly revenue at 160 billable hrs/mo — same convention used elsewhere. */
+export function calcAssignmentMonthlyRevenue(a: Pick<USRosterAssignment, 'bill_rate'>): number {
+  return Math.round((a.bill_rate || 0) * 160);
+}

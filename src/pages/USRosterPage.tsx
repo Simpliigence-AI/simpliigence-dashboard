@@ -24,7 +24,9 @@ import {
 import { ROSTER_ROLES } from '../types/indiaRoster';
 import type { VisaCategory } from '../types/openBench';
 import { USRosterCardGrid } from './us-roster/USRosterCardGrid';
-import { LayoutGrid, Rows3 } from 'lucide-react';
+import { LayoutGrid, Rows3, Building2, User as UserIcon } from 'lucide-react';
+import { USRosterClientView } from './us-roster/USRosterClientView';
+import { USRosterConsultantView } from './us-roster/USRosterConsultantView';
 
 /* —— Multi-project helpers ——
  * `project` is stored as a single TEXT column (comma-separated). One US
@@ -254,13 +256,15 @@ export default function USRosterPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [sortField, setSortField] = useState<string>('name');
   const [sortAsc, setSortAsc] = useState(true);
-  // View mode: 'cards' is the rich new default, 'table' is opt-in for anyone
-  // who wants the spreadsheet layout back. Persisted per-page.
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+  // View mode. `client` is the new default (assignments grouped by end
+  // client). `consultant` shows one row per person with a per-contract
+  // editor. `cards` and `table` are the previous views, kept for continuity.
+  const [viewMode, setViewMode] = useState<'client' | 'consultant' | 'cards' | 'table'>(() => {
     try {
       const stored = localStorage.getItem('us-roster-view-mode');
-      return stored === 'table' ? 'table' : 'cards';
-    } catch { return 'cards'; }
+      if (stored === 'client' || stored === 'consultant' || stored === 'cards' || stored === 'table') return stored;
+    } catch { /* private mode */ }
+    return 'client';
   });
   useEffect(() => {
     try { localStorage.setItem('us-roster-view-mode', viewMode); } catch { /* private mode */ }
@@ -408,7 +412,27 @@ export default function USRosterPage() {
         title="Global Roster"
         subtitle="Full FTE roster — billable allocations, bench, visa, location, margin"
         action={
-          <div className="flex gap-1 bg-surface-2 rounded-xl p-1 w-fit" title="Switch between the card grid and the wide inline-edit table">
+          <div className="flex flex-wrap gap-1 bg-surface-2 rounded-xl p-1 w-fit" title="Switch views: client / consultant / cards / table">
+            <button
+              type="button"
+              onClick={() => setViewMode('client')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'client' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+              }`}
+              title="Group by end client — who's on which client, at what margin"
+            >
+              <Building2 size={12} /> By Client
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('consultant')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all ${
+                viewMode === 'consultant' ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink/80'
+              }`}
+              title="One row per consultant; expand to edit their contracts (SI, end client, cost, bill)"
+            >
+              <UserIcon size={12} /> By Consultant
+            </button>
             <button
               type="button"
               onClick={() => setViewMode('cards')}
@@ -627,7 +651,13 @@ export default function USRosterPage() {
         </Card>
       )}
 
-      {/* Roster — card grid (default) or table (opt-in) */}
+      {/* Roster — client (default) / consultant / cards / table */}
+      {viewMode === 'client' && (
+        <USRosterClientView members={filtered} />
+      )}
+      {viewMode === 'consultant' && (
+        <USRosterConsultantView members={filtered} />
+      )}
       {viewMode === 'cards' && (
         <USRosterCardGrid
           members={filtered}

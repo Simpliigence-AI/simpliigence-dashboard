@@ -16,6 +16,7 @@ import OpenBenchPage from '../pages/OpenBenchPage';
 import IndiaRosterPage from '../pages/IndiaRosterPage';
 import IndiaHiringForecastPage from '../pages/IndiaHiringForecastPage';
 import USRosterPage from '../pages/USRosterPage';
+import TnmAccountsPage from '../pages/TnmAccountsPage';
 import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
 import TAMetricsPage from '../pages/TAMetricsPage';
@@ -78,6 +79,7 @@ export const router = createBrowserRouter(
         // US T&M section
         { path: 'us-staffing', element: <USStaffingPage /> },        // "US Demand"
         { path: 'us-roster', element: <USRosterPage /> },            // NEW
+        { path: 'tnm-accounts', element: <TnmAccountsPage /> },      // NEW — SI + End Client accounts + prospects
         { path: 'open-bench', element: <OpenBenchPage /> },
 
         // Admin section — gated by AdminOnly (is_admin on authorized_users)

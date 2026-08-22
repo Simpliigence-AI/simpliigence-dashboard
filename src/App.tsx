@@ -13,6 +13,7 @@ import { useAccountStore } from './store/useAccountStore';
 import { usePresalesStore } from './store/usePresalesStore';
 import { usePodAssignmentsStore } from './store/usePodAssignmentsStore';
 import { useVendorStore } from './store/useVendorStore';
+import { useTnmAccountsStore } from './store/useTnmAccountsStore';
 import { useConciergeAccountsStore } from './store/useConciergeAccountsStore';
 import { useLeaveStore } from './store/useLeaveStore';
 import { useFeatureCatalogStore } from './store/useFeatureCatalogStore';
@@ -28,6 +29,7 @@ import {
   fetchOpenBench,
   fetchIndiaRoster,
   fetchUSRoster,
+  fetchUSRosterAssignments,
   fetchActualHours,
   fetchTaDailyLog,
   fetchTeamMembers,
@@ -37,6 +39,7 @@ import {
   fetchCallTemplates,
   fetchAccountManagement,
   fetchVendors,
+  fetchTnmAccounts,
   fetchConcierge,
   fetchLeaveData,
   fetchPodAssignments,
@@ -84,12 +87,14 @@ function useSupabaseInit() {
           openBenchRes,
           indiaRosterRes,
           usRosterRes,
+          usRosterAssignmentsRes,
           actualHoursRes,
           taLogRes,
           teamMembersRes,
           timeEntriesRes,
           accountMgmtRes,
           vendorsRes,
+          tnmAccountsRes,
           candidateCallsRes,
           callTemplatesRes,
           presalesRes,
@@ -108,12 +113,14 @@ function useSupabaseInit() {
           withTimeout(fetchOpenBench()),
           withTimeout(fetchIndiaRoster()),
           withTimeout(fetchUSRoster()),
+          withTimeout(fetchUSRosterAssignments()),
           withTimeout(fetchActualHours()),
           withTimeout(fetchTaDailyLog()),
           withTimeout(fetchTeamMembers()),
           withTimeout(fetchTimeEntries()),
           withTimeout(fetchAccountManagement()),
           withTimeout(fetchVendors()),
+          withTimeout(fetchTnmAccounts()),
           withTimeout(fetchCandidateCalls()),
           withTimeout(fetchCallTemplates()),
           withTimeout(fetchPresales()),
@@ -275,6 +282,17 @@ function useSupabaseInit() {
           console.warn('[supabase] US roster fetch timed out — using localStorage');
         }
 
+        // --- US Roster Assignments (per-contract SI + end-client + cost/bill) ---
+        if (!usRosterAssignmentsRes.timedOut) {
+          const ura = usRosterAssignmentsRes.value;
+          if (ura) {
+            useUSRosterStore.setState({ assignments: ura });
+            console.log('[supabase] Loaded us roster assignments:', ura.length);
+          }
+        } else {
+          console.warn('[supabase] US roster assignments fetch timed out');
+        }
+
         // --- Actual Hours (Zoho People timesheets) ---
         if (!actualHoursRes.timedOut) {
           const ah = actualHoursRes.value;
@@ -360,6 +378,18 @@ function useSupabaseInit() {
           }
         } else {
           console.warn('[supabase] Vendors fetch timed out — using localStorage');
+        }
+
+        // --- TNM Accounts ---
+        if (!tnmAccountsRes.timedOut) {
+          const data = tnmAccountsRes.value;
+          if (data) {
+            useTnmAccountsStore.getState().setAll(data);
+            console.log('[supabase] Loaded tnm accounts:', data.accounts.length, 'accounts /',
+              data.contacts.length, 'contacts');
+          }
+        } else {
+          console.warn('[supabase] TNM accounts fetch timed out — using localStorage');
         }
 
         // --- Concierge accounts (managed-services 360 view) ---
@@ -471,6 +501,9 @@ function useSupabaseInit() {
           },
           setUSRoster: (members) => {
             useUSRosterStore.setState({ members });
+          },
+          setUSRosterAssignments: (assignments) => {
+            useUSRosterStore.setState({ assignments });
           },
           getForecastAssignments: () => useForecastStore.getState().assignments,
           getStaffingRequests: () => useHiringForecastStore.getState().staffingRequests,

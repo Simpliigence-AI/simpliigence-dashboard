@@ -7,6 +7,7 @@ import {
 } from '../../types/usRoster';
 import { Card } from '../../components/ui';
 import { Sensitive } from '../../components/Sensitive';
+import { OwnerOnly } from '../../components/OwnerOnly';
 import { useUSRosterStore } from '../../store/useUSRosterStore';
 import { AssignmentEditorRow, AddAssignmentRow } from './AssignmentEditor';
 
@@ -146,13 +147,13 @@ function ConsultantRow({
         <div className="col-span-2 text-right">
           <div className="text-[11px] text-muted uppercase tracking-wide">Monthly</div>
           <div className="text-sm font-bold text-ink tabular-nums">
-            <Sensitive>{`$${(totals.rev / 1000).toFixed(1)}k`}</Sensitive>
+            <OwnerOnly><Sensitive>{`$${(totals.rev / 1000).toFixed(1)}k`}</Sensitive></OwnerOnly>
           </div>
         </div>
         <div className="col-span-2 text-right">
           <div className="text-[11px] text-muted uppercase tracking-wide">Margin</div>
           <div className="text-sm font-bold text-ink tabular-nums">
-            <Sensitive>{`${totals.margin}%`}</Sensitive>
+            <OwnerOnly><Sensitive>{`${totals.margin}%`}</Sensitive></OwnerOnly>
           </div>
         </div>
         <div className="col-span-1 text-right text-[11px] text-muted">

@@ -34,6 +34,7 @@ import { ROSTER_ROLES } from '../../types/indiaRoster';
 import type { VisaCategory } from '../../types/openBench';
 import { Card } from '../../components/ui';
 import { Sensitive } from '../../components/Sensitive';
+import { OwnerOnly, useIsOwner } from '../../components/OwnerOnly';
 import { useCollapsedGroups } from '../../lib/useCollapsedGroups';
 
 const VISA_CATEGORIES: VisaCategory[] = ['H1B', 'L1', 'L2 EAD', 'H4 EAD', 'GC', 'GC EAD', 'US Citizen', 'OPT', 'CPT', 'TN', 'Other'];
@@ -172,13 +173,13 @@ export function USRosterCardGrid({ members, onSave, onDelete }: Props) {
                     {g.revenue > 0 && (
                       <>
                         <span className="text-line mx-1">·</span>
-                        <span className="text-ink/80"><Sensitive>{`$${(g.revenue / 1000).toFixed(0)}k`}</Sensitive></span> /mo
+                        <span className="text-ink/80"><OwnerOnly><Sensitive>{`$${(g.revenue / 1000).toFixed(0)}k`}</Sensitive></OwnerOnly></span> /mo
                       </>
                     )}
                     {g.avgMargin > 0 && (
                       <>
                         <span className="text-line mx-1">·</span>
-                        avg margin <span className="text-ink/80"><Sensitive>{`${g.avgMargin}%`}</Sensitive></span>
+                        avg margin <span className="text-ink/80"><OwnerOnly><Sensitive>{`${g.avgMargin}%`}</Sensitive></OwnerOnly></span>
                       </>
                     )}
                   </span>
@@ -256,11 +257,11 @@ function MemberCard({ member: m, onOpen }: { member: USRosterMember; onOpen: () 
       {/* Row 2: margin + rate */}
       <div className="flex items-center justify-between mb-2">
         <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${tone.bg} ${tone.fg} text-[11px] font-bold`}>
-          {pct > 0 ? <Sensitive>{`${pct}%`}</Sensitive> : '—'}
+          {pct > 0 ? <OwnerOnly><Sensitive>{`${pct}%`}</Sensitive></OwnerOnly> : '—'}
           <span className="text-[9px] uppercase tracking-wider opacity-70">margin</span>
         </div>
         <div className="text-[11px] text-muted">
-          {m.bill_rate > 0 ? <><Sensitive>{`$${m.bill_rate}`}</Sensitive><span className="text-muted/70">/hr</span></> : <span className="italic">no rate</span>}
+          {m.bill_rate > 0 ? <><OwnerOnly><Sensitive>{`$${m.bill_rate}`}</Sensitive></OwnerOnly><span className="text-muted/70">/hr</span></> : <span className="italic">no rate</span>}
         </div>
       </div>
 
@@ -306,6 +307,7 @@ function MemberDrawer({
   const statusColor = US_ROSTER_STATUS_COLORS[m.status] || '#94a3b8';
   const pct = calcMarginPercent(m);
   const tone = marginTone(pct);
+  const isOwner = useIsOwner();
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-[1px]" onClick={onClose}>
@@ -320,7 +322,7 @@ function MemberDrawer({
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-base font-extrabold text-ink tracking-tight truncate">{m.name || 'Unnamed'}</div>
-            <div className="text-xs text-muted truncate">{m.role} · <Sensitive>{m.bill_rate > 0 ? `$${m.bill_rate}/hr` : 'no rate'}</Sensitive></div>
+            <div className="text-xs text-muted truncate">{m.role} · <OwnerOnly>{m.bill_rate > 0 ? <Sensitive>{`$${m.bill_rate}/hr`}</Sensitive> : 'no rate'}</OwnerOnly></div>
             <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: statusColor }}>
               {m.status}
             </div>
@@ -364,20 +366,24 @@ function MemberDrawer({
                 {VISA_CATEGORIES.map((v) => <option key={v} value={v}>{v}</option>)}
               </Select>
             </div>
-            <div>
-              <label className="text-xs font-semibold text-muted uppercase tracking-wider">Cost/hr ($)</label>
-              <Input type="number" value={m.cost_per_hour} onChange={(e) => onSave(m.id, 'cost_per_hour', Number(e.target.value))} className="mt-1" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted uppercase tracking-wider">Bill Rate ($/hr)</label>
-              <Input type="number" value={m.bill_rate} onChange={(e) => onSave(m.id, 'bill_rate', Number(e.target.value))} className="mt-1" />
-            </div>
+            {isOwner && (
+              <>
+                <div>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">Cost/hr ($)</label>
+                  <Input type="number" value={m.cost_per_hour} onChange={(e) => onSave(m.id, 'cost_per_hour', Number(e.target.value))} className="mt-1" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">Bill Rate ($/hr)</label>
+                  <Input type="number" value={m.bill_rate} onChange={(e) => onSave(m.id, 'bill_rate', Number(e.target.value))} className="mt-1" />
+                </div>
+              </>
+            )}
             <div className="col-span-2 flex items-center gap-3 rounded-lg border border-line/60 bg-surface-2/70 px-3 py-2 text-xs">
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${tone.bg} ${tone.fg} font-bold`}>
-                {pct > 0 ? <Sensitive>{`${pct}%`}</Sensitive> : '—'} margin
+                {pct > 0 ? <OwnerOnly><Sensitive>{`${pct}%`}</Sensitive></OwnerOnly> : '—'} margin
               </span>
               <span className="text-muted">
-                Monthly @160h: <strong className="text-ink"><Sensitive>{`$${((m.bill_rate || 0) * 160).toLocaleString()}`}</Sensitive></strong>
+                Monthly @160h: <strong className="text-ink"><OwnerOnly><Sensitive>{`$${((m.bill_rate || 0) * 160).toLocaleString()}`}</Sensitive></OwnerOnly></strong>
               </span>
             </div>
             <div>

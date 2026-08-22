@@ -16,6 +16,7 @@ import { usePipelineStore } from '../store/usePipelineStore';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
+import { OwnerOnly, useIsOwner } from '../components/OwnerOnly';
 import {
   US_ROSTER_STATUSES, US_ROSTER_STATUS_COLORS,
   calcUSMarginPercent, calcUSMarginAbsolute,
@@ -249,6 +250,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 export default function USRosterPage() {
   const { members, addMember, updateMember, removeMember } = useUSRosterStore();
   const pipelineProjects = usePipelineStore((s) => s.projects);
+  const isOwner = useIsOwner();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [roleFilter, setRoleFilter] = useState<string>('All');
@@ -377,13 +379,23 @@ export default function USRosterPage() {
   };
 
   const exportCSV = () => {
-    const header = 'Name,Role,Project,Status,Visa,Cost/hr,Bill Rate/hr,Margin %,Margin $/hr,Start Date,Location,Skills,Email,Notes';
-    const rows = filtered.map(m => [
-      m.name, m.role, m.project, m.status, m.visa_category,
-      m.cost_per_hour, m.bill_rate,
-      calcUSMarginPercent(m), calcUSMarginAbsolute(m),
-      m.start_date, m.location, m.skills, m.email, m.notes,
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    // Cost / bill / margin columns are owner-only, so strip them for
+    // everyone else — same rule as the on-screen masking.
+    const header = isOwner
+      ? 'Name,Role,Project,Status,Visa,Cost/hr,Bill Rate/hr,Margin %,Margin $/hr,Start Date,Location,Skills,Email,Notes'
+      : 'Name,Role,Project,Status,Visa,Start Date,Location,Skills,Email,Notes';
+    const rows = filtered.map(m => (isOwner
+      ? [
+          m.name, m.role, m.project, m.status, m.visa_category,
+          m.cost_per_hour, m.bill_rate,
+          calcUSMarginPercent(m), calcUSMarginAbsolute(m),
+          m.start_date, m.location, m.skills, m.email, m.notes,
+        ]
+      : [
+          m.name, m.role, m.project, m.status, m.visa_category,
+          m.start_date, m.location, m.skills, m.email, m.notes,
+        ]
+    ).map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
     const csv = [header, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -460,8 +472,8 @@ export default function USRosterPage() {
         <StatCard label="Total Team" value={total} icon={<Users size={20} />} subtitle={`${members.length} members`} />
         <StatCard label="Billable" value={billable} icon={<UserCheck size={20} />} subtitle={`${total > 0 ? Math.round(billable/total*100) : 0}% of team`} />
         <StatCard label="On Bench" value={bench} icon={<Briefcase size={20} />} subtitle={`${total > 0 ? Math.round(bench/total*100) : 0}% of team`} />
-        <StatCard label="Avg Margin" value={<Sensitive>{`${avgMargin}%`}</Sensitive>} icon={<TrendingUp size={20} />} subtitle="Billable members" />
-        <StatCard label="Monthly Revenue" value={<Sensitive>{`$${(monthlyRevenue/1000).toFixed(0)}k`}</Sensitive>} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
+        <StatCard label="Avg Margin" value={<OwnerOnly><Sensitive>{`${avgMargin}%`}</Sensitive></OwnerOnly>} icon={<TrendingUp size={20} />} subtitle="Billable members" />
+        <StatCard label="Monthly Revenue" value={<OwnerOnly><Sensitive>{`$${(monthlyRevenue/1000).toFixed(0)}k`}</Sensitive></OwnerOnly>} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
       </div>
 
       {/* Visa distribution */}
@@ -606,16 +618,20 @@ export default function USRosterPage() {
                   {VISA_CATEGORIES.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="text-[10px] uppercase text-muted font-semibold">Cost / hr</label>
-                <input type="number" value={draft.cost_per_hour} onChange={(e) => setDraft({ ...draft, cost_per_hour: Number(e.target.value) })}
-                  className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase text-muted font-semibold">Bill Rate / hr</label>
-                <input type="number" value={draft.bill_rate} onChange={(e) => setDraft({ ...draft, bill_rate: Number(e.target.value) })}
-                  className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
-              </div>
+              {isOwner && (
+                <>
+                  <div>
+                    <label className="text-[10px] uppercase text-muted font-semibold">Cost / hr</label>
+                    <input type="number" value={draft.cost_per_hour} onChange={(e) => setDraft({ ...draft, cost_per_hour: Number(e.target.value) })}
+                      className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase text-muted font-semibold">Bill Rate / hr</label>
+                    <input type="number" value={draft.bill_rate} onChange={(e) => setDraft({ ...draft, bill_rate: Number(e.target.value) })}
+                      className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="text-[10px] uppercase text-muted font-semibold">Start Date</label>
                 <input type="date" value={draft.start_date} onChange={(e) => setDraft({ ...draft, start_date: e.target.value })}
@@ -632,7 +648,7 @@ export default function USRosterPage() {
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
             </div>
-            {draft.bill_rate > 0 && (
+            {isOwner && draft.bill_rate > 0 && (
               <div className="text-[11px] text-muted">
                 Margin preview:&nbsp;
                 <strong className="text-ink/80">{calcUSMarginPercent(draft as any)}%</strong>&nbsp;
@@ -735,20 +751,24 @@ export default function USRosterPage() {
                       <EditableCell value={m.location} onSave={(v) => handleCellSave(m.id, 'location', v)} />
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <Sensitive>
-                        <EditableCell value={m.cost_per_hour} type="number" onSave={(v) => handleCellSave(m.id, 'cost_per_hour', v)} />
-                      </Sensitive>
+                      <OwnerOnly>
+                        <Sensitive>
+                          <EditableCell value={m.cost_per_hour} type="number" onSave={(v) => handleCellSave(m.id, 'cost_per_hour', v)} />
+                        </Sensitive>
+                      </OwnerOnly>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <Sensitive>
-                        <EditableCell value={m.bill_rate} type="number" onSave={(v) => handleCellSave(m.id, 'bill_rate', v)}
-                          displayContent={<span className="font-semibold text-green-700">${m.bill_rate}/hr</span>}
-                        />
-                      </Sensitive>
+                      <OwnerOnly>
+                        <Sensitive>
+                          <EditableCell value={m.bill_rate} type="number" onSave={(v) => handleCellSave(m.id, 'bill_rate', v)}
+                            displayContent={<span className="font-semibold text-green-700">${m.bill_rate}/hr</span>}
+                          />
+                        </Sensitive>
+                      </OwnerOnly>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       <span className="font-bold" style={{ color: marginColor }} title={`$${marginAbs}/hr profit`}>
-                        {m.bill_rate > 0 ? <Sensitive>{`${marginPct}%`}</Sensitive> : '—'}
+                        {m.bill_rate > 0 ? <OwnerOnly><Sensitive>{`${marginPct}%`}</Sensitive></OwnerOnly> : '—'}
                       </span>
                     </td>
                     <td className="px-3 py-2">

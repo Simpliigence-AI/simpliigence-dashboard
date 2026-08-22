@@ -8,6 +8,7 @@ import {
 } from '../../types/usRoster';
 import { Card } from '../../components/ui';
 import { Sensitive } from '../../components/Sensitive';
+import { OwnerOnly } from '../../components/OwnerOnly';
 import { useUSRosterStore } from '../../store/useUSRosterStore';
 
 /**
@@ -110,13 +111,13 @@ function ClientGroup({
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Monthly</div>
             <div className="text-sm font-bold text-ink tabular-nums">
-              <Sensitive>{`$${(monthlyRev / 1000).toFixed(1)}k`}</Sensitive>
+              <OwnerOnly><Sensitive>{`$${(monthlyRev / 1000).toFixed(1)}k`}</Sensitive></OwnerOnly>
             </div>
           </div>
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Avg margin</div>
             <div className="text-sm font-bold text-ink tabular-nums">
-              <Sensitive>{`${avgMargin}%`}</Sensitive>
+              <OwnerOnly><Sensitive>{`${avgMargin}%`}</Sensitive></OwnerOnly>
             </div>
           </div>
         </div>
@@ -163,19 +164,19 @@ function ClientRow({ member, assignment }: { member: USRosterMember; assignment:
       <div className="col-span-1 text-right">
         <div className="uppercase tracking-wide text-[9px] text-muted">Bill</div>
         <div className="text-[12px] tabular-nums text-ink font-semibold">
-          <Sensitive>{`$${assignment.bill_rate}`}</Sensitive>
+          <OwnerOnly><Sensitive>{`$${assignment.bill_rate}`}</Sensitive></OwnerOnly>
         </div>
       </div>
       <div className="col-span-1 text-right">
         <div className="uppercase tracking-wide text-[9px] text-muted">Margin</div>
         <div className="text-[12px] tabular-nums text-ink font-semibold">
-          <Sensitive>{`${marginPct}%`}</Sensitive>
+          <OwnerOnly><Sensitive>{`${marginPct}%`}</Sensitive></OwnerOnly>
         </div>
       </div>
       <div className="col-span-1 text-right">
         <div className="uppercase tracking-wide text-[9px] text-muted">Monthly</div>
         <div className="text-[12px] tabular-nums text-ink font-semibold">
-          <Sensitive>{`$${(rev / 1000).toFixed(1)}k`}</Sensitive>
+          <OwnerOnly><Sensitive>{`$${(rev / 1000).toFixed(1)}k`}</Sensitive></OwnerOnly>
         </div>
       </div>
     </div>

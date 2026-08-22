@@ -6,6 +6,7 @@ import {
   calcAssignmentMarginAbsolute,
 } from '../../types/usRoster';
 import { Sensitive } from '../../components/Sensitive';
+import { OwnerOnly, useIsOwner } from '../../components/OwnerOnly';
 
 /**
  * Inline row editor for one assignment (SI, end client, project, cost, bill).
@@ -29,6 +30,7 @@ export function AssignmentEditorRow({
   projectSuggestions: string[];
   compact?: boolean;
 }) {
+  const isOwner = useIsOwner();
   return (
     <div
       className={`grid grid-cols-12 gap-2 items-center py-2 ${compact ? '' : 'px-2'} rounded-md hover:bg-surface-2/40`}
@@ -54,24 +56,32 @@ export function AssignmentEditorRow({
         suggestions={projectSuggestions}
         onCommit={(v) => onChange({ project: v || null })}
       />
-      <NumberInput
-        className="col-span-1"
-        value={assignment.cost_per_hour}
-        prefix="$"
-        title="Cost / hr"
-        onCommit={(n) => onChange({ cost_per_hour: n })}
-      />
-      <NumberInput
-        className="col-span-1"
-        value={assignment.bill_rate}
-        prefix="$"
-        title="Bill / hr"
-        onCommit={(n) => onChange({ bill_rate: n })}
-      />
+      {isOwner ? (
+        <NumberInput
+          className="col-span-1"
+          value={assignment.cost_per_hour}
+          prefix="$"
+          title="Cost / hr"
+          onCommit={(n) => onChange({ cost_per_hour: n })}
+        />
+      ) : (
+        <div className="col-span-1 text-right text-[11px] tabular-nums" title="Cost — owner only"><OwnerOnly>—</OwnerOnly></div>
+      )}
+      {isOwner ? (
+        <NumberInput
+          className="col-span-1"
+          value={assignment.bill_rate}
+          prefix="$"
+          title="Bill / hr"
+          onCommit={(n) => onChange({ bill_rate: n })}
+        />
+      ) : (
+        <div className="col-span-1 text-right text-[11px] tabular-nums" title="Bill — owner only"><OwnerOnly>—</OwnerOnly></div>
+      )}
       <div className="col-span-1 text-right text-[11px] tabular-nums" title="Margin">
-        <Sensitive>{`${calcAssignmentMarginPercent(assignment)}%`}</Sensitive>
+        <OwnerOnly><Sensitive>{`${calcAssignmentMarginPercent(assignment)}%`}</Sensitive></OwnerOnly>
         <div className="text-[10px] text-muted">
-          <Sensitive>{`$${calcAssignmentMarginAbsolute(assignment)}`}</Sensitive>
+          <OwnerOnly><Sensitive>{`$${calcAssignmentMarginAbsolute(assignment)}`}</Sensitive></OwnerOnly>
         </div>
       </div>
       <button
@@ -104,6 +114,7 @@ export function AddAssignmentRow({
   endClientSuggestions: string[];
   projectSuggestions: string[];
 }) {
+  const isOwner = useIsOwner();
   const [si, setSi] = useState('');
   const [endClient, setEndClient] = useState('');
   const [project, setProject] = useState('');
@@ -152,20 +163,28 @@ export function AddAssignmentRow({
         suggestions={projectSuggestions}
         onCommit={setProject}
       />
-      <NumberInput
-        className="col-span-1"
-        value={cost}
-        prefix="$"
-        title="Cost / hr"
-        onCommit={setCost}
-      />
-      <NumberInput
-        className="col-span-1"
-        value={bill}
-        prefix="$"
-        title="Bill / hr"
-        onCommit={setBill}
-      />
+      {isOwner ? (
+        <NumberInput
+          className="col-span-1"
+          value={cost}
+          prefix="$"
+          title="Cost / hr"
+          onCommit={setCost}
+        />
+      ) : (
+        <div className="col-span-1 text-right text-[11px] tabular-nums" title="Cost — owner only"><OwnerOnly>—</OwnerOnly></div>
+      )}
+      {isOwner ? (
+        <NumberInput
+          className="col-span-1"
+          value={bill}
+          prefix="$"
+          title="Bill / hr"
+          onCommit={setBill}
+        />
+      ) : (
+        <div className="col-span-1 text-right text-[11px] tabular-nums" title="Bill — owner only"><OwnerOnly>—</OwnerOnly></div>
+      )}
       <button
         type="button"
         onClick={submit}

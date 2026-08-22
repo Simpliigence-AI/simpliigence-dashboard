@@ -1,27 +1,30 @@
 /**
- * TNM Accounts — Global T&M > TNM Accounts tab.
+ * TNM Accounts — Global T&M > TNM Accounts.
  *
- * Two views:
- *   • TNM Accounts (status = active or inactive) — past-work accounts
- *   • Prospects (status = prospect) — targets the salesperson is going after
+ * Scannable tile grid: Active + Inactive + Prospect accounts on one canvas.
+ * Filter chips (with counts) let the user toggle each status independently;
+ * all three are on by default. Click a tile to open the detail drawer,
+ * which is where the full inline editing + contacts CRUD lives.
  *
- * A Convert-to-TNM-Account button flips a prospect to active.
- *
- * Every field is inline-editable directly in the row: entity (SI/End Client),
- * work_type (Project SOW/Client), region, key_contact, staffing_consultant,
- * owner_note. Full detail + contacts CRUD in the right drawer.
+ * Order within the grid: Active first, then Prospect, then Inactive.
+ * Alphabetical inside each status.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, ArrowRightCircle, UserPlus, Building2, MapPin, User, Users } from 'lucide-react';
+import {
+  Plus, Trash2, ArrowRightCircle, UserPlus,
+  Building2, MapPin, User, Users, Search,
+} from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Drawer, Input, Select, Textarea, EmptyState } from '../components/ui';
 import { useTnmAccountsStore } from '../store/useTnmAccountsStore';
 import {
   TNM_ENTITY_OPTIONS, TNM_WORK_TYPE_OPTIONS, TNM_REGION_OPTIONS,
 } from '../types/tnmAccount';
-import type { TnmAccount, TnmEntity, TnmWorkType, TnmRegion } from '../types/tnmAccount';
+import type { TnmAccount, TnmAccountContact, TnmEntity, TnmWorkType, TnmRegion, TnmStatus } from '../types/tnmAccount';
 
-type Tab = 'accounts' | 'prospects';
+// Sort ordering: active accounts rank first (they're the live ones),
+// then prospects (things salespeople are working), then inactive (archive).
+const STATUS_RANK: Record<TnmStatus, number> = { active: 0, prospect: 1, inactive: 2 };
 
 export default function TnmAccountsPage() {
   const {
@@ -30,19 +33,21 @@ export default function TnmAccountsPage() {
     addContact, updateContact, removeContact,
   } = useTnmAccountsStore();
 
-  const [tab, setTab] = useState<Tab>('accounts');
+  // Which status buckets are visible. Multi-select — default all on.
+  const [statusOn, setStatusOn] = useState<Record<TnmStatus, boolean>>({
+    active: true, prospect: true, inactive: true,
+  });
   const [q, setQ] = useState('');
   const [entityFilter, setEntityFilter] = useState<TnmEntity | ''>('');
   const [regionFilter, setRegionFilter] = useState<TnmRegion | ''>('');
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  // Fresh values for the add form (state hoisted so the form can be
-  // rendered inside the top card).
   const [newName, setNewName] = useState('');
   const [newEntity, setNewEntity] = useState<TnmEntity>('SI');
   const [newRegion, setNewRegion] = useState<TnmRegion>('USA');
   const [newWorkType, setNewWorkType] = useState<TnmWorkType | ''>('');
+  const [newStatus, setNewStatus] = useState<TnmStatus>('active');
   const [newKeyContact, setNewKeyContact] = useState('');
   const [newConsultant, setNewConsultant] = useState('');
   const [newOwner, setNewOwner] = useState('');
@@ -54,10 +59,16 @@ export default function TnmAccountsPage() {
     return m;
   }, [contacts]);
 
+  const counts = useMemo(() => ({
+    active: accounts.filter((a) => a.status === 'active').length,
+    prospect: accounts.filter((a) => a.status === 'prospect').length,
+    inactive: accounts.filter((a) => a.status === 'inactive').length,
+  }), [accounts]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return accounts
-      .filter((a) => (tab === 'prospects' ? a.status === 'prospect' : a.status !== 'prospect'))
+      .filter((a) => statusOn[a.status])
       .filter((a) => (entityFilter ? a.entity === entityFilter : true))
       .filter((a) => (regionFilter ? a.region === regionFilter : true))
       .filter((a) => (needle
@@ -65,21 +76,20 @@ export default function TnmAccountsPage() {
             .filter(Boolean)
             .some((s) => (s as string).toLowerCase().includes(needle))
         : true))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [accounts, tab, q, entityFilter, regionFilter]);
-
-  const counts = useMemo(() => ({
-    accounts: accounts.filter((a) => a.status !== 'prospect').length,
-    prospects: accounts.filter((a) => a.status === 'prospect').length,
-  }), [accounts]);
+      .sort((a, b) => {
+        const r = STATUS_RANK[a.status] - STATUS_RANK[b.status];
+        if (r !== 0) return r;
+        return a.name.localeCompare(b.name);
+      });
+  }, [accounts, statusOn, q, entityFilter, regionFilter, ]);
 
   const drawerAccount = drawerId ? accounts.find((a) => a.id === drawerId) ?? null : null;
   const drawerContacts = drawerId ? contacts.filter((c) => c.accountId === drawerId) : [];
 
   const resetAddForm = () => {
     setNewName(''); setNewEntity('SI'); setNewRegion('USA');
-    setNewWorkType(''); setNewKeyContact(''); setNewConsultant('');
-    setNewOwner(''); setNewNotes('');
+    setNewWorkType(''); setNewStatus('active'); setNewKeyContact('');
+    setNewConsultant(''); setNewOwner(''); setNewNotes('');
   };
 
   const submitAdd = async () => {
@@ -93,74 +103,93 @@ export default function TnmAccountsPage() {
       staffingConsultant: newConsultant || null,
       ownerNote: newOwner || null,
       notes: newNotes || null,
-      // Prospects tab creates prospect; TNM Accounts tab creates active.
-      status: tab === 'prospects' ? 'prospect' : 'active',
+      status: newStatus,
     });
     resetAddForm();
     setAdding(false);
+    // Ensure the newly-added status bucket is visible so the tile appears.
+    setStatusOn((s) => ({ ...s, [newStatus]: true }));
   };
+
+  const total = accounts.length;
+  const shownCount = filtered.length;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="TNM Accounts"
-        subtitle="Global T&M staffing accounts — SIs and End Clients we've contracted with, plus prospects to go after."
+        subtitle="Global Time & Materials — SI partners, direct end clients, and prospects all in one place."
       />
 
-      {/* Tab switcher */}
-      <div className="flex items-center gap-2">
-        <TabButton active={tab === 'accounts'} onClick={() => setTab('accounts')}>
-          TNM Accounts <span className="ml-1.5 text-xs text-muted">{counts.accounts}</span>
-        </TabButton>
-        <TabButton active={tab === 'prospects'} onClick={() => setTab('prospects')}>
-          Prospects <span className="ml-1.5 text-xs text-muted">{counts.prospects}</span>
-        </TabButton>
+      {/* Status chip row + Add button */}
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChip
+          label="Active"
+          count={counts.active}
+          tone="active"
+          on={statusOn.active}
+          onClick={() => setStatusOn((s) => ({ ...s, active: !s.active }))}
+        />
+        <StatusChip
+          label="Prospect"
+          count={counts.prospect}
+          tone="prospect"
+          on={statusOn.prospect}
+          onClick={() => setStatusOn((s) => ({ ...s, prospect: !s.prospect }))}
+        />
+        <StatusChip
+          label="Inactive"
+          count={counts.inactive}
+          tone="inactive"
+          on={statusOn.inactive}
+          onClick={() => setStatusOn((s) => ({ ...s, inactive: !s.inactive }))}
+        />
+        <span className="text-[11px] text-muted ml-1">{shownCount} of {total} shown</span>
+        <button
+          onClick={() => setAdding((v) => !v)}
+          className="ml-auto px-3.5 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold flex items-center gap-1.5 hover:brightness-105 transition"
+        >
+          <Plus size={14} />
+          {adding ? 'Cancel' : 'Add account'}
+        </button>
       </div>
 
-      {/* Toolbar */}
-      <Card>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[220px]">
-            <Input
-              label="Search"
-              placeholder="Search by name, contact, consultant, note…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-          <div className="w-40">
-            <Select
-              label="Entity"
-              options={[
-                { label: 'All entities', value: '' },
-                ...TNM_ENTITY_OPTIONS.map((v) => ({ label: v, value: v })),
-              ]}
-              value={entityFilter}
-              onChange={(e) => setEntityFilter(e.target.value as TnmEntity | '')}
-            />
-          </div>
-          <div className="w-36">
-            <Select
-              label="Region"
-              options={[
-                { label: 'All regions', value: '' },
-                ...TNM_REGION_OPTIONS.map((v) => ({ label: v, value: v })),
-              ]}
-              value={regionFilter}
-              onChange={(e) => setRegionFilter(e.target.value as TnmRegion | '')}
-            />
-          </div>
-          <button
-            onClick={() => setAdding((v) => !v)}
-            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold flex items-center gap-2 hover:brightness-105 transition"
-          >
-            <Plus size={16} />
-            {adding ? 'Cancel' : (tab === 'prospects' ? 'Add prospect' : 'Add account')}
-          </button>
+      {/* Search + Entity + Region */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[220px] relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search name, contact, consultant, note…"
+            className="w-full pl-8 pr-2 py-2 rounded-lg border border-line text-sm bg-surface focus:outline-none focus:border-primary"
+          />
         </div>
+        <div className="w-40">
+          <Select
+            options={[
+              { label: 'All entities', value: '' },
+              ...TNM_ENTITY_OPTIONS.map((v) => ({ label: v, value: v })),
+            ]}
+            value={entityFilter}
+            onChange={(e) => setEntityFilter(e.target.value as TnmEntity | '')}
+          />
+        </div>
+        <div className="w-36">
+          <Select
+            options={[
+              { label: 'All regions', value: '' },
+              ...TNM_REGION_OPTIONS.map((v) => ({ label: v, value: v })),
+            ]}
+            value={regionFilter}
+            onChange={(e) => setRegionFilter(e.target.value as TnmRegion | '')}
+          />
+        </div>
+      </div>
 
-        {adding && (
-          <div className="mt-4 pt-4 border-t border-line/60 grid grid-cols-1 md:grid-cols-3 gap-3">
+      {adding && (
+        <Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Input
               label="Account name *"
               placeholder="e.g. Persistent Systems"
@@ -186,6 +215,16 @@ export default function TnmAccountsPage() {
               options={TNM_WORK_TYPE_OPTIONS.map((v) => ({ label: v, value: v }))}
               value={newWorkType}
               onChange={(e) => setNewWorkType(e.target.value as TnmWorkType | '')}
+            />
+            <Select
+              label="Status *"
+              options={[
+                { label: 'Active', value: 'active' },
+                { label: 'Prospect', value: 'prospect' },
+                { label: 'Inactive', value: 'inactive' },
+              ]}
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value as TnmStatus)}
             />
             <Input
               label="Key contact"
@@ -219,61 +258,41 @@ export default function TnmAccountsPage() {
                 disabled={!newName.trim()}
                 className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-40 hover:brightness-105 transition"
               >
-                Create {tab === 'prospects' ? 'prospect' : 'account'}
+                Create account
               </button>
             </div>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
 
-      {/* Table */}
-      <Card flush>
-        {filtered.length === 0 ? (
+      {/* Tile grid */}
+      {filtered.length === 0 ? (
+        <Card>
           <EmptyState
-            title={tab === 'prospects' ? 'No prospects yet' : 'No accounts match'}
-            description={tab === 'prospects'
-              ? 'Add prospective accounts here — they convert to TNM accounts when the status changes.'
-              : 'Try clearing filters, or add a new account with the button above.'}
+            title={total === 0 ? 'No accounts yet' : 'No accounts match'}
+            description={total === 0
+              ? 'Add your first SI partner, direct end client, or prospect using the button above.'
+              : 'Try turning on more status chips, clearing filters, or clearing the search.'}
           />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-muted border-b border-line/70">
-                  <th className="text-left px-4 py-3 font-semibold">Account</th>
-                  <th className="text-left px-3 py-3 font-semibold">Entity</th>
-                  <th className="text-left px-3 py-3 font-semibold">Work type</th>
-                  <th className="text-left px-3 py-3 font-semibold">Region</th>
-                  <th className="text-left px-3 py-3 font-semibold">Consultant used</th>
-                  <th className="text-left px-3 py-3 font-semibold">Key contact</th>
-                  <th className="text-left px-3 py-3 font-semibold">Owner note</th>
-                  <th className="text-left px-3 py-3 font-semibold">Contacts</th>
-                  <th className="text-left px-3 py-3 font-semibold">Status</th>
-                  <th className="text-right px-4 py-3 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((a) => (
-                  <AccountRow
-                    key={a.id}
-                    account={a}
-                    contactCount={contactsByAccount.get(a.id) ?? 0}
-                    onOpen={() => setDrawerId(a.id)}
-                    onPatch={(patch) => updateAccount(a.id, patch)}
-                    onConvert={() => setStatus(a.id, 'active')}
-                    onRemove={() => {
-                      if (window.confirm(`Delete "${a.name}"? This will remove ${contactsByAccount.get(a.id) ?? 0} contacts.`)) {
-                        removeAccount(a.id);
-                      }
-                    }}
-                    isProspect={tab === 'prospects'}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filtered.map((a) => (
+            <AccountTile
+              key={a.id}
+              account={a}
+              contactCount={contactsByAccount.get(a.id) ?? 0}
+              onOpen={() => setDrawerId(a.id)}
+              onConvert={() => setStatus(a.id, 'active')}
+              onRemove={() => {
+                if (window.confirm(`Delete "${a.name}"? This will remove ${contactsByAccount.get(a.id) ?? 0} contacts.`)) {
+                  removeAccount(a.id);
+                }
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Detail drawer */}
       <Drawer
@@ -297,117 +316,148 @@ export default function TnmAccountsPage() {
   );
 }
 
-// ─── Row (inline editable) ────────────────────────────────────────────
+// ─── Tile ─────────────────────────────────────────────────────────────
 
-function AccountRow({
-  account, contactCount, onOpen, onPatch, onConvert, onRemove, isProspect,
+function AccountTile({
+  account, contactCount, onOpen, onConvert, onRemove,
 }: {
   account: TnmAccount;
   contactCount: number;
   onOpen: () => void;
-  onPatch: (patch: Partial<TnmAccount>) => void;
   onConvert: () => void;
   onRemove: () => void;
-  isProspect: boolean;
 }) {
+  const isProspect = account.status === 'prospect';
+  const isInactive = account.status === 'inactive';
+  const borderTone =
+    account.status === 'active'   ? 'border-emerald-200 hover:border-emerald-400' :
+    account.status === 'prospect' ? 'border-amber-200 hover:border-amber-400' :
+                                     'border-line/70 hover:border-line';
   return (
-    <tr className="border-b border-line/40 hover:bg-surface-2/40 transition">
-      <td className="px-4 py-3">
-        <button
-          onClick={onOpen}
-          className="text-left font-semibold text-ink hover:text-primary transition"
-        >
-          {account.name}
-        </button>
-      </td>
-      <td className="px-3 py-2">
-        <InlineSelect
-          value={account.entity}
-          options={TNM_ENTITY_OPTIONS}
-          onChange={(v) => onPatch({ entity: v as TnmEntity })}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <InlineSelect
-          value={account.workType ?? ''}
-          placeholder="—"
-          options={TNM_WORK_TYPE_OPTIONS}
-          onChange={(v) => onPatch({ workType: (v || null) as TnmWorkType | null })}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <InlineSelect
-          value={account.region}
-          options={TNM_REGION_OPTIONS}
-          onChange={(v) => onPatch({ region: v as TnmRegion })}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <InlineText
-          value={account.staffingConsultant ?? ''}
-          placeholder="—"
-          onChange={(v) => onPatch({ staffingConsultant: v || null })}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <InlineText
-          value={account.keyContact ?? ''}
-          placeholder="—"
-          onChange={(v) => onPatch({ keyContact: v || null })}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <InlineText
-          value={account.ownerNote ?? ''}
-          placeholder="—"
-          onChange={(v) => onPatch({ ownerNote: v || null })}
-        />
-      </td>
-      <td className="px-3 py-2 text-center">
-        <button
-          onClick={onOpen}
-          className="text-xs text-primary font-semibold hover:underline"
-        >
-          {contactCount === 0 ? '+ add' : `${contactCount}`}
-        </button>
-      </td>
-      <td className="px-3 py-2">
+    <div
+      className={`group relative rounded-xl border ${borderTone} bg-surface p-4 transition ${isInactive ? 'opacity-70' : ''}`}
+    >
+      {/* Top row: status pill + row actions */}
+      <div className="flex items-start justify-between gap-2 mb-2">
         <StatusPill status={account.status} />
-      </td>
-      <td className="px-4 py-2">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
           {isProspect && (
             <button
               onClick={onConvert}
-              title="Convert to TNM account"
-              className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50 transition"
+              title="Convert to active TNM account"
+              className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 transition"
             >
-              <ArrowRightCircle size={16} />
+              <ArrowRightCircle size={14} />
             </button>
           )}
           <button
             onClick={onRemove}
             title="Delete account"
-            className="p-1.5 rounded-md text-red-500 hover:bg-red-50 transition"
+            className="p-1 rounded-md text-red-500 hover:bg-red-50 transition"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
           </button>
         </div>
-      </td>
-    </tr>
+      </div>
+
+      {/* Name — click opens drawer */}
+      <button
+        onClick={onOpen}
+        className="block text-left w-full mb-2 group/name"
+      >
+        <div className="text-base font-bold text-ink group-hover/name:text-primary transition truncate">
+          {account.name}
+        </div>
+      </button>
+
+      {/* Chips row — entity + region + work-type */}
+      <div className="flex flex-wrap gap-1 mb-3">
+        <MiniChip icon={Building2}>{account.entity}</MiniChip>
+        <MiniChip icon={MapPin}>{account.region}</MiniChip>
+        {account.workType && <MiniChip>{account.workType}</MiniChip>}
+      </div>
+
+      {/* Facts */}
+      <div className="space-y-1 text-[12px] text-ink/80">
+        {account.keyContact && (
+          <div className="flex items-center gap-1.5 truncate">
+            <User size={11} className="text-muted flex-shrink-0" />
+            <span className="text-muted uppercase tracking-wider text-[9.5px]">Contact</span>
+            <span className="truncate">{account.keyContact}</span>
+          </div>
+        )}
+        {account.staffingConsultant && (
+          <div className="flex items-center gap-1.5 truncate">
+            <Users size={11} className="text-muted flex-shrink-0" />
+            <span className="text-muted uppercase tracking-wider text-[9.5px]">Consultant</span>
+            <span className="truncate">{account.staffingConsultant}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Owner note */}
+      {account.ownerNote && (
+        <div className="mt-3 text-[11px] text-muted italic border-t border-line/40 pt-2 line-clamp-2">
+          {account.ownerNote}
+        </div>
+      )}
+
+      {/* Footer: contact count */}
+      <div className="mt-3 pt-2 border-t border-line/40 flex items-center justify-between text-[11px] text-muted">
+        <button onClick={onOpen} className="hover:text-primary transition">
+          {contactCount === 0 ? '+ add contact' : `${contactCount} contact${contactCount === 1 ? '' : 's'}`}
+        </button>
+        <button onClick={onOpen} className="hover:text-primary transition">
+          Edit →
+        </button>
+      </div>
+    </div>
   );
 }
 
-// ─── Drawer (detail + contacts) ────────────────────────────────────────
+function MiniChip({ icon: Icon, children }: { icon?: React.ComponentType<{ size?: number; className?: string }>; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-surface-2 text-[10.5px] font-semibold text-ink/80 border border-line/60">
+      {Icon && <Icon size={9} className="text-muted" />}
+      {children}
+    </span>
+  );
+}
+
+function StatusChip({
+  label, count, tone, on, onClick,
+}: {
+  label: string;
+  count: number;
+  tone: 'active' | 'prospect' | 'inactive';
+  on: boolean;
+  onClick: () => void;
+}) {
+  const activeTone =
+    tone === 'active' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
+    tone === 'prospect' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' :
+    'bg-slate-500 text-white border-slate-500 shadow-sm';
+  const offTone = 'bg-surface text-muted border-line hover:border-primary hover:text-primary';
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-[12px] font-semibold border transition ${on ? activeTone : offTone}`}
+    >
+      {label} <span className={`ml-1 text-[10.5px] ${on ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
+    </button>
+  );
+}
+
+// ─── Drawer (detail + contacts) — preserved from previous impl ────────
 
 function AccountDrawer({
   account, contacts, onPatch, onAddContact, onPatchContact, onRemoveContact,
 }: {
   account: TnmAccount;
-  contacts: import('../types/tnmAccount').TnmAccountContact[];
+  contacts: TnmAccountContact[];
   onPatch: (patch: Partial<TnmAccount>) => void;
   onAddContact: (p: { name: string; email?: string | null; phone?: string | null; title?: string | null; notes?: string | null }) => void;
-  onPatchContact: (id: string, patch: Partial<import('../types/tnmAccount').TnmAccountContact>) => void;
+  onPatchContact: (id: string, patch: Partial<TnmAccountContact>) => void;
   onRemoveContact: (id: string) => void;
 }) {
   const [addName, setAddName] = useState('');
@@ -423,18 +473,55 @@ function AccountDrawer({
 
   return (
     <div className="space-y-6">
-      {/* Meta at a glance */}
+      {/* Editable core fields */}
       <div className="grid grid-cols-2 gap-3">
-        <MetaTile icon={Building2} label="Entity" value={account.entity} />
-        <MetaTile icon={MapPin} label="Region" value={account.region} />
-        <MetaTile icon={User} label="Key contact" value={account.keyContact ?? '—'} />
-        <MetaTile icon={Users} label="Consultant" value={account.staffingConsultant ?? '—'} />
+        <Select
+          label="Entity"
+          options={TNM_ENTITY_OPTIONS.map((v) => ({ label: v, value: v }))}
+          value={account.entity}
+          onChange={(e) => onPatch({ entity: e.target.value as TnmEntity })}
+        />
+        <Select
+          label="Region"
+          options={TNM_REGION_OPTIONS.map((v) => ({ label: v, value: v }))}
+          value={account.region}
+          onChange={(e) => onPatch({ region: e.target.value as TnmRegion })}
+        />
+        <Select
+          label="Work type"
+          placeholder="(unspecified)"
+          options={TNM_WORK_TYPE_OPTIONS.map((v) => ({ label: v, value: v }))}
+          value={account.workType ?? ''}
+          onChange={(e) => onPatch({ workType: (e.target.value || null) as TnmWorkType | null })}
+        />
+        <Input
+          label="Key contact"
+          placeholder="Person we deal with"
+          value={account.keyContact ?? ''}
+          onChange={(e) => onPatch({ keyContact: e.target.value || null })}
+        />
+        <div className="col-span-2">
+          <Input
+            label="Consultant used"
+            placeholder="Who did we place / propose"
+            value={account.staffingConsultant ?? ''}
+            onChange={(e) => onPatch({ staffingConsultant: e.target.value || null })}
+          />
+        </div>
+        <div className="col-span-2">
+          <Input
+            label="Owner / note"
+            placeholder="e.g. Pragna, Raghu to forward"
+            value={account.ownerNote ?? ''}
+            onChange={(e) => onPatch({ ownerNote: e.target.value || null })}
+          />
+        </div>
       </div>
 
       <div>
         <label className="block text-[11px] font-semibold text-muted uppercase tracking-wider mb-1.5">Notes</label>
         <textarea
-          className="w-full px-3 py-2 rounded-lg border border-line text-sm text-ink resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          className="w-full px-3 py-2 rounded-lg border border-line text-sm text-ink bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           rows={4}
           value={account.notes ?? ''}
           onChange={(e) => onPatch({ notes: e.target.value || null })}
@@ -448,13 +535,12 @@ function AccountDrawer({
             <UserPlus size={15} /> Contacts <span className="text-xs text-muted font-normal">({contacts.length})</span>
           </h3>
         </div>
-
         <div className="space-y-2">
           {contacts.map((c) => (
             <div key={c.id} className="border border-line rounded-lg p-3 space-y-2">
               <div className="flex gap-2">
                 <input
-                  className="flex-1 px-2 py-1 rounded border border-line text-sm font-semibold"
+                  className="flex-1 px-2 py-1 rounded border border-line text-sm font-semibold bg-surface"
                   value={c.name}
                   onChange={(e) => onPatchContact(c.id, { name: e.target.value })}
                 />
@@ -468,19 +554,19 @@ function AccountDrawer({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <input
-                  className="px-2 py-1 rounded border border-line text-xs"
+                  className="px-2 py-1 rounded border border-line text-xs bg-surface"
                   placeholder="Title"
                   value={c.title ?? ''}
                   onChange={(e) => onPatchContact(c.id, { title: e.target.value || null })}
                 />
                 <input
-                  className="px-2 py-1 rounded border border-line text-xs"
+                  className="px-2 py-1 rounded border border-line text-xs bg-surface"
                   placeholder="Email"
                   value={c.email ?? ''}
                   onChange={(e) => onPatchContact(c.id, { email: e.target.value || null })}
                 />
                 <input
-                  className="px-2 py-1 rounded border border-line text-xs col-span-2"
+                  className="px-2 py-1 rounded border border-line text-xs col-span-2 bg-surface"
                   placeholder="Phone"
                   value={c.phone ?? ''}
                   onChange={(e) => onPatchContact(c.id, { phone: e.target.value || null })}
@@ -489,30 +575,29 @@ function AccountDrawer({
             </div>
           ))}
 
-          {/* Add contact */}
           <div className="border-2 border-dashed border-line rounded-lg p-3 space-y-2">
             <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">Add contact</div>
             <input
-              className="w-full px-2 py-1 rounded border border-line text-sm"
+              className="w-full px-2 py-1 rounded border border-line text-sm bg-surface"
               placeholder="Name *"
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
             />
             <div className="grid grid-cols-2 gap-2">
               <input
-                className="px-2 py-1 rounded border border-line text-xs"
+                className="px-2 py-1 rounded border border-line text-xs bg-surface"
                 placeholder="Title"
                 value={addTitle}
                 onChange={(e) => setAddTitle(e.target.value)}
               />
               <input
-                className="px-2 py-1 rounded border border-line text-xs"
+                className="px-2 py-1 rounded border border-line text-xs bg-surface"
                 placeholder="Email"
                 value={addEmail}
                 onChange={(e) => setAddEmail(e.target.value)}
               />
               <input
-                className="px-2 py-1 rounded border border-line text-xs col-span-2"
+                className="px-2 py-1 rounded border border-line text-xs col-span-2 bg-surface"
                 placeholder="Phone"
                 value={addPhone}
                 onChange={(e) => setAddPhone(e.target.value)}
@@ -548,86 +633,24 @@ function AccountDrawer({
           ))}
         </div>
         {account.status === 'prospect' && (
-          <p className="mt-2 text-[11px] text-muted italic">Convert to <strong>active</strong> when this account starts producing work — it will move to the TNM Accounts tab.</p>
+          <p className="mt-2 text-[11px] text-muted italic">Convert to <strong>active</strong> when this account starts producing work.</p>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Small helpers ─────────────────────────────────────────────────────
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg text-sm font-semibold border transition ${
-        active
-          ? 'bg-primary text-white border-primary shadow-sm'
-          : 'bg-surface text-muted border-line hover:border-primary hover:text-primary'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
+// ─── Small helpers ────────────────────────────────────────────────────
 
 function StatusPill({ status }: { status: string }) {
   const tone = status === 'active'
-    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
     : status === 'prospect'
-      ? 'bg-amber-50 text-amber-700 border-amber-200'
-      : 'bg-slate-100 text-slate-500 border-slate-200';
+      ? 'bg-amber-100 text-amber-800 border-amber-200'
+      : 'bg-slate-100 text-slate-600 border-slate-200';
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${tone}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${tone}`}>
       {status}
     </span>
-  );
-}
-
-function InlineSelect({
-  value, options, onChange, placeholder,
-}: { value: string; options: string[]; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-2 py-1 rounded border border-transparent hover:border-line focus:border-primary text-sm text-ink bg-transparent focus:bg-surface transition"
-    >
-      {placeholder !== undefined && <option value="">{placeholder}</option>}
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
-  );
-}
-
-function InlineText({
-  value, onChange, placeholder,
-}: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const [local, setLocal] = useState(value);
-  // Sync from parent when the underlying value updates (e.g. realtime).
-  if (local !== value && document.activeElement?.tagName !== 'INPUT') {
-    setLocal(value);
-  }
-  return (
-    <input
-      value={local}
-      onChange={(e) => setLocal(e.target.value)}
-      onBlur={() => { if (local !== value) onChange(local); }}
-      placeholder={placeholder}
-      className="w-full px-2 py-1 rounded border border-transparent hover:border-line focus:border-primary text-sm text-ink bg-transparent focus:bg-surface transition placeholder:text-muted/60"
-    />
-  );
-}
-
-function MetaTile({
-  icon: Icon, label, value,
-}: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: string }) {
-  return (
-    <div className="border border-line/70 rounded-lg p-3">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider mb-1">
-        <Icon size={11} /> {label}
-      </div>
-      <div className="text-sm font-semibold text-ink truncate">{value}</div>
-    </div>
   );
 }

@@ -41,15 +41,44 @@ export function AuthGate({ children }: Props) {
       }
     }
 
-    // Read initial session from localStorage (Supabase persists it)
-    supabase.auth.getSession().then(({ data }) => {
-      void applySession(data.session);
-      if (mounted) setLoading(false);
-    });
+    // Read initial session from localStorage (Supabase persists it).
+    // A null session paired with an `error` is a *transient* failure — a
+    // network blip, or a refresh-token rotation triggered by a second open
+    // tab — not a real sign-out. Treating it as "logged out" is what caused
+    // authorized users to hit the sign-in wall on reload. So on such an error
+    // we stay in the loading state and retry once before giving up.
+    async function loadInitialSession(attempt = 0) {
+      const { data, error } = await supabase.auth.getSession();
+      if (!mounted) return;
 
-    // Subscribe to auth state changes — handles sign-in via magic link, sign-out, token refresh
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      void applySession(newSession);
+      if (error && !data.session && attempt === 0) {
+        // Transient: keep showing the loader and try again shortly.
+        setTimeout(() => {
+          void loadInitialSession(1);
+        }, 1500);
+        return;
+      }
+
+      void applySession(data.session);
+      setLoading(false);
+    }
+    void loadInitialSession();
+
+    // Subscribe to auth state changes — handles sign-in via OAuth callback,
+    // sign-out, and token refresh.
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'SIGNED_OUT') {
+        // An explicit sign-out is the ONLY event that should tear down the
+        // session and show the sign-in page.
+        void applySession(null);
+        return;
+      }
+      // SIGNED_IN / TOKEN_REFRESHED / INITIAL_SESSION / USER_UPDATED: adopt the
+      // new session as-is. If a refresh momentarily reports no session, we keep
+      // the current one rather than dropping the user to the sign-in wall.
+      if (newSession) {
+        void applySession(newSession);
+      }
     });
 
     return () => {

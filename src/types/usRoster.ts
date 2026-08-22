@@ -102,3 +102,50 @@ export function calcAssignmentMarginAbsolute(a: Pick<USRosterAssignment, 'cost_p
 export function calcAssignmentMonthlyRevenue(a: Pick<USRosterAssignment, 'bill_rate'>): number {
   return Math.round((a.bill_rate || 0) * 160);
 }
+
+/**
+ * Roll a set of contracts up into one consultant-level summary.
+ *
+ * All four Global Roster views (By Client, By Consultant, Cards, Table)
+ * MUST use this so the numbers agree. The legacy per-person cost / bill
+ * fields on `us_roster` are ignored — they were captured by an earlier
+ * schema (one row per consultant) and became meaningless once a consultant
+ * could have N contracts at different rates. `us_roster_assignments` is
+ * the source of truth.
+ */
+export function blendConsultantTotals(
+  assignments: Pick<USRosterAssignment, 'cost_per_hour' | 'bill_rate'>[],
+): {
+  contractCount: number;
+  monthlyRevenue: number;
+  monthlyCost: number;
+  monthlyMargin: number;
+  marginPct: number;
+  weightedBillRate: number;
+  weightedCostRate: number;
+} {
+  if (assignments.length === 0) {
+    return {
+      contractCount: 0,
+      monthlyRevenue: 0, monthlyCost: 0, monthlyMargin: 0,
+      marginPct: 0, weightedBillRate: 0, weightedCostRate: 0,
+    };
+  }
+  const monthlyRevenue = assignments.reduce((s, a) => s + (a.bill_rate || 0) * 160, 0);
+  const monthlyCost    = assignments.reduce((s, a) => s + (a.cost_per_hour || 0) * 160, 0);
+  const monthlyMargin  = monthlyRevenue - monthlyCost;
+  const marginPct      = monthlyRevenue > 0 ? Math.round((monthlyMargin / monthlyRevenue) * 100) : 0;
+  // Assumes each contract is 160 hrs; the weighted rates come out the same
+  // as the plain average of the rates, weighted by 160.
+  const weightedBillRate = Math.round(monthlyRevenue / (assignments.length * 160));
+  const weightedCostRate = Math.round(monthlyCost    / (assignments.length * 160));
+  return {
+    contractCount: assignments.length,
+    monthlyRevenue: Math.round(monthlyRevenue),
+    monthlyCost: Math.round(monthlyCost),
+    monthlyMargin: Math.round(monthlyMargin),
+    marginPct,
+    weightedBillRate,
+    weightedCostRate,
+  };
+}

@@ -29,12 +29,14 @@ import {
   Building2, MapPin, X, Trash2, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import type { USRosterMember } from '../../types/usRoster';
-import { US_ROSTER_STATUSES, US_ROSTER_STATUS_COLORS, calcUSMarginPercent as calcMarginPercent } from '../../types/usRoster';
+import { US_ROSTER_STATUSES, US_ROSTER_STATUS_COLORS } from '../../types/usRoster';
 import { ROSTER_ROLES } from '../../types/indiaRoster';
 import type { VisaCategory } from '../../types/openBench';
 import { Card } from '../../components/ui';
 import { Sensitive } from '../../components/Sensitive';
 import { OwnerOnly, useIsOwner } from '../../components/OwnerOnly';
+import { useUSRosterStore } from '../../store/useUSRosterStore';
+import { blendConsultantTotals } from '../../types/usRoster';
 import { useCollapsedGroups } from '../../lib/useCollapsedGroups';
 
 const VISA_CATEGORIES: VisaCategory[] = ['H1B', 'L1', 'L2 EAD', 'H4 EAD', 'GC', 'GC EAD', 'US Citizen', 'OPT', 'CPT', 'TN', 'Other'];
@@ -99,6 +101,21 @@ export function USRosterCardGrid({ members, onSave, onDelete }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const groupState = useCollapsedGroups('us-roster-project', { defaultCollapsed: false });
 
+  // Per-consultant totals from the per-contract assignments table — the same
+  // source By Client + By Consultant + StatCards all read. See
+  // blendConsultantTotals.
+  const assignments = useUSRosterStore((s) => s.assignments);
+  const totalsByRoster = useMemo(() => {
+    const grouped = new Map<string, typeof assignments>();
+    for (const a of assignments) {
+      if (!grouped.has(a.roster_id)) grouped.set(a.roster_id, []);
+      grouped.get(a.roster_id)!.push(a);
+    }
+    const out = new Map<string, ReturnType<typeof blendConsultantTotals>>();
+    for (const [id, list] of grouped) out.set(id, blendConsultantTotals(list));
+    return out;
+  }, [assignments]);
+
   const grouped = useMemo(() => {
     const byGroup = new Map<string, USRosterMember[]>();
     for (const m of members) {
@@ -108,11 +125,15 @@ export function USRosterCardGrid({ members, onSave, onDelete }: Props) {
       byGroup.set(key, list);
     }
     const groups = Array.from(byGroup.entries()).map(([name, ms]) => {
-      const withRate = ms.filter((m) => m.bill_rate > 0);
-      const avgMargin = withRate.length
-        ? Math.round(withRate.reduce((s, m) => s + calcMarginPercent(m), 0) / withRate.length)
-        : 0;
-      const revenue = ms.reduce((s, m) => s + (Number(m.bill_rate) || 0) * 160, 0);
+      let revenue = 0;
+      let cost = 0;
+      for (const m of ms) {
+        const t = totalsByRoster.get(m.id);
+        if (!t) continue;
+        revenue += t.monthlyRevenue;
+        cost += t.monthlyCost;
+      }
+      const avgMargin = revenue > 0 ? Math.round(((revenue - cost) / revenue) * 100) : 0;
       const billable = ms.filter((m) => m.status === 'Billable').length;
       return { name, members: ms, avgMargin, revenue, billable };
     });
@@ -220,7 +241,14 @@ export function USRosterCardGrid({ members, onSave, onDelete }: Props) {
 
 function MemberCard({ member: m, onOpen }: { member: USRosterMember; onOpen: () => void }) {
   const statusColor = US_ROSTER_STATUS_COLORS[m.status] || '#94a3b8';
-  const pct = calcMarginPercent(m);
+  // Blended over per-contract assignments — matches By Client / By Consultant.
+  const assignments = useUSRosterStore((s) => s.assignments);
+  const totals = useMemo(
+    () => blendConsultantTotals(assignments.filter((a) => a.roster_id === m.id)),
+    [assignments, m.id],
+  );
+  const pct = totals.marginPct;
+  const displayBillRate = totals.weightedBillRate;
   const tone = marginTone(pct);
   const skills = parseSkills(m.skills).slice(0, 3);
   const extraSkills = Math.max(0, parseSkills(m.skills).length - 3);
@@ -261,7 +289,7 @@ function MemberCard({ member: m, onOpen }: { member: USRosterMember; onOpen: () 
           <span className="text-[9px] uppercase tracking-wider opacity-70">margin</span>
         </div>
         <div className="text-[11px] text-muted">
-          {m.bill_rate > 0 ? <><OwnerOnly><Sensitive>{`$${m.bill_rate}`}</Sensitive></OwnerOnly><span className="text-muted/70">/hr</span></> : <span className="italic">no rate</span>}
+          {displayBillRate > 0 ? <><OwnerOnly><Sensitive>{`$${displayBillRate}`}</Sensitive></OwnerOnly><span className="text-muted/70">/hr</span></> : <span className="italic">no rate</span>}
         </div>
       </div>
 
@@ -305,7 +333,13 @@ function MemberDrawer({
   onDelete: (id: string) => void;
 }) {
   const statusColor = US_ROSTER_STATUS_COLORS[m.status] || '#94a3b8';
-  const pct = calcMarginPercent(m);
+  const assignments = useUSRosterStore((s) => s.assignments);
+  const totals = useMemo(
+    () => blendConsultantTotals(assignments.filter((a) => a.roster_id === m.id)),
+    [assignments, m.id],
+  );
+  const pct = totals.marginPct;
+  const displayBillRate = totals.weightedBillRate;
   const tone = marginTone(pct);
   const isOwner = useIsOwner();
 
@@ -322,7 +356,7 @@ function MemberDrawer({
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-base font-extrabold text-ink tracking-tight truncate">{m.name || 'Unnamed'}</div>
-            <div className="text-xs text-muted truncate">{m.role} · <OwnerOnly>{m.bill_rate > 0 ? <Sensitive>{`$${m.bill_rate}/hr`}</Sensitive> : 'no rate'}</OwnerOnly></div>
+            <div className="text-xs text-muted truncate">{m.role} · <OwnerOnly>{displayBillRate > 0 ? <Sensitive>{`$${displayBillRate}/hr`}</Sensitive> : 'no rate'}</OwnerOnly></div>
             <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: statusColor }}>
               {m.status}
             </div>
@@ -367,23 +401,16 @@ function MemberDrawer({
               </Select>
             </div>
             {isOwner && (
-              <>
-                <div>
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">Cost/hr ($)</label>
-                  <Input type="number" value={m.cost_per_hour} onChange={(e) => onSave(m.id, 'cost_per_hour', Number(e.target.value))} className="mt-1" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wider">Bill Rate ($/hr)</label>
-                  <Input type="number" value={m.bill_rate} onChange={(e) => onSave(m.id, 'bill_rate', Number(e.target.value))} className="mt-1" />
-                </div>
-              </>
+              <div className="col-span-2 rounded-lg border border-line/60 bg-surface-2/50 px-3 py-2 text-[11px] text-muted">
+                Cost and bill are set per-contract. Open <strong className="text-ink">By Consultant</strong> above to edit this consultant's contract rates.
+              </div>
             )}
             <div className="col-span-2 flex items-center gap-3 rounded-lg border border-line/60 bg-surface-2/70 px-3 py-2 text-xs">
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${tone.bg} ${tone.fg} font-bold`}>
                 {pct > 0 ? <OwnerOnly><Sensitive>{`${pct}%`}</Sensitive></OwnerOnly> : '—'} margin
               </span>
               <span className="text-muted">
-                Monthly @160h: <strong className="text-ink"><OwnerOnly><Sensitive>{`$${((m.bill_rate || 0) * 160).toLocaleString()}`}</Sensitive></OwnerOnly></strong>
+                Monthly across contracts: <strong className="text-ink"><OwnerOnly><Sensitive>{`$${totals.monthlyRevenue.toLocaleString()}`}</Sensitive></OwnerOnly></strong>
               </span>
             </div>
             <div>

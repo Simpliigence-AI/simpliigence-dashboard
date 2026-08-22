@@ -19,7 +19,7 @@ import { Sensitive } from '../components/Sensitive';
 import { OwnerOnly, useIsOwner } from '../components/OwnerOnly';
 import {
   US_ROSTER_STATUSES, US_ROSTER_STATUS_COLORS,
-  calcUSMarginPercent, calcUSMarginAbsolute,
+  blendConsultantTotals,
   type USRosterStatus,
 } from '../types/usRoster';
 import { ROSTER_ROLES } from '../types/indiaRoster';
@@ -249,8 +249,26 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function USRosterPage() {
   const { members, addMember, updateMember, removeMember } = useUSRosterStore();
+  const assignments = useUSRosterStore((s) => s.assignments);
   const pipelineProjects = usePipelineStore((s) => s.projects);
   const isOwner = useIsOwner();
+
+  /**
+   * All economics — StatCards, table cost/bill/margin cells, CSV export —
+   * derive from the per-contract `assignments` table, NOT the legacy flat
+   * `us_roster.cost_per_hour` / `bill_rate` fields. See blendConsultantTotals
+   * comment for background.
+   */
+  const totalsByRoster = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof blendConsultantTotals>>();
+    const grouped = new Map<string, typeof assignments>();
+    for (const a of assignments) {
+      if (!grouped.has(a.roster_id)) grouped.set(a.roster_id, []);
+      grouped.get(a.roster_id)!.push(a);
+    }
+    for (const [id, list] of grouped) map.set(id, blendConsultantTotals(list));
+    return map;
+  }, [assignments]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [roleFilter, setRoleFilter] = useState<string>('All');
@@ -305,28 +323,56 @@ export default function USRosterPage() {
     if (roleFilter !== 'All') data = data.filter(m => m.role === roleFilter);
     if (visaFilter !== 'All') data = data.filter(m => m.visa_category === visaFilter);
 
+    // Cost/bill/margin sorts read from the blended per-contract totals so
+    // sort order matches what the row is actually showing. Anything else
+    // falls back to the member's own field.
+    const numFromTotals = (id: string, field: string): number => {
+      const t = totalsByRoster.get(id);
+      if (!t) return 0;
+      if (field === 'cost_per_hour') return t.weightedCostRate;
+      if (field === 'bill_rate') return t.weightedBillRate;
+      if (field === 'margin_pct') return t.marginPct;
+      return 0;
+    };
     data.sort((a, b) => {
+      if (sortField === 'cost_per_hour' || sortField === 'bill_rate' || sortField === 'margin_pct') {
+        const av = numFromTotals(a.id, sortField);
+        const bv = numFromTotals(b.id, sortField);
+        return sortAsc ? av - bv : bv - av;
+      }
       const av = (a as any)[sortField];
       const bv = (b as any)[sortField];
       if (typeof av === 'number' && typeof bv === 'number') return sortAsc ? av - bv : bv - av;
       return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
     return data;
-  }, [members, search, statusFilter, roleFilter, visaFilter, sortField, sortAsc]);
+  }, [members, search, statusFilter, roleFilter, visaFilter, sortField, sortAsc, totalsByRoster]);
 
   /* —— Stats —— */
   const total = members.length;
   const billable = members.filter(m => m.status === 'Billable').length;
   const bench = members.filter(m => m.status === 'Bench').length;
-  const avgMargin = useMemo(() => {
-    const billableMembers = members.filter(m => m.status === 'Billable' && m.bill_rate > 0);
-    if (billableMembers.length === 0) return 0;
-    const sum = billableMembers.reduce((s, m) => s + calcUSMarginPercent(m), 0);
-    return Math.round(sum / billableMembers.length);
-  }, [members]);
-  const monthlyRevenue = useMemo(() =>
-    members.filter(m => m.status === 'Billable').reduce((s, m) => s + m.bill_rate * 160, 0),
-    [members]);
+  /**
+   * Aggregate across billable consultants — sum of every one of their
+   * contracts. avg margin is revenue-weighted (not a plain average of
+   * per-consultant percentages), so a $10k contract at 40% doesn't get
+   * the same weight as a $200k contract at 20%.
+   */
+  const { avgMargin, monthlyRevenue } = useMemo(() => {
+    let rev = 0;
+    let cost = 0;
+    for (const m of members) {
+      if (m.status !== 'Billable') continue;
+      const t = totalsByRoster.get(m.id);
+      if (!t) continue;
+      rev += t.monthlyRevenue;
+      cost += t.monthlyCost;
+    }
+    return {
+      monthlyRevenue: rev,
+      avgMargin: rev > 0 ? Math.round(((rev - cost) / rev) * 100) : 0,
+    };
+  }, [members, totalsByRoster]);
 
   /* —— Project picklist options ——
    * Combine: (a) projects already on roster members (legacy + manual entries),
@@ -384,18 +430,24 @@ export default function USRosterPage() {
     const header = isOwner
       ? 'Name,Role,Project,Status,Visa,Cost/hr,Bill Rate/hr,Margin %,Margin $/hr,Start Date,Location,Skills,Email,Notes'
       : 'Name,Role,Project,Status,Visa,Start Date,Location,Skills,Email,Notes';
-    const rows = filtered.map(m => (isOwner
-      ? [
-          m.name, m.role, m.project, m.status, m.visa_category,
-          m.cost_per_hour, m.bill_rate,
-          calcUSMarginPercent(m), calcUSMarginAbsolute(m),
-          m.start_date, m.location, m.skills, m.email, m.notes,
-        ]
-      : [
-          m.name, m.role, m.project, m.status, m.visa_category,
-          m.start_date, m.location, m.skills, m.email, m.notes,
-        ]
-    ).map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    const rows = filtered.map(m => {
+      const t = totalsByRoster.get(m.id);
+      const cost = t?.weightedCostRate ?? 0;
+      const bill = t?.weightedBillRate ?? 0;
+      const marginPct = t?.marginPct ?? 0;
+      const marginAbs = t ? Math.round(t.monthlyMargin / 160) : 0;
+      return (isOwner
+        ? [
+            m.name, m.role, m.project, m.status, m.visa_category,
+            cost, bill, marginPct, marginAbs,
+            m.start_date, m.location, m.skills, m.email, m.notes,
+          ]
+        : [
+            m.name, m.role, m.project, m.status, m.visa_category,
+            m.start_date, m.location, m.skills, m.email, m.notes,
+          ]
+      ).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
     const csv = [header, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -619,18 +671,9 @@ export default function USRosterPage() {
                 </select>
               </div>
               {isOwner && (
-                <>
-                  <div>
-                    <label className="text-[10px] uppercase text-muted font-semibold">Cost / hr</label>
-                    <input type="number" value={draft.cost_per_hour} onChange={(e) => setDraft({ ...draft, cost_per_hour: Number(e.target.value) })}
-                      className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase text-muted font-semibold">Bill Rate / hr</label>
-                    <input type="number" value={draft.bill_rate} onChange={(e) => setDraft({ ...draft, bill_rate: Number(e.target.value) })}
-                      className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
-                  </div>
-                </>
+                <div className="col-span-2 rounded-lg border border-line/60 bg-surface-2/50 px-3 py-2 text-[11px] text-muted">
+                  Cost and bill are set per-contract now. After saving, open <strong className="text-ink">By Consultant</strong> and add this person's contracts there.
+                </div>
               )}
               <div>
                 <label className="text-[10px] uppercase text-muted font-semibold">Start Date</label>
@@ -648,13 +691,6 @@ export default function USRosterPage() {
                   className="w-full text-xs border rounded px-2 py-1.5 mt-0.5" />
               </div>
             </div>
-            {isOwner && draft.bill_rate > 0 && (
-              <div className="text-[11px] text-muted">
-                Margin preview:&nbsp;
-                <strong className="text-ink/80">{calcUSMarginPercent(draft as any)}%</strong>&nbsp;
-                (${calcUSMarginAbsolute(draft as any).toFixed(2)}/hr)
-              </div>
-            )}
             <div className="flex gap-2 pt-1">
               <button onClick={handleAdd} disabled={!draft.name.trim()} className="text-xs bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50">
                 Save
@@ -707,8 +743,17 @@ export default function USRosterPage() {
             </thead>
             <tbody>
               {filtered.map((m, idx) => {
-                const marginPct = calcUSMarginPercent(m);
-                const marginAbs = calcUSMarginAbsolute(m);
+                // Cost, bill, margin all come from the per-contract
+                // assignments table (blended across all of this consultant's
+                // contracts). The legacy m.cost_per_hour / m.bill_rate are
+                // stale and not read here.
+                const totals = totalsByRoster.get(m.id);
+                const marginPct = totals?.marginPct ?? 0;
+                const marginAbs = totals ? Math.round(totals.monthlyMargin / 160) : 0;
+                const blendedCost = totals?.weightedCostRate ?? 0;
+                const blendedBill = totals?.weightedBillRate ?? 0;
+                const monthlyRev  = totals?.monthlyRevenue ?? 0;
+                const contractCount = totals?.contractCount ?? 0;
                 const marginColor = marginPct >= 50 ? '#10b981' : marginPct >= 30 ? '#f59e0b' : marginPct > 0 ? '#ef4444' : '#94a3b8';
                 return (
                   <tr key={m.id} className="border-t border-line/60 hover:bg-blue-50/30 group">
@@ -750,25 +795,26 @@ export default function USRosterPage() {
                     <td className="px-3 py-2 text-muted">
                       <EditableCell value={m.location} onSave={(v) => handleCellSave(m.id, 'location', v)} />
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3 py-2 text-right tabular-nums" title={contractCount > 1 ? `Blended across ${contractCount} contracts — edit per-contract in Consultant view` : 'From assignments — edit in Consultant view'}>
                       <OwnerOnly>
                         <Sensitive>
-                          <EditableCell value={m.cost_per_hour} type="number" onSave={(v) => handleCellSave(m.id, 'cost_per_hour', v)} />
+                          <span className="text-ink/80">{blendedCost > 0 ? `$${blendedCost}` : '—'}</span>
                         </Sensitive>
                       </OwnerOnly>
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3 py-2 text-right tabular-nums" title={contractCount > 1 ? `Blended across ${contractCount} contracts — edit per-contract in Consultant view` : 'From assignments — edit in Consultant view'}>
                       <OwnerOnly>
                         <Sensitive>
-                          <EditableCell value={m.bill_rate} type="number" onSave={(v) => handleCellSave(m.id, 'bill_rate', v)}
-                            displayContent={<span className="font-semibold text-green-700">${m.bill_rate}/hr</span>}
-                          />
+                          <span className="font-semibold text-green-700">{blendedBill > 0 ? `$${blendedBill}/hr` : '—'}</span>
                         </Sensitive>
                       </OwnerOnly>
+                      {contractCount > 1 && (
+                        <div className="text-[9px] text-muted mt-0.5">{contractCount} contracts · <OwnerOnly><Sensitive>{`$${(monthlyRev/1000).toFixed(1)}k/mo`}</Sensitive></OwnerOnly></div>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      <span className="font-bold" style={{ color: marginColor }} title={`$${marginAbs}/hr profit`}>
-                        {m.bill_rate > 0 ? <OwnerOnly><Sensitive>{`${marginPct}%`}</Sensitive></OwnerOnly> : '—'}
+                      <span className="font-bold" style={{ color: marginColor }} title={`$${marginAbs}/hr blended profit`}>
+                        {monthlyRev > 0 ? <OwnerOnly><Sensitive>{`${marginPct}%`}</Sensitive></OwnerOnly> : '—'}
                       </span>
                     </td>
                     <td className="px-3 py-2">

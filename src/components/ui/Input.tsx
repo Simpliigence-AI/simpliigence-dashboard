@@ -10,7 +10,7 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
     <div className="space-y-1.5">
       {label && <label className="block text-xs font-semibold text-muted uppercase tracking-wider">{label}</label>}
       <input
-        className={`w-full px-3 py-2 rounded-lg border bg-surface text-sm text-ink placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary transition-colors ${error ? 'border-red-400 focus-visible:ring-red-400/50' : 'border-line'} ${className}`}
+        className={`w-full px-3 py-2 rounded-lg border bg-surface-2 text-sm text-ink placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary transition-colors ${error ? 'border-red-400 focus-visible:ring-red-400/50' : 'border-line'} ${className}`}
         {...props}
       />
       {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
@@ -29,7 +29,7 @@ export function Select({ label, options, placeholder, className = '', ...props }
     <div className="space-y-1.5">
       {label && <label className="block text-xs font-semibold text-muted uppercase tracking-wider">{label}</label>}
       <select
-        className={`w-full px-3 py-2 rounded-lg border border-line text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary bg-surface transition-colors ${className}`}
+        className={`w-full px-3 py-2 rounded-lg border border-line text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary bg-surface-2 transition-colors ${className}`}
         {...props}
       >
         {placeholder && <option value="">{placeholder}</option>}
@@ -85,7 +85,7 @@ export function Textarea({ label, className = '', ...props }: TextareaProps) {
     <div className="space-y-1.5">
       {label && <label className="block text-xs font-semibold text-muted uppercase tracking-wider">{label}</label>}
       <textarea
-        className={`w-full px-3 py-2 rounded-lg border border-line bg-surface text-sm text-ink placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary resize-none transition-colors ${className}`}
+        className={`w-full px-3 py-2 rounded-lg border border-line bg-surface-2 text-sm text-ink placeholder:text-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary resize-none transition-colors ${className}`}
         rows={3}
         {...props}
       />

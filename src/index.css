@@ -121,29 +121,42 @@ body {
 
 /**
  * Base form-control colour — catches every raw <input>, <textarea>, and
- * <select> on the app, not just the ones wrapped in our shared <Input> /
- * <Textarea> components. Multiple pages hand-roll their own inputs; any of
- * those that didn't opt into `bg-surface` used to render browser-default
- * white-on-white in dark mode. This rule guarantees a visible value under
- * both palettes without touching every one-off input site.
+ * <select> on the app.
  *
- * Kept as a low-specificity element selector so any explicit Tailwind
- * utility on the input (`bg-surface-2`, `text-emerald-500`, etc.) still
- * wins. Placeholder colour tracks --color-muted for the same reason.
+ * These use `--color-surface-2` (the inset-panel tone), NOT `--color-surface`
+ * (the card tone). Cards are already `bg-surface`, so painting the input the
+ * same colour made fields look like flat text on the card with no visible
+ * box — which read as "font unreadable" even when the text colour was fine.
+ * `--color-surface-2` is a shade separate from the card in both palettes:
+ * `#eef1f6` in light (card is white) and `#1d2a41` in dark (card is #172236),
+ * so the input surface stands out no matter which theme is active.
+ *
+ * Element-level specificity so any explicit Tailwind utility on a specific
+ * input (`bg-white`, `text-emerald-500`, etc.) still wins.
  */
 input, textarea, select {
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-2);
   color: var(--color-ink);
-  border-color: var(--color-line);
+  border: 1px solid var(--color-line);
 }
 input::placeholder, textarea::placeholder {
   color: var(--color-muted);
   opacity: 0.7;
 }
-/* Native date/time indicators and select chevron get repainted for dark. */
+/* Border needs to be a bit brighter in dark mode or the box vanishes on the
+ * inset surface — the light-mode line is designed to be very quiet. */
+:root[data-mode='dark'] input,
+:root[data-mode='dark'] textarea,
+:root[data-mode='dark'] select {
+  border-color: #3b4d78;
+}
+/* Native date/time indicators (SVG calendar/clock icons) are near-black by
+ * default, invisible on a dark inset. Invert them for dark mode only. */
 :root[data-mode='dark'] input[type='date']::-webkit-calendar-picker-indicator,
 :root[data-mode='dark'] input[type='datetime-local']::-webkit-calendar-picker-indicator,
-:root[data-mode='dark'] input[type='time']::-webkit-calendar-picker-indicator {
+:root[data-mode='dark'] input[type='time']::-webkit-calendar-picker-indicator,
+:root[data-mode='dark'] input[type='month']::-webkit-calendar-picker-indicator,
+:root[data-mode='dark'] input[type='week']::-webkit-calendar-picker-indicator {
   filter: invert(0.85);
 }
 

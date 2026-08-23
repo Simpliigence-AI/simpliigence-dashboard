@@ -1,17 +1,20 @@
 /**
- * Actual Hours page — read-only view of timesheet data synced from Zoho People.
+ * Actual Hours — read-only view of timesheet actuals.
  *
- * Mirrors the layout of TeamRosterPage so the People / Projects / Table sub-tabs
- * feel like siblings: Project Team shows the forecast plan, this page shows the
- * actuals that were logged. A fourth "vs Forecast" tab compares them.
+ * Source of truth: the /my-time portal. Users submit their weekly time,
+ * managers approve, and the rows land in `time_entries`. The
+ * `unified_actual_hours` SQL view reads submitted + approved rows and
+ * exposes them here in the shape the People / Projects / Table /
+ * vs Forecast tabs already use.
  *
- * Source of truth: Zoho People Timetracker, refreshed via the `zoho-people-sync`
- * Supabase edge function. The "Sync from Zoho People" button at the top of the
- * page triggers a re-sync; data is cached in Supabase and localStorage between
- * syncs.
+ * Zoho People sync was retired on 2026-08-22. Historical Zoho rows for
+ * dates strictly before 2026-08-01 are still stitched in by the view so
+ * June and July aren't blanked out during the mid-July cutover, but from
+ * August forward this page shows only what people submitted through
+ * /my-time.
  */
 import { useEffect, useState } from 'react';
-import { Clock, Loader2, RefreshCw } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { useActualHoursStore } from '../store';
@@ -31,33 +34,14 @@ function loadTab(): TabKey {
 
 export default function ActualHoursPage() {
   const entries = useActualHoursStore((s) => s.entries);
-  const lastSync = useActualHoursStore((s) => s.lastZohoSync);
-  const syncFromZohoPeople = useActualHoursStore((s) => s.syncFromZohoPeople);
 
   const [tab, setTab] = useState<TabKey>(() => loadTab());
   useEffect(() => {
     try { window.localStorage.setItem(TAB_KEY, tab); } catch { /* ignore */ }
   }, [tab]);
 
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
-
   const memberCount = new Set(entries.map((e) => e.employeeName)).size;
   const projectCount = new Set(entries.map((e) => e.project).filter(Boolean)).size;
-
-  const handleSync = async () => {
-    setSyncing(true);
-    setSyncMsg(null);
-    const r = await syncFromZohoPeople();
-    setSyncing(false);
-    if (r.ok) {
-      const range = r.range ? ` (${r.range.from} → ${r.range.to})` : '';
-      setSyncMsg(`Synced ${r.count ?? 0} entries${range}.`);
-    } else {
-      setSyncMsg(`Sync failed: ${r.error ?? 'unknown error'}`);
-    }
-    setTimeout(() => setSyncMsg(null), 6000);
-  };
 
   return (
     <>
@@ -65,8 +49,8 @@ export default function ActualHoursPage() {
         title="Actual Hours"
         subtitle={
           entries.length > 0
-            ? `${entries.length.toLocaleString()} timesheet entries · ${memberCount} people · ${projectCount} projects · YTD`
-            : 'Sync from Zoho People to populate this view.'
+            ? `${entries.length.toLocaleString()} timesheet entries · ${memberCount} people · ${projectCount} projects · sourced from /my-time submissions`
+            : 'Actuals will appear here as people submit and managers approve time in /my-time.'
         }
       />
 
@@ -80,37 +64,15 @@ export default function ActualHoursPage() {
             <TabButton active={tab === 'forecast'} onClick={() => setTab('forecast')}>vs Forecast</TabButton>
           </div>
           <div className="flex items-center gap-2 pb-1">
-            {lastSync && (
-              <span className="text-[11px] text-muted/70 hidden md:flex items-center gap-1">
-                <Clock size={12} />
-                Last synced {new Date(lastSync).toLocaleString()}
-              </span>
-            )}
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              Sync from Zoho People
-            </button>
+            <span className="text-[11px] text-muted/70 hidden md:flex items-center gap-1">
+              <Clock size={12} />
+              From /my-time · Aug 2026 forward
+            </span>
           </div>
         </div>
 
-        {syncMsg && (
-          <div
-            className={`mb-3 rounded-lg px-3 py-2 text-xs ${
-              syncMsg.startsWith('Sync failed')
-                ? 'bg-red-50 text-red-700 border border-red-200'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            }`}
-          >
-            {syncMsg}
-          </div>
-        )}
-
         {entries.length === 0 && tab !== 'forecast' ? (
-          <EmptyState onSync={handleSync} syncing={syncing} />
+          <EmptyState />
         ) : tab === 'people' ? (
           <PeopleView />
         ) : tab === 'projects' ? (
@@ -141,24 +103,17 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function EmptyState({ onSync, syncing }: { onSync: () => void; syncing: boolean }) {
+function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center text-center py-14 px-6">
       <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
         <Clock size={26} />
       </div>
-      <h3 className="text-base font-bold text-ink mb-1">No actuals synced yet</h3>
+      <h3 className="text-base font-bold text-ink mb-1">No actuals yet</h3>
       <p className="text-sm text-muted max-w-md mb-4">
-        Click <strong>Sync from Zoho People</strong> to pull this year's timesheet entries.
+        Actuals populate as team members submit timesheets in <strong>/my-time</strong> and
+        managers approve them. Nothing else to do here.
       </p>
-      <button
-        onClick={onSync}
-        disabled={syncing}
-        className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-      >
-        {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-        Sync from Zoho People
-      </button>
     </div>
   );
 }

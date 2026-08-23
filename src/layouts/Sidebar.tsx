@@ -24,6 +24,7 @@ import {
   Building2,
   Handshake,
   Target,
+  Radar,
   Home,
   ChevronDown,
   ChevronRight,
@@ -96,6 +97,7 @@ const sections: NavSection[] = [
       { to: '/ta-metrics', icon: BarChart3, label: 'TA Metrics' },
       { to: '/candidates', icon: Contact, label: 'Candidates' },
       { to: '/profile-format', icon: FileEdit, label: 'Profile Format' },
+      { to: '/hiring-radar', icon: Radar, label: 'Hiring Radar' },
     ],
   },
   {
@@ -112,6 +114,7 @@ const sections: NavSection[] = [
       { to: '/accounts', icon: Building2, label: 'Accounts' },
       { to: '/vendors',  icon: Handshake, label: 'Vendors' },
       { to: '/gtm-list', icon: Target,    label: 'GTM List' },
+      { to: '/hiring-radar', icon: Radar, label: 'Hiring Radar' },
       { to: '/dialer',   icon: PhoneCall, label: 'Dialer' },
     ],
   },

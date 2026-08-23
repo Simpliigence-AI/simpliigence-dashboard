@@ -24,6 +24,7 @@ import ProfileFormatPage from '../pages/ProfileFormatPage';
 import AccountsPage from '../pages/AccountsPage';
 import VendorsPage from '../pages/VendorsPage';
 import GtmListPage from '../pages/GtmListPage';
+import HiringRadarPage from '../pages/HiringRadarPage';
 import DialerPage from '../pages/DialerPage';
 import HomePage from '../pages/HomePage';
 import MyTimePage from '../pages/MyTimePage';
@@ -92,6 +93,7 @@ export const router = createBrowserRouter(
         { path: 'accounts', element: <AccountsPage /> },
         { path: 'vendors',  element: <VendorsPage /> },
         { path: 'gtm-list', element: <GtmListPage /> },
+        { path: 'hiring-radar', element: <HiringRadarPage /> },
         { path: 'dialer',   element: <DialerPage /> },   // Twilio softphone + AI call notes
         { path: 'home',     element: <HomePage /> },
 

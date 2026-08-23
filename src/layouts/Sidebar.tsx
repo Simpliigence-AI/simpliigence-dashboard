@@ -114,7 +114,6 @@ const sections: NavSection[] = [
       { to: '/accounts', icon: Building2, label: 'Accounts' },
       { to: '/vendors',  icon: Handshake, label: 'Vendors' },
       { to: '/gtm-list', icon: Target,    label: 'GTM List' },
-      { to: '/hiring-radar', icon: Radar, label: 'Hiring Radar' },
       { to: '/dialer',   icon: PhoneCall, label: 'Dialer' },
     ],
   },

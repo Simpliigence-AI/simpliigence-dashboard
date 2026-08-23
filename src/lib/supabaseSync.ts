@@ -1565,11 +1565,32 @@ export const db = {
     const { error } = await supabase.from('india_staffing_requisitions').upsert(indiaReqToRow(r), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert india req failed:', error);
   },
-  async deleteIndiaRequisition(id: string) {
-    await Promise.all([
-      supabase.from('india_staffing_requisitions').delete().eq('id', id),
-      supabase.from('india_staffing_statuses').delete().eq('requisition_id', id),
+  /**
+   * Delete a requisition and its child statuses.
+   *
+   * Previously ignored the outcome of the underlying DELETEs, so when RLS
+   * silently filtered the row out (0 rows affected, no error object), the
+   * local optimistic remove made it look deleted while the DB row stayed.
+   * On the next refresh or realtime rebroadcast, the row reappeared. Now we
+   * `.select()` back so Postgres returns the affected rows, and both errors
+   * and empty-set outcomes surface with enough detail to unstick a user.
+   */
+  async deleteIndiaRequisition(id: string): Promise<{ ok: boolean; deleted: number; error?: string }> {
+    const [reqRes, stRes] = await Promise.all([
+      supabase.from('india_staffing_requisitions').delete().eq('id', id).select('id'),
+      supabase.from('india_staffing_statuses').delete().eq('requisition_id', id).select('id'),
     ]);
+    if (reqRes.error) {
+      console.warn('[supabase] delete india req failed:', reqRes.error);
+      return { ok: false, deleted: 0, error: reqRes.error.message };
+    }
+    if (stRes.error) console.warn('[supabase] delete india statuses failed:', stRes.error);
+    const deleted = (reqRes.data || []).length;
+    if (deleted === 0) {
+      console.warn('[supabase] delete india req silently affected 0 rows — RLS likely rejected:', id);
+      return { ok: false, deleted: 0, error: 'RLS or missing row: 0 rows affected' };
+    }
+    return { ok: true, deleted };
   },
   async upsertIndiaStatus(s: DailyStatus) {
     const { error } = await supabase.from('india_staffing_statuses').upsert(dailyStatusToRow(s), { onConflict: 'id' });

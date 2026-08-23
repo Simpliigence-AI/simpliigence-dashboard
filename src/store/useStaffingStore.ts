@@ -238,13 +238,29 @@ export const useStaffingStore = create<StaffingState>()(
       },
 
       removeRequisition: (id) => {
+        // Snapshot for rollback if the DB delete silently fails (RLS reject
+        // returns 0 rows affected + no error — used to leave the app in
+        // "deleted locally, still in DB" limbo that reappeared on refresh).
+        const snapshot = {
+          requisitions: get().requisitions,
+          statuses: get().statuses,
+          candidates: get().candidates,
+        };
         set((s) => ({
           requisitions: s.requisitions.filter((r) => r.id !== id),
           statuses: s.statuses.filter((st) => st.requisition_id !== id),
           candidates: s.candidates.filter((c) => c.requisition_id !== id),
           // keep history entries so deletions remain auditable
         }));
-        db.deleteIndiaRequisition(id);
+        db.deleteIndiaRequisition(id).then((r) => {
+          if (!r.ok) {
+            console.warn('[requisition] delete failed — rolling back local state:', r.error);
+            set(snapshot);
+            if (typeof window !== 'undefined') {
+              window.alert(`Couldn't delete this requisition: ${r.error}. Try refreshing and signing in again — if it keeps failing, tell Raghu.`);
+            }
+          }
+        });
       },
 
       addStatus: (input) => {

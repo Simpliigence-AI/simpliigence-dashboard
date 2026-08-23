@@ -120,6 +120,34 @@ body {
 }
 
 /**
+ * Base form-control colour — catches every raw <input>, <textarea>, and
+ * <select> on the app, not just the ones wrapped in our shared <Input> /
+ * <Textarea> components. Multiple pages hand-roll their own inputs; any of
+ * those that didn't opt into `bg-surface` used to render browser-default
+ * white-on-white in dark mode. This rule guarantees a visible value under
+ * both palettes without touching every one-off input site.
+ *
+ * Kept as a low-specificity element selector so any explicit Tailwind
+ * utility on the input (`bg-surface-2`, `text-emerald-500`, etc.) still
+ * wins. Placeholder colour tracks --color-muted for the same reason.
+ */
+input, textarea, select {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  border-color: var(--color-line);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--color-muted);
+  opacity: 0.7;
+}
+/* Native date/time indicators and select chevron get repainted for dark. */
+:root[data-mode='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+:root[data-mode='dark'] input[type='datetime-local']::-webkit-calendar-picker-indicator,
+:root[data-mode='dark'] input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+}
+
+/**
  * Display type. Hierarchy comes from scale rather than borders and boxes; at
  * the top of this range (88px) the tracking has to go negative or the words
  * drift apart.

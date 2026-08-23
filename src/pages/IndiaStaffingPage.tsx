@@ -28,6 +28,8 @@ import { ClipboardList } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { StaffingRow, RiskLevel, PipelineStage, StaffingStatus } from '../types/staffing';
+import { forecastRealisticClosures } from '../lib/aiForecastCloseRate';
+import type { ForecastEntry, MonthBucket } from '../lib/aiForecastCloseRate';
 import { STAGE_COLORS, ARCHIVED_STATUSES, CLOSED_WON_STATUSES, LOST_OR_CANCELLED_STATUSES } from '../types/staffing';
 import confetti from 'canvas-confetti';
 
@@ -373,13 +375,13 @@ export default function IndiaStaffingPage() {
   const highRiskCount = filtered.filter((r) => r.risk === 'high').length;
   const avgProb = filtered.length ? Math.round(filtered.reduce((s, r) => s + r.closureProb, 0) / filtered.length) : 0;
 
-  /* -- Forecast aggregates — count OPEN positions only.
-   *  A fully-filled req shouldn't keep contributing to "still to deliver".
-   *  Open=0 reqs get filtered out of every forecast bucket. */
-  const stillToFill = filtered.filter((r) => r.openPositions > 0);
-  const optimistic   = stillToFill.filter((r) => r.closureProb >= 40).reduce((s, r) => s + r.openPositions, 0);
-  const realistic    = stillToFill.filter((r) => r.closureProb >= 60).reduce((s, r) => s + r.openPositions, 0);
-  const conservative = stillToFill.filter((r) => r.closureProb >= 75).reduce((s, r) => s + r.openPositions, 0);
+  /* -- Realistic close forecast (see lib/aiForecastCloseRate.ts).
+   *  Uses the full `rows` list (open + historical closes) so it can compute
+   *  each account's monthly close cadence from the last 6 months of wins,
+   *  then caps this-month and next-month picks per account at that cadence.
+   *  That's the "many open, few close" reality the old optimistic/realistic/
+   *  conservative buckets ignored. */
+  const closureForecast = useMemo(() => forecastRealisticClosures(rows), [rows]);
 
   /* -- Cell save handler -- */
   const handleCellSave = useCallback((reqId: string, field: string, value: string | number) => {
@@ -2092,54 +2094,73 @@ export default function IndiaStaffingPage() {
         );
       })()}
 
-      {/* ====== FORECAST TAB ====== */}
+      {/* ====== FORECAST TAB ======
+       *  Two grounded numbers replacing the old 4-bucket optimistic /
+       *  realistic / conservative / at-risk system. Each number = sum of
+       *  positions likely to close in that month, computed per account and
+       *  capped by the account's own historical monthly close cadence so
+       *  10 open reqs against Persistent don't inflate the forecast to 10
+       *  when Persistent has only ever closed ~2/mo. */}
       {activeTab === 'forecast' && (
         <>
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 mb-6 text-white">
+          <div className="rounded-xl p-6 mb-6 bg-surface border border-line/70">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="font-bold text-base">AI-Powered Closure Forecast</h2>
-              <span className="bg-gradient-to-r from-violet-500 to-blue-500 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide">AI Insights</span>
+              <Brain size={16} className="text-primary" />
+              <h2 className="font-bold text-base text-ink">Realistic closure forecast</h2>
             </div>
-            <p className="text-muted/70 text-xs mb-5">Based on status velocity, sentiment analysis, and pipeline stage (manual Prob overrides AI when set)</p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              {[
-                { label: 'Optimistic', val: optimistic, color: '#10b981', conf: 40 },
-                { label: 'Realistic', val: realistic, color: '#3b82f6', conf: 70 },
-                { label: 'Conservative', val: conservative, color: '#f59e0b', conf: 90 },
-                { label: 'At Risk', val: filtered.filter((r) => r.risk === 'high').reduce((s, r) => s + r.openPositions, 0), color: '#ef4444', conf: 85 },
-              ].map((s) => (
-                <div key={s.label} className="bg-surface/5 border border-white/10 rounded-lg p-4">
-                  <h4 className="text-blue-300 text-xs font-semibold mb-2">{s.label}</h4>
-                  <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val} <span className="text-sm text-muted/70 font-normal">of {totalPos}</span></div>
-                  <div className="h-1 bg-surface/10 rounded mt-3 overflow-hidden"><div className="h-full rounded" style={{ width: `${s.conf}%`, background: s.color }} /></div>
-                  <p className="text-[10px] text-muted text-right mt-1">{s.conf}% confidence</p>
-                </div>
-              ))}
+            <p className="text-muted text-xs mb-5">
+              Per-account: last 6 months of closes set the monthly cap, top-ranked open reqs pick into this or next month by close-by date + stage. Reqs that don't make either bucket are deferred implicitly.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ForecastBucket bucket={closureForecast.thisMonth} accent="#3b82f6" tone="this" />
+              <ForecastBucket bucket={closureForecast.nextMonth} accent="#8b5cf6" tone="next" />
             </div>
           </div>
+
           <Card>
-            <h3 className="font-bold text-sm mb-3">Forecast Reasoning by Requisition</h3>
+            <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+              <h3 className="font-bold text-sm text-ink">By account &mdash; cadence vs open</h3>
+              <span className="text-[11px] text-muted">
+                Cadence = avg positions closed per month over last 6 months.
+                Deferred = open positions past what history says the account can close.
+              </span>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead><tr className="border-b-2 border-line/60"><th className="text-left p-2 text-muted/70 font-bold uppercase text-[10px]">Account</th><th className="p-2">Requisition</th><th className="p-2">TA Stage</th><th className="p-2">Ageing</th><th className="p-2">Prob</th><th className="p-2">Risk</th><th className="p-2">Recommendation</th></tr></thead>
+                <thead>
+                  <tr className="border-b-2 border-line/60 text-muted uppercase tracking-wide text-[10px]">
+                    <th className="text-left p-2 font-bold">Account</th>
+                    <th className="text-right p-2 font-bold">Cadence (pos/mo)</th>
+                    <th className="text-right p-2 font-bold">Open</th>
+                    <th className="text-right p-2 font-bold">This month</th>
+                    <th className="text-right p-2 font-bold">Next month</th>
+                    <th className="text-right p-2 font-bold">Deferred</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {[...filtered].sort((a, b) => b.closureProb - a.closureProb).map((r) => {
-                    let rec = 'Monitor';
-                    if (r.risk === 'high') rec = 'Escalate & parallel source';
-                    else if (r.stage === 'Sourcing') rec = 'Accelerate sourcing';
-                    else if (r.stage === 'Client Round') rec = 'Follow up with client';
-                    else if (r.stage === 'Onboarding') rec = 'Track onboarding';
-                    return (
-                      <tr key={r.id} className="border-b border-line/40">
-                        <td className="p-2 font-bold">{r.account}</td><td className="p-2">{r.requisition}</td>
-                        <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
-                        <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
-                        <td className="p-2 font-bold">{r.closureProb}%</td>
-                        <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
-                        <td className="p-2 text-muted">{rec}</td>
-                      </tr>
-                    );
-                  })}
+                  {closureForecast.perAccount.map((a) => (
+                    <tr key={a.account} className="border-b border-line/40">
+                      <td className="p-2 font-semibold text-ink">{a.account}</td>
+                      <td className="p-2 text-right tabular-nums">
+                        {a.monthlyCadence > 0
+                          ? a.monthlyCadence.toFixed(1)
+                          : <span className="text-muted italic">no history</span>}
+                      </td>
+                      <td className="p-2 text-right tabular-nums">{a.openReqs}</td>
+                      <td className="p-2 text-right tabular-nums font-semibold text-blue-600">{a.thisMonthPicked || '—'}</td>
+                      <td className="p-2 text-right tabular-nums font-semibold text-violet-600">{a.nextMonthPicked || '—'}</td>
+                      <td className="p-2 text-right tabular-nums">
+                        {a.deferred > 0 ? <span className="text-amber-600">{a.deferred}</span> : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                  {closureForecast.perAccount.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-6 text-center text-muted italic">
+                        No open requisitions to forecast.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2335,6 +2356,50 @@ export default function IndiaStaffingPage() {
 /** Small modal that asks "how many of the N positions actually closed?"
  *  when a multi-position req is being moved into a closed status. Emits the
  *  confirmed count via onConfirm; caller handles the split. */
+/**
+ * One month bucket in the AI Forecast tab.
+ *
+ * Big number = total positions the model thinks will realistically close
+ * in that month across all accounts. Ranked list below = which specific
+ * reqs contributed to that number and the account-history reasoning
+ * for each pick.
+ */
+function ForecastBucket({ bucket, accent, tone }: { bucket: MonthBucket; accent: string; tone: 'this' | 'next' }) {
+  return (
+    <div className="rounded-lg border border-line/70 bg-surface-2 p-5">
+      <div className="flex items-baseline justify-between gap-3 mb-1">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+            Realistic closures {tone === 'this' ? '· this month' : '· next month'}
+          </p>
+          <p className="text-sm font-semibold text-ink mt-0.5">{bucket.monthLabel}</p>
+        </div>
+        <div className="text-right">
+          <div className="text-3xl font-extrabold tabular-nums leading-none" style={{ color: accent }}>{bucket.positions}</div>
+          <div className="text-[10px] text-muted uppercase tracking-wider mt-1">positions</div>
+        </div>
+      </div>
+      <div className="mt-4 border-t border-line/50 pt-3">
+        {bucket.entries.length === 0 ? (
+          <p className="text-xs text-muted italic">No requisitions cleared the bar for this month.</p>
+        ) : (
+          <ul className="space-y-2">
+            {bucket.entries.map((e) => (
+              <li key={e.reqId} className="text-xs">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold text-ink truncate">{e.account} · {e.title || <span className="italic text-muted">Untitled req</span>}</span>
+                  <span className="tabular-nums font-bold whitespace-nowrap" style={{ color: accent }}>+{e.positions}</span>
+                </div>
+                <div className="text-[11px] text-muted mt-0.5">{e.reason}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SplitCloseDialog({
   parent, targetStatus, total, onConfirm, onCancel,
 }: {

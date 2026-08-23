@@ -70,6 +70,19 @@ const MIN_SCORE_TO_BET = 30;
 const DEFAULT_CADENCE_NO_HISTORY = 1;
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+/**
+ * Accounts that represent our OWN internal hiring, not client-facing work.
+ * These are excluded from both the historical cadence baseline (they'd
+ * inflate the ceiling for accounts they get grouped with) and the open-req
+ * projection (they're not real revenue). Matched case-insensitively.
+ * Grow this list if new internal-only labels appear.
+ */
+const INTERNAL_ACCOUNTS = new Set<string>(['internal']);
+
+function isInternalAccount(name: string): boolean {
+  return INTERNAL_ACCOUNTS.has(name.trim().toLowerCase());
+}
+
 /** Score how likely one req is to close in its target month — stage + prob + ageing decay. */
 function scoreReq(r: ForecastRow): number {
   let s = r.closureProb || 0;
@@ -136,6 +149,9 @@ function computeMonthlyCadence(rows: ForecastRow[], now: Date): Map<string, numb
   cutoff.setMonth(cutoff.getMonth() - HISTORICAL_MONTHS);
   const perAccount = new Map<string, number>();
   for (const r of rows) {
+    // Internal / TA hires don't count as client closures — skip them from
+    // the baseline so they don't inflate anyone's cadence.
+    if (isInternalAccount(r.account)) continue;
     if (r.statusField !== 'Closed Won' && r.statusField !== 'Closed' && r.statusField !== 'Onboarding') continue;
     if (!r.closeByDate) continue;
     const cd = new Date(r.closeByDate);
@@ -177,6 +193,10 @@ export function forecastRealisticClosures(rows: ForecastRow[], now: Date = new D
 
   const openByAccount = new Map<string, ForecastRow[]>();
   for (const r of rows) {
+    // Internal / TA hires aren't client closures — leave them out of the
+    // realistic-closure forecast entirely. They still show up on the main
+    // pipeline, just not here.
+    if (isInternalAccount(r.account)) continue;
     // Skip closed / cancelled — they don't need forecasting.
     const skip = new Set(['Closed Won', 'Closed', 'Closed Lost', 'Cancelled', 'On Hold']);
     if (skip.has(r.statusField)) continue;

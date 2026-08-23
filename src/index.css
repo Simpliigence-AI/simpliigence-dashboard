@@ -78,6 +78,13 @@
  * `bg-white` etc. stay light-only for now.
  */
 :root[data-mode='dark'] {
+  /* Tell the browser to paint native form controls (input value text,
+   * select chevrons, date pickers, scrollbars) in dark-mode defaults.
+   * Without this, browsers paint inputs light-on-light — that's how a
+   * value entered into <Input> can look "invisible" over a dark card
+   * even though the Tailwind `text-ink` utility resolves to near-white. */
+  color-scheme: dark;
+
   --color-paper:     #0d1728;   /* app ground */
   --color-surface:   #172236;   /* cards */
   --color-surface-2: #1d2a41;   /* inset panels */
@@ -94,6 +101,12 @@
   --color-coral:      #ff8563;  /* dark-mode coral — punchier for the navy ground */
   --color-coral-soft: #ffe0d3;
   --shadow-card: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+/* Symmetric light-mode declaration so an explicit theme override still
+ * paints native controls consistently even if the OS is set to dark. */
+:root[data-mode='light'] {
+  color-scheme: light;
 }
 
 body {

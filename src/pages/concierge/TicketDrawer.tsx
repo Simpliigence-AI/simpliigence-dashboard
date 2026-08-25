@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import {
+  MAX_ATTACHMENT_MB,
   useConciergeStore,
   type ConciergeAttachment,
   type ConciergeTicket,
@@ -12,7 +13,7 @@ import {
 import { useAccountStore } from '../../store/useAccountStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { EmailBody } from './EmailBody';
-import { Clock, Mail, StickyNote, Check, RotateCcw, Trash2, Loader2, Paperclip, Download } from 'lucide-react';
+import { Clock, Mail, StickyNote, Check, RotateCcw, Trash2, Loader2, Paperclip, Download, UploadCloud } from 'lucide-react';
 
 interface Props {
   ticket: ConciergeTicket;
@@ -55,6 +56,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   const reopenTicket = useConciergeStore((s) => s.reopenTicket);
   const deleteTicket = useConciergeStore((s) => s.deleteTicket);
   const attachmentDownloadUrl = useConciergeStore((s) => s.attachmentDownloadUrl);
+  const uploadAttachment = useConciergeStore((s) => s.uploadAttachment);
 
   /* Account Management accounts — the table `tickets.account_id` actually
    * references. The drawer used to populate this control from
@@ -79,6 +81,9 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   const [resolutionDraft, setResolutionDraft] = useState('');
   const [showResolve, setShowResolve] = useState(false);
   const [busy, setBusy] = useState<'note' | 'hours' | 'resolve' | 'delete' | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const attachInput = useRef<HTMLInputElement>(null);
 
   const messages = useConciergeStore((s) => s.messagesByTicket[ticket.id]) ?? NO_MESSAGES;
   const entries = useConciergeStore((s) => s.timeEntriesByTicket[ticket.id]) ?? NO_ENTRIES;
@@ -88,6 +93,8 @@ export function TicketDrawer({ ticket, onClose }: Props) {
     void loadMessages(ticket.id);
     void loadTimeEntries(ticket.id);
     void loadAttachments(ticket.id);
+    // An upload failure belongs to the ticket it happened on.
+    setUploadError(null);
   }, [ticket.id, loadMessages, loadTimeEntries, loadAttachments]);
 
   /* Inline images are referenced from the body as src="cid:<content_id>";
@@ -125,6 +132,24 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   const openAttachment = async (storagePath: string) => {
     const url = await attachmentDownloadUrl(storagePath);
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  /* Attach files to a ticket that already exists — uploadAttachment refreshes
+   * the list itself. Serial, so the failure list follows the pick order. */
+  const attachFiles = async (picked: FileList | null) => {
+    const list = Array.from(picked ?? []);
+    // Clearing the input lets the same file be picked again after a failure.
+    if (attachInput.current) attachInput.current.value = '';
+    if (list.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    const failed: string[] = [];
+    for (const file of list) {
+      const res = await uploadAttachment(ticket.id, file);
+      if (!res.ok) failed.push(res.message ?? file.name);
+    }
+    setUploading(false);
+    if (failed.length > 0) setUploadError(failed.join('; '));
   };
 
   const priorityChip = (p: string | null) => {
@@ -235,12 +260,13 @@ export function TicketDrawer({ ticket, onClose }: Props) {
         )}
 
         {/* Attachments — inline images render inside the body above, so only
-          * the real files are listed here. */}
-        {fileAttachments.length > 0 && (
-          <section>
-            <label className="text-xs font-medium text-muted uppercase tracking-wider flex items-center gap-1">
-              <Paperclip size={12} /> Attachments ({fileAttachments.length})
-            </label>
+          * the real files are listed here. The section always renders: the
+          * upload control has to be reachable on a ticket with no files yet. */}
+        <section>
+          <label className="text-xs font-medium text-muted uppercase tracking-wider flex items-center gap-1">
+            <Paperclip size={12} /> Attachments{fileAttachments.length > 0 ? ` (${fileAttachments.length})` : ''}
+          </label>
+          {fileAttachments.length > 0 && (
             <ul className="mt-1 space-y-1">
               {fileAttachments.map((a) => (
                 <li key={a.id}>
@@ -256,8 +282,21 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                 </li>
               ))}
             </ul>
-          </section>
-        )}
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input ref={attachInput} type="file" multiple className="hidden"
+              onChange={(e) => { void attachFiles(e.target.files); }}
+            />
+            <Button variant="secondary" size="sm" disabled={uploading}
+              onClick={() => attachInput.current?.click()}
+            >
+              {uploading ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />}
+              {uploading ? 'Uploading…' : 'Attach files'}
+            </Button>
+            <span className="text-[11px] text-muted">Up to {MAX_ATTACHMENT_MB} MB per file.</span>
+          </div>
+          {uploadError && <div className="mt-1 text-xs text-red-600">{uploadError}</div>}
+        </section>
 
         {/* Resolution — free-text write-up, editable on any ticket and committed on blur */}
         <section>

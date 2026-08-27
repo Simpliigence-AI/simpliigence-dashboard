@@ -160,14 +160,17 @@ function rowToActualHour(row: any): ActualHourEntry {
     id: String(row.id),
     employeeId: row.employee_id ?? '',
     employeeName: row.employee_name ?? '',
-    email: row.email ?? null,
+    // `unified_actual_hours` aliases the columns (email -> employee_email,
+    // synced_at -> recorded_at); the legacy `actual_hours` table does not.
+    // Read both so the same mapper works for the view and the fallback.
+    email: row.employee_email ?? row.email ?? null,
     project: row.project ?? null,
     workDate: row.work_date ?? '',
     hours: Number(row.hours ?? 0),
     billing: row.billing ?? null,
     notes: row.notes ?? null,
     source: row.source ?? 'zoho_people',
-    syncedAt: row.synced_at ?? new Date().toISOString(),
+    syncedAt: row.recorded_at ?? row.synced_at ?? new Date().toISOString(),
   };
 }
 
@@ -997,19 +1000,67 @@ export async function fetchTeamMembers(): Promise<TeamMember[] | null> {
   return (data || []).map(rowToTeamMember);
 }
 
-export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
-  // unified_actual_hours UNIONs Zoho-synced rows with approved Simpliigence
-  // time_entries (the source-of-truth for going-forward entry). Same columns
-  // as the legacy actual_hours table plus a `source` tag.
-  const { data, error } = await supabase.from('unified_actual_hours').select('*');
-  if (error) {
-    console.warn('[supabase] fetch unified_actual_hours failed:', error.message);
-    // Fall back to legacy table if the view fails for any reason
-    const fallback = await supabase.from('actual_hours').select('*');
-    if (fallback.error) return null;
-    return (fallback.data || []).map(rowToActualHour);
+/**
+ * Read every row of a table/view that PostgREST would otherwise truncate at
+ * 1000 rows, one page at a time (same cap that fetchTimeEntries and
+ * fetchAllCandidates page around).
+ *
+ * `order` must be a deterministic TOTAL ordering. Range paging duplicates and
+ * skips rows whenever the sort has ties, because postgres breaks ties
+ * differently per request — hence a column LIST, with tie-breakers, rather
+ * than a single date column.
+ */
+async function fetchAllRows(
+  table: string,
+  order: string[],
+  label: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ data: any[]; error: { message: string } | null }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
+  const pageSize = 1000;
+  let page = 0;
+  while (true) {
+    let q = supabase.from(table).select('*');
+    for (const col of order) q = q.order(col, { ascending: true });
+    const from = page * pageSize;
+    const { data, error } = await q.range(from, from + pageSize - 1);
+    page++;
+    if (error) {
+      console.warn(`[${label}] page ${page} failed:`, error.message, '— have', all.length, 'rows so far');
+      return { data: all, error };
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []) as any[];
+    console.log(`[${label}] page ${page}: ${rows.length} rows (from ${from}) — total so far ${all.length + rows.length}`);
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    if (all.length >= 100_000) { console.warn(`[${label}] hit 100k safety cap`); break; }
   }
-  return (data || []).map(rowToActualHour);
+  console.log(`[${label}] fetched ${all.length} total across ${page} page(s)`);
+  return { data: all, error: null };
+}
+
+export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
+  // unified_actual_hours UNIONs Zoho-synced rows with approved/submitted
+  // Simpliigence time_entries (the source-of-truth for going-forward entry).
+  // Same columns as the legacy actual_hours table plus a `source` tag.
+  //
+  // `id` is NOT unique across the two UNION ALL branches, so it cannot order
+  // the pages on its own — (work_date, id, source) can, since `id` is the
+  // primary key within each branch.
+  const { data, error } = await fetchAllRows(
+    'unified_actual_hours',
+    ['work_date', 'id', 'source'],
+    'unified_actual_hours',
+  );
+  if (error) {
+    // Fall back to legacy table if the view fails for any reason
+    const fallback = await fetchAllRows('actual_hours', ['id'], 'actual_hours');
+    if (fallback.error) return null;
+    return fallback.data.map(rowToActualHour);
+  }
+  return data.map(rowToActualHour);
 }
 
 // ─── India Staffing fetchers ──────────────────────────────────────

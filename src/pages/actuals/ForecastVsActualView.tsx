@@ -2,15 +2,30 @@
  * Forecast vs Actual comparison view.
  *
  * Inner toggle: Month | Week | Project. Each cell shows (Forecast / Actual / Δ)
- * with a hover tooltip explaining the calculation. Employee matching is exact
- * normalised first, falling back to first-name match so the spreadsheet
- * "Anukanth" lines up with the Zoho "Anukanth Sudarsanam".
+ * with a hover tooltip explaining the calculation.
+ *
+ * Two rules keep the comparison honest:
+ *
+ *  - Actuals are ONLY the hours people entered themselves on /my-time
+ *    (`source: 'simpliigence'`), never the Zoho People sync, and only from
+ *    COMPARISON_START_MONTH onward — the month /my-time became how hours are
+ *    recorded. Earlier months hold almost no entries, so showing them would
+ *    read as a shortfall against forecast when it is really missing data.
+ *  - Both sides are keyed on the person's EMAIL, resolved from the directory
+ *    by the shared resolver, so the spreadsheet's "Anukanth" and the
+ *    timesheet's "Anukanth Sudarsanam" land on one row instead of two
+ *    half-empty ones. A name the directory cannot identify falls back to its
+ *    normalised spelling — symmetrically, on both sides — and is listed under
+ *    the table so the mismatch reads as a data-quality item.
+ *
+ * The other tabs on this page are unaffected: they still show every source.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useActualHoursStore, useForecastStore } from '../../store';
-import { MONTHS } from '../../types/forecast';
+import { useAuthStore } from '../../store/useAuthStore';
 import type { Month, ForecastAssignment } from '../../types/forecast';
 import type { ActualHourEntry } from '../../types/actualHours';
+import { buildEmailResolver, type Resolver } from '../../lib/resolveEmployeeEmail';
 import {
   emptyMonthCounter,
   monthOf,
@@ -18,10 +33,17 @@ import {
   ymd,
   fmtWeek,
   ytdWeeks,
+  isComparisonDate,
+  COMPARISON_MONTHS,
+  COMPARISON_START_MONTH,
+  COMPARISON_WINDOW_LABEL,
 } from './shared';
 
 type ForecastSubTab = 'month' | 'week' | 'project';
 const FCAST_SUB_KEY = 'actual-hours-forecast-sub';
+
+/** ActualHourEntry.source for hours entered on /my-time. */
+const MY_TIME_SOURCE = 'simpliigence';
 
 function loadForecastSub(): ForecastSubTab {
   if (typeof window === 'undefined') return 'month';
@@ -32,28 +54,25 @@ function loadForecastSub(): ForecastSubTab {
 function normName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9 ]+/g, '').replace(/\s+/g, ' ').trim();
 }
-function firstNameKey(s: string): string {
-  const n = normName(s);
-  return n.split(' ')[0] || n;
+
+/**
+ * The join key for one person, used identically for forecast rows and for
+ * timesheet rows: their email when we know it — straight off the row, or
+ * resolved from their name — else the normalised name, so an unidentifiable
+ * spelling at least groups with itself.
+ */
+function personKey(name: string, email: string | null, resolve: Resolver): string {
+  const resolved = (email ?? resolve(name))?.trim().toLowerCase();
+  return resolved || normName(name);
 }
 
-function buildActualLookupByEmployee(entries: ActualHourEntry[]) {
-  const exact = new Map<string, ActualHourEntry[]>();
-  const byFirst = new Map<string, ActualHourEntry[]>();
-  for (const e of entries) {
-    const full = normName(e.employeeName);
-    const first = firstNameKey(e.employeeName);
-    if (!exact.has(full)) exact.set(full, []);
-    exact.get(full)!.push(e);
-    if (!byFirst.has(first)) byFirst.set(first, []);
-    byFirst.get(first)!.push(e);
-  }
-  return (forecastName: string): ActualHourEntry[] => {
-    const full = normName(forecastName);
-    if (exact.has(full)) return exact.get(full)!;
-    const first = firstNameKey(forecastName);
-    return byFirst.get(first) ?? [];
-  };
+interface Person {
+  /** personKey() — what both lookup maps below are keyed on. */
+  key: string;
+  /** Name to show in the Employee column. */
+  name: string;
+  /** Lowercased haystack for the page's search box. */
+  search: string;
 }
 
 function fmtSigned(n: number): string {
@@ -91,28 +110,83 @@ interface ForecastVsActualProps {
 export default function ForecastVsActualView({ search = '' }: ForecastVsActualProps) {
   const entries = useActualHoursStore((s) => s.entries);
   const assignments = useForecastStore((s) => s.assignments);
+  const directory = useAuthStore((s) => s.directory);
   const [sub, setSub] = useState<ForecastSubTab>(() => loadForecastSub());
   useEffect(() => {
     try { window.localStorage.setItem(FCAST_SUB_KEY, sub); } catch { /* ignore */ }
   }, [sub]);
 
-  const lookupActual = useMemo(() => buildActualLookupByEmployee(entries), [entries]);
+  const resolveEmail = useMemo(
+    () => buildEmailResolver(Object.values(directory).map((u) => ({ fullName: u.fullName, email: u.email }))),
+    [directory],
+  );
 
-  const employeeNames = useMemo(() => {
-    const set = new Map<string, string>();
-    for (const a of assignments) set.set(normName(a.employeeName), a.employeeName);
-    for (const e of entries) {
-      const k = normName(e.employeeName);
-      if (!set.has(k)) set.set(k, e.employeeName);
+  /** The only actuals this tab counts: /my-time hours inside the window. */
+  const actualEntries = useMemo(
+    () => entries.filter((e) => (
+      e.source === MY_TIME_SOURCE
+      && !!e.workDate
+      && e.hours > 0
+      && isComparisonDate(e.workDate)
+    )),
+    [entries],
+  );
+
+  const actualsByKey = useMemo(() => {
+    const map = new Map<string, ActualHourEntry[]>();
+    for (const e of actualEntries) {
+      const k = personKey(e.employeeName, e.email, resolveEmail);
+      const list = map.get(k);
+      if (list) list.push(e); else map.set(k, [e]);
     }
-    return [...set.values()].sort((a, b) => a.localeCompare(b));
-  }, [assignments, entries]);
+    return map;
+  }, [actualEntries, resolveEmail]);
 
-  const filteredEmployees = useMemo(() => {
-    if (!search) return employeeNames;
+  const keyOfName = useMemo(
+    () => (name: string) => personKey(name, null, resolveEmail),
+    [resolveEmail],
+  );
+
+  /** One row per person, from both sides of the comparison. */
+  const people = useMemo(() => {
+    const spellings = new Map<string, Set<string>>();
+    const add = (name: string, email: string | null) => {
+      const key = personKey(name, email, resolveEmail);
+      const seen = spellings.get(key);
+      if (seen) seen.add(name); else spellings.set(key, new Set([name]));
+    };
+    for (const a of assignments) add(a.employeeName, null);
+    for (const e of actualEntries) add(e.employeeName, e.email);
+    return [...spellings]
+      .map(([key, names]): Person => {
+        // Prefer the directory spelling — it is the name both sides resolved to.
+        const name = directory[key]?.fullName ?? [...names][0];
+        // Search still has to find the row by whatever the searcher remembers,
+        // which may be the forecast sheet's short name rather than the full one.
+        return { key, name, search: [name, ...names, key].join(' ').toLowerCase() };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [assignments, actualEntries, resolveEmail, directory]);
+
+  /**
+   * Names no one in the directory matches. Shown under the table: a genuine
+   * spelling drift in the forecast sheet should read as something to fix, not
+   * quietly render as two half-empty rows.
+   */
+  const unmatchedNames = useMemo(() => {
+    // Directory not loaded yet — every name would look unmatched.
+    if (Object.keys(directory).length === 0) return [];
+    const set = new Set<string>();
+    for (const a of assignments) if (!resolveEmail(a.employeeName)) set.add(a.employeeName);
+    for (const e of actualEntries) if (!e.email && !resolveEmail(e.employeeName)) set.add(e.employeeName);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [assignments, actualEntries, resolveEmail, directory]);
+
+  const filteredPeople = useMemo(() => {
+    if (!search) return people;
     const q = search.toLowerCase();
-    return employeeNames.filter((n) => n.toLowerCase().includes(q));
-  }, [employeeNames, search]);
+    return people.filter((p) => p.search.includes(q));
+  }, [people, search]);
 
   if (assignments.length === 0) {
     return (
@@ -121,6 +195,8 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
       </div>
     );
   }
+
+  const subViewProps = { people: filteredPeople, assignments, keyOfName, actualsByKey };
 
   return (
     <div>
@@ -136,11 +212,24 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
         </span>
       </div>
 
+      <p className="mb-3 text-[10px] text-muted/70">
+        Actuals are the hours people entered on My Time, totalled per person per month.
+        {' '}{COMPARISON_WINDOW_LABEL} only — My Time became the record of hours in {COMPARISON_START_MONTH}.
+      </p>
+
       <Legend />
 
-      {sub === 'month' && <FCMonthView employees={filteredEmployees} assignments={assignments} lookupActual={lookupActual} />}
-      {sub === 'week' && <FCWeekView employees={filteredEmployees} assignments={assignments} lookupActual={lookupActual} />}
-      {sub === 'project' && <FCProjectView employees={filteredEmployees} assignments={assignments} lookupActual={lookupActual} />}
+      {sub === 'month' && <FCMonthView {...subViewProps} />}
+      {sub === 'week' && <FCWeekView {...subViewProps} />}
+      {sub === 'project' && <FCProjectView {...subViewProps} />}
+
+      {unmatchedNames.length > 0 && (
+        <p className="mt-3 text-[10px] text-amber-700">
+          {unmatchedNames.length} name{unmatchedNames.length === 1 ? '' : 's'} could not be matched
+          to a person: {unmatchedNames.join(', ')}. These are compared on spelling alone, so a name
+          written differently in the forecast sheet and on My Time stays on two rows.
+        </p>
+      )}
     </div>
   );
 }
@@ -171,23 +260,37 @@ function Legend() {
 }
 
 interface SubViewProps {
-  employees: string[];
+  people: Person[];
   assignments: ForecastAssignment[];
-  lookupActual: (forecastName: string) => ActualHourEntry[];
+  /** A forecast row's employee_name → the key `actualsByKey` is grouped on. */
+  keyOfName: (employeeName: string) => string;
+  actualsByKey: Map<string, ActualHourEntry[]>;
 }
 
 /* ─── Month sub-view ───────────────────────────────────────────── */
-function FCMonthView({ employees, assignments, lookupActual }: SubViewProps) {
-  const forecastByEmpMonth = useMemo(() => {
+function FCMonthView({ people, assignments, keyOfName, actualsByKey }: SubViewProps) {
+  const forecastByKey = useMemo(() => {
     const map = new Map<string, Record<Month, number>>();
     for (const a of assignments) {
-      const k = normName(a.employeeName);
+      const k = keyOfName(a.employeeName);
       let bucket = map.get(k);
       if (!bucket) { bucket = emptyMonthCounter(); map.set(k, bucket); }
-      for (const m of MONTHS) bucket[m] += a.monthlyTotals[m] ?? 0;
+      // Only the window's months, so the Total row can never pick up a month
+      // the grid does not show.
+      for (const m of COMPARISON_MONTHS) bucket[m] += a.monthlyTotals[m] ?? 0;
     }
     return map;
-  }, [assignments]);
+  }, [assignments, keyOfName]);
+
+  const actualByKey = useMemo(() => {
+    const map = new Map<string, Record<Month, number>>();
+    for (const [k, list] of actualsByKey) {
+      const bucket = emptyMonthCounter();
+      for (const e of list) bucket[monthOf(e.workDate)] += e.hours;
+      map.set(k, bucket);
+    }
+    return map;
+  }, [actualsByKey]);
 
   return (
     <div className="overflow-x-auto">
@@ -195,53 +298,48 @@ function FCMonthView({ employees, assignments, lookupActual }: SubViewProps) {
         <thead>
           <tr className="border-b border-line text-left">
             <th rowSpan={2} className="pb-2 pr-3 font-semibold text-muted align-bottom min-w-[180px]">Employee</th>
-            {MONTHS.map((m) => (
+            {COMPARISON_MONTHS.map((m) => (
               <th key={m} colSpan={3} className="px-1.5 text-center font-semibold text-muted text-xs border-l border-line/60">{m}</th>
             ))}
           </tr>
           <tr className="border-b border-line text-left">
-            {MONTHS.map((m) => <FCHeaderTriplet key={m} />)}
+            {COMPARISON_MONTHS.map((m) => <FCHeaderTriplet key={m} />)}
           </tr>
         </thead>
         <tbody>
-          {employees.map((name) => {
-            const fkey = normName(name);
-            const fcastMonthly = forecastByEmpMonth.get(fkey) ?? emptyMonthCounter();
-            const actuals = lookupActual(name);
-            const actMonthly = emptyMonthCounter();
-            for (const e of actuals) {
-              if (!e.workDate || e.hours <= 0) continue;
-              actMonthly[monthOf(e.workDate)] += e.hours;
-            }
+          {people.map((p) => {
+            const fcastMonthly = forecastByKey.get(p.key) ?? emptyMonthCounter();
+            const actMonthly = actualByKey.get(p.key) ?? emptyMonthCounter();
             return (
-              <tr key={name} className="border-b border-line/40 hover:bg-surface-2/70">
-                <td className="py-1.5 pr-3 font-medium text-ink">{name}</td>
-                {MONTHS.map((m) => {
+              <tr key={p.key} className="border-b border-line/40 hover:bg-surface-2/70">
+                <td className="py-1.5 pr-3 font-medium text-ink">{p.name}</td>
+                {COMPARISON_MONTHS.map((m) => {
                   const f = fcastMonthly[m];
                   const a = actMonthly[m];
                   return (
-                    <FCTriplet key={m} forecast={f} actual={a} delta={a - f} title={tooltip(`${name} — ${m}`, f, a)} />
+                    <FCTriplet key={m} forecast={f} actual={a} delta={a - f} title={tooltip(`${p.name} — ${m}`, f, a)} />
                   );
                 })}
               </tr>
             );
           })}
-          {employees.length > 1 && (() => {
+          {people.length > 1 && (() => {
+            // Every person appears once, and their hours live under exactly one
+            // key, so summing row by row cannot double-count anybody.
             const totalF = emptyMonthCounter();
             const totalA = emptyMonthCounter();
-            for (const name of employees) {
-              const fkey = normName(name);
-              const fc = forecastByEmpMonth.get(fkey);
-              if (fc) for (const m of MONTHS) totalF[m] += fc[m];
-              for (const e of lookupActual(name)) {
-                if (!e.workDate || e.hours <= 0) continue;
-                totalA[monthOf(e.workDate)] += e.hours;
+            for (const p of people) {
+              const fc = forecastByKey.get(p.key);
+              const ac = actualByKey.get(p.key);
+              for (const m of COMPARISON_MONTHS) {
+                totalF[m] += fc?.[m] ?? 0;
+                totalA[m] += ac?.[m] ?? 0;
               }
             }
             return (
               <tr className="border-t-2 border-line bg-surface-2/70 font-bold">
-                <td className="py-2 pr-3 text-ink/80">Total ({employees.length})</td>
-                {MONTHS.map((m) => (
+                <td className="py-2 pr-3 text-ink/80">Total ({people.length})</td>
+                {COMPARISON_MONTHS.map((m) => (
                   <FCTriplet key={m} forecast={totalF[m]} actual={totalA[m]} delta={totalA[m] - totalF[m]} title={tooltip(`All — ${m}`, totalF[m], totalA[m])} />
                 ))}
               </tr>
@@ -285,8 +383,10 @@ function FCTriplet({ forecast, actual, delta, title }: {
 }
 
 /* ─── Week sub-view ────────────────────────────────────────────── */
-function FCWeekView({ employees, assignments, lookupActual }: SubViewProps) {
-  const weeks = useMemo(() => ytdWeeks(), []);
+function FCWeekView({ people, assignments, keyOfName, actualsByKey }: SubViewProps) {
+  // A week belongs to the month its Monday falls in — the same rule the
+  // forecast spread below uses, so the window cuts both sides identically.
+  const weeks = useMemo(() => ytdWeeks().filter((w) => isComparisonDate(w)), []);
   const weekIndex = useMemo(() => new Map(weeks.map((w, i) => [w, i])), [weeks]);
 
   const forecastByEmpWeek = useMemo(() => {
@@ -295,7 +395,7 @@ function FCWeekView({ employees, assignments, lookupActual }: SubViewProps) {
 
     const map = new Map<string, Record<string, number>>();
     for (const a of assignments) {
-      const k = normName(a.employeeName);
+      const k = keyOfName(a.employeeName);
       let bucket = map.get(k);
       if (!bucket) { bucket = {}; for (const w of weeks) bucket[w] = 0; map.set(k, bucket); }
       const hasWeekly = Object.keys(a.weeklyHours || {}).some((d) => (a.weeklyHours[d] ?? 0) > 0);
@@ -311,7 +411,15 @@ function FCWeekView({ employees, assignments, lookupActual }: SubViewProps) {
       }
     }
     return map;
-  }, [assignments, weeks]);
+  }, [assignments, keyOfName, weeks]);
+
+  if (weeks.length === 0) {
+    return (
+      <div className="text-center py-10 text-muted/70 text-sm">
+        No weeks to compare yet — the comparison starts in {COMPARISON_START_MONTH}.
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -330,23 +438,21 @@ function FCWeekView({ employees, assignments, lookupActual }: SubViewProps) {
           </tr>
         </thead>
         <tbody>
-          {employees.map((name) => {
-            const fkey = normName(name);
-            const fcast = forecastByEmpWeek.get(fkey) ?? {};
+          {people.map((p) => {
+            const fcast = forecastByEmpWeek.get(p.key) ?? {};
             const actMap: Record<string, number> = {};
             for (const w of weeks) actMap[w] = 0;
-            for (const e of lookupActual(name)) {
-              if (!e.workDate || e.hours <= 0) continue;
+            for (const e of actualsByKey.get(p.key) ?? []) {
               const ws = ymd(isoWeekStart(new Date(e.workDate + 'T00:00:00Z')));
               if (weekIndex.has(ws)) actMap[ws] += e.hours;
             }
             return (
-              <tr key={name} className="border-b border-line/40 hover:bg-surface-2/70">
-                <td className="py-1.5 pr-3 font-medium text-ink sticky left-0 bg-surface">{name}</td>
+              <tr key={p.key} className="border-b border-line/40 hover:bg-surface-2/70">
+                <td className="py-1.5 pr-3 font-medium text-ink sticky left-0 bg-surface">{p.name}</td>
                 {weeks.map((w) => {
                   const f = fcast[w] ?? 0;
                   const a = actMap[w];
-                  return <FCTriplet key={w} forecast={f} actual={a} delta={a - f} title={tooltip(`${name} — week of ${fmtWeek(w)}`, f, a)} />;
+                  return <FCTriplet key={w} forecast={f} actual={a} delta={a - f} title={tooltip(`${p.name} — week of ${fmtWeek(w)}`, f, a)} />;
                 })}
               </tr>
             );
@@ -358,8 +464,18 @@ function FCWeekView({ employees, assignments, lookupActual }: SubViewProps) {
 }
 
 /* ─── Project sub-view ─────────────────────────────────────────── */
-function FCProjectView({ employees, assignments, lookupActual }: SubViewProps) {
+function FCProjectView({ people, assignments, keyOfName, actualsByKey }: SubViewProps) {
   const projKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+  const assignmentsByKey = useMemo(() => {
+    const map = new Map<string, ForecastAssignment[]>();
+    for (const a of assignments) {
+      const k = keyOfName(a.employeeName);
+      const list = map.get(k);
+      if (list) list.push(a); else map.set(k, [a]);
+    }
+    return map;
+  }, [assignments, keyOfName]);
 
   return (
     <div className="overflow-x-auto">
@@ -368,25 +484,23 @@ function FCProjectView({ employees, assignments, lookupActual }: SubViewProps) {
           <tr className="border-b border-line text-left">
             <th className="pb-2 pr-3 font-semibold text-muted min-w-[160px]">Employee</th>
             <th className="pb-2 pr-3 font-semibold text-muted min-w-[200px]">Project</th>
-            <th className="pb-2 pr-2 font-semibold text-muted text-right text-xs">Forecast YTD</th>
-            <th className="pb-2 pr-2 font-semibold text-muted text-right text-xs">Actual YTD</th>
+            <th className="pb-2 pr-2 font-semibold text-muted text-right text-xs">Forecast {COMPARISON_WINDOW_LABEL}</th>
+            <th className="pb-2 pr-2 font-semibold text-muted text-right text-xs">Actual {COMPARISON_WINDOW_LABEL}</th>
             <th className="pb-2 pl-2 font-semibold text-muted text-right text-xs">Δ</th>
           </tr>
         </thead>
         <tbody>
-          {employees.flatMap((name) => {
-            const fkey = normName(name);
+          {people.flatMap((p) => {
             const fcastByProj = new Map<string, { display: string; total: number }>();
-            for (const a of assignments) {
-              if (normName(a.employeeName) !== fkey) continue;
-              const total = MONTHS.reduce((s, m) => s + (a.monthlyTotals[m] ?? 0), 0);
+            for (const a of assignmentsByKey.get(p.key) ?? []) {
+              const total = COMPARISON_MONTHS.reduce((s, m) => s + (a.monthlyTotals[m] ?? 0), 0);
               const key = projKey(a.project);
               const prev = fcastByProj.get(key);
               fcastByProj.set(key, { display: a.project, total: (prev?.total ?? 0) + total });
             }
             const actByProj = new Map<string, { display: string; total: number }>();
-            for (const e of lookupActual(name)) {
-              if (!e.project || e.hours <= 0) continue;
+            for (const e of actualsByKey.get(p.key) ?? []) {
+              if (!e.project) continue;
               const key = projKey(e.project);
               const prev = actByProj.get(key);
               actByProj.set(key, { display: e.project, total: (prev?.total ?? 0) + e.hours });
@@ -415,15 +529,15 @@ function FCProjectView({ employees, assignments, lookupActual }: SubViewProps) {
 
             if (rows.length === 0) {
               return [(
-                <tr key={`${name}-empty`} className="border-b border-line/40">
-                  <td className="py-1.5 pr-3 font-medium text-ink">{name}</td>
+                <tr key={`${p.key}-empty`} className="border-b border-line/40">
+                  <td className="py-1.5 pr-3 font-medium text-ink">{p.name}</td>
                   <td colSpan={4} className="py-1.5 text-xs text-muted/70 italic">No forecast or actuals.</td>
                 </tr>
               )];
             }
             return rows.map((r, i) => (
-              <tr key={`${name}-${r.key}-${i}`} className="border-b border-line/40 hover:bg-surface-2/70">
-                <td className="py-1.5 pr-3 font-medium text-ink">{i === 0 ? name : ''}</td>
+              <tr key={`${p.key}-${r.key}-${i}`} className="border-b border-line/40 hover:bg-surface-2/70">
+                <td className="py-1.5 pr-3 font-medium text-ink">{i === 0 ? p.name : ''}</td>
                 <td className="py-1.5 pr-3 text-ink/80">
                   {r.project}
                   {r.source === 'forecastOnly' && <span className="ml-1.5 text-[9px] text-muted/70 italic">(no actual)</span>}
@@ -431,7 +545,7 @@ function FCProjectView({ employees, assignments, lookupActual }: SubViewProps) {
                 </td>
                 <td className="py-1.5 pr-2 text-right tabular-nums text-muted">{r.forecast > 0 ? r.forecast.toFixed(0) : '—'}</td>
                 <td className="py-1.5 pr-2 text-right tabular-nums text-ink/80">{r.actual > 0 ? r.actual.toFixed(0) : '—'}</td>
-                <td className="py-1.5 pl-2 text-right tabular-nums" title={tooltip(`${name} — ${r.project}`, r.forecast, r.actual)}>
+                <td className="py-1.5 pl-2 text-right tabular-nums" title={tooltip(`${p.name} — ${r.project}`, r.forecast, r.actual)}>
                   <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-semibold ${deltaColor(r.forecast, r.actual)}`}>
                     {fmtSigned(r.actual - r.forecast)}
                   </span>

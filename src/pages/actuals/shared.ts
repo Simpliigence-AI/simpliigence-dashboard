@@ -41,6 +41,33 @@ export function monthOf(dateStr: string): Month {
   return MONTHS[d.getUTCMonth()];
 }
 
+/* ─── Forecast-vs-Actual comparison window ───────────────────────── */
+
+/**
+ * First month the Forecast-vs-Actual tab compares.
+ *
+ * That tab counts only hours people entered themselves on /my-time, and
+ * /my-time became the way hours are recorded in August 2026. Earlier months
+ * hold almost no entries, so including them would read as a huge shortfall
+ * against forecast when really it is just missing data. Move the window by
+ * editing this one constant — nothing else hard-codes the month.
+ */
+export const COMPARISON_START_MONTH: Month = 'Aug';
+
+/** The months the comparison covers: COMPARISON_START_MONTH through Dec. */
+export const COMPARISON_MONTHS: Month[] = MONTHS.slice(MONTHS.indexOf(COMPARISON_START_MONTH));
+
+/** e.g. "Aug–Dec" — for column headers and captions. */
+export const COMPARISON_WINDOW_LABEL =
+  `${COMPARISON_MONTHS[0]}–${COMPARISON_MONTHS[COMPARISON_MONTHS.length - 1]}`;
+
+const COMPARISON_MONTH_SET = new Set<Month>(COMPARISON_MONTHS);
+
+/** True when a `YYYY-MM-DD` date falls inside the comparison window. */
+export function isComparisonDate(dateStr: string): boolean {
+  return COMPARISON_MONTH_SET.has(monthOf(dateStr));
+}
+
 /* ─── Week helpers (used by Forecast-vs-Actual week view) ────────── */
 
 export function isoWeekStart(date: Date): Date {

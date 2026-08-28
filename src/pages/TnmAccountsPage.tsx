@@ -11,7 +11,7 @@
  */
 import { useMemo, useState } from 'react';
 import {
-  Plus, Trash2, ArrowRightCircle, UserPlus,
+  Plus, Trash2, ArrowRightCircle, UserPlus, Rocket, Check,
   Building2, MapPin, User, Users, Search,
 } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
@@ -29,7 +29,7 @@ const STATUS_RANK: Record<TnmStatus, number> = { active: 0, prospect: 1, inactiv
 export default function TnmAccountsPage() {
   const {
     accounts, contacts,
-    addAccount, updateAccount, removeAccount, setStatus,
+    addAccount, updateAccount, removeAccount, setStatus, promoteToGlobalDemand,
     addContact, updateContact, removeContact,
   } = useTnmAccountsStore();
 
@@ -284,6 +284,16 @@ export default function TnmAccountsPage() {
               contactCount={contactsByAccount.get(a.id) ?? 0}
               onOpen={() => setDrawerId(a.id)}
               onConvert={() => setStatus(a.id, 'active')}
+              onPromote={async () => {
+                const label = a.entity === 'SI' ? 'SI' : 'MSP';
+                if (!window.confirm(`Promote "${a.name}" to Global Demand as ${label}? This copies the account + ${contactsByAccount.get(a.id) ?? 0} contact(s) into Global Demand and marks this TNM row inactive.`)) return;
+                const res = await promoteToGlobalDemand(a.id);
+                if (res) {
+                  window.alert(`Promoted. "${a.name}" is now a Global Demand ${label} account. Open /us-staffing to see it.`);
+                } else {
+                  window.alert(`Couldn't promote — already promoted, or not found.`);
+                }
+              }}
               onRemove={() => {
                 if (window.confirm(`Delete "${a.name}"? This will remove ${contactsByAccount.get(a.id) ?? 0} contacts.`)) {
                   removeAccount(a.id);
@@ -319,16 +329,18 @@ export default function TnmAccountsPage() {
 // ─── Tile ─────────────────────────────────────────────────────────────
 
 function AccountTile({
-  account, contactCount, onOpen, onConvert, onRemove,
+  account, contactCount, onOpen, onConvert, onPromote, onRemove,
 }: {
   account: TnmAccount;
   contactCount: number;
   onOpen: () => void;
   onConvert: () => void;
+  onPromote: () => void;
   onRemove: () => void;
 }) {
   const isProspect = account.status === 'prospect';
   const isInactive = account.status === 'inactive';
+  const isPromoted = !!account.promotedToUsId;
   const borderTone =
     account.status === 'active'   ? 'border-emerald-200 hover:border-emerald-400' :
     account.status === 'prospect' ? 'border-amber-200 hover:border-amber-400' :
@@ -349,6 +361,23 @@ function AccountTile({
             >
               <ArrowRightCircle size={14} />
             </button>
+          )}
+          {!isPromoted && !isInactive && (
+            <button
+              onClick={onPromote}
+              title="Promote to Global Demand account"
+              className="p-1 rounded-md text-indigo-600 hover:bg-indigo-50 transition"
+            >
+              <Rocket size={14} />
+            </button>
+          )}
+          {isPromoted && (
+            <span
+              title="Already promoted to Global Demand"
+              className="p-1 rounded-md text-emerald-700 bg-emerald-50 inline-flex items-center gap-1 text-[10px] font-semibold"
+            >
+              <Check size={12} /> promoted
+            </span>
           )}
           <button
             onClick={onRemove}

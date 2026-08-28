@@ -559,11 +559,57 @@ function rowToTeamMember(row: any): TeamMember {
 // ─── US Staffing converters ────────────────────────────────────────
 
 function usAccountToRow(a: USStaffingAccount) {
-  return { id: a.id, name: a.name, category: a.category, created_at: a.created_at, updated_by: CLIENT_ID, updated_at: new Date().toISOString() };
+  return {
+    id: a.id, name: a.name, category: a.category, created_at: a.created_at,
+    notes: a.notes ?? null,
+    website: a.website ?? null,
+    key_contact_name: a.key_contact_name ?? null,
+    key_contact_email: a.key_contact_email?.toLowerCase() || null,
+    key_contact_phone: a.key_contact_phone ?? null,
+    promoted_from_tnm_id: a.promoted_from_tnm_id ?? null,
+    updated_by: CLIENT_ID, updated_at: new Date().toISOString(),
+  };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToUSAccount(row: any): USStaffingAccount {
-  return { id: row.id, name: row.name, category: (row.category || 'SI') as AccountCategory, created_at: row.created_at };
+  return {
+    id: row.id, name: row.name, category: (row.category || 'SI') as AccountCategory,
+    notes: row.notes ?? null,
+    website: row.website ?? null,
+    key_contact_name: row.key_contact_name ?? null,
+    key_contact_email: row.key_contact_email ?? null,
+    key_contact_phone: row.key_contact_phone ?? null,
+    promoted_from_tnm_id: row.promoted_from_tnm_id ?? null,
+    created_at: row.created_at,
+  };
+}
+
+// US Staffing account contacts
+function usAccountContactToRow(c: import('../types/usStaffing').USStaffingAccountContact) {
+  return {
+    id: c.id,
+    account_id: c.accountId,
+    name: c.name.trim(),
+    email: c.email?.trim().toLowerCase() || null,
+    phone: c.phone?.trim() || null,
+    title: c.title?.trim() || null,
+    notes: c.notes ?? null,
+    updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToUSAccountContact(row: any): import('../types/usStaffing').USStaffingAccountContact {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    name: row.name,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    title: row.title ?? null,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function usReqToRow(r: USStaffingRequisition) {
@@ -840,6 +886,7 @@ function tnmAccountToRow(a: TnmAccount) {
     owner_note: a.ownerNote,
     notes: a.notes,
     created_by: a.createdBy,
+    promoted_to_us_id: a.promotedToUsId ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -857,6 +904,7 @@ function rowToTnmAccount(row: any): TnmAccount {
     ownerNote: row.owner_note ?? null,
     notes: row.notes ?? null,
     createdBy: row.created_by ?? null,
+    promotedToUsId: row.promoted_to_us_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -1346,10 +1394,15 @@ export async function fetchUSRosterAssignments(): Promise<USRosterAssignment[] |
 
 // ─── US Staffing fetchers ─────────────────────────────────────────
 
-export async function fetchUSStaffing(): Promise<{ accounts: USStaffingAccount[]; requisitions: USStaffingRequisition[] } | null> {
-  const [acctRes, reqRes] = await Promise.all([
+export async function fetchUSStaffing(): Promise<{
+  accounts: USStaffingAccount[];
+  requisitions: USStaffingRequisition[];
+  contacts: import('../types/usStaffing').USStaffingAccountContact[];
+} | null> {
+  const [acctRes, reqRes, contactRes] = await Promise.all([
     supabase.from('us_staffing_accounts').select('*'),
     supabase.from('us_staffing_requisitions').select('*'),
+    supabase.from('us_staffing_account_contacts').select('*'),
   ]);
   if (acctRes.error || reqRes.error) {
     console.warn('[supabase] fetch us staffing failed:', acctRes.error?.message, reqRes.error?.message);
@@ -1358,6 +1411,7 @@ export async function fetchUSStaffing(): Promise<{ accounts: USStaffingAccount[]
   return {
     accounts: (acctRes.data || []).map(rowToUSAccount),
     requisitions: (reqRes.data || []).map(rowToUSReq),
+    contacts: (contactRes.data || []).map(rowToUSAccountContact),
   };
 }
 
@@ -1684,7 +1738,16 @@ export const db = {
     await Promise.all([
       supabase.from('us_staffing_accounts').delete().eq('id', id),
       supabase.from('us_staffing_requisitions').delete().eq('account_id', id),
+      supabase.from('us_staffing_account_contacts').delete().eq('account_id', id),
     ]);
+  },
+  async upsertUSAccountContact(c: import('../types/usStaffing').USStaffingAccountContact) {
+    const { error } = await supabase.from('us_staffing_account_contacts').upsert(usAccountContactToRow(c), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert us account contact failed:', error);
+  },
+  async deleteUSAccountContact(id: string) {
+    const { error } = await supabase.from('us_staffing_account_contacts').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete us account contact failed:', error);
   },
   async upsertUSRequisition(r: USStaffingRequisition) {
     const { error } = await supabase.from('us_staffing_requisitions').upsert(usReqToRow(r), { onConflict: 'id' });
@@ -3006,7 +3069,11 @@ type StoreSetters = {
   setHiringConfig: (concierge: ConciergeConfig, scenario: ScenarioSettings, requests: StaffingRequest[]) => void;
   setPipelineProjects: (p: ZohoPipelineProject[]) => void;
   setIndiaStaffing: (accounts: IndiaAccount[], requisitions: IndiaRequisition[], statuses: DailyStatus[], history?: StaffingHistoryEntry[], candidates?: StaffingCandidate[]) => void;
-  setUSStaffing: (accounts: USStaffingAccount[], requisitions: USStaffingRequisition[]) => void;
+  setUSStaffing: (
+    accounts: USStaffingAccount[],
+    requisitions: USStaffingRequisition[],
+    contacts?: import('../types/usStaffing').USStaffingAccountContact[],
+  ) => void;
   setOpenBench: (resources: BenchResource[], updates: BenchUpdate[]) => void;
   setIndiaRoster: (members: IndiaRosterMember[]) => void;
   setUSRoster: (members: USRosterMember[]) => void;
@@ -3184,7 +3251,7 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
   }
 
   // --- US Staffing (refetch all on any change) ---
-  for (const table of ['us_staffing_accounts', 'us_staffing_requisitions'] as const) {
+  for (const table of ['us_staffing_accounts', 'us_staffing_requisitions', 'us_staffing_account_contacts'] as const) {
     channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table },
@@ -3193,7 +3260,7 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
         const row = (payload.new || payload.old) as any;
         if (row?.updated_by === CLIENT_ID) return;
         fetchUSStaffing().then((data) => {
-          if (data) setters.setUSStaffing(data.accounts, data.requisitions);
+          if (data) setters.setUSStaffing(data.accounts, data.requisitions, data.contacts);
         });
       },
     );

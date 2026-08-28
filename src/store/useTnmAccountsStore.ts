@@ -10,6 +10,8 @@ import { db } from '../lib/supabaseSync';
 import type {
   TnmAccount, TnmAccountContact, TnmEntity, TnmWorkType, TnmRegion, TnmStatus,
 } from '../types/tnmAccount';
+import type { USStaffingAccount, AccountCategory } from '../types/usStaffing';
+import { useUSStaffingStore } from './useUSStaffingStore';
 
 interface TnmAccountsState {
   accounts: TnmAccount[];
@@ -46,6 +48,16 @@ interface TnmAccountsState {
 
   updateContact: (id: string, patch: Partial<TnmAccountContact>) => Promise<void>;
   removeContact: (id: string) => Promise<void>;
+
+  /**
+   * Promote a TNM prospect to a real Global Demand account:
+   *   - Create a us_staffing_accounts row (SI when entity=SI, MSP otherwise).
+   *   - Copy every tnm_account_contacts row into us_staffing_account_contacts.
+   *   - Mark the TNM row promoted_to_us_id + status='inactive' so it doesn't
+   *     show up in Prospects any more but the history is preserved.
+   * Returns the new US account, or null if already promoted / not found.
+   */
+  promoteToGlobalDemand: (accountId: string) => Promise<USStaffingAccount | null>;
 }
 
 export const useTnmAccountsStore = create<TnmAccountsState>()(
@@ -127,6 +139,47 @@ export const useTnmAccountsStore = create<TnmAccountsState>()(
       removeContact: async (id) => {
         set({ contacts: get().contacts.filter((c) => c.id !== id) });
         await db.deleteTnmContact(id);
+      },
+
+      promoteToGlobalDemand: async (accountId) => {
+        const tnm = get().accounts.find((a) => a.id === accountId);
+        if (!tnm) return null;
+        if (tnm.promotedToUsId) return null;
+
+        const usStore = useUSStaffingStore.getState();
+        // SI on the TNM side maps to SI in Global Demand's MSP/SI category;
+        // End Client also lands under MSP (they're the closest fit for the
+        // existing category enum). Users can flip it in the account editor.
+        const category: AccountCategory = tnm.entity === 'SI' ? 'SI' : 'MSP';
+        const newAcct = usStore.addAccount(tnm.name, category);
+        // Enrich with the fields the TNM record carries.
+        usStore.updateAccount(newAcct.id, {
+          key_contact_name: tnm.keyContact ?? null,
+          notes: tnm.notes ?? null,
+          promoted_from_tnm_id: tnm.id,
+        });
+
+        // Copy contacts over.
+        for (const c of get().contacts.filter((c) => c.accountId === accountId)) {
+          usStore.addContact(newAcct.id, {
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            title: c.title,
+            notes: c.notes,
+          });
+        }
+
+        // Record the link on the TNM side and set status inactive so it
+        // leaves the Prospects tab.
+        await get().updateAccount(accountId, {
+          promotedToUsId: newAcct.id,
+          status: 'inactive',
+          notes: [tnm.notes, `Promoted to Global Demand ${new Date().toISOString().slice(0,10)}`]
+            .filter(Boolean).join(' · '),
+        });
+
+        return { ...newAcct, key_contact_name: tnm.keyContact ?? null, notes: tnm.notes ?? null } as USStaffingAccount;
       },
     }),
     {

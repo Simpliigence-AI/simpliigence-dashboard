@@ -231,8 +231,9 @@ function useSupabaseInit() {
             useUSStaffingStore.setState({
               accounts: ud.accounts,
               requisitions: ud.requisitions,
+              contacts: ud.contacts ?? [],
             });
-            console.log('[supabase] Loaded US staffing:', ud.accounts.length, 'accounts,', ud.requisitions.length, 'reqs');
+            console.log('[supabase] Loaded US staffing:', ud.accounts.length, 'accounts,', ud.requisitions.length, 'reqs,', (ud.contacts ?? []).length, 'contacts');
           } else {
             console.warn('[supabase] US staffing empty in Supabase — not auto-seeding');
           }
@@ -466,8 +467,12 @@ function useSupabaseInit() {
               ...(candidates ? { candidates } : {}),
             });
           },
-          setUSStaffing: (accounts, requisitions) => {
-            useUSStaffingStore.setState({ accounts, requisitions });
+          setUSStaffing: (accounts, requisitions, contacts) => {
+            useUSStaffingStore.setState({
+              accounts,
+              requisitions,
+              ...(contacts !== undefined ? { contacts } : {}),
+            });
           },
           setOpenBench: (resources, updates) => {
             useOpenBenchStore.setState({ resources, updates });

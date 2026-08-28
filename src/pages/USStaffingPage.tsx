@@ -17,6 +17,7 @@ import { db } from '../lib/supabaseSync';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { USStaffingSplitView } from './us-staffing/USStaffingSplitView';
 import { Rows3, Columns3 } from 'lucide-react';
+import { AccountEditDrawer } from './us-staffing/AccountEditDrawer';
 
 // Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
 const URGENT_UNSECURED = 250_000;
@@ -150,6 +151,7 @@ export default function USStaffingPage() {
   // ── JD generator state (US side; mirror of India Demand) ──
   const [jdReqId, setJdReqId] = useState<string | null>(null);
   const [jdText, setJdText] = useState('');
+  const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [jdState, setJdState] = useState<'idle' | 'loading' | 'ready' | 'saving' | 'error'>('idle');
   const [jdError, setJdError] = useState<string | null>(null);
   const [jdGeneratedAt, setJdGeneratedAt] = useState<string | null>(null);
@@ -612,11 +614,24 @@ export default function USStaffingPage() {
                       key={a.id}
                       className={`flex items-center justify-between py-1.5 border-b border-line/40 last:border-0 group/row ${isEmpty ? 'opacity-60' : ''}`}
                     >
-                      <span className="text-xs text-ink/80">{a.name}</span>
+                      <button
+                        onClick={() => setEditAccountId(a.id)}
+                        className="text-xs text-ink/80 text-left hover:text-primary font-medium truncate"
+                        title="Edit account"
+                      >
+                        {a.name}
+                      </button>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-semibold ${isEmpty ? 'text-muted/70 italic' : 'text-muted'}`}>
                           {count} {count === 1 ? 'role' : 'roles'}
                         </span>
+                        <button
+                          onClick={() => setEditAccountId(a.id)}
+                          className="p-0.5 text-muted/60 hover:text-primary transition-opacity opacity-0 group-hover/row:opacity-100"
+                          title="Edit account"
+                        >
+                          <Pencil size={12} />
+                        </button>
                         <button
                           onClick={() => {
                             const msg = isEmpty
@@ -1055,6 +1070,16 @@ export default function USStaffingPage() {
           </div>
         );
       })()}
+
+      {/* Account edit drawer — opens from clicking an account row in the
+       *  MSP / SI account lists. Handles name/category/website/notes,
+       *  key contact fields, and the named-contact CRUD. */}
+      {editAccountId && (
+        <AccountEditDrawer
+          accountId={editAccountId}
+          onClose={() => setEditAccountId(null)}
+        />
+      )}
     </div>
   );
 }

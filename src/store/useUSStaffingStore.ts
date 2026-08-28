@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import type {
   USStaffingAccount,
   USStaffingRequisition,
+  USStaffingAccountContact,
   AccountCategory,
 } from '../types/usStaffing';
 import { db } from '../lib/supabaseSync';
@@ -33,16 +34,22 @@ const SEED_REQS: USStaffingRequisition[] = [
 interface USStaffingState {
   accounts: USStaffingAccount[];
   requisitions: USStaffingRequisition[];
+  contacts: USStaffingAccountContact[];
 
   addAccount: (name: string, category: AccountCategory) => USStaffingAccount;
+  updateAccount: (id: string, patch: Partial<USStaffingAccount>) => void;
   removeAccount: (id: string) => void;
 
   addRequisition: (req: Omit<USStaffingRequisition, 'id' | 'created_at' | 'updated_at'>) => USStaffingRequisition;
   updateRequisition: (id: string, patch: Partial<USStaffingRequisition>) => void;
   removeRequisition: (id: string) => void;
 
+  addContact: (accountId: string, p: { name: string; email?: string | null; phone?: string | null; title?: string | null; notes?: string | null }) => USStaffingAccountContact;
+  updateContact: (id: string, patch: Partial<USStaffingAccountContact>) => void;
+  removeContact: (id: string) => void;
+
   /** Internal: called by realtime subscriptions to hydrate from Supabase */
-  _setFromSupabase: (accounts: USStaffingAccount[], requisitions: USStaffingRequisition[]) => void;
+  _setFromSupabase: (accounts: USStaffingAccount[], requisitions: USStaffingRequisition[], contacts?: USStaffingAccountContact[]) => void;
 }
 
 export const useUSStaffingStore = create<USStaffingState>()(
@@ -50,6 +57,7 @@ export const useUSStaffingStore = create<USStaffingState>()(
     (set, get) => ({
       accounts: SEED_ACCOUNTS,
       requisitions: SEED_REQS,
+      contacts: [],
 
       addAccount: (name, category) => {
         const acct: USStaffingAccount = { id: nanoid(), name, category, created_at: new Date().toISOString() };
@@ -58,10 +66,19 @@ export const useUSStaffingStore = create<USStaffingState>()(
         return acct;
       },
 
+      updateAccount: (id, patch) => {
+        set((s) => ({
+          accounts: s.accounts.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+        }));
+        const updated = get().accounts.find((a) => a.id === id);
+        if (updated) db.upsertUSAccount(updated);
+      },
+
       removeAccount: (id) => {
         set((s) => ({
           accounts: s.accounts.filter((a) => a.id !== id),
           requisitions: s.requisitions.filter((r) => r.account_id !== id),
+          contacts: s.contacts.filter((c) => c.accountId !== id),
         }));
         db.deleteUSAccount(id);
       },
@@ -91,7 +108,39 @@ export const useUSStaffingStore = create<USStaffingState>()(
         db.deleteUSRequisition(id);
       },
 
-      _setFromSupabase: (accounts, requisitions) => set({ accounts, requisitions }),
+      addContact: (accountId, p) => {
+        const now = new Date().toISOString();
+        const c: USStaffingAccountContact = {
+          id: nanoid(),
+          accountId,
+          name: p.name.trim(),
+          email: p.email?.trim().toLowerCase() || null,
+          phone: p.phone?.trim() || null,
+          title: p.title?.trim() || null,
+          notes: p.notes ?? null,
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((s) => ({ contacts: [...s.contacts, c] }));
+        db.upsertUSAccountContact(c);
+        return c;
+      },
+
+      updateContact: (id, patch) => {
+        set((s) => ({
+          contacts: s.contacts.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c)),
+        }));
+        const updated = get().contacts.find((c) => c.id === id);
+        if (updated) db.upsertUSAccountContact(updated);
+      },
+
+      removeContact: (id) => {
+        set((s) => ({ contacts: s.contacts.filter((c) => c.id !== id) }));
+        db.deleteUSAccountContact(id);
+      },
+
+      _setFromSupabase: (accounts, requisitions, contacts) =>
+        set((s) => ({ accounts, requisitions, contacts: contacts ?? s.contacts })),
     }),
     { name: 'simpliigence-us-staffing' },
   ),

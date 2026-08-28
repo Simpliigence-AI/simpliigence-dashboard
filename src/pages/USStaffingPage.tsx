@@ -98,6 +98,16 @@ function EditableCell({ value, onSave, type = 'text', options, className = '', d
 
 /* —— Constants —— */
 const ALL_STAGES: USStaffingStage[] = ['New','Sourcing','Profiles Shared','Interview','Shortlisted','Client Round','Closed/Selected','Onboarding','On Hold','Cancelled'];
+
+/**
+ * Stages that mean "this requisition is no longer being actively worked":
+ *   - Closed/Selected + Onboarding = won, moved to delivery
+ *   - On Hold = paused by client
+ *   - Cancelled = dropped / lost
+ * Everything else is in the active pipeline.
+ */
+const ARCHIVE_STAGES = new Set<string>(['Closed/Selected', 'Onboarding', 'On Hold', 'Cancelled']);
+const isArchived = (stage: string) => ARCHIVE_STAGES.has(stage);
 const CATEGORIES: AccountCategory[] = ['MSP', 'SI'];
 
 /* —— Main Component —— */
@@ -108,6 +118,14 @@ export default function USStaffingPage() {
   const [showAddReq, setShowAddReq] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [filterStage, setFilterStage] = useState<string>('All');
+  /**
+   * Split the requisition list into an "active" working view and an
+   * "archive" pile. Anything terminal — hired, live, dropped, paused —
+   * doesn't clutter the day-to-day pipeline; you flip to Archive to see
+   * them. Sourcing / Interview / Client Round / Profiles Shared / New /
+   * Shortlisted are all active. Default is active.
+   */
+  const [view, setView] = useState<'active' | 'archive'>('active');
   // Collapse-by-default per-account view. Uses the shared hook so state
   // persists to localStorage and matches the roster pages' behaviour.
   const accountCollapse = useCollapsedGroups('us-staffing-account', { defaultCollapsed: true });
@@ -205,10 +223,18 @@ export default function USStaffingPage() {
   );
 
   const filteredReqs = useMemo(() => {
-    let data = reqsWithAccount;
+    // Active view = everything except archive stages. Archive view = only
+    // the archive stages. The stage-specific dropdown filter still applies
+    // on top so you can zero in on e.g. just "On Hold" inside Archive.
+    let data = reqsWithAccount.filter((r) => (
+      view === 'archive' ? isArchived(r.stage) : !isArchived(r.stage)
+    ));
     if (filterStage !== 'All') data = data.filter(r => r.stage === filterStage);
     return data;
-  }, [reqsWithAccount, filterStage]);
+  }, [reqsWithAccount, filterStage, view]);
+
+  const activeCount = useMemo(() => reqsWithAccount.filter((r) => !isArchived(r.stage)).length, [reqsWithAccount]);
+  const archiveCount = useMemo(() => reqsWithAccount.filter((r) => isArchived(r.stage)).length, [reqsWithAccount]);
 
   // Stats
   const totalReqs = requisitions.length;
@@ -623,10 +649,36 @@ export default function USStaffingPage() {
     <div className="space-y-4">
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Active / Archive segmented toggle — default is active so the
+         *  day-to-day list stays clean; archive holds Closed/Onboarding/
+         *  On Hold/Cancelled. Counts follow the raw requisitions list. */}
+        <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
+          <button
+            type="button"
+            onClick={() => setView('active')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition ${
+              view === 'active' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+          >
+            Active <span className={`ml-1.5 ${view === 'active' ? 'text-white/80' : 'text-muted/70'}`}>{activeCount}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('archive')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition ${
+              view === 'archive' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+          >
+            Archive <span className={`ml-1.5 ${view === 'archive' ? 'text-white/80' : 'text-muted/70'}`}>{archiveCount}</span>
+          </button>
+        </div>
         <select value={filterStage} onChange={e => setFilterStage(e.target.value)}
           className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Stages</option>
-          {ALL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          {(view === 'archive'
+            ? ALL_STAGES.filter((s) => ARCHIVE_STAGES.has(s))
+            : ALL_STAGES.filter((s) => !ARCHIVE_STAGES.has(s))
+          ).map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <button onClick={() => setShowAddReq(true)} className="flex items-center gap-1 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90">
           <Plus size={14} /> Add Requisition

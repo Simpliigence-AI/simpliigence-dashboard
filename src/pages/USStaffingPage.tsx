@@ -10,6 +10,7 @@ import { useUSStaffingStore } from '../store/useUSStaffingStore';
 import { useSalesPlanStore, normalizeAccountName, type AccountInsight } from '../store/useSalesPlanStore';
 import { Sensitive } from '../components/Sensitive';
 import { PageHeader } from '../components/shared/PageHeader';
+import { ScreeningModal } from '../components/staffing/ScreeningModal';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { USStaffingStage, AccountCategory } from '../types/usStaffing';
 import { US_STAGE_COLORS } from '../types/usStaffing';
@@ -116,6 +117,7 @@ export default function USStaffingPage() {
   const { accounts, requisitions, addAccount, removeAccount, addRequisition, updateRequisition, removeRequisition } = useUSStaffingStore();
 
   const [activeTab, setActiveTab] = useState<'all' | 'forecast'>('all');
+  const [screeningOpen, setScreeningOpen] = useState(false);
   const [showAddReq, setShowAddReq] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [filterStage, setFilterStage] = useState<string>('All');
@@ -870,7 +872,29 @@ export default function USStaffingPage() {
         tone="teal"
         title="Global Demand"
         subtitle="Manage staffing requisitions across MSP and SI accounts"
+        action={
+          <button
+            type="button"
+            onClick={() => setScreeningOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-br from-purple-600 to-sky-600 hover:opacity-90"
+            title="AI-assisted candidate screening"
+          >
+            <Sparkles size={14} /> Screening
+          </button>
+        }
       />
+      {screeningOpen && (
+        <ScreeningModal
+          requisitionSource="us"
+          requisitionOptions={requisitions.map((r) => ({
+            id: r.id,
+            title: `${r.title}${r.stage ? ` · ${r.stage}` : ''}`,
+            accountName: accounts.find((a) => a.id === r.account_id)?.name,
+            jd: r.job_description ?? null,
+          }))}
+          onClose={() => setScreeningOpen(false)}
+        />
+      )}
 
       {/* Tab Navigation + View mode toggle */}
       <div className="flex items-center gap-3 flex-wrap">

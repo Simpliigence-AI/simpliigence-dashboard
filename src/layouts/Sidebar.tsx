@@ -25,6 +25,7 @@ import {
   Handshake,
   Target,
   Radar,
+  ClipboardCheck,
   Home,
   ChevronDown,
   ChevronRight,
@@ -105,6 +106,7 @@ const sections: NavSection[] = [
       { to: '/candidates', icon: Contact, label: 'Candidates' },
       { to: '/profile-format', icon: FileEdit, label: 'Profile Format' },
       { to: '/hiring-radar', icon: Radar, label: 'Hiring Radar' },
+      { to: '/screenings', icon: ClipboardCheck, label: 'Screenings' },
     ],
   },
   {

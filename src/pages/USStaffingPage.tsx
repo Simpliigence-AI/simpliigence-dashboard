@@ -297,9 +297,13 @@ export default function USStaffingPage() {
     return Math.max(5, Math.min(95, score));
   };
 
+  // Derive from filteredReqs (Active/Archive view + stage filter) so the
+  // Split view, Table view, and Cards view all respect the same filter.
+  // The AI Forecast tab still counts only active pipeline reqs — that's
+  // filteredReqs when view='active', which is what we want.
   const scoredReqs = useMemo(() =>
-    reqsWithAccount.map(r => ({ ...r, closureProb: scoreReq(r), risk: scoreReq(r) >= 65 ? 'low' as const : scoreReq(r) <= 35 ? 'high' as const : 'medium' as const })),
-    [reqsWithAccount]
+    filteredReqs.map(r => ({ ...r, closureProb: scoreReq(r), risk: scoreReq(r) >= 65 ? 'low' as const : scoreReq(r) <= 35 ? 'high' as const : 'medium' as const })),
+    [filteredReqs]
   );
 
   const forecastFiltered = useMemo(() => {

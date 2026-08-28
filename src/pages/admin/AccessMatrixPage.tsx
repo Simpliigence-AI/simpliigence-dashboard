@@ -16,7 +16,7 @@
  * flushes to Supabase in the background.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { db, fetchAuthorizedUsersForMatrix } from '../../lib/supabaseSync';
+import { db, fetchAuthorizedUsersForMatrix, fetchUserPageAccess } from '../../lib/supabaseSync';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAccessStore } from '../../store/useAccessStore';
 import { useIsOwner } from '../../components/OwnerOnly';
@@ -41,24 +41,31 @@ export default function AccessMatrixPage() {
   const [q, setQ] = useState('');
 
   const setLevel = useAccessStore((s) => s.setLevel);
+  const hydrateAccess = useAccessStore((s) => s.hydrate);
   const entries = useAccessStore((s) => s.entries);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const rows = await fetchAuthorizedUsersForMatrix();
+      // Refetch both the user list AND the access grants on every visit —
+      // the store is persisted, so a stray edit somewhere else (SQL fix,
+      // another admin, etc.) leaves the local cache stale and the matrix
+      // shows historical dropdowns. Doing a fresh pull here keeps the
+      // page authoritative.
+      const [rows, accessRows] = await Promise.all([
+        fetchAuthorizedUsersForMatrix(),
+        fetchUserPageAccess(),
+      ]);
       if (!alive) return;
-      // Drop the owner rows — they always have full access at the code
-      // layer, and rendering them here would let them accidentally lock
-      // themselves out with a stray click.
       const OWNER_EMAILS = new Set(['raghu@simpliigence.com', 'raghu.seetharam@simpliigence.com']);
       const filtered = (rows ?? []).filter((r) => !OWNER_EMAILS.has(r.email.toLowerCase()));
       filtered.sort((a, b) => (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email));
       setUsers(filtered);
+      if (accessRows) hydrateAccess(accessRows);
       setLoading(false);
     })();
     return () => { alive = false; };
-  }, []);
+  }, [hydrateAccess]);
 
   const visibleUsers = useMemo(() => {
     const needle = q.trim().toLowerCase();

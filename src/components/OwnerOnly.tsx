@@ -1,17 +1,18 @@
 /**
- * Owner-only gate — hides financial data (cost, bill rate, margin, revenue)
- * from everyone except Raghu, regardless of role.
+ * Financial visibility gate — used to be strictly owner-only, now respects
+ * the session reveal + can_view_financials permission the same way
+ * <Sensitive> does.
  *
- * Role-based gating isn't enough here: other admins can see the app but
- * shouldn't see per-consultant cost/bill economics. The gate is keyed off
- * the authenticated user's email against a small owner allowlist.
- *
- * Two aliases exist on `authorized_users`, so both are recognised:
- *   raghu.seetharam@simpliigence.com  (canonical)
- *   raghu@simpliigence.com            (short alias)
+ * Kept as a separate export so existing call sites don't have to change
+ * their imports. Behaviour is now equivalent to <Sensitive> — masked for
+ * everyone by default, click any masked value to reveal for the session
+ * (only if the current user has can_view_financials or is the owner).
+ * Owner is still the ONE user who always has permission, so nothing they
+ * see today gets hidden from them.
  */
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
+import { Sensitive, useMaskFinancial as useMaskFinancialUnderlying } from './Sensitive';
 
 const OWNER_EMAILS = new Set<string>([
   'raghu.seetharam@simpliigence.com',
@@ -26,9 +27,9 @@ export function useIsOwner(): boolean {
 }
 
 /**
- * Renders children unchanged for the owner; otherwise renders a masked
- * placeholder (••• by default). Use around any cost / bill rate / margin
- * / revenue value displayed in the UI.
+ * Delegates to <Sensitive>. Kept as a separate name so existing call
+ * sites (Global Roster, USRosterPage, USRosterCardGrid, AssignmentEditor,
+ * USRosterClientView, USRosterConsultantView) don't need to change.
  */
 export function OwnerOnly({
   children,
@@ -39,27 +40,14 @@ export function OwnerOnly({
   placeholder?: ReactNode;
   className?: string;
 }) {
-  const isOwner = useIsOwner();
-  if (isOwner) return <>{children}</>;
   return (
-    <span
-      title="Financial data — visible to owner only"
-      className={`text-muted/70 italic font-medium tracking-wider select-none ${className}`}
-    >
-      {placeholder ?? '•••'}
-    </span>
+    <Sensitive placeholder={placeholder} className={className}>
+      {children}
+    </Sensitive>
   );
 }
 
-/**
- * Hook variant for tickFormatter / Tooltip callbacks / table cell text
- * where JSX wrapping isn't possible. Pass any pre-formatted string; returns
- * '•••' when the current user isn't the owner.
- */
+/** Hook variant — masked-unless-revealed for the same rules. */
 export function useMaskForNonOwner() {
-  const isOwner = useIsOwner();
-  return (value: string | number): string => {
-    if (isOwner) return typeof value === 'number' ? value.toLocaleString() : value;
-    return '•••';
-  };
+  return useMaskFinancialUnderlying();
 }

@@ -40,12 +40,19 @@ import {
   Sun,
   Moon,
   SunMoon,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore, type ThemePreference } from '../store/useThemeStore';
+import { useAccessStore } from '../store/useAccessStore';
+import { useFinancialsRevealStore } from '../store/useFinancialsRevealStore';
+import { useIsOwner } from '../components/OwnerOnly';
+import { useCanRevealFinancials } from '../hooks/usePageAccess';
+import { normalizePageKey } from '../lib/pageCatalog';
 
 /** Nav entry. If `href` is set the item renders as an external <a> that opens
  *  a new tab. Otherwise `to` renders as an internal React Router NavLink. */
@@ -129,6 +136,7 @@ const adminSection: NavSection = {
   label: 'Admin',
   items: [
     { to: '/admin/users',    icon: UserCog,      label: 'Users' },
+    { to: '/admin/access',   icon: ShieldCheck,  label: 'Access Matrix' },
     { to: '/admin/leave',    icon: CalendarCheck, label: 'Leave Admin' },
     { to: '/admin/activity', icon: Activity,     label: 'Activity' },
     { to: '/admin/audit',    icon: History,      label: 'Audit Log' },
@@ -234,7 +242,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   //     own "My Work" group at the top.
   //   - admin: full nav + Admin section, with "My Time" + "Team Time" injected
   //     under Projects.
-  const visibleSections = isEmployee
+  const rawSections: NavSection[] = isEmployee
     ? employeeOnlySections
     : isAdmin
       ? sections
@@ -249,6 +257,44 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
           { label: 'My Work', items: [myTimeItem, teamTimeItem, teamLeaveItem] } as NavSection,
           ...sections.filter((s) => s.label !== 'Projects'),
         ];
+
+  /**
+   * Access-matrix filter. Owner sees everything. Everyone else has their
+   * per-page level in the access store — items keyed to a page they have
+   * `none` on get hidden. External links (href-only) and items missing
+   * from the catalog (My Time, Delivery Cockpit portal shortcuts, etc.)
+   * fall through by default so we don't accidentally hide the world if a
+   * page key isn't in the catalog yet.
+   */
+  const isOwner = useIsOwner();
+  const currentEmail = useAuthStore((s) => s.currentUser?.email);
+  const accessEntries = useAccessStore((s) => s.entries);
+  const visibleSections: NavSection[] = useMemo(() => {
+    if (isOwner) return rawSections;
+    const email = (currentEmail ?? '').toLowerCase();
+    const levelFor = (to: string | undefined): 'none' | 'read' | 'write' | 'unknown' => {
+      if (!to) return 'unknown';
+      const key = normalizePageKey(to);
+      const row = accessEntries.find((e) => e.userEmail === email && e.pageKey === key);
+      return row?.level ?? 'unknown';
+    };
+    return rawSections
+      .map((s) => ({
+        ...s,
+        items: s.items.filter((item) => {
+          if (item.href) return true;                   // external links unfiltered
+          const level = levelFor(item.to);
+          if (level === 'unknown') return true;         // page not in catalog → don't hide
+          return level !== 'none';
+        }),
+      }))
+      .filter((s) => s.items.length > 0);
+  }, [rawSections, isOwner, currentEmail, accessEntries]);
+
+  // Financial-reveal toggle in the profile / footer area.
+  const revealed = useFinancialsRevealStore((s) => s.revealed);
+  const toggleReveal = useFinancialsRevealStore((s) => s.toggle);
+  const canReveal = useCanRevealFinancials();
 
   useEffect(() => {
     let mounted = true;
@@ -460,8 +506,37 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         </div>
       )}
 
-      {/* Bottom: Theme + Settings + Toggle */}
+      {/* Bottom: Theme + Financial reveal + Settings + Toggle */}
       <div className={`${eff ? 'px-2' : 'px-3'} pb-3 pt-2 space-y-1`}>
+        {/* Reveal-financials toggle. Owner + can_view_financials users get
+         *  the working button; anyone else sees a locked variant that
+         *  explains why. Kept above the Settings row so it's discoverable. */}
+        <button
+          type="button"
+          onClick={() => { if (canReveal) toggleReveal(); }}
+          title={
+            !canReveal
+              ? 'Financial values are hidden. You do not have permission to reveal them.'
+              : revealed
+                ? 'Financial values are visible for this session — click to hide'
+                : 'Financial values are hidden — click to reveal for this session'
+          }
+          className={`w-full flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            revealed && canReveal
+              ? 'bg-emerald-600/90 text-white hover:bg-emerald-500'
+              : canReveal
+                ? 'text-muted hover:text-white hover:bg-sidebar-hover'
+                : 'text-muted/60 cursor-not-allowed'
+          }`}
+        >
+          {revealed && canReveal ? <Eye size={18} className="flex-shrink-0" /> : <EyeOff size={18} className="flex-shrink-0" />}
+          {!eff && (
+            <span className="flex-1 text-left">
+              {revealed && canReveal ? 'Financials shown' : 'Financials hidden'}
+            </span>
+          )}
+        </button>
+
         <ThemeToggle collapsed={eff} />
 
         <NavLink

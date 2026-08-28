@@ -25,6 +25,10 @@ export interface CurrentUser {
   avatarUrl: string | null;
   /** 'female' | 'male'; NULL → no gendered leave types shown. */
   gender: string | null;
+  /** Whether this user is allowed to reveal financial values (rates,
+   *  margins, revenue) via the sidebar toggle. Owner is always allowed
+   *  at the code layer; every other user needs this flag = true. */
+  canViewFinancials: boolean;
 }
 
 /** Minimal user-profile shape used for directory lookups (avatars + names). */
@@ -64,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       const { data: row } = await supabase
         .from('authorized_users')
-        .select('email, full_name, is_admin, role, employee_code, manager_email, avatar_url, gender')
+        .select('email, full_name, is_admin, role, employee_code, manager_email, avatar_url, gender, can_view_financials')
         .eq('email', user.email)
         .maybeSingle();
       const role: UserRole = (row?.role as UserRole | undefined) ?? (row?.is_admin ? 'admin' : 'employee');
@@ -83,6 +87,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           managerEmail: row?.manager_email ?? null,
           avatarUrl: row?.avatar_url ?? null,
           gender: row?.gender ?? null,
+          canViewFinancials: !!row?.can_view_financials,
         },
         loading: false,
       });

@@ -14,6 +14,7 @@ import { usePresalesStore } from './store/usePresalesStore';
 import { usePodAssignmentsStore } from './store/usePodAssignmentsStore';
 import { useVendorStore } from './store/useVendorStore';
 import { useTnmAccountsStore } from './store/useTnmAccountsStore';
+import { useAccessStore } from './store/useAccessStore';
 import { useConciergeAccountsStore } from './store/useConciergeAccountsStore';
 import { useLeaveStore } from './store/useLeaveStore';
 import { useFeatureCatalogStore } from './store/useFeatureCatalogStore';
@@ -40,6 +41,7 @@ import {
   fetchAccountManagement,
   fetchVendors,
   fetchTnmAccounts,
+  fetchUserPageAccess,
   fetchConcierge,
   fetchLeaveData,
   fetchPodAssignments,
@@ -95,6 +97,7 @@ function useSupabaseInit() {
           accountMgmtRes,
           vendorsRes,
           tnmAccountsRes,
+          accessRes,
           candidateCallsRes,
           callTemplatesRes,
           presalesRes,
@@ -121,6 +124,7 @@ function useSupabaseInit() {
           withTimeout(fetchAccountManagement()),
           withTimeout(fetchVendors()),
           withTimeout(fetchTnmAccounts()),
+          withTimeout(fetchUserPageAccess()),
           withTimeout(fetchCandidateCalls()),
           withTimeout(fetchCallTemplates()),
           withTimeout(fetchPresales()),
@@ -391,6 +395,17 @@ function useSupabaseInit() {
           }
         } else {
           console.warn('[supabase] TNM accounts fetch timed out — using localStorage');
+        }
+
+        // --- Access matrix ---
+        if (!accessRes.timedOut) {
+          const rows = accessRes.value;
+          if (rows) {
+            useAccessStore.getState().hydrate(rows);
+            console.log('[supabase] Loaded user_page_access:', rows.length, 'grants');
+          }
+        } else {
+          console.warn('[supabase] user_page_access fetch timed out — using localStorage');
         }
 
         // --- Concierge accounts (managed-services 360 view) ---

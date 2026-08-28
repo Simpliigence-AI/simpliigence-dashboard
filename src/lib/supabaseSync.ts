@@ -32,6 +32,7 @@ import type {
   ConciergeAccount, ConciergeFeature, ConciergeBillingEntry,
 } from '../types/concierge';
 import type { LeaveType, LeaveRequest, LeaveAllocation, LeaveAuditEntry } from '../types/leave';
+import type { UserPageAccess } from '../types/access';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
@@ -934,6 +935,41 @@ function rowToTnmContact(row: any): TnmAccountContact {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+export async function fetchUserPageAccess(): Promise<UserPageAccess[] | null> {
+  const { data, error } = await supabase.from('user_page_access').select('*');
+  if (error) {
+    console.warn('[supabase] fetch user_page_access failed:', error.message);
+    return null;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((row: any) => ({
+    userEmail: (row.user_email || '').toLowerCase(),
+    pageKey: row.page_key,
+    level: row.level,
+    grantedBy: row.granted_by ?? null,
+    grantedAt: row.granted_at,
+  }));
+}
+
+export async function fetchAuthorizedUsersForMatrix(): Promise<Array<{
+  email: string; fullName: string | null; isAdmin: boolean; canViewFinancials: boolean;
+}> | null> {
+  const { data, error } = await supabase
+    .from('authorized_users')
+    .select('email, full_name, is_admin, can_view_financials');
+  if (error) {
+    console.warn('[supabase] fetch authorized_users failed:', error.message);
+    return null;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((row: any) => ({
+    email: (row.email || '').toLowerCase(),
+    fullName: row.full_name ?? null,
+    isAdmin: !!row.is_admin,
+    canViewFinancials: !!row.can_view_financials,
+  }));
 }
 
 export async function fetchTnmAccounts(): Promise<{
@@ -1974,6 +2010,24 @@ export const db = {
   async deleteTnmContact(id: string) {
     const { error } = await supabase.from('tnm_account_contacts').delete().eq('id', id);
     if (error) console.warn('[supabase] delete tnm_account_contact failed:', error);
+  },
+
+  // --- Access matrix ---
+  async upsertUserPageAccess(a: UserPageAccess) {
+    const { error } = await supabase.from('user_page_access').upsert({
+      user_email: a.userEmail.trim().toLowerCase(),
+      page_key: a.pageKey.trim(),
+      level: a.level,
+      granted_by: a.grantedBy,
+      granted_at: a.grantedAt,
+    }, { onConflict: 'user_email,page_key' });
+    if (error) console.warn('[supabase] upsert user_page_access failed:', error);
+  },
+  async setUserCanViewFinancials(email: string, allow: boolean) {
+    const { error } = await supabase.from('authorized_users')
+      .update({ can_view_financials: allow })
+      .eq('email', email.trim().toLowerCase());
+    if (error) console.warn('[supabase] update can_view_financials failed:', error);
   },
 
   // --- Candidate AI calls ---

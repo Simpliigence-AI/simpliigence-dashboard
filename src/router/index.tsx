@@ -35,6 +35,7 @@ import UsersPage from '../pages/admin/UsersPage';
 import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
 import LeaveAdminPage from '../pages/admin/LeaveAdminPage';
+import AccessMatrixPage from '../pages/admin/AccessMatrixPage';
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
@@ -88,6 +89,7 @@ export const router = createBrowserRouter(
         { path: 'admin/activity', element: <AdminOnly><ActivityPage /></AdminOnly> },
         { path: 'admin/audit',    element: <AdminOnly><AuditLogPage /></AdminOnly> },
         { path: 'admin/leave',    element: <AdminOnly><LeaveAdminPage /></AdminOnly> },
+        { path: 'admin/access',   element: <AdminOnly><AccessMatrixPage /></AdminOnly> },
 
         // Account Management
         { path: 'accounts', element: <AccountsPage /> },

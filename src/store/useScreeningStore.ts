@@ -12,6 +12,7 @@ import type {
   ScreeningQuestion,
   ScreeningStatus,
   RequisitionSource,
+  RecruiterObservations,
 } from '../types/screening';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,10 +25,12 @@ function rowToScreening(r: any): Screening {
     accountName: r.account_name ?? null,
     jd: r.jd ?? '',
     criteria: Array.isArray(r.criteria) ? r.criteria : [],
+    roleFocus: r.role_focus ?? null,
     candidateProfile: r.candidate_profile ?? '',
     candidateName: r.candidate_name ?? null,
     generatedQuestions: Array.isArray(r.generated_questions) ? r.generated_questions : [],
     transcript: r.transcript ?? null,
+    recruiterObservations: r.recruiter_observations ?? null,
     evaluation: r.evaluation ?? null,
     status: r.status,
     createdBy: r.created_by ?? null,
@@ -50,6 +53,7 @@ interface State {
     accountName?: string | null;
     jd: string;
     criteria: ScreeningCriterion[];
+    roleFocus?: string | null;
     candidateProfile: string;
     candidateName?: string | null;
     createdBy?: string | null;
@@ -58,9 +62,11 @@ interface State {
   update: (id: string, patch: {
     jd?: string;
     criteria?: ScreeningCriterion[];
+    roleFocus?: string | null;
     candidateProfile?: string;
     candidateName?: string | null;
     transcript?: string;
+    recruiterObservations?: RecruiterObservations | null;
     status?: ScreeningStatus;
   }) => Promise<void>;
 
@@ -94,6 +100,7 @@ export const useScreeningStore = create<State>((set, get) => ({
       account_name: params.accountName ?? null,
       jd: params.jd,
       criteria: params.criteria,
+      role_focus: params.roleFocus ?? null,
       candidate_profile: params.candidateProfile,
       candidate_name: params.candidateName ?? null,
       created_by: params.createdBy ?? null,
@@ -110,9 +117,11 @@ export const useScreeningStore = create<State>((set, get) => ({
     const dbPatch: Record<string, any> = { updated_at: new Date().toISOString() };
     if (patch.jd !== undefined) dbPatch.jd = patch.jd;
     if (patch.criteria !== undefined) dbPatch.criteria = patch.criteria;
+    if (patch.roleFocus !== undefined) dbPatch.role_focus = patch.roleFocus;
     if (patch.candidateProfile !== undefined) dbPatch.candidate_profile = patch.candidateProfile;
     if (patch.candidateName !== undefined) dbPatch.candidate_name = patch.candidateName;
     if (patch.transcript !== undefined) dbPatch.transcript = patch.transcript;
+    if (patch.recruiterObservations !== undefined) dbPatch.recruiter_observations = patch.recruiterObservations;
     if (patch.status !== undefined) dbPatch.status = patch.status;
     const { data, error } = await supabase.from('screenings').update(dbPatch).eq('id', id).select().single();
     if (error || !data) throw new Error(error?.message ?? 'update failed');
@@ -137,6 +146,7 @@ export const useScreeningStore = create<State>((set, get) => ({
         candidateProfile: cur.candidateProfile,
         requisitionTitle: cur.requisitionTitle,
         candidateName: cur.candidateName,
+        roleFocus: cur.roleFocus,
       } },
     );
     if (error) throw new Error(error.message);
@@ -166,6 +176,8 @@ export const useScreeningStore = create<State>((set, get) => ({
         transcript: cur.transcript,
         requisitionTitle: cur.requisitionTitle,
         candidateName: cur.candidateName,
+        roleFocus: cur.roleFocus,
+        recruiterObservations: cur.recruiterObservations ?? undefined,
       } },
     );
     if (error) throw new Error(error.message);

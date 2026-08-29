@@ -24,13 +24,38 @@ export interface ScreeningEvaluationCriterion {
   gaps: string[];
   summary: string;
 }
+export interface ScreeningDeliveryAssessment {
+  summary: string;
+  avg_score: number;
+}
 export interface ScreeningEvaluation {
   overall_score: number;
   overall_recommendation: ScreeningRecommendation;
   per_criterion: ScreeningEvaluationCriterion[];
+  delivery_assessment?: ScreeningDeliveryAssessment;
   summary: string;
   next_steps?: string[];
 }
+
+/** Recruiter's post-call ratings — the AI cannot see body language or hear
+ *  tone from a transcript, so these are authoritative for delivery.
+ *  Each field is 1-5 (Poor → Excellent). Notes is free-form. */
+export interface RecruiterObservations {
+  verbal_fluency?: number;
+  confidence?: number;
+  energy?: number;
+  structured_thinking?: number;
+  cultural_warmth?: number;
+  notes?: string;
+}
+
+export const RECRUITER_OBSERVATION_LABELS: Array<{ key: keyof RecruiterObservations; label: string; help: string }> = [
+  { key: 'verbal_fluency',      label: 'Verbal fluency',      help: 'Clarity of speech, English fluency, pace' },
+  { key: 'confidence',          label: 'Confidence',          help: 'How they hold their answers under probing' },
+  { key: 'energy',              label: 'Energy & engagement', help: 'Enthusiasm, presence on the call' },
+  { key: 'structured_thinking', label: 'Structured thinking', help: 'Answers stay on topic and follow a logical order' },
+  { key: 'cultural_warmth',     label: 'Cultural warmth',     help: 'Rapport-building, listening, professionalism' },
+];
 
 export interface Screening {
   id: string;
@@ -40,10 +65,15 @@ export interface Screening {
   accountName: string | null;
   jd: string;
   criteria: ScreeningCriterion[];
+  /** Free-text recruiter steer: "Salesforce BA specializing in Service Cloud",
+   *  "AWS Solutions Architect with heavy VPC/IAM depth". Drives the technical
+   *  emphasis of generated questions. */
+  roleFocus: string | null;
   candidateProfile: string;
   candidateName: string | null;
   generatedQuestions: ScreeningQuestion[];
   transcript: string | null;
+  recruiterObservations: RecruiterObservations | null;
   evaluation: ScreeningEvaluation | null;
   status: ScreeningStatus;
   createdBy: string | null;
@@ -53,11 +83,11 @@ export interface Screening {
 
 /** Default criterion menu — recruiters can add/edit/remove per screening. */
 export const DEFAULT_SCREENING_CRITERIA: ScreeningCriterion[] = [
-  { name: 'Development skills', weight: 30, notes: 'Depth in the required tech stack from the JD' },
-  { name: 'Communication skills', weight: 20, notes: 'Clarity, active listening, English fluency' },
-  { name: 'Relevant experience', weight: 25, notes: 'Recent work matching the JD scope + domain' },
-  { name: 'Problem-solving', weight: 15 },
-  { name: 'Cultural fit', weight: 10 },
+  { name: 'Technical depth (role-specific)', weight: 40, notes: 'Deep understanding of the role\'s core tech — config, tradeoffs, gotchas — not textbook definitions' },
+  { name: 'Relevant experience',              weight: 25, notes: 'Recent, verifiable work matching the JD scope + domain' },
+  { name: 'Problem-solving',                  weight: 15, notes: 'Diagnosis + reasoning under a scenario' },
+  { name: 'Communication skills',             weight: 10, notes: 'Delivery-side — sourced from recruiter observations, not the transcript' },
+  { name: 'Cultural fit',                     weight: 10, notes: 'Delivery-side — recruiter observations' },
 ];
 
 export const RECOMMENDATION_META: Record<ScreeningRecommendation, { label: string; cls: string; dot: string }> = {

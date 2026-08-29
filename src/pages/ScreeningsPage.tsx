@@ -144,6 +144,15 @@ function EvaluationViewModal({ screening, onClose }: { screening: Screening; onC
             </div>
             <div className="text-sm mt-2 leading-relaxed">{evalu.summary}</div>
           </div>
+          {evalu.delivery_assessment && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50/40 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px] font-bold text-purple-800 uppercase tracking-wider">Delivery (recruiter observations)</div>
+                <div className="text-sm font-bold tabular-nums text-purple-800">{Math.round(evalu.delivery_assessment.avg_score)}</div>
+              </div>
+              <div className="text-xs text-slate-700 mt-1">{evalu.delivery_assessment.summary}</div>
+            </div>
+          )}
           <ul className="space-y-2">
             {evalu.per_criterion.map((c, i) => (
               <li key={i} className="rounded-lg border border-slate-200 bg-white p-3">

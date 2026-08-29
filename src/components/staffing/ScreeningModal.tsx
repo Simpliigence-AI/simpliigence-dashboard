@@ -17,8 +17,8 @@ import { X, Sparkles, Loader2, AlertTriangle, ArrowRight, ArrowLeft, Check, Tras
 import { Button } from '../ui';
 import { useScreeningStore } from '../../store/useScreeningStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import type { RequisitionSource, Screening, ScreeningCriterion } from '../../types/screening';
-import { DEFAULT_SCREENING_CRITERIA, RECOMMENDATION_META } from '../../types/screening';
+import type { RequisitionSource, Screening, ScreeningCriterion, RecruiterObservations } from '../../types/screening';
+import { DEFAULT_SCREENING_CRITERIA, RECOMMENDATION_META, RECRUITER_OBSERVATION_LABELS } from '../../types/screening';
 
 export interface ScreeningReqOption {
   id: string;
@@ -53,6 +53,7 @@ export function ScreeningModal({
 
   // Prep state
   const [jd, setJd] = useState('');
+  const [roleFocus, setRoleFocus] = useState('');
   const [criteria, setCriteria] = useState<ScreeningCriterion[]>(DEFAULT_SCREENING_CRITERIA);
   const [candidateName, setCandidateName] = useState('');
   const [candidateProfile, setCandidateProfile] = useState('');
@@ -61,8 +62,9 @@ export function ScreeningModal({
   const [screeningId, setScreeningId] = useState<string | null>(null);
   const current: Screening | null = useMemo(() => screenings.find((s) => s.id === screeningId) ?? null, [screenings, screeningId]);
 
-  // Transcript for evaluation
+  // Transcript + recruiter observations for evaluation
   const [transcript, setTranscript] = useState('');
+  const [observations, setObservations] = useState<RecruiterObservations>({});
 
   const [busy, setBusy] = useState<null | 'generate' | 'evaluate' | 'save'>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export function ScreeningModal({
         accountName: req.accountName ?? null,
         jd,
         criteria,
+        roleFocus: roleFocus || null,
         candidateProfile,
         candidateName: candidateName || null,
         createdBy: currentUser?.email ?? null,
@@ -105,7 +108,7 @@ export function ScreeningModal({
     if (!transcript.trim()) { setErr('Paste the transcript or notes from the screen first.'); return; }
     setBusy('evaluate'); setErr(null);
     try {
-      await update(screeningId, { transcript });
+      await update(screeningId, { transcript, recruiterObservations: observations });
       await evaluate(screeningId);
       setStep('evaluate');
     } catch (e) {
@@ -158,13 +161,18 @@ export function ScreeningModal({
           {step === 'prep' && (
             <PrepStep
               jd={jd} setJd={setJd}
+              roleFocus={roleFocus} setRoleFocus={setRoleFocus}
               criteria={criteria} setCriteria={setCriteria}
               candidateName={candidateName} setCandidateName={setCandidateName}
               candidateProfile={candidateProfile} setCandidateProfile={setCandidateProfile}
             />
           )}
           {step === 'questions' && current && (
-            <QuestionsStep screening={current} transcript={transcript} setTranscript={setTranscript} />
+            <QuestionsStep
+              screening={current}
+              transcript={transcript} setTranscript={setTranscript}
+              observations={observations} setObservations={setObservations}
+            />
           )}
           {step === 'evaluate' && current?.evaluation && (
             <EvaluateStep screening={current} />
@@ -249,15 +257,29 @@ function PickStep({ options, value, onChange }: { options: ScreeningReqOption[];
 }
 
 function PrepStep({
-  jd, setJd, criteria, setCriteria, candidateName, setCandidateName, candidateProfile, setCandidateProfile,
+  jd, setJd, roleFocus, setRoleFocus, criteria, setCriteria, candidateName, setCandidateName, candidateProfile, setCandidateProfile,
 }: {
   jd: string; setJd: (v: string) => void;
+  roleFocus: string; setRoleFocus: (v: string) => void;
   criteria: ScreeningCriterion[]; setCriteria: (v: ScreeningCriterion[]) => void;
   candidateName: string; setCandidateName: (v: string) => void;
   candidateProfile: string; setCandidateProfile: (v: string) => void;
 }): JSX.Element {
   return (
     <div className="grid grid-cols-2 gap-4">
+      <div className="col-span-2">
+        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+          Role focus / specialization
+        </label>
+        <input
+          type="text" value={roleFocus} onChange={(e) => setRoleFocus(e.target.value)}
+          placeholder='e.g. "Salesforce BA specializing in Service Cloud + Omnistudio" or "AWS Solutions Architect with deep VPC/IAM/DR"'
+          className="mt-1 w-full px-3 py-2 rounded border border-slate-300 text-sm"
+        />
+        <div className="text-[10px] text-slate-400 mt-0.5">
+          Optional. Steers the AI toward the specific technical depth to probe. Without this it will still infer from the JD.
+        </div>
+      </div>
       <div className="col-span-2">
         <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Job description</label>
         <textarea value={jd} onChange={(e) => setJd(e.target.value)} rows={8}
@@ -311,7 +333,11 @@ function PrepStep({
   );
 }
 
-function QuestionsStep({ screening, transcript, setTranscript }: { screening: Screening; transcript: string; setTranscript: (v: string) => void }): JSX.Element {
+function QuestionsStep({ screening, transcript, setTranscript, observations, setObservations }: {
+  screening: Screening;
+  transcript: string; setTranscript: (v: string) => void;
+  observations: RecruiterObservations; setObservations: (v: RecruiterObservations) => void;
+}): JSX.Element {
   const grouped = useMemo(() => {
     const g = new Map<string, typeof screening.generatedQuestions>();
     for (const q of screening.generatedQuestions) {
@@ -362,9 +388,58 @@ function QuestionsStep({ screening, transcript, setTranscript }: { screening: Sc
           Transcript / notes from the screen
         </label>
         <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={8}
-          placeholder="Paste the screen transcript, or the recruiter's structured notes. AI will grade against every criterion using verbatim excerpts as evidence."
+          placeholder="Paste the screen transcript, or the recruiter's structured notes. AI will grade CONTENT criteria using verbatim excerpts as evidence."
           className="mt-1 w-full px-3 py-2 rounded border border-slate-300 text-sm font-mono" />
       </div>
+
+      {/* Recruiter observation panel — delivery signals the AI cannot infer from a transcript */}
+      <section className="rounded-lg border border-purple-200 bg-purple-50/40 p-3">
+        <div className="text-[11px] font-bold text-purple-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+          <Sparkles size={11} /> Recruiter observations — delivery
+        </div>
+        <div className="text-[11px] text-slate-600 mb-2">
+          You were on the call. Rate what the AI can't hear from a transcript — tone, pace, energy, body language.
+          The evaluator uses these as authoritative for delivery criteria and won't guess.
+        </div>
+        <ul className="space-y-2">
+          {RECRUITER_OBSERVATION_LABELS.map(({ key, label, help }) => (
+            <li key={key} className="grid grid-cols-[minmax(120px,180px)_1fr] gap-2 items-center">
+              <div>
+                <div className="text-xs font-semibold text-slate-800">{label}</div>
+                <div className="text-[10px] text-slate-500">{help}</div>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setObservations({ ...observations, [key]: n })}
+                    className={`px-2 py-0.5 rounded border text-[11px] font-medium ${
+                      observations[key] === n
+                        ? 'bg-purple-600 text-white border-purple-600'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <span className="text-[10px] text-slate-400 ml-1">
+                  {observations[key] ? ['Poor', 'Fair', 'Good', 'Strong', 'Excellent'][(observations[key] as number) - 1] : 'unrated'}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2">
+          <textarea
+            value={observations.notes ?? ''}
+            onChange={(e) => setObservations({ ...observations, notes: e.target.value })}
+            placeholder="Free-form observations (body language, red flags, warmth, whatever else you noticed)…"
+            rows={2}
+            className="w-full px-2 py-1 rounded border border-slate-300 text-xs"
+          />
+        </div>
+      </section>
     </div>
   );
 }
@@ -388,8 +463,18 @@ function EvaluateStep({ screening }: { screening: Screening }): JSX.Element {
         <div className="text-sm mt-2 leading-relaxed">{evalu.summary}</div>
       </div>
 
+      {evalu.delivery_assessment && (
+        <div className="rounded-lg border border-purple-200 bg-purple-50/40 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-bold text-purple-800 uppercase tracking-wider">Delivery (from recruiter observations)</div>
+            <div className="text-sm font-bold tabular-nums text-purple-800">{Math.round(evalu.delivery_assessment.avg_score)}</div>
+          </div>
+          <div className="text-xs text-slate-700 mt-1">{evalu.delivery_assessment.summary}</div>
+        </div>
+      )}
+
       <div>
-        <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Per criterion</div>
+        <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">Per criterion (content)</div>
         <ul className="space-y-2">
           {evalu.per_criterion.map((c, i) => (
             <li key={i} className="rounded-lg border border-slate-200 bg-white p-3">

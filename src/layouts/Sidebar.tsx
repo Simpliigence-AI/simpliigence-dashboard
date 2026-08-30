@@ -81,6 +81,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/home', icon: Home,             label: 'Home' },
       { to: '/',     icon: LayoutDashboard,  label: 'Dashboard' },
+      { to: '/checkins', icon: ClipboardCheck, label: 'Check-ins' },
     ],
   },
   {
@@ -139,6 +140,7 @@ const adminSection: NavSection = {
   items: [
     { to: '/admin/users',    icon: UserCog,      label: 'Users' },
     { to: '/admin/access',   icon: ShieldCheck,  label: 'Access Matrix' },
+    { to: '/admin/checkins', icon: ClipboardCheck, label: 'Check-in Admin' },
     { to: '/admin/leave',    icon: CalendarCheck, label: 'Leave Admin' },
     { to: '/admin/activity', icon: Activity,     label: 'Activity' },
     { to: '/admin/audit',    icon: History,      label: 'Audit Log' },

@@ -28,6 +28,7 @@ import HiringRadarPage from '../pages/HiringRadarPage';
 import ScreeningsPage from '../pages/ScreeningsPage';
 import DialerPage from '../pages/DialerPage';
 import HomePage from '../pages/HomePage';
+import CheckinsPage from '../pages/CheckinsPage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
 import TeamLeavePage from '../pages/TeamLeavePage';
@@ -37,6 +38,7 @@ import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
 import LeaveAdminPage from '../pages/admin/LeaveAdminPage';
 import AccessMatrixPage from '../pages/admin/AccessMatrixPage';
+import CheckinAdminPage from '../pages/admin/CheckinAdminPage';
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
@@ -49,6 +51,11 @@ export const router = createBrowserRouter(
       children: [
         // Home — employees redirect to /my-time, everyone else sees the dashboard
         { index: true, element: <EmployeeRedirect><DashboardPage /></EmployeeRedirect> },
+
+        // Check-ins — monthly scorecards across every corporate function.
+        // Page-level: anyone with the tab can read and work their card; the
+        // database decides what a locked forecast lets them change.
+        { path: 'checkins', element: <CheckinsPage /> },
 
         // My Time — visible to everyone
         { path: 'my-time', element: <MyTimePage /> },
@@ -91,6 +98,7 @@ export const router = createBrowserRouter(
         { path: 'admin/audit',    element: <AdminOnly><AuditLogPage /></AdminOnly> },
         { path: 'admin/leave',    element: <AdminOnly><LeaveAdminPage /></AdminOnly> },
         { path: 'admin/access',   element: <AdminOnly><AccessMatrixPage /></AdminOnly> },
+        { path: 'admin/checkins', element: <AdminOnly><CheckinAdminPage /></AdminOnly> },
 
         // Account Management
         { path: 'accounts', element: <AccountsPage /> },

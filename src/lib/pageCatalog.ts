@@ -21,6 +21,7 @@ export const PAGES: PageDef[] = [
   // Home
   { key: 'home', label: 'Delivery Cockpit', section: 'Home' },
   { key: '/',    label: 'Dashboard',        section: 'Home' },
+  { key: 'checkins', label: 'Check-ins',    section: 'Home' },
 
   // Projects
   { key: 'team',            label: 'Project Team',        section: 'Projects' },
@@ -68,6 +69,7 @@ export const PAGES: PageDef[] = [
   { key: 'admin/leave',    label: 'Leave Admin',section: 'Admin' },
   { key: 'admin/activity', label: 'Activity',   section: 'Admin' },
   { key: 'admin/audit',    label: 'Audit Log',  section: 'Admin' },
+  { key: 'admin/checkins', label: 'Check-in Admin', section: 'Admin' },
 ];
 
 export const PAGE_SECTIONS: string[] = Array.from(new Set(PAGES.map((p) => p.section)));

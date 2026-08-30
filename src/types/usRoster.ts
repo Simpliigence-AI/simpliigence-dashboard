@@ -12,22 +12,37 @@ import type { VisaCategory } from './openBench';
  *                      capability we're staffing ahead of demand.
  *                      Distinct from regular Bench so leadership can see
  *                      the "planned idle" vs "surprise idle" split.
+ *   SG&A             — Selling, General & Administrative. Corporate
+ *                      overhead — leadership, sales, recruiting, finance,
+ *                      admin. Never placed on a project, so they are NOT
+ *                      bench: they must not sit in the bench pool waiting
+ *                      to be staffed, and they must not dilute billable %.
+ *                      Excluded from the utilisation denominator.
  *   On Leave         — temporarily out.
  *   Notice           — resigned; working out notice.
  */
-export type USRosterStatus = 'Billable' | 'Bench' | 'Proactive Bench' | 'On Leave' | 'Notice';
+export type USRosterStatus = 'Billable' | 'Bench' | 'Proactive Bench' | 'SG&A' | 'On Leave' | 'Notice';
 
 export const US_ROSTER_STATUSES: USRosterStatus[] = [
-  'Billable', 'Bench', 'Proactive Bench', 'On Leave', 'Notice',
+  'Billable', 'Bench', 'Proactive Bench', 'SG&A', 'On Leave', 'Notice',
 ];
 
 export const US_ROSTER_STATUS_COLORS: Record<USRosterStatus, string> = {
   Billable:          '#10b981',
   Bench:             '#f59e0b',
   'Proactive Bench': '#8b5cf6',
+  'SG&A':            '#0ea5e9',
   'On Leave':        '#94a3b8',
   Notice:            '#ef4444',
 };
+
+/** Statuses that are NOT part of the delivery pool — excluded from the
+ *  utilisation denominator (billable % / bench %). */
+export const NON_DELIVERY_US_STATUSES: USRosterStatus[] = ['SG&A'];
+
+export function isDeliveryHeadcount(status: USRosterStatus): boolean {
+  return !NON_DELIVERY_US_STATUSES.includes(status);
+}
 
 export interface USRosterMember {
   id: string;

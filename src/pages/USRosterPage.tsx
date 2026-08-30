@@ -350,6 +350,10 @@ export default function USRosterPage() {
 
   /* —— Stats —— */
   const total = members.length;
+  const sga = members.filter(m => m.status === 'SG&A').length;
+  /** Utilisation denominator. SG&A is corporate overhead — never placed, so
+   *  counting it dilutes both billable % and bench %. See usRoster.ts. */
+  const deliveryTotal = total - sga;
   const billable = members.filter(m => m.status === 'Billable').length;
   const bench = members.filter(m => m.status === 'Bench').length;
   /**
@@ -521,9 +525,9 @@ export default function USRosterPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Total Team" value={total} icon={<Users size={20} />} subtitle={`${members.length} members`} />
-        <StatCard label="Billable" value={billable} icon={<UserCheck size={20} />} subtitle={`${total > 0 ? Math.round(billable/total*100) : 0}% of team`} />
-        <StatCard label="On Bench" value={bench} icon={<Briefcase size={20} />} subtitle={`${total > 0 ? Math.round(bench/total*100) : 0}% of team`} />
+        <StatCard label="Total Team" value={total} icon={<Users size={20} />} subtitle={sga > 0 ? `${deliveryTotal} delivery · ${sga} SG&A` : `${members.length} members`} />
+        <StatCard label="Billable" value={billable} icon={<UserCheck size={20} />} subtitle={`${deliveryTotal > 0 ? Math.round(billable/deliveryTotal*100) : 0}% of delivery`} />
+        <StatCard label="On Bench" value={bench} icon={<Briefcase size={20} />} subtitle={`${deliveryTotal > 0 ? Math.round(bench/deliveryTotal*100) : 0}% of delivery`} />
         <StatCard label="Avg Margin" value={<OwnerOnly><Sensitive>{`${avgMargin}%`}</Sensitive></OwnerOnly>} icon={<TrendingUp size={20} />} subtitle="Billable members" />
         <StatCard label="Monthly Revenue" value={<OwnerOnly><Sensitive>{`$${(monthlyRevenue/1000).toFixed(0)}k`}</Sensitive></OwnerOnly>} icon={<DollarSign size={20} />} subtitle="@ 160 hrs/mo" />
       </div>

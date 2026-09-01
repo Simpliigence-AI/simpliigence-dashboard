@@ -2075,9 +2075,15 @@ export const db = {
   },
 
   // --- Time entries ---
-  async upsertTimeEntry(e: TimeEntry) {
+  /** Insert-or-update one entry. Returns the PostgREST error rather than
+   *  swallowing it: a rejected write (RLS, CHECK, constraint, network) has to
+   *  reach the caller, otherwise the optimistic row survives in local state
+   *  only — visible on My Time and absent from Team Time and every other
+   *  DB-backed view. */
+  async upsertTimeEntry(e: TimeEntry): Promise<{ error: PostgrestError | null }> {
     const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert time_entry failed:', error);
+    return { error };
   },
   /** Plain UPDATE of specific fields on an existing entry (no upsert/INSERT
    *  path). Used by the Team Time manager edit flow so it always takes the

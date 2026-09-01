@@ -17,7 +17,9 @@ interface TimeEntryState {
   entries: TimeEntry[];
   setEntries: (entries: TimeEntry[]) => void;
 
-  /** Insert a new entry. Returns the inserted row (with generated id). */
+  /** Insert a new entry. Returns the inserted row (with generated id).
+   *  Throws (and rolls the optimistic row back out of the store) when the
+   *  Supabase write is rejected, so callers can tell the user. */
   addEntry: (input: {
     employeeEmail: string;
     workDate: string;
@@ -29,7 +31,7 @@ interface TimeEntryState {
     status?: TimeEntryStatus;
   }) => Promise<TimeEntry>;
 
-  /** Patch an existing entry. */
+  /** Patch an existing entry. Throws (and rolls back) on a rejected write. */
   updateEntry: (id: string, patch: Partial<TimeEntry>) => Promise<void>;
 
   /** Manager/admin edit of an existing entry's editable fields (hours,
@@ -81,8 +83,16 @@ export const useTimeEntryStore = create<TimeEntryState>()(
           createdAt: now,
           updatedAt: now,
         };
+        // Optimistic insert, then roll back and rethrow if the write is
+        // rejected so the caller can surface it. Without the rollback the row
+        // lives on in local (persisted) state only: it renders on My Time and
+        // never reaches Team Time or any other DB-backed view.
         set({ entries: [...get().entries, e] });
-        await db.upsertTimeEntry(e);
+        const { error } = await db.upsertTimeEntry(e);
+        if (error) {
+          set({ entries: get().entries.filter((x) => x.id !== e.id) });
+          throw error;
+        }
         return e;
       },
 
@@ -100,8 +110,14 @@ export const useTimeEntryStore = create<TimeEntryState>()(
           ...(resetStatus ? { status: 'submitted', approvedBy: null, approvedAt: null, rejectReason: null } : {}),
           updatedAt: new Date().toISOString(),
         };
+        // Optimistic patch; roll back and rethrow on a rejected write (same
+        // reasoning as addEntry above).
         set({ entries: get().entries.map((e) => (e.id === id ? merged : e)) });
-        await db.upsertTimeEntry(merged);
+        const { error } = await db.upsertTimeEntry(merged);
+        if (error) {
+          set({ entries: get().entries.map((e) => (e.id === id ? current : e)) });
+          throw error;
+        }
       },
 
       updateEntryFields: async (id, fields) => {

@@ -4,27 +4,36 @@
  * Inner toggle: Month | Week | Project. Each cell shows (Forecast / Actual / Δ)
  * with a hover tooltip explaining the calculation.
  *
- * Two rules keep the comparison honest:
+ * Three rules keep the comparison honest:
  *
- *  - Actuals are ONLY the hours people entered themselves on /my-time
- *    (`source: 'simpliigence'`), never the Zoho People sync, and only from
- *    COMPARISON_START_MONTH onward — the month /my-time became how hours are
- *    recorded. Earlier months hold almost no entries, so showing them would
- *    read as a shortfall against forecast when it is really missing data.
- *  - Both sides are keyed on the person's EMAIL, resolved from the directory
- *    by the shared resolver, so the spreadsheet's "Anukanth" and the
- *    timesheet's "Anukanth Sudarsanam" land on one row instead of two
- *    half-empty ones. A name the directory cannot identify falls back to its
- *    normalised spelling — symmetrically, on both sides — and is listed under
- *    the table so the mismatch reads as a data-quality item.
+ *  - Actuals come straight from `time_entries` — the table /my-time writes to
+ *    — and never from the Zoho side. The other tabs read the
+ *    `unified_actual_hours` view, which UNIONs Zoho history in and tags each
+ *    branch with a `source`; this tab wanted only one of those branches, so
+ *    reading the branch itself is both narrower and one fewer thing to go
+ *    wrong (a view that stops emitting `source`, or a fallback to the legacy
+ *    Zoho table, used to empty this tab out completely).
+ *  - Only `submitted` and `approved` rows count, the same statuses the view
+ *    admitted. A draft is hours someone typed but has not stood behind yet.
+ *  - Both sides are keyed on the person's EMAIL. `time_entries` stores one
+ *    (`employee_email`), so the actuals side needs no name matching at all;
+ *    the forecast sheet stores free-text names, so those go through the
+ *    shared resolver, and a name the directory cannot identify is listed
+ *    under the table as a data-quality item rather than silently splitting
+ *    into a second half-empty row.
  *
- * The other tabs on this page are unaffected: they still show every source.
+ * Only from COMPARISON_START_DATE onward, either way — /my-time became how
+ * hours are recorded in Aug 2026, and earlier months hold almost no entries,
+ * so showing them would read as a shortfall when it is really missing data.
+ *
+ * The other tabs on this page are unaffected: they still read the view.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useActualHoursStore, useForecastStore } from '../../store';
+import { useForecastStore } from '../../store';
+import { useTimeEntryStore } from '../../store/useTimeEntryStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import type { Month, ForecastAssignment } from '../../types/forecast';
-import type { ActualHourEntry } from '../../types/actualHours';
+import type { TimeEntry, TimeEntryStatus } from '../../types/timeEntry';
 import { buildEmailResolver, type Resolver } from '../../lib/resolveEmployeeEmail';
 import {
   emptyMonthCounter,
@@ -42,8 +51,26 @@ import {
 type ForecastSubTab = 'month' | 'week' | 'project';
 const FCAST_SUB_KEY = 'actual-hours-forecast-sub';
 
-/** ActualHourEntry.source for hours entered on /my-time. */
-const MY_TIME_SOURCE = 'simpliigence';
+/**
+ * The statuses that count as actual worked hours — the same set
+ * `unified_actual_hours` admitted from `time_entries`. `draft` is hours typed
+ * but not stood behind; `rejected` was looked at and sent back.
+ *
+ * Deliberately NOT filtered on `time_entries.source`: the view didn't either,
+ * it tagged the whole `time_entries` branch 'simpliigence' regardless, and
+ * dropping rows on a column that defaults to the value we want is how this
+ * tab emptied itself out in the first place.
+ */
+const COUNTED_STATUSES = new Set<TimeEntryStatus>(['submitted', 'approved']);
+
+/** One /my-time row cut down to what the sub-views compare, already keyed on
+ *  the person the same way the forecast side is. */
+interface ActualRow {
+  key: string;
+  workDate: string;
+  hours: number;
+  project: string;
+}
 
 function loadForecastSub(): ForecastSubTab {
   if (typeof window === 'undefined') return 'month';
@@ -108,8 +135,10 @@ interface ForecastVsActualProps {
 }
 
 export default function ForecastVsActualView({ search = '' }: ForecastVsActualProps) {
-  const entries = useActualHoursStore((s) => s.entries);
-  const usedLegacyFallback = useActualHoursStore((s) => s.usedLegacyFallback);
+  // `time_entries`, not the unified view — see the note at the top of the
+  // file. App.tsx hydrates this store on init alongside everything else, and
+  // the realtime subscription refreshes it, so /actual-hours already has it.
+  const entries = useTimeEntryStore((s) => s.entries);
   const assignments = useForecastStore((s) => s.assignments);
   const directory = useAuthStore((s) => s.directory);
   const [sub, setSub] = useState<ForecastSubTab>(() => loadForecastSub());
@@ -122,29 +151,37 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
     [directory],
   );
 
-  /** Every /my-time row that reached the store, whatever its date. Kept apart
-   *  from the windowed set below so an empty grid can say which half is
-   *  missing: the source tag (plumbing) or the hours (nobody logged any). */
-  const myTimeEntries = useMemo(
-    () => entries.filter((e) => e.source === MY_TIME_SOURCE && !!e.workDate && e.hours > 0),
+  /** In-window rows of ANY status. The three sets are kept apart so an empty
+   *  Actual column can say which step lost the hours: the date, the status, or
+   *  nothing having loaded at all. */
+  const windowEntries = useMemo(
+    () => entries.filter((e) => !!e.workDate && isComparisonDate(e.workDate)),
     [entries],
   );
 
-  /** The only actuals this tab counts: /my-time hours inside the window. */
-  const actualEntries = useMemo(
-    () => myTimeEntries.filter((e) => isComparisonDate(e.workDate)),
-    [myTimeEntries],
+  /** The only actuals this tab counts. */
+  const actualRows = useMemo(
+    () => windowEntries
+      .filter((e) => COUNTED_STATUSES.has(e.status) && e.hours > 0 && !!e.employeeEmail)
+      .map((e): ActualRow => ({
+        // `employee_email` IS the identity column on time_entries, so the
+        // join key needs no resolving on this side — it is already an email.
+        key: e.employeeEmail.trim().toLowerCase(),
+        workDate: e.workDate,
+        hours: e.hours,
+        project: e.projectName,
+      })),
+    [windowEntries],
   );
 
   const actualsByKey = useMemo(() => {
-    const map = new Map<string, ActualHourEntry[]>();
-    for (const e of actualEntries) {
-      const k = personKey(e.employeeName, e.email, resolveEmail);
-      const list = map.get(k);
-      if (list) list.push(e); else map.set(k, [e]);
+    const map = new Map<string, ActualRow[]>();
+    for (const r of actualRows) {
+      const list = map.get(r.key);
+      if (list) list.push(r); else map.set(r.key, [r]);
     }
     return map;
-  }, [actualEntries, resolveEmail]);
+  }, [actualRows]);
 
   const keyOfName = useMemo(
     () => (name: string) => personKey(name, null, resolveEmail),
@@ -154,13 +191,15 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
   /** One row per person, from both sides of the comparison. */
   const people = useMemo(() => {
     const spellings = new Map<string, Set<string>>();
-    const add = (name: string, email: string | null) => {
-      const key = personKey(name, email, resolveEmail);
+    const note = (key: string, spelling: string) => {
       const seen = spellings.get(key);
-      if (seen) seen.add(name); else spellings.set(key, new Set([name]));
+      if (seen) seen.add(spelling); else spellings.set(key, new Set([spelling]));
     };
-    for (const a of assignments) add(a.employeeName, null);
-    for (const e of actualEntries) add(e.employeeName, e.email);
+    for (const a of assignments) note(personKey(a.employeeName, null, resolveEmail), a.employeeName);
+    // The actuals side has an email and no name, so the email is the only
+    // spelling it can offer; the directory supplies a real name below when it
+    // knows the person, and the email is a fair label when it does not.
+    for (const r of actualRows) note(r.key, r.key);
     return [...spellings]
       .map(([key, names]): Person => {
         // Prefer the directory spelling — it is the name both sides resolved to.
@@ -170,21 +209,21 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
         return { key, name, search: [name, ...names, key].join(' ').toLowerCase() };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [assignments, actualEntries, resolveEmail, directory]);
+  }, [assignments, actualRows, resolveEmail, directory]);
 
   /**
-   * Names no one in the directory matches. Shown under the table: a genuine
-   * spelling drift in the forecast sheet should read as something to fix, not
-   * quietly render as two half-empty rows.
+   * Forecast names no one in the directory matches. Shown under the table: a
+   * genuine spelling drift in the forecast sheet should read as something to
+   * fix, not quietly render as two half-empty rows. Only the forecast side can
+   * land here now — every `time_entries` row carries an email.
    */
   const unmatchedNames = useMemo(() => {
     // Directory not loaded yet — every name would look unmatched.
     if (Object.keys(directory).length === 0) return [];
     const set = new Set<string>();
     for (const a of assignments) if (!resolveEmail(a.employeeName)) set.add(a.employeeName);
-    for (const e of actualEntries) if (!e.email && !resolveEmail(e.employeeName)) set.add(e.employeeName);
     return [...set].sort((a, b) => a.localeCompare(b));
-  }, [assignments, actualEntries, resolveEmail, directory]);
+  }, [assignments, resolveEmail, directory]);
 
   const filteredPeople = useMemo(() => {
     if (!search) return people;
@@ -202,16 +241,10 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
 
   const subViewProps = { people: filteredPeople, assignments, keyOfName, actualsByKey };
 
-  // No My Time rows at all means the grid would be forecast down one side and
-  // blanks down the other, which reads as "nobody worked" when it is really a
-  // feed problem. Say which feed problem instead of drawing the grid.
-  if (myTimeEntries.length === 0) {
-    return (
-      <FeedProblem
-        usedLegacyFallback={usedLegacyFallback}
-        totalRows={entries.length}
-      />
-    );
+  // Nothing loaded at all — not even a draft. There is no comparison to draw
+  // and the store may simply still be cold, so don't draw a grid of blanks.
+  if (entries.length === 0) {
+    return <NoActuals entries={entries} windowEntries={windowEntries} standalone />;
   }
 
   return (
@@ -233,12 +266,8 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
         {' '}{COMPARISON_WINDOW_LABEL} only — My Time became the record of hours in {COMPARISON_START_LABEL}.
       </p>
 
-      {actualEntries.length === 0 && (
-        <p className="mb-3 rounded-lg border border-line bg-surface-2/70 px-3 py-2 text-[11px] text-muted">
-          {myTimeEntries.length.toLocaleString()} My Time {myTimeEntries.length === 1 ? 'entry' : 'entries'} loaded,
-          but none dated {COMPARISON_WINDOW_LABEL} — nobody has submitted or had approved any hours in this
-          window yet, so every Actual below is empty. The feed itself is fine.
-        </p>
+      {actualRows.length === 0 && (
+        <NoActuals entries={entries} windowEntries={windowEntries} />
       )}
 
       <Legend />
@@ -272,41 +301,59 @@ function SubToggle({ active, onClick, children }: { active: boolean; onClick: ()
 }
 
 /**
- * Shown instead of the grid when zero My Time rows reached this tab. The two
- * causes need different people to fix them, so they get different copy: a
- * degraded feed is an ops problem, a feed with rows but no `simpliigence`
- * ones is either the view dropping its source column or genuinely nothing
- * submitted. The Table tab applies no source filter, so it is the cheapest
- * place to tell those last two apart.
+ * Why the Actual column is empty. Four different things go wrong here and
+ * they need different people to fix them, so each gets its own sentence:
+ * nothing loaded, nothing dated in the window, everything still sitting in
+ * draft, or rows that somehow carry no hours. The draft case is the one an
+ * admin can act on, so it names the count.
  */
-function FeedProblem({ usedLegacyFallback, totalRows }: {
-  usedLegacyFallback: boolean; totalRows: number;
+function NoActuals({ entries, windowEntries, standalone = false }: {
+  entries: TimeEntry[]; windowEntries: TimeEntry[]; standalone?: boolean;
 }) {
+  const uncounted = windowEntries.filter((e) => !COUNTED_STATUSES.has(e.status));
+  const drafts = uncounted.filter((e) => e.status === 'draft').length;
+  const rejected = uncounted.filter((e) => e.status === 'rejected').length;
+
+  // Ordered by which step lost the hours, earliest first.
+  const detail = entries.length === 0 ? (
+    <>
+      No time entries loaded at all. Either the <code>time_entries</code> fetch failed or nobody
+      has ever entered time — reload, and check the browser console for a{' '}
+      <code>[supabase] fetch time_entries failed</code> line.
+    </>
+  ) : windowEntries.length === 0 ? (
+    <>
+      {entries.length.toLocaleString()} time {entries.length === 1 ? 'entry' : 'entries'} loaded,
+      but not one is dated {COMPARISON_WINDOW_LABEL}. Nobody has logged hours inside the comparison
+      window yet; everything on record predates it.
+    </>
+  ) : uncounted.length > 0 ? (
+    <>
+      {windowEntries.length.toLocaleString()} {windowEntries.length === 1 ? 'entry' : 'entries'} dated{' '}
+      {COMPARISON_WINDOW_LABEL} exist, but none is submitted or approved
+      {drafts > 0 && <> — {drafts.toLocaleString()} {drafts === 1 ? 'is' : 'are'} still a draft</>}
+      {rejected > 0 && <>{drafts > 0 ? ' and' : ' —'} {rejected.toLocaleString()} {rejected === 1 ? 'was' : 'were'} rejected</>}.
+      Draft hours do not count until the person submits them and a manager approves. Chase the
+      submissions rather than the data.
+    </>
+  ) : (
+    <>
+      {windowEntries.length.toLocaleString()} submitted or approved{' '}
+      {windowEntries.length === 1 ? 'entry' : 'entries'} dated {COMPARISON_WINDOW_LABEL} exist, but
+      none carries hours above zero or an employee email. That should not be possible —{' '}
+      <code>time_entries</code> constrains hours to be positive, so treat it as a data problem.
+    </>
+  );
+
+  // Amber only for the case someone can act on; the rest is just news.
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-      <p className="font-semibold mb-1">No My Time actuals reached this tab.</p>
-      {usedLegacyFallback ? (
-        <p>
-          The <code>unified_actual_hours</code> view could not be read, so the page fell back to the
-          legacy <code>actual_hours</code> table. Those rows carry no source tag, so none of them can
-          count as My Time here — the comparison cannot be drawn at all. This is a database problem,
-          not missing timesheets: check the view in Supabase (the browser console has the error).
-        </p>
-      ) : totalRows === 0 ? (
-        <p>
-          No timesheet rows loaded at all — not even Zoho history. Either the fetch failed or{' '}
-          <code>unified_actual_hours</code> is empty. Reload; if the other tabs on this page are
-          empty too, the feed is down.
-        </p>
-      ) : (
-        <p>
-          {totalRows.toLocaleString()} timesheet rows loaded, but not one is tagged as My Time
-          (<code>source = 'simpliigence'</code>). Either the deployed <code>unified_actual_hours</code>{' '}
-          view is not exposing its <code>source</code> column, or no <code>time_entries</code> rows are
-          submitted/approved. The Table tab shows every row whatever its source — if August hours show
-          up there, it is the source tag; if it is empty too, nobody has submitted time.
-        </p>
-      )}
+    <div className={`rounded-lg border px-4 py-3 text-xs ${standalone ? '' : 'mb-3'} ${
+      uncounted.length > 0
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-line bg-surface-2/70 text-muted'
+    }`}>
+      <p className="font-semibold mb-1">No actual hours to compare.</p>
+      <p>{detail}</p>
     </div>
   );
 }
@@ -328,7 +375,7 @@ interface SubViewProps {
   assignments: ForecastAssignment[];
   /** A forecast row's employee_name → the key `actualsByKey` is grouped on. */
   keyOfName: (employeeName: string) => string;
-  actualsByKey: Map<string, ActualHourEntry[]>;
+  actualsByKey: Map<string, ActualRow[]>;
 }
 
 /* ─── Month sub-view ───────────────────────────────────────────── */

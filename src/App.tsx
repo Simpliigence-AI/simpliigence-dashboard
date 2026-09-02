@@ -298,12 +298,17 @@ function useSupabaseInit() {
           console.warn('[supabase] US roster assignments fetch timed out');
         }
 
-        // --- Actual Hours (Zoho People timesheets) ---
+        // --- Actual Hours (/my-time submissions + frozen Zoho history) ---
         if (!actualHoursRes.timedOut) {
           const ah = actualHoursRes.value;
-          if (ah && ah.length > 0) {
-            useActualHoursStore.setState({ entries: ah });
-            console.log('[supabase] Loaded actual hours:', ah.length, 'entries');
+          if (ah) {
+            // Record the fallback either way — a degraded feed that came back
+            // empty is exactly the case the vs Forecast tab has to call out.
+            useActualHoursStore.setState({ usedLegacyFallback: ah.usedLegacyFallback });
+            if (ah.entries.length > 0) {
+              useActualHoursStore.setState({ entries: ah.entries });
+              console.log('[supabase] Loaded actual hours:', ah.entries.length, 'entries');
+            }
           }
         } else {
           console.warn('[supabase] Actual hours fetch timed out — using localStorage');
@@ -504,8 +509,11 @@ function useSupabaseInit() {
           setTimeEntries: (entries) => {
             useTimeEntryStore.setState({ entries });
           },
-          setActualHours: (rows) => {
-            useActualHoursStore.setState({ entries: rows });
+          setActualHours: (feed) => {
+            useActualHoursStore.setState({
+              entries: feed.entries,
+              usedLegacyFallback: feed.usedLegacyFallback,
+            });
           },
           setAccountManagement: (data) => {
             useAccountStore.getState().setAll(data);

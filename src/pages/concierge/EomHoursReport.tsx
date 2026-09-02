@@ -1,9 +1,8 @@
 /**
  * End-of-month hours report (Concierge → Billing tab).
  *
- * Read-only. Hours only — no amounts, no rates, no invoice total: Finance
- * asked for the hours rollup, and that is all this reports. Every column comes
- * from data that already exists:
+ * Read-only. Hours, plus one derived amount (Monthly Bill) — still no invoice
+ * total. Every column comes from data that already exists:
  *
  *   Tickets opened    tickets.created_time inside the month
  *   Tickets resolved  tickets.resolved_at inside the month
@@ -11,18 +10,25 @@
  *   Hours in month    sum of ticket_time_entries.hours with logged_at in month
  *   Hours on tickets  sum of tickets.hours_logged for the month's tickets
  *                     (lifetime, i.e. including effort logged in other months)
+ *   Monthly Bill      est. hours on the month's RESOLVED tickets ×
+ *                     concierge_accounts.monthly_rate — the account's monthly
+ *                     retainer in USD; there is no hourly rate in the schema.
+ *                     Em-dash (not $0) whenever either side is missing.
  *
  * Rows are grouped by the ticket's account NAME, not account_id: inbound
  * routing leaves account_id null whenever it cannot resolve the sender's
  * domain to an Account Management row, and the rest of the page groups by name
  * too. Anything without a name lands in the "(unassigned)" row so the totals
- * still reconcile.
+ * still reconcile. The monthly rate is looked up by that same name: tickets
+ * carry no concierge_accounts id (tickets.account_id points at the separate
+ * `accounts` table), and concierge_accounts.name is unique.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../components/ui';
 import { Button } from '../../components/ui/Button';
 import { Download, Loader2 } from 'lucide-react';
 import { useConciergeStore, type ConciergeTicket } from '../../store/useConciergeStore';
+import { useConciergeAccountsStore } from '../../store/useConciergeAccountsStore';
 import { csvDateStamp, exportRowsToCsv, type CsvColumn } from '../../lib/exportCsv';
 import { isTicketClosed } from '../../lib/ticketStatus';
 
@@ -37,8 +43,15 @@ interface HoursRow {
   opened: number;
   resolved: number;
   estimatedHours: number;
+  /** Est. hours on the tickets resolved this month — the basis of Monthly Bill.
+   *  Distinct from estimatedHours, which covers the tickets opened this month. */
+  resolvedEstimatedHours: number;
   hoursInMonth: number;
   hoursOnMonthTickets: number;
+  /** concierge_accounts.monthly_rate for the matching account, in USD/month. */
+  monthlyRate: number | null;
+  /** resolvedEstimatedHours × monthlyRate; null when either side is missing. */
+  monthlyBill: number | null;
 }
 
 /** Current month as YYYY-MM, in local time. */
@@ -63,6 +76,9 @@ function monthLabel(month: string): string {
 }
 
 const h1 = (n: number) => (n === 0 ? '—' : n.toFixed(1));
+/** Whole dollars, same shape as the amounts on the rest of the Billing tab. */
+const usd = (n: number) =>
+  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 const NO_HOURS: Record<string, number> = {};
 
@@ -74,6 +90,7 @@ interface MonthHours {
 
 export function EomHoursReport({ tickets }: Props) {
   const loadTimeEntriesForMonth = useConciergeStore((s) => s.loadTimeEntriesForMonth);
+  const conciergeAccounts = useConciergeAccountsStore((s) => s.accounts);
   const [month, setMonth] = useState<string>(() => currentMonthKey());
   /* One state object stamped with the month it belongs to, so "still loading"
    * is derived from a stale stamp rather than a second setState in the effect
@@ -98,12 +115,25 @@ export function EomHoursReport({ tickets }: Props) {
   const hoursByTicket = isCurrent ? loaded.hoursByTicket : NO_HOURS;
   const error = isCurrent ? loaded.error : null;
 
+  /* Monthly retainer per account, keyed by lower-cased name — the same match
+   * the Overview tab uses to spot ticket-only accounts. */
+  const rateByAccountName = useMemo(() => {
+    const m = new Map<string, number | null>();
+    for (const a of conciergeAccounts) m.set(a.name.trim().toLowerCase(), a.monthlyRate);
+    return m;
+  }, [conciergeAccounts]);
+
   const rows = useMemo<HoursRow[]>(() => {
     const byAccount = new Map<string, HoursRow>();
     const row = (account: string): HoursRow => {
       let r = byAccount.get(account);
       if (!r) {
-        r = { account, opened: 0, resolved: 0, estimatedHours: 0, hoursInMonth: 0, hoursOnMonthTickets: 0 };
+        r = {
+          account, opened: 0, resolved: 0, estimatedHours: 0, resolvedEstimatedHours: 0,
+          hoursInMonth: 0, hoursOnMonthTickets: 0,
+          monthlyRate: rateByAccountName.get(account.trim().toLowerCase()) ?? null,
+          monthlyBill: null,
+        };
         byAccount.set(account, r);
       }
       return r;
@@ -121,7 +151,11 @@ export function EomHoursReport({ tickets }: Props) {
         if (t.estimatedHours != null && Number.isFinite(t.estimatedHours)) r.estimatedHours += t.estimatedHours;
         if (Number.isFinite(t.hoursLogged)) r.hoursOnMonthTickets += t.hoursLogged;
       }
-      if (resolvedThisMonth) row(accountOf(t)).resolved += 1;
+      if (resolvedThisMonth) {
+        const r = row(accountOf(t));
+        r.resolved += 1;
+        if (t.estimatedHours != null && Number.isFinite(t.estimatedHours)) r.resolvedEstimatedHours += t.estimatedHours;
+      }
     }
 
     // Hours logged this month can belong to a ticket opened in an earlier
@@ -134,21 +168,38 @@ export function EomHoursReport({ tickets }: Props) {
       row(t ? accountOf(t) : UNASSIGNED).hoursInMonth += hours;
     }
 
-    return Array.from(byAccount.values()).sort((a, b) => {
+    const out = Array.from(byAccount.values());
+    for (const r of out) {
+      // Resolved work only, and only where the account has a rate — a missing
+      // rate or estimate leaves the cell an em-dash rather than reading $0.
+      r.monthlyBill = r.monthlyRate && r.resolvedEstimatedHours > 0
+        ? r.resolvedEstimatedHours * r.monthlyRate
+        : null;
+    }
+
+    return out.sort((a, b) => {
       if (a.account === UNASSIGNED) return 1;
       if (b.account === UNASSIGNED) return -1;
       return a.account.localeCompare(b.account);
     });
-  }, [tickets, month, hoursByTicket]);
+  }, [tickets, month, hoursByTicket, rateByAccountName]);
 
+  // Bills are summed per row, not recomputed from the totals: each account has
+  // its own rate, so totals.resolvedEstimatedHours × one rate would be wrong.
   const totals = useMemo<HoursRow>(() => rows.reduce<HoursRow>((acc, r) => ({
     account: 'Total',
     opened: acc.opened + r.opened,
     resolved: acc.resolved + r.resolved,
     estimatedHours: acc.estimatedHours + r.estimatedHours,
+    resolvedEstimatedHours: acc.resolvedEstimatedHours + r.resolvedEstimatedHours,
     hoursInMonth: acc.hoursInMonth + r.hoursInMonth,
     hoursOnMonthTickets: acc.hoursOnMonthTickets + r.hoursOnMonthTickets,
-  }), { account: 'Total', opened: 0, resolved: 0, estimatedHours: 0, hoursInMonth: 0, hoursOnMonthTickets: 0 }), [rows]);
+    monthlyRate: null,
+    monthlyBill: (acc.monthlyBill ?? 0) + (r.monthlyBill ?? 0),
+  }), {
+    account: 'Total', opened: 0, resolved: 0, estimatedHours: 0, resolvedEstimatedHours: 0,
+    hoursInMonth: 0, hoursOnMonthTickets: 0, monthlyRate: null, monthlyBill: 0,
+  }), [rows]);
 
   const columns: CsvColumn<HoursRow>[] = [
     { label: 'Account', value: (r) => r.account },
@@ -157,6 +208,7 @@ export function EomHoursReport({ tickets }: Props) {
     { label: 'Estimated hours', value: (r) => r.estimatedHours.toFixed(2) },
     { label: 'Hours logged in month', value: (r) => r.hoursInMonth.toFixed(2) },
     { label: 'Hours on month tickets (lifetime)', value: (r) => r.hoursOnMonthTickets.toFixed(2) },
+    { label: 'Monthly bill (USD)', value: (r) => (r.monthlyBill == null ? '' : r.monthlyBill.toFixed(2)) },
   ];
 
   const download = () => {
@@ -184,9 +236,11 @@ export function EomHoursReport({ tickets }: Props) {
       }
     >
       <p className="text-xs text-muted mb-3">
-        Hours only — this report carries no rates and no invoice amount. Ticket counts use the
-        local calendar month ({monthLabel(month)}); “hours logged in month” comes from time entries
-        dated inside it, while “lifetime” is all effort ever logged on the tickets opened in it.
+        Ticket counts use the local calendar month ({monthLabel(month)}); “hours logged in month”
+        comes from time entries dated inside it, while “lifetime” is all effort ever logged on the
+        tickets opened in it. “Monthly bill” is the est. hours on the tickets <span className="font-medium text-ink/80">resolved</span> in
+        the month × the account’s monthly rate — em-dash where the account has no rate on file or its
+        resolved tickets carry no estimate.
         Tickets with no account are grouped as <span className="font-medium text-ink/80">{UNASSIGNED}</span> —
         they are excluded from every per-account row, and shown separately so the totals reconcile.
       </p>
@@ -213,7 +267,8 @@ export function EomHoursReport({ tickets }: Props) {
                 <th className="text-right py-2 px-2 text-xs font-medium text-muted uppercase whitespace-nowrap">Resolved</th>
                 <th className="text-right py-2 px-2 text-xs font-medium text-muted uppercase whitespace-nowrap">Est. hrs</th>
                 <th className="text-right py-2 px-2 text-xs font-medium text-muted uppercase whitespace-nowrap">Hrs in month</th>
-                <th className="text-right py-2 pl-2 text-xs font-medium text-muted/70 uppercase whitespace-nowrap">Hrs on month tickets</th>
+                <th className="text-right py-2 px-2 text-xs font-medium text-muted/70 uppercase whitespace-nowrap">Hrs on month tickets</th>
+                <th className="text-right py-2 pl-2 text-xs font-medium text-muted uppercase whitespace-nowrap">Monthly Bill</th>
               </tr>
             </thead>
             <tbody>
@@ -224,7 +279,11 @@ export function EomHoursReport({ tickets }: Props) {
                   <td className="py-2 px-2 text-right tabular-nums text-ink/80">{r.resolved || '—'}</td>
                   <td className="py-2 px-2 text-right tabular-nums text-ink/80">{h1(r.estimatedHours)}</td>
                   <td className="py-2 px-2 text-right tabular-nums font-semibold text-ink">{h1(r.hoursInMonth)}</td>
-                  <td className="py-2 pl-2 text-right tabular-nums text-muted">{h1(r.hoursOnMonthTickets)}</td>
+                  <td className="py-2 px-2 text-right tabular-nums text-muted">{h1(r.hoursOnMonthTickets)}</td>
+                  <td
+                    className="py-2 pl-2 text-right tabular-nums font-semibold text-ink"
+                    title={r.monthlyBill == null ? undefined : `${h1(r.resolvedEstimatedHours)}h resolved × ${usd(r.monthlyRate ?? 0)}/mo`}
+                  >{r.monthlyBill == null ? '—' : usd(r.monthlyBill)}</td>
                 </tr>
               ))}
             </tbody>
@@ -235,7 +294,8 @@ export function EomHoursReport({ tickets }: Props) {
                 <td className="py-2 px-2 text-right tabular-nums text-ink">{totals.resolved}</td>
                 <td className="py-2 px-2 text-right tabular-nums text-ink">{h1(totals.estimatedHours)}</td>
                 <td className="py-2 px-2 text-right tabular-nums text-ink">{h1(totals.hoursInMonth)}</td>
-                <td className="py-2 pl-2 text-right tabular-nums text-muted">{h1(totals.hoursOnMonthTickets)}</td>
+                <td className="py-2 px-2 text-right tabular-nums text-muted">{h1(totals.hoursOnMonthTickets)}</td>
+                <td className="py-2 pl-2 text-right tabular-nums text-ink">{totals.monthlyBill ? usd(totals.monthlyBill) : '—'}</td>
               </tr>
             </tfoot>
           </table>

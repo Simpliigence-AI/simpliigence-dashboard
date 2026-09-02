@@ -278,7 +278,8 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Priority</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Assignee</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Est. hours</th>
-                <th className="text-left py-2 text-xs font-medium text-muted uppercase">Created</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Created</th>
+                <th className="text-left py-2 text-xs font-medium text-muted uppercase">Resolved</th>
               </tr>
             </thead>
             <tbody>
@@ -299,7 +300,8 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                   <td className="py-2.5 pr-4"><Badge variant={priorityVariant(t.priority)}>{t.priority ?? 'None'}</Badge></td>
                   <td className="py-2.5 pr-4 text-xs text-muted truncate max-w-[10rem]">{t.assigneeEmail ?? <span className="text-muted/70">Unassigned</span>}</td>
                   <td className="py-2.5 pr-4 text-muted whitespace-nowrap tabular-nums">{fmtTicketEstimate(t)}</td>
-                  <td className="py-2.5 whitespace-nowrap text-muted">{fmtDate(t.createdTime)}</td>
+                  <td className="py-2.5 pr-4 whitespace-nowrap text-muted">{fmtDate(t.createdTime)}</td>
+                  <td className="py-2.5 whitespace-nowrap text-muted">{fmtDate(t.resolvedAt)}</td>
                 </tr>
               ))}
             </tbody>

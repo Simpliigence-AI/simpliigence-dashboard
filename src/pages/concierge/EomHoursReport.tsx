@@ -142,8 +142,9 @@ export function EomHoursReport({ tickets }: Props) {
 
     for (const t of tickets) {
       const openedThisMonth = inMonth(t.createdTime, month);
-      // resolved_at is only set by resolveTicket; fall back to nothing rather
-      // than guessing from updated_at, which any edit bumps.
+      // resolved_at is stamped when the status enters Resolved/Closed; tickets
+      // closed before that stamp existed have none, and fall out of the month
+      // rather than being guessed at from updated_at, which any edit bumps.
       const resolvedThisMonth = inMonth(t.resolvedAt, month) && isTicketClosed(t.status);
       if (openedThisMonth) {
         const r = row(accountOf(t));

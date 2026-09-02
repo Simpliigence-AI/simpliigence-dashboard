@@ -149,7 +149,14 @@ export function TicketDrawer({ ticket, onClose }: Props) {
           <span className="px-2 py-0.5 rounded border border-line bg-surface font-medium">{ticket.status}</span>
           {ticket.source && <span className="text-muted/70">via {ticket.source}</span>}
           {ticket.senderEmail && <span>from {ticket.senderName ?? ticket.senderEmail}</span>}
-          <span className="ml-auto">Created {fmt(ticket.createdTime)}</span>
+          {/* Resolved only on a terminal ticket: an em-dash "Resolved" on every
+            * open one is noise, but a Resolved ticket that predates the stamp
+            * should still show the field rather than hide it. Both dates sit in
+            * one right-aligned group so the second does not wrap to its own row. */}
+          <span className="ml-auto flex items-center gap-3">
+            <span>Created {fmt(ticket.createdTime)}</span>
+            {isResolved && <span>Resolved {fmt(ticket.resolvedAt)}</span>}
+          </span>
         </div>
 
         {/* Editable fields grid */}
@@ -377,7 +384,7 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             <div className="flex items-center justify-between">
               <div className="text-sm text-emerald-700">
                 <Check size={14} className="inline mr-1" />
-                Resolved {ticket.resolvedAt && `on ${fmt(ticket.resolvedAt)}`}
+                Resolved on {fmt(ticket.resolvedAt)}
               </div>
               <Button variant="secondary" onClick={() => reopenTicket(ticket.id)}>
                 <RotateCcw size={14} /> Reopen

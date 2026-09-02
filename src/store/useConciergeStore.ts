@@ -11,6 +11,7 @@
  */
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { isTicketClosed } from '../lib/ticketStatus';
 
 const nanoid = (len = 21): string => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -40,6 +41,9 @@ export interface ConciergeTicket {
   assigneeEmail: string | null;
   description: string | null;
   resolution: string | null;
+  /** Resolved Date — stamped automatically when the status enters Resolved or
+   *  Closed, cleared when it leaves. Null on tickets resolved before it was
+   *  stamped; rendered as an em-dash rather than guessed at. */
   resolvedAt: string | null;
   hoursLogged: number;
   /** Planned/estimate value set by admins — distinct from logged hours. */
@@ -412,7 +416,8 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
   },
 
   updateTicket: async (id, patch) => {
-    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const nowIso = new Date().toISOString();
+    const row: Record<string, unknown> = { updated_at: nowIso };
     if ('assigneeEmail' in patch) row.assignee_email = patch.assigneeEmail;
     if ('priority' in patch) row.priority = patch.priority;
     if ('status' in patch) row.status = patch.status;
@@ -423,7 +428,21 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     if ('description' in patch) row.description = patch.description;
     if ('resolution' in patch) row.resolution = patch.resolution;
     if ('estimatedHours' in patch) row.estimated_hours = patch.estimatedHours;
-    let applied = patch;
+    /* Resolved Date follows the transition, not the save: entering the closed
+     * bucket (Resolved/Closed) stamps when, leaving it clears the stamp so the
+     * next resolution gets a fresh one. A ticket already closed and saved again
+     * keeps the date it has — including a legacy null, which stays blank rather
+     * than being back-dated to today. */
+    let stampedResolvedAt: string | null | undefined;
+    if ('status' in patch) {
+      const wasClosed = isTicketClosed(get().tickets.find((t) => t.id === id)?.status);
+      const nowClosed = isTicketClosed(patch.status);
+      if (nowClosed && !wasClosed) stampedResolvedAt = nowIso;
+      else if (wasClosed && !nowClosed) stampedResolvedAt = null;
+      if (stampedResolvedAt !== undefined) row.resolved_at = stampedResolvedAt;
+    }
+    let applied: Partial<ConciergeTicket> = stampedResolvedAt === undefined
+      ? patch : { ...patch, resolvedAt: stampedResolvedAt };
     let { error } = await supabase.from('tickets').update(row).eq('id', id);
     if (error && 'estimated_hours' in row && isMissingEstimatedHoursColumn(error.message)) {
       console.warn('[concierge] tickets.estimated_hours missing (run migration 026); retrying update without it');

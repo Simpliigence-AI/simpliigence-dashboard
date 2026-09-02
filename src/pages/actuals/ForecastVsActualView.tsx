@@ -35,7 +35,7 @@ import {
   ytdWeeks,
   isComparisonDate,
   COMPARISON_MONTHS,
-  COMPARISON_START_MONTH,
+  COMPARISON_START_LABEL,
   COMPARISON_WINDOW_LABEL,
 } from './shared';
 
@@ -109,6 +109,7 @@ interface ForecastVsActualProps {
 
 export default function ForecastVsActualView({ search = '' }: ForecastVsActualProps) {
   const entries = useActualHoursStore((s) => s.entries);
+  const usedLegacyFallback = useActualHoursStore((s) => s.usedLegacyFallback);
   const assignments = useForecastStore((s) => s.assignments);
   const directory = useAuthStore((s) => s.directory);
   const [sub, setSub] = useState<ForecastSubTab>(() => loadForecastSub());
@@ -121,15 +122,18 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
     [directory],
   );
 
+  /** Every /my-time row that reached the store, whatever its date. Kept apart
+   *  from the windowed set below so an empty grid can say which half is
+   *  missing: the source tag (plumbing) or the hours (nobody logged any). */
+  const myTimeEntries = useMemo(
+    () => entries.filter((e) => e.source === MY_TIME_SOURCE && !!e.workDate && e.hours > 0),
+    [entries],
+  );
+
   /** The only actuals this tab counts: /my-time hours inside the window. */
   const actualEntries = useMemo(
-    () => entries.filter((e) => (
-      e.source === MY_TIME_SOURCE
-      && !!e.workDate
-      && e.hours > 0
-      && isComparisonDate(e.workDate)
-    )),
-    [entries],
+    () => myTimeEntries.filter((e) => isComparisonDate(e.workDate)),
+    [myTimeEntries],
   );
 
   const actualsByKey = useMemo(() => {
@@ -198,6 +202,18 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
 
   const subViewProps = { people: filteredPeople, assignments, keyOfName, actualsByKey };
 
+  // No My Time rows at all means the grid would be forecast down one side and
+  // blanks down the other, which reads as "nobody worked" when it is really a
+  // feed problem. Say which feed problem instead of drawing the grid.
+  if (myTimeEntries.length === 0) {
+    return (
+      <FeedProblem
+        usedLegacyFallback={usedLegacyFallback}
+        totalRows={entries.length}
+      />
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
@@ -214,8 +230,16 @@ export default function ForecastVsActualView({ search = '' }: ForecastVsActualPr
 
       <p className="mb-3 text-[10px] text-muted/70">
         Actuals are the hours people entered on My Time, totalled per person per month.
-        {' '}{COMPARISON_WINDOW_LABEL} only — My Time became the record of hours in {COMPARISON_START_MONTH}.
+        {' '}{COMPARISON_WINDOW_LABEL} only — My Time became the record of hours in {COMPARISON_START_LABEL}.
       </p>
+
+      {actualEntries.length === 0 && (
+        <p className="mb-3 rounded-lg border border-line bg-surface-2/70 px-3 py-2 text-[11px] text-muted">
+          {myTimeEntries.length.toLocaleString()} My Time {myTimeEntries.length === 1 ? 'entry' : 'entries'} loaded,
+          but none dated {COMPARISON_WINDOW_LABEL} — nobody has submitted or had approved any hours in this
+          window yet, so every Actual below is empty. The feed itself is fine.
+        </p>
+      )}
 
       <Legend />
 
@@ -244,6 +268,46 @@ function SubToggle({ active, onClick, children }: { active: boolean; onClick: ()
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Shown instead of the grid when zero My Time rows reached this tab. The two
+ * causes need different people to fix them, so they get different copy: a
+ * degraded feed is an ops problem, a feed with rows but no `simpliigence`
+ * ones is either the view dropping its source column or genuinely nothing
+ * submitted. The Table tab applies no source filter, so it is the cheapest
+ * place to tell those last two apart.
+ */
+function FeedProblem({ usedLegacyFallback, totalRows }: {
+  usedLegacyFallback: boolean; totalRows: number;
+}) {
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+      <p className="font-semibold mb-1">No My Time actuals reached this tab.</p>
+      {usedLegacyFallback ? (
+        <p>
+          The <code>unified_actual_hours</code> view could not be read, so the page fell back to the
+          legacy <code>actual_hours</code> table. Those rows carry no source tag, so none of them can
+          count as My Time here — the comparison cannot be drawn at all. This is a database problem,
+          not missing timesheets: check the view in Supabase (the browser console has the error).
+        </p>
+      ) : totalRows === 0 ? (
+        <p>
+          No timesheet rows loaded at all — not even Zoho history. Either the fetch failed or{' '}
+          <code>unified_actual_hours</code> is empty. Reload; if the other tabs on this page are
+          empty too, the feed is down.
+        </p>
+      ) : (
+        <p>
+          {totalRows.toLocaleString()} timesheet rows loaded, but not one is tagged as My Time
+          (<code>source = 'simpliigence'</code>). Either the deployed <code>unified_actual_hours</code>{' '}
+          view is not exposing its <code>source</code> column, or no <code>time_entries</code> rows are
+          submitted/approved. The Table tab shows every row whatever its source — if August hours show
+          up there, it is the source tag; if it is empty too, nobody has submitted time.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -416,7 +480,7 @@ function FCWeekView({ people, assignments, keyOfName, actualsByKey }: SubViewPro
   if (weeks.length === 0) {
     return (
       <div className="text-center py-10 text-muted/70 text-sm">
-        No weeks to compare yet — the comparison starts in {COMPARISON_START_MONTH}.
+        No weeks to compare yet — the comparison starts in {COMPARISON_START_LABEL}.
       </div>
     );
   }

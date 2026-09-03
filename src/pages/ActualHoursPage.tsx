@@ -34,6 +34,7 @@ function loadTab(): TabKey {
 
 export default function ActualHoursPage() {
   const entries = useActualHoursStore((s) => s.entries);
+  const usedLegacyFallback = useActualHoursStore((s) => s.usedLegacyFallback);
 
   const [tab, setTab] = useState<TabKey>(() => loadTab());
   useEffect(() => {
@@ -70,6 +71,15 @@ export default function ActualHoursPage() {
             </span>
           </div>
         </div>
+
+        {usedLegacyFallback && (
+          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            The <code>unified_actual_hours</code> view could not be read, so the People, Projects and
+            Table tabs below fell back to the legacy <code>actual_hours</code> table — Zoho history
+            only, missing everything submitted through /my-time. The browser console has the error.
+            (vs Forecast reads <code>time_entries</code> directly and is unaffected.)
+          </p>
+        )}
 
         {entries.length === 0 && tab !== 'forecast' ? (
           <EmptyState />

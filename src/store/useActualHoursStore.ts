@@ -15,6 +15,11 @@ interface ActualHoursState {
   entries: ActualHourEntry[];
   /** ISO timestamp when we last hydrated from Supabase (advisory only). */
   lastHydratedAt: string | null;
+  /** True when the last fetch could not read `unified_actual_hours` and fell
+   *  back to the legacy `actual_hours` table. Those rows have no `source`
+   *  tag, so nothing in them counts as My Time. Not persisted — it describes
+   *  the current fetch, not the cached entries. */
+  usedLegacyFallback: boolean;
   setEntries: (entries: ActualHourEntry[], hydratedAt?: string) => void;
 }
 
@@ -23,6 +28,7 @@ export const useActualHoursStore = create<ActualHoursState>()(
     (set) => ({
       entries: [],
       lastHydratedAt: null,
+      usedLegacyFallback: false,
 
       setEntries: (entries, hydratedAt) => {
         set({ entries, lastHydratedAt: hydratedAt ?? new Date().toISOString() });
@@ -31,6 +37,7 @@ export const useActualHoursStore = create<ActualHoursState>()(
     {
       name: 'simpliigence-actual-hours',
       version: 2,
+      partialize: (s) => ({ entries: s.entries, lastHydratedAt: s.lastHydratedAt }),
       // On upgrade from v1 the state shape lost `lastZohoSync`; drop it.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       migrate: (persistedState: any, fromVersion) => {

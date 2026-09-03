@@ -13,6 +13,13 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { isTicketClosed } from '../lib/ticketStatus';
 
+/** Client-side upload ceiling, matching what a ticket could receive by email:
+ *  Exchange Online caps an inbound message at 25 MB, so a bigger file could
+ *  never have arrived through desk-inbound either. Same kind of guard as the
+ *  timesheet-document uploader, which stops at 15 MB. */
+const MB = 1024 * 1024;
+export const MAX_ATTACHMENT_MB = 25;
+
 const nanoid = (len = 21): string => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let out = '';
@@ -128,6 +135,11 @@ interface ConciergeState {
   /** Signed URLs for many objects at once, keyed by storage path. Used to
    *  resolve a body's inline `cid:` images in a single round-trip. */
   attachmentSignedUrls: (storagePaths: string[]) => Promise<Record<string, string>>;
+  /** Attach one file to an existing ticket: bytes into the private
+   *  ticket-attachments bucket, then a `ticket_attachments` row. The ticket
+   *  must already exist (the row's FK points at it). Needs migration 031 for
+   *  the bucket's INSERT policy, without which every upload 403s. */
+  uploadAttachment: (ticketId: string, file: File) => Promise<{ ok: boolean; message?: string }>;
   checkGraphSubscription: () => Promise<{ ok: boolean; configured: boolean; message?: string }>;
   setupGraphSubscription: (mailbox?: string) => Promise<{ ok: boolean; message?: string }>;
   renewGraphSubscription: (id: string) => Promise<{ ok: boolean; message?: string }>;
@@ -337,6 +349,46 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
       if (row.path && row.signedUrl) out[row.path] = row.signedUrl;
     }
     return out;
+  },
+
+  uploadAttachment: async (ticketId, file) => {
+    if (file.size > MAX_ATTACHMENT_MB * MB) {
+      return { ok: false, message: `${file.name} is ${(file.size / MB).toFixed(1)} MB (limit ${MAX_ATTACHMENT_MB} MB).` };
+    }
+    const attId = nanoid();
+    /* Same id scheme, filename sanitiser and path shape as desk-inbound, so a
+     * file added here is indistinguishable from an email-ingested one to
+     * everything downstream (see supabase/functions/desk-inbound/index.ts). */
+    const safeName = (file.name || 'file').replace(/[^A-Za-z0-9._-]/g, '_');
+    const storagePath = `${ticketId}/${attId}-${safeName}`;
+    const { error: upErr } = await supabase.storage.from('ticket-attachments')
+      .upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+    if (upErr) {
+      console.warn('[concierge] uploadAttachment upload:', upErr.message);
+      return { ok: false, message: `Upload failed for ${file.name}: ${upErr.message}` };
+    }
+    const { error: rowErr } = await supabase.from('ticket_attachments').insert({
+      id: attId,
+      ticket_id: ticketId,
+      message_id: null,
+      file_name: file.name || 'file',
+      content_type: file.type || null,
+      size_bytes: file.size,
+      storage_path: storagePath,
+      graph_attachment_id: null,
+      is_inline: false,
+    });
+    if (rowErr) {
+      /* Don't leave bytes nothing points at. Best effort only: the bucket has
+       * no DELETE policy for authenticated users (see migration 031), so this
+       * may well fail — the insert error is what the caller has to surface. */
+      const { error: rmErr } = await supabase.storage.from('ticket-attachments').remove([storagePath]);
+      if (rmErr) console.warn('[concierge] uploadAttachment orphan cleanup:', rmErr.message);
+      console.warn('[concierge] uploadAttachment row:', rowErr.message);
+      return { ok: false, message: `Could not record ${file.name}: ${rowErr.message}` };
+    }
+    await get().loadAttachments(ticketId);
+    return { ok: true };
   },
 
   checkGraphSubscription: async () => {

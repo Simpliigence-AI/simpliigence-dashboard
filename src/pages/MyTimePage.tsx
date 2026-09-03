@@ -99,6 +99,10 @@ function weekDays(weekStartIso: string): { iso: string; label: string; isToday: 
   return days;
 }
 
+/** Outcome of a copy action. Every cloned entry is its own Supabase write and
+ *  any of them can be rejected, so the caller needs counts, not a void. */
+type CopyResult = { copied: number; failed: number; firstError: string | null };
+
 export default function MyTimePage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const myEmail = (currentUser?.email || '').toLowerCase();
@@ -109,6 +113,11 @@ export default function MyTimePage() {
   const [openDay, setOpenDay] = useState<string | null>(toIsoDate(new Date()));
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'grid'>('list');
   const [calendarAnchor, setCalendarAnchor] = useState(toIsoDate(new Date()));
+  // Result of the last copy / submit-week action. These write straight to
+  // Supabase and used to fail silently: the optimistic rows kept rendering
+  // here while nothing reached the DB, so Team Time never saw them.
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Grandfathered project names from existing entries so historic rows still
   // render their project even if it's no longer a Current project or an
@@ -151,22 +160,39 @@ export default function MyTimePage() {
     return { logged, billable };
   }, [days, entriesByDay]);
 
-  /** Copy all of `fromIso`'s entries onto `toIso` (cloned, status=submitted). */
-  const copyDay = async (fromIso: string, toIso: string) => {
-    const source = allEntries.filter((e) => e.employeeEmail.toLowerCase() === myEmail && e.workDate === fromIso);
-    if (source.length === 0) return;
+  /** Copy all of `fromIso`'s entries onto `toIso` (cloned, status=submitted).
+   *  Reports how many clones actually saved — a clone that the DB rejects must
+   *  not be counted, or it looks copied here and is missing in Team Time. */
+  const copyDay = async (fromIso: string, toIso: string): Promise<CopyResult> => {
+    const source = allEntries.filter((e) =>
+      e.employeeEmail.toLowerCase() === myEmail
+      && e.workDate === fromIso
+      // hours <= 0 can only be a local leftover — the DB CHECK (hours > 0)
+      // rejects such a clone, so don't spend a write on it.
+      && e.hours > 0,
+    );
+    const result: CopyResult = { copied: 0, failed: 0, firstError: null };
     for (const e of source) {
-      await addEntry({
-        employeeEmail: myEmail,
-        workDate: toIso,
-        projectId: e.projectId,
-        projectName: e.projectName,
-        hours: e.hours,
-        billable: e.billable,
-        notes: e.notes,
-      });
+      try {
+        await addEntry({
+          employeeEmail: myEmail,
+          workDate: toIso,
+          projectId: e.projectId,
+          projectName: e.projectName,
+          hours: e.hours,
+          billable: e.billable,
+          notes: e.notes,
+        });
+        result.copied++;
+      } catch (err) {
+        // Keep going: one rejected row shouldn't cost the user the rest of
+        // the week. The first reason is what gets shown.
+        result.failed++;
+        result.firstError = result.firstError ?? (formatDbError(err) || 'no error detail available');
+      }
     }
-    setOpenDay(toIso);
+    if (result.copied > 0) setOpenDay(toIso);
+    return result;
   };
 
   /** Re-submit every 'draft' or 'rejected' entry in the visible week. */
@@ -189,17 +215,50 @@ export default function MyTimePage() {
   };
 
   /** Copy LAST week's entries onto THIS week, day-by-day (status=submitted). */
-  const copyLastWeek = async () => {
+  const copyLastWeek = async (): Promise<CopyResult> => {
     const lastWeekStart = isoAddDays(weekStart, -7);
     const lastWeekDays = Array.from({ length: 7 }, (_, i) => ({
       from: isoAddDays(lastWeekStart, i),
       to: isoAddDays(weekStart, i),
     }));
+    const total: CopyResult = { copied: 0, failed: 0, firstError: null };
     for (const { from, to } of lastWeekDays) {
       // Skip days that already have entries on the target — don't double-up
       const targetHas = allEntries.some((e) => e.employeeEmail.toLowerCase() === myEmail && e.workDate === to);
       if (targetHas) continue;
-      await copyDay(from, to);
+      const dayResult = await copyDay(from, to);
+      total.copied += dayResult.copied;
+      total.failed += dayResult.failed;
+      total.firstError = total.firstError ?? dayResult.firstError;
+    }
+    return total;
+  };
+
+  /** Run a copy / submit action and report the outcome. Nothing about these
+   *  writes was visible before: a save the server refused looked identical to
+   *  a save that worked. */
+  const runAction = async (label: string, fn: () => Promise<CopyResult | void>) => {
+    if (actionBusy) return;
+    setActionBusy(true);
+    setActionMsg(null);
+    try {
+      const result = await fn();
+      if (!result) {
+        setActionMsg({ ok: true, text: `${label}: done.` });
+      } else if (result.failed > 0) {
+        setActionMsg({
+          ok: false,
+          text: `${label}: ${result.copied} saved, ${result.failed} could not be saved — ${result.firstError ?? 'no error detail available'}`,
+        });
+      } else if (result.copied === 0) {
+        setActionMsg({ ok: false, text: `${label}: nothing to copy — days that already have entries are skipped.` });
+      } else {
+        setActionMsg({ ok: true, text: `${label}: copied ${result.copied} entr${result.copied === 1 ? 'y' : 'ies'}.` });
+      }
+    } catch (err) {
+      setActionMsg({ ok: false, text: `${label} failed — ${formatDbError(err) || 'no error detail available'}` });
+    } finally {
+      setActionBusy(false);
     }
   };
 
@@ -339,8 +398,9 @@ export default function MyTimePage() {
             {needsSubmitCount > 0 && (
               <button
                 type="button"
-                onClick={submitWeek}
-                className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 inline-flex items-center gap-1.5"
+                onClick={() => void runAction('Submit week', submitWeek)}
+                disabled={actionBusy}
+                className="text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-40 inline-flex items-center gap-1.5"
                 title={`Re-submit ${needsSubmitCount} draft/rejected entr${needsSubmitCount === 1 ? 'y' : 'ies'} this week`}
               >
                 <Save size={12} /> Submit week ({needsSubmitCount})
@@ -348,15 +408,39 @@ export default function MyTimePage() {
             )}
             <button
               type="button"
-              onClick={copyLastWeek}
-              className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70 inline-flex items-center gap-1.5"
+              onClick={() => void runAction('Copy last week', copyLastWeek)}
+              disabled={actionBusy}
+              className="text-xs font-semibold px-3 py-1.5 border border-line rounded-md hover:bg-surface-2/70 disabled:opacity-40 inline-flex items-center gap-1.5"
               title="Copy last week's entries forward (skips days that already have entries)"
             >
-              <Copy size={12} /> Copy last week
+              {actionBusy ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />} Copy last week
             </button>
           </div>
         )}
       </div>
+
+      {actionMsg && (
+        <div
+          className={`mb-4 rounded-lg border px-3 py-2 text-xs flex items-start justify-between gap-3 ${
+            actionMsg.ok
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+              : 'border-red-300 bg-red-50 text-red-800'
+          }`}
+        >
+          <span>
+            {actionMsg.text}
+            {!actionMsg.ok && ' Unsaved entries are not visible to your manager on Team Time — please retry, or report the error above.'}
+          </span>
+          <button
+            type="button"
+            onClick={() => setActionMsg(null)}
+            className="opacity-70 hover:opacity-100 flex-shrink-0"
+            title="Dismiss"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {viewMode === 'calendar' ? (
         <CalendarGrid
@@ -456,8 +540,9 @@ export default function MyTimePage() {
                         {yesterdayHas && (
                           <button
                             type="button"
-                            onClick={() => copyDay(yesterdayIso, d.iso)}
-                            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-2"
+                            onClick={() => void runAction('Copy yesterday', () => copyDay(yesterdayIso, d.iso))}
+                            disabled={actionBusy}
+                            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-2 disabled:opacity-40"
                             title={`Copy entries from ${yesterdayIso}`}
                           >
                             <Copy size={11} /> Copy yesterday
@@ -466,8 +551,9 @@ export default function MyTimePage() {
                         {lastWeekHas && (
                           <button
                             type="button"
-                            onClick={() => copyDay(lastWeekIso, d.iso)}
-                            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-2"
+                            onClick={() => void runAction('Copy same day last week', () => copyDay(lastWeekIso, d.iso))}
+                            disabled={actionBusy}
+                            className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-2 disabled:opacity-40"
                             title={`Copy same day last week (${lastWeekIso})`}
                           >
                             <Copy size={11} /> Copy last {parseIsoDate(d.iso).toLocaleDateString(undefined, { weekday: 'long' })}
@@ -550,6 +636,7 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
   const [billable, setBillable] = useState(entry.billable);
   const [notes, setNotes] = useState(entry.notes ?? '');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const dirty =
     projectName !== entry.projectName ||
@@ -568,6 +655,10 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
         billable,
         notes,
       });
+      setSaveError(null);
+    } catch (err) {
+      // A refused write used to leave the edit looking saved on this page only.
+      setSaveError(formatDbError(err) || 'no error detail available');
     } finally {
       setSaving(false);
     }
@@ -623,6 +714,9 @@ function EntryRow({ entry, projectOptions, onSave, onDelete }: {
         placeholder="Notes (optional)"
         className="mt-2 w-full text-xs text-ink/80 bg-transparent border-0 px-1 py-0.5 rounded focus:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
+      {saveError && (
+        <div className="mt-2 text-[11px] text-red-700">Save failed — {saveError}</div>
+      )}
       {dirty && (
         <div className="mt-2 flex justify-end">
           <button
@@ -656,6 +750,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
   const [notes, setNotes] = useState('');
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const hoursRef = useRef<HTMLInputElement>(null);
 
@@ -682,6 +777,7 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         notes,
         status: opts.asDraft ? 'draft' : 'submitted',
       });
+      setAddError(null);
       if (opts.keepOpen) {
         // Rapid-entry: clear per-entry fields but keep the project sticky.
         setHours(0);
@@ -693,6 +789,10 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
       } else {
         closeRow();
       }
+    } catch (err) {
+      // Don't close the row on failure — the entry was never saved, so the
+      // user needs to see why and retry rather than assume it landed.
+      setAddError(formatDbError(err) || 'no error detail available');
     } finally {
       setSaving(false);
     }
@@ -760,6 +860,9 @@ function NewEntryRow({ workDate: _workDate, projectOptions, onAdd }: {
         placeholder="Notes (optional) — Enter or Tab to save & add another"
         className="mt-2 w-full text-xs text-ink/80 bg-surface border border-line rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
+      {addError && (
+        <div className="mt-2 text-[11px] text-red-700">Save failed — {addError}</div>
+      )}
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className="text-[10px] text-muted italic">Enter or Tab = save &amp; add another · Esc = close</span>
         <div className="flex items-center gap-2">

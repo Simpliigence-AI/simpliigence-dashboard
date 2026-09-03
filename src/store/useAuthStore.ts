@@ -52,13 +52,36 @@ interface AuthState {
   clear: () => void;
 }
 
+/**
+ * Guard against overlapping profile loads.
+ *
+ * `supabase.auth.onAuthStateChange` fires far more often than the user's
+ * identity actually changes — supabase-js re-emits on tab focus/visibility
+ * and on every silent token refresh. Each of those used to run a fresh
+ * `loadCurrentUser()`, and because `loading` gates `<Outlet />` in AppLayout
+ * (and the RoleOnly / AdminOnly / EmployeeRedirect wrappers), every one of
+ * them UNMOUNTED the page the user was working on: half-typed comments,
+ * open drawers, filters and resume drafts all lost. That is the "page keeps
+ * resetting / doesn't save" bug.
+ *
+ * Two rules keep it quiet:
+ *   1. Never run two loads at once.
+ *   2. `loading` is a COLD-START flag only. Once we have a profile, a
+ *      refresh happens silently in the background and nothing unmounts.
+ */
+let profileLoadInFlight = false;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   currentUser: null,
   loading: false,
   directory: {},
 
   async loadCurrentUser() {
-    set({ loading: true });
+    if (profileLoadInFlight) return;
+    profileLoadInFlight = true;
+    // Cold start only — a warm refresh must not blank the page out.
+    const warm = get().currentUser !== null;
+    if (!warm) set({ loading: true });
     try {
       const { data: sess } = await supabase.auth.getUser();
       const user = sess.user;
@@ -94,6 +117,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       console.warn('[auth] loadCurrentUser failed:', (e as Error).message);
       set({ loading: false });
+    } finally {
+      profileLoadInFlight = false;
     }
   },
 

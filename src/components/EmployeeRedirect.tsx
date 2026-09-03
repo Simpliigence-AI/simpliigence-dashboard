@@ -12,7 +12,8 @@ export function EmployeeRedirect({ children }: { children: React.ReactNode }) {
   const role = useAuthStore((s) => s.currentUser?.role);
   const loading = useAuthStore((s) => s.loading);
 
-  if (loading) return null; // wait for auth profile before deciding
+  // Cold start only — a background refresh must not unmount the page.
+  if (loading && !role) return null; // wait for auth profile before deciding
   if (role === 'employee') return <Navigate to="/my-time" replace />;
   return <>{children}</>;
 }

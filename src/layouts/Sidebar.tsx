@@ -355,10 +355,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       className={`
         bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-40
         transition-all duration-300 ease-in-out
-        ${collapsed ? 'md:w-[68px]' : 'md:w-60'}
+        ${collapsed ? 'md:w-[76px]' : 'md:w-72'}
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
-        w-64
+        w-72
       `}
     >
       {/* Mobile close button — only visible <md when drawer is open */}

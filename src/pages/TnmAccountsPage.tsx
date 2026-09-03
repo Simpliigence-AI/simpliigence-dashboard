@@ -313,6 +313,7 @@ export default function TnmAccountsPage() {
       >
         {drawerAccount && (
           <AccountDrawer
+            key={drawerAccount.id}
             account={drawerAccount}
             contacts={drawerContacts}
             onPatch={(patch) => updateAccount(drawerAccount.id, patch)}
@@ -523,37 +524,37 @@ function AccountDrawer({
           value={account.workType ?? ''}
           onChange={(e) => onPatch({ workType: (e.target.value || null) as TnmWorkType | null })}
         />
-        <Input
+        <DraftInput
           label="Key contact"
           placeholder="Person we deal with"
-          value={account.keyContact ?? ''}
-          onChange={(e) => onPatch({ keyContact: e.target.value || null })}
+          initial={account.keyContact}
+          onCommit={(v) => onPatch({ keyContact: v || null })}
         />
         <div className="col-span-2">
-          <Input
+          <DraftInput
             label="Consultant used"
             placeholder="Who did we place / propose"
-            value={account.staffingConsultant ?? ''}
-            onChange={(e) => onPatch({ staffingConsultant: e.target.value || null })}
+            initial={account.staffingConsultant}
+            onCommit={(v) => onPatch({ staffingConsultant: v || null })}
           />
         </div>
         <div className="col-span-2">
-          <Input
+          <DraftInput
             label="Owner / note"
             placeholder="e.g. Pragna, Raghu to forward"
-            value={account.ownerNote ?? ''}
-            onChange={(e) => onPatch({ ownerNote: e.target.value || null })}
+            initial={account.ownerNote}
+            onCommit={(v) => onPatch({ ownerNote: v || null })}
           />
         </div>
       </div>
 
       <div>
         <label className="block text-[11px] font-semibold text-muted uppercase tracking-wider mb-1.5">Notes</label>
-        <textarea
-          className="w-full px-3 py-2 rounded-lg border border-line text-sm text-ink bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        <DraftTextarea
           rows={4}
-          value={account.notes ?? ''}
-          onChange={(e) => onPatch({ notes: e.target.value || null })}
+          initial={account.notes}
+          placeholder="Freeform — saves when you click away"
+          onCommit={(v) => onPatch({ notes: v || null })}
         />
       </div>
 
@@ -568,10 +569,10 @@ function AccountDrawer({
           {contacts.map((c) => (
             <div key={c.id} className="border border-line rounded-lg p-3 space-y-2">
               <div className="flex gap-2">
-                <input
+                <DraftText
                   className="flex-1 px-2 py-1 rounded border border-line text-sm font-semibold bg-surface"
-                  value={c.name}
-                  onChange={(e) => onPatchContact(c.id, { name: e.target.value })}
+                  initial={c.name}
+                  onCommit={(v) => { if (v.trim()) onPatchContact(c.id, { name: v }); }}
                 />
                 <button
                   onClick={() => onRemoveContact(c.id)}
@@ -582,23 +583,23 @@ function AccountDrawer({
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <input
+                <DraftText
                   className="px-2 py-1 rounded border border-line text-xs bg-surface"
                   placeholder="Title"
-                  value={c.title ?? ''}
-                  onChange={(e) => onPatchContact(c.id, { title: e.target.value || null })}
+                  initial={c.title}
+                  onCommit={(v) => onPatchContact(c.id, { title: v || null })}
                 />
-                <input
+                <DraftText
                   className="px-2 py-1 rounded border border-line text-xs bg-surface"
                   placeholder="Email"
-                  value={c.email ?? ''}
-                  onChange={(e) => onPatchContact(c.id, { email: e.target.value || null })}
+                  initial={c.email}
+                  onCommit={(v) => onPatchContact(c.id, { email: v || null })}
                 />
-                <input
+                <DraftText
                   className="px-2 py-1 rounded border border-line text-xs col-span-2 bg-surface"
                   placeholder="Phone"
-                  value={c.phone ?? ''}
-                  onChange={(e) => onPatchContact(c.id, { phone: e.target.value || null })}
+                  initial={c.phone}
+                  onCommit={(v) => onPatchContact(c.id, { phone: v || null })}
                 />
               </div>
             </div>
@@ -666,6 +667,89 @@ function AccountDrawer({
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Draft-committing fields ─────────────────────────────────────────
+//
+// These exist because the drawer used to call updateAccount() on EVERY
+// keystroke. Each keystroke wrote the whole store to localStorage, fired a
+// Supabase upsert, and re-rendered the entire tile grid — so typing a comment
+// into a busy account crawled and characters were dropped. Now the text lives
+// in local state while you type and commits ONCE, when the field loses focus
+// (or on Enter, for single-line fields). Escape abandons the edit.
+//
+// Each is seeded from `initial` and never re-seeded while mounted; the drawer
+// and each contact row carry a `key`, so switching account or row gives a
+// fresh field with fresh values.
+
+/** Commit-on-blur wrapper around the shared <Input>. */
+function DraftInput({ label, placeholder, initial, onCommit }: {
+  label?: string;
+  placeholder?: string;
+  initial: string | null | undefined;
+  onCommit: (value: string) => void;
+}) {
+  const base = initial ?? '';
+  const [v, setV] = useState(base);
+  return (
+    <Input
+      label={label}
+      placeholder={placeholder}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => { if (v !== base) onCommit(v); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === 'Escape') { setV(base); e.currentTarget.blur(); }
+      }}
+    />
+  );
+}
+
+/** Commit-on-blur bare <input>, for the compact contact rows. */
+function DraftText({ className, placeholder, initial, onCommit }: {
+  className?: string;
+  placeholder?: string;
+  initial: string | null | undefined;
+  onCommit: (value: string) => void;
+}) {
+  const base = initial ?? '';
+  const [v, setV] = useState(base);
+  return (
+    <input
+      className={className}
+      placeholder={placeholder}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => { if (v !== base) onCommit(v); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === 'Escape') { setV(base); e.currentTarget.blur(); }
+      }}
+    />
+  );
+}
+
+/** Commit-on-blur textarea. Enter inserts a newline here, so only blur saves. */
+function DraftTextarea({ rows = 4, placeholder, initial, onCommit }: {
+  rows?: number;
+  placeholder?: string;
+  initial: string | null | undefined;
+  onCommit: (value: string) => void;
+}) {
+  const base = initial ?? '';
+  const [v, setV] = useState(base);
+  return (
+    <textarea
+      className="w-full px-3 py-2 rounded-lg border border-line text-sm text-ink bg-surface resize-y focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      rows={rows}
+      placeholder={placeholder}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => { if (v !== base) onCommit(v); }}
+      onKeyDown={(e) => { if (e.key === 'Escape') { setV(base); e.currentTarget.blur(); } }}
+    />
   );
 }
 

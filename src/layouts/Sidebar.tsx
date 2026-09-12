@@ -21,6 +21,7 @@ import {
   CalendarCheck,
   Contact,
   BarChart3,
+  PieChart,
   Building2,
   Handshake,
   Target,
@@ -100,6 +101,7 @@ const sections: NavSection[] = [
     label: 'India T&M',
     items: [
       { to: '/india-staffing', icon: ClipboardList, label: 'India Demand' },
+      { to: '/india-demand-analytics', icon: PieChart, label: 'Demand Analytics' },
       { to: '/india-roster', icon: Users, label: 'Roster' },
       { to: '/india-hiring-forecast', icon: UserPlus, label: 'Hiring Forecast' },
       { to: '/ta-daily-log', icon: CalendarCheck, label: 'TA Daily Log' },

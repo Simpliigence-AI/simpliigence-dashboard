@@ -20,6 +20,7 @@ import TnmAccountsPage from '../pages/TnmAccountsPage';
 import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
 import TAMetricsPage from '../pages/TAMetricsPage';
+import IndiaDemandAnalyticsPage from '../pages/IndiaDemandAnalyticsPage';
 import ProfileFormatPage from '../pages/ProfileFormatPage';
 import AccountsPage from '../pages/AccountsPage';
 import VendorsPage from '../pages/VendorsPage';
@@ -79,6 +80,7 @@ export const router = createBrowserRouter(
 
         // India T&M section
         { path: 'india-staffing', element: <IndiaStaffingPage /> },         // "India Demand"
+        { path: 'india-demand-analytics', element: <IndiaDemandAnalyticsPage /> }, // NEW — raised/closed/why-not, on demand
         { path: 'india-roster', element: <IndiaRosterPage /> },             // NEW
         { path: 'india-hiring-forecast', element: <IndiaHiringForecastPage /> }, // NEW
         { path: 'ta-daily-log', element: <TADailyLogPage /> },              // NEW — TA "My Day"

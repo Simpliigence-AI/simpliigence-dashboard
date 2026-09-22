@@ -10,6 +10,8 @@
 import { nanoid } from 'nanoid';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase, CLIENT_ID } from './supabase';
+import { useAuthStore } from '../store/useAuthStore';
+
 import type { ForecastAssignment, Month, ZohoPipelineProject } from '../types/forecast';
 import type { FinancialSettings } from '../types/financial';
 import type { ConciergeConfig, ScenarioSettings, StaffingRequest } from '../types/hiringForecast';
@@ -36,6 +38,28 @@ import type { UserPageAccess } from '../types/access';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
+
+/**
+ * Cost is the only confidential figure — it implies salaries. The masked v_*
+ * views NULL out cost_per_hour for users without
+ * authorized_users.can_view_financials; bill_rate (revenue) stays visible.
+ * Writes still target the base tables, so we must strip cost_per_hour for
+ * those users — otherwise the masked value round-trips and overwrites the
+ * real cost. See permissions-framework.md.
+ */
+function canSeeMoney(): boolean {
+  return !!useAuthStore.getState().currentUser?.canViewFinancials;
+}
+
+function stripRates<T extends Record<string, unknown>>(row: T): T {
+  if (canSeeMoney()) return row;
+  // Rebuild without the key rather than destructuring it into an unused
+  // binding, which the no-unused-vars rule rejects.
+  const rest = { ...row };
+  delete rest.cost_per_hour;
+  return rest as T;
+}
+
 
 // ─── Error formatting ──────────────────────────────────────────────
 
@@ -635,7 +659,7 @@ function rowToUSReq(row: any): USStaffingRequisition {
 
 export async function fetchAssignments(): Promise<{ assignments: ForecastAssignment[]; weekDates: string[] } | null> {
   const [{ data: rows, error }, { data: meta }] = await Promise.all([
-    supabase.from('forecast_assignments').select('*'),
+    supabase.from('v_forecast_assignments').select('*'),
     supabase.from('forecast_meta').select('*').eq('id', 'singleton').single(),
   ]);
   if (error) { console.warn('[supabase] fetch assignments failed:', error.message, error.code, error.details); return null; }
@@ -1436,7 +1460,7 @@ function rowToUSRosterAssignment(row: any): USRosterAssignment {
 }
 
 export async function fetchUSRosterAssignments(): Promise<USRosterAssignment[] | null> {
-  const { data, error } = await supabase.from('us_roster_assignments').select('*');
+  const { data, error } = await supabase.from('v_us_roster_assignments').select('*');
   if (error) {
     console.warn('[supabase] fetch us_roster_assignments failed (table may be missing):', error.message);
     return null;
@@ -1470,7 +1494,7 @@ export async function fetchUSStaffing(): Promise<{
 // ─── India Roster fetcher ─────────────────────────────────────────
 
 export async function fetchIndiaRoster(): Promise<IndiaRosterMember[] | null> {
-  const { data, error } = await supabase.from('india_roster').select('*');
+  const { data, error } = await supabase.from('v_india_roster').select('*');
   if (error) {
     console.warn('[supabase] fetch india_roster failed (table may be missing):', error.message);
     return null;
@@ -1481,7 +1505,7 @@ export async function fetchIndiaRoster(): Promise<IndiaRosterMember[] | null> {
 // ─── US Roster fetcher ────────────────────────────────────────────
 
 export async function fetchUSRoster(): Promise<USRosterMember[] | null> {
-  const { data, error } = await supabase.from('us_roster').select('*');
+  const { data, error } = await supabase.from('v_us_roster').select('*');
   if (error) {
     console.warn('[supabase] fetch us_roster failed (table may be missing):', error.message);
     return null;
@@ -1848,7 +1872,7 @@ export const db = {
 
   // --- India Roster ---
   async upsertIndiaRosterMember(m: IndiaRosterMember) {
-    const { error } = await supabase.from('india_roster').upsert(indiaRosterToRow(m), { onConflict: 'id' });
+    const { error } = await supabase.from('india_roster').upsert(stripRates(indiaRosterToRow(m)), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert india_roster failed:', error);
   },
 
@@ -1872,12 +1896,12 @@ export const db = {
   },
   async replaceAllIndiaRoster(members: IndiaRosterMember[]) {
     await supabase.from('india_roster').delete().neq('id', '');
-    if (members.length) await supabase.from('india_roster').insert(members.map(indiaRosterToRow));
+    if (members.length) await supabase.from('india_roster').insert(members.map((m) => stripRates(indiaRosterToRow(m))));
   },
 
   // --- US Roster ---
   async upsertUSRosterMember(m: USRosterMember) {
-    const { error } = await supabase.from('us_roster').upsert(usRosterToRow(m), { onConflict: 'id' });
+    const { error } = await supabase.from('us_roster').upsert(stripRates(usRosterToRow(m)), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert us_roster failed:', error);
   },
   async deleteUSRosterMember(id: string) {
@@ -1886,7 +1910,7 @@ export const db = {
   },
   async replaceAllUSRoster(members: USRosterMember[]) {
     await supabase.from('us_roster').delete().neq('id', '');
-    if (members.length) await supabase.from('us_roster').insert(members.map(usRosterToRow));
+    if (members.length) await supabase.from('us_roster').insert(members.map((m) => stripRates(usRosterToRow(m))));
   },
 
   // --- US Roster Assignments ---

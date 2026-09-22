@@ -3,7 +3,7 @@ import { Drawer } from '../../components/ui/Drawer';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import { MAX_ATTACHMENT_MB, useConciergeStore } from '../../store/useConciergeStore';
-import { useAccountStore } from '../../store/useAccountStore';
+import { resolveTicketAccount, useTicketAccountOptions } from '../../lib/ticketAccountOptions';
 
 interface Props {
   open: boolean;
@@ -11,20 +11,29 @@ interface Props {
   defaultAccountId?: string | null;
 }
 
+/** Current month as YYYY-MM, in local time. */
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
   const createTicket = useConciergeStore((s) => s.createTicket);
   const uploadAttachment = useConciergeStore((s) => s.uploadAttachment);
-  /* Account Management accounts — the table `tickets.account_id` references.
-   * This used to list `concierge_accounts`, whose ids belong to a different
-   * namespace, which is why accountId had to be hard-nulled below. */
-  const accounts = useAccountStore((s) => s.accounts);
+  /* Account Management accounts (the parent of tickets_account_id_fkey) merged
+   * with the non-dormant Concierge accounts, which have no row there — see
+   * src/lib/ticketAccountOptions.ts. */
+  const { options: accountOptions, accountNameById } = useTicketAccountOptions();
+
+  const defaultValue = defaultAccountId ? `acct:${defaultAccountId}` : '';
 
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('medium');
-  const [accountId, setAccountId] = useState<string>(defaultAccountId ?? '');
+  const [accountValue, setAccountValue] = useState<string>(defaultValue);
   const [assigneeEmail, setAssigneeEmail] = useState('');
   const [estimatedHours, setEstimatedHours] = useState('');
+  const [billingMonth, setBillingMonth] = useState<string>(() => currentMonthKey());
   const [senderEmail, setSenderEmail] = useState('');
   const [senderName, setSenderName] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -50,18 +59,18 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
     if (!subject.trim()) { setError('Subject required'); return; }
     setSubmitting(true);
     setError(null);
-    const acct = accounts.find((a) => a.id === accountId);
+    const { account, accountId } = resolveTicketAccount(accountValue, accountNameById);
     const res = await createTicket({
       subject: subject.trim(),
       description: description.trim() || undefined,
       priority,
-      account: acct?.name ?? null,
-      // Safe to persist now: these are `accounts` ids, the parent of
-      // tickets_account_id_fkey — the same ids desk-inbound writes when it
-      // routes an inbound email by sender domain.
-      accountId: acct?.id ?? null,
+      account,
+      // Only Account Management ids are persisted — a concierge-only account
+      // has no row behind tickets_account_id_fkey, so it is stored by name.
+      accountId,
       assigneeEmail: assigneeEmail.trim() || null,
       estimatedHours: estimatedHours.trim() === '' ? null : Number(estimatedHours),
+      billingMonth: billingMonth || null,
       senderEmail: senderEmail.trim() || null,
       senderName: senderName.trim() || null,
     });
@@ -86,8 +95,9 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
       setError(`Ticket created, but ${failed.length} of ${files.length} file(s) did not attach: ${failed.join('; ')} — add them from the ticket's Attachments section.`);
       return;
     }
-    setSubject(''); setDescription(''); setPriority('medium'); setAccountId(defaultAccountId ?? '');
-    setAssigneeEmail(''); setEstimatedHours(''); setSenderEmail(''); setSenderName('');
+    setSubject(''); setDescription(''); setPriority('medium'); setAccountValue(defaultValue);
+    setAssigneeEmail(''); setEstimatedHours(''); setBillingMonth(currentMonthKey());
+    setSenderEmail(''); setSenderName('');
     dismiss();
   };
 
@@ -105,14 +115,18 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
               { value: 'urgent', label: 'Urgent' },
             ]}
           />
-          <Select label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
+          <Select label="Account" value={accountValue} onChange={(e) => setAccountValue(e.target.value)}
             placeholder="— none —"
-            options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+            options={accountOptions}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Assignee email" type="email" value={assigneeEmail} onChange={(e) => setAssigneeEmail(e.target.value)} placeholder="you@simpliigence.com" />
           <Input label="Estimated hours" type="number" step="0.25" min="0" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} placeholder="e.g. 4" />
+        </div>
+        <div>
+          <Input label="Bill in" type="month" value={billingMonth} onChange={(e) => setBillingMonth(e.target.value)} className="max-w-[12rem]" />
+          <p className="mt-1 text-[11px] text-muted">Which month this ticket lands in on the Billing tab.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Reporter email" type="email" value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="client@example.com" />

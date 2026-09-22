@@ -20,7 +20,8 @@ export function RoleOnly({ allow, fallback = '/', children }: {
   const role = useAuthStore((s) => s.currentUser?.role);
   const loading = useAuthStore((s) => s.loading);
 
-  if (loading) {
+  // Cold start only — a background refresh must not unmount the page.
+  if (loading && !role) {
     return (
       <div className="flex items-center justify-center py-20 text-muted/70 text-sm">
         Checking permissions…

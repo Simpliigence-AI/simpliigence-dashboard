@@ -26,6 +26,7 @@ import { DailyStatusMode } from '../components/staffing/DailyStatusMode';
 import { QuickAddSpeedDial } from '../components/staffing/QuickAddSpeedDial';
 import { ClipboardList } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
+import { ScreeningModal } from '../components/staffing/ScreeningModal';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { StaffingRow, RiskLevel, PipelineStage, StaffingStatus } from '../types/staffing';
 import { forecastRealisticClosures } from '../lib/aiForecastCloseRate';
@@ -161,6 +162,7 @@ export default function IndiaStaffingPage() {
   }, [viewMode]);
   const [showArchive, setShowArchive] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [screeningOpen, setScreeningOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
   const [newReq, setNewReq] = useState({ accountId: '', newAccountName: '', title: '', month: 'April', positions: 1, expectedClosure: '', anticipation: '', clientSpoc: '', department: '', startDate: todayStr, closeByDate: '' });
   const fileRef = useRef<HTMLInputElement>(null);
@@ -990,7 +992,32 @@ export default function IndiaStaffingPage() {
 
   return (
     <>
-      <PageHeader eyebrow="India T&M" tone="gold" title="India Demand" subtitle="Real-time staffing tracker with AI-powered closure forecasting" />
+      <PageHeader
+        eyebrow="India T&M" tone="gold" title="India Demand"
+        subtitle="Real-time staffing tracker with AI-powered closure forecasting"
+        action={
+          <button
+            type="button"
+            onClick={() => setScreeningOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-br from-purple-600 to-sky-600 hover:opacity-90"
+            title="AI-assisted candidate screening — generate questions + score the transcript"
+          >
+            <Sparkles size={14} /> Screening
+          </button>
+        }
+      />
+      {screeningOpen && (
+        <ScreeningModal
+          requisitionSource="india"
+          requisitionOptions={requisitions.map((r) => ({
+            id: r.id,
+            title: `${r.title}${r.stage ? ` · ${r.stage}` : ''}`,
+            accountName: accounts.find((a) => a.id === r.account_id)?.name,
+            jd: r.job_description ?? null,
+          }))}
+          onClose={() => setScreeningOpen(false)}
+        />
+      )}
 
       {/* AI Daily Briefing — top-of-page summary of what changed + what needs attention. */}
       <div className="mb-5 rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 shadow-sm overflow-hidden">

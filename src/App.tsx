@@ -14,6 +14,7 @@ import { usePresalesStore } from './store/usePresalesStore';
 import { usePodAssignmentsStore } from './store/usePodAssignmentsStore';
 import { useVendorStore } from './store/useVendorStore';
 import { useTnmAccountsStore } from './store/useTnmAccountsStore';
+import { useAccessStore } from './store/useAccessStore';
 import { useConciergeAccountsStore } from './store/useConciergeAccountsStore';
 import { useLeaveStore } from './store/useLeaveStore';
 import { useFeatureCatalogStore } from './store/useFeatureCatalogStore';
@@ -40,6 +41,7 @@ import {
   fetchAccountManagement,
   fetchVendors,
   fetchTnmAccounts,
+  fetchUserPageAccess,
   fetchConcierge,
   fetchLeaveData,
   fetchPodAssignments,
@@ -95,6 +97,7 @@ function useSupabaseInit() {
           accountMgmtRes,
           vendorsRes,
           tnmAccountsRes,
+          accessRes,
           candidateCallsRes,
           callTemplatesRes,
           presalesRes,
@@ -121,6 +124,7 @@ function useSupabaseInit() {
           withTimeout(fetchAccountManagement()),
           withTimeout(fetchVendors()),
           withTimeout(fetchTnmAccounts()),
+          withTimeout(fetchUserPageAccess()),
           withTimeout(fetchCandidateCalls()),
           withTimeout(fetchCallTemplates()),
           withTimeout(fetchPresales()),
@@ -231,8 +235,9 @@ function useSupabaseInit() {
             useUSStaffingStore.setState({
               accounts: ud.accounts,
               requisitions: ud.requisitions,
+              contacts: ud.contacts ?? [],
             });
-            console.log('[supabase] Loaded US staffing:', ud.accounts.length, 'accounts,', ud.requisitions.length, 'reqs');
+            console.log('[supabase] Loaded US staffing:', ud.accounts.length, 'accounts,', ud.requisitions.length, 'reqs,', (ud.contacts ?? []).length, 'contacts');
           } else {
             console.warn('[supabase] US staffing empty in Supabase — not auto-seeding');
           }
@@ -293,12 +298,17 @@ function useSupabaseInit() {
           console.warn('[supabase] US roster assignments fetch timed out');
         }
 
-        // --- Actual Hours (Zoho People timesheets) ---
+        // --- Actual Hours (/my-time submissions + frozen Zoho history) ---
         if (!actualHoursRes.timedOut) {
           const ah = actualHoursRes.value;
-          if (ah && ah.length > 0) {
-            useActualHoursStore.setState({ entries: ah });
-            console.log('[supabase] Loaded actual hours:', ah.length, 'entries');
+          if (ah) {
+            // Record the fallback either way — a degraded feed that came back
+            // empty is exactly the case the vs Forecast tab has to call out.
+            useActualHoursStore.setState({ usedLegacyFallback: ah.usedLegacyFallback });
+            if (ah.entries.length > 0) {
+              useActualHoursStore.setState({ entries: ah.entries });
+              console.log('[supabase] Loaded actual hours:', ah.entries.length, 'entries');
+            }
           }
         } else {
           console.warn('[supabase] Actual hours fetch timed out — using localStorage');
@@ -392,6 +402,17 @@ function useSupabaseInit() {
           console.warn('[supabase] TNM accounts fetch timed out — using localStorage');
         }
 
+        // --- Access matrix ---
+        if (!accessRes.timedOut) {
+          const rows = accessRes.value;
+          if (rows) {
+            useAccessStore.getState().hydrate(rows);
+            console.log('[supabase] Loaded user_page_access:', rows.length, 'grants');
+          }
+        } else {
+          console.warn('[supabase] user_page_access fetch timed out — using localStorage');
+        }
+
         // --- Concierge accounts (managed-services 360 view) ---
         if (!conciergeRes.timedOut) {
           const data = conciergeRes.value;
@@ -466,8 +487,12 @@ function useSupabaseInit() {
               ...(candidates ? { candidates } : {}),
             });
           },
-          setUSStaffing: (accounts, requisitions) => {
-            useUSStaffingStore.setState({ accounts, requisitions });
+          setUSStaffing: (accounts, requisitions, contacts) => {
+            useUSStaffingStore.setState({
+              accounts,
+              requisitions,
+              ...(contacts !== undefined ? { contacts } : {}),
+            });
           },
           setOpenBench: (resources, updates) => {
             useOpenBenchStore.setState({ resources, updates });
@@ -484,8 +509,11 @@ function useSupabaseInit() {
           setTimeEntries: (entries) => {
             useTimeEntryStore.setState({ entries });
           },
-          setActualHours: (rows) => {
-            useActualHoursStore.setState({ entries: rows });
+          setActualHours: (feed) => {
+            useActualHoursStore.setState({
+              entries: feed.entries,
+              usedLegacyFallback: feed.usedLegacyFallback,
+            });
           },
           setAccountManagement: (data) => {
             useAccountStore.getState().setAll(data);

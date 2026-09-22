@@ -20,13 +20,16 @@ import TnmAccountsPage from '../pages/TnmAccountsPage';
 import TADailyLogPage from '../pages/TADailyLogPage';
 import CandidatesPage from '../pages/CandidatesPage';
 import TAMetricsPage from '../pages/TAMetricsPage';
+import IndiaDemandAnalyticsPage from '../pages/IndiaDemandAnalyticsPage';
 import ProfileFormatPage from '../pages/ProfileFormatPage';
 import AccountsPage from '../pages/AccountsPage';
 import VendorsPage from '../pages/VendorsPage';
 import GtmListPage from '../pages/GtmListPage';
 import HiringRadarPage from '../pages/HiringRadarPage';
+import ScreeningsPage from '../pages/ScreeningsPage';
 import DialerPage from '../pages/DialerPage';
 import HomePage from '../pages/HomePage';
+import CheckinsPage from '../pages/CheckinsPage';
 import MyTimePage from '../pages/MyTimePage';
 import TeamTimePage from '../pages/TeamTimePage';
 import TeamLeavePage from '../pages/TeamLeavePage';
@@ -35,6 +38,8 @@ import UsersPage from '../pages/admin/UsersPage';
 import ActivityPage from '../pages/admin/ActivityPage';
 import AuditLogPage from '../pages/admin/AuditLogPage';
 import LeaveAdminPage from '../pages/admin/LeaveAdminPage';
+import AccessMatrixPage from '../pages/admin/AccessMatrixPage';
+import CheckinAdminPage from '../pages/admin/CheckinAdminPage';
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
@@ -47,6 +52,11 @@ export const router = createBrowserRouter(
       children: [
         // Home — employees redirect to /my-time, everyone else sees the dashboard
         { index: true, element: <EmployeeRedirect><DashboardPage /></EmployeeRedirect> },
+
+        // Check-ins — monthly scorecards across every corporate function.
+        // Page-level: anyone with the tab can read and work their card; the
+        // database decides what a locked forecast lets them change.
+        { path: 'checkins', element: <CheckinsPage /> },
 
         // My Time — visible to everyone
         { path: 'my-time', element: <MyTimePage /> },
@@ -70,6 +80,7 @@ export const router = createBrowserRouter(
 
         // India T&M section
         { path: 'india-staffing', element: <IndiaStaffingPage /> },         // "India Demand"
+        { path: 'india-demand-analytics', element: <IndiaDemandAnalyticsPage /> }, // NEW — raised/closed/why-not, on demand
         { path: 'india-roster', element: <IndiaRosterPage /> },             // NEW
         { path: 'india-hiring-forecast', element: <IndiaHiringForecastPage /> }, // NEW
         { path: 'ta-daily-log', element: <TADailyLogPage /> },              // NEW — TA "My Day"
@@ -88,12 +99,15 @@ export const router = createBrowserRouter(
         { path: 'admin/activity', element: <AdminOnly><ActivityPage /></AdminOnly> },
         { path: 'admin/audit',    element: <AdminOnly><AuditLogPage /></AdminOnly> },
         { path: 'admin/leave',    element: <AdminOnly><LeaveAdminPage /></AdminOnly> },
+        { path: 'admin/access',   element: <AdminOnly><AccessMatrixPage /></AdminOnly> },
+        { path: 'admin/checkins', element: <AdminOnly><CheckinAdminPage /></AdminOnly> },
 
         // Account Management
         { path: 'accounts', element: <AccountsPage /> },
         { path: 'vendors',  element: <VendorsPage /> },
         { path: 'gtm-list', element: <GtmListPage /> },
         { path: 'hiring-radar', element: <HiringRadarPage /> },
+        { path: 'screenings', element: <ScreeningsPage /> },
         { path: 'dialer',   element: <DialerPage /> },   // Twilio softphone + AI call notes
         { path: 'home',     element: <HomePage /> },
 

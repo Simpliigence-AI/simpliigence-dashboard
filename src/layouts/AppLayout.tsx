@@ -16,7 +16,8 @@ const SIDEBAR_KEY = 'sidebar-collapsed';
 
 /**
  * Responsive shell.
- *  - Desktop (md+): fixed sidebar at left (collapsible to 68px); main has
+ *  - Desktop (md+): fixed sidebar at left, 288px wide (collapsible to 76px);
+ *    main has
  *    a matching left margin so nothing slides under it.
  *  - Mobile (<md):  sidebar is off-canvas by default; a hamburger button
  *    over the content opens it as a drawer with a tap-to-dismiss backdrop.
@@ -35,6 +36,11 @@ export default function AppLayout() {
   const location = useLocation();
   const role = useAuthStore((s) => s.currentUser?.role);
   const authLoading = useAuthStore((s) => s.loading);
+  const hasProfile = useAuthStore((s) => s.currentUser !== null);
+  // Block the page ONLY on a cold start. A background profile refresh (which
+  // Supabase triggers on tab focus and on every token refresh) must never
+  // unmount <Outlet /> — that is what wiped in-progress edits.
+  const gateOnAuth = authLoading && !hasProfile;
 
   // Hard lockdown: role='employee' may only visit EMPLOYEE_ALLOWED_PATHS.
   // Any other URL (typed, bookmarked, deep-linked) bounces back to /my-time.
@@ -67,7 +73,7 @@ export default function AppLayout() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <main className={`flex-1 ml-0 ${collapsed ? 'md:ml-[68px]' : 'md:ml-60'} transition-[margin] duration-300 ease-in-out`}>
+      <main className={`flex-1 ml-0 ${collapsed ? 'md:ml-[76px]' : 'md:ml-72'} transition-[margin] duration-300 ease-in-out`}>
         <DemoBanner />
 
         {/* Mobile hamburger — overlays the content area, only visible on <md */}
@@ -81,7 +87,7 @@ export default function AppLayout() {
         </button>
 
         <div className="p-4 pt-16 md:p-6 md:pt-6 lg:p-8 bg-surface min-h-screen">
-          {authLoading ? (
+          {gateOnAuth ? (
             <div className="text-sm text-muted/70 text-center py-20">Checking permissions…</div>
           ) : isEmployeeBlocked ? (
             <Navigate to="/my-time" replace />

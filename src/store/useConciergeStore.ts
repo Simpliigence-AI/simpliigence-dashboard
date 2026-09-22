@@ -44,6 +44,9 @@ export interface ConciergeTicket {
   hoursLogged: number;
   /** Planned/estimate value set by admins — distinct from logged hours. */
   estimatedHours: number | null;
+  /** YYYY-MM this ticket is billed in. Null = bill in the month it was raised.
+   *  Lets work raised in August be invoiced in September. */
+  billingMonth: string | null;
   source: 'email' | 'manual' | 'api' | 'zoho_desk_legacy';
   senderEmail: string | null;
   senderName: string | null;
@@ -137,25 +140,58 @@ interface ConciergeState {
     senderEmail?: string | null;
     senderName?: string | null;
     estimatedHours?: number | null;
+    billingMonth?: string | null;
   }) => Promise<{ ok: boolean; id?: string; message?: string }>;
   updateTicket: (id: string, patch: Partial<Pick<ConciergeTicket,
-    'assigneeEmail' | 'priority' | 'status' | 'account' | 'accountId' | 'dueDate' | 'subject' | 'description' | 'resolution' | 'estimatedHours'
+    'assigneeEmail' | 'priority' | 'status' | 'account' | 'accountId' | 'dueDate' | 'subject' | 'description' | 'resolution' | 'estimatedHours' | 'billingMonth'
   >>) => Promise<void>;
   addInternalNote: (ticketId: string, body: string, author: string) => Promise<void>;
   logHours: (ticketId: string, hours: number, notes: string, userEmail: string) => Promise<void>;
   resolveTicket: (id: string, resolution: string) => Promise<void>;
   reopenTicket: (id: string) => Promise<void>;
   deleteTicket: (id: string) => Promise<void>;
+  /** Bulk delete. One batched statement rather than N round-trips, and the
+   *  local list is only pruned once the rows are actually gone. */
+  deleteTickets: (ids: string[]) => Promise<void>;
 
   refreshFromZoho: () => Promise<{ ok: boolean; message?: string; count?: number }>;
   setTickets: (tickets: ConciergeTicket[]) => void;
 }
 
-/** True when a Postgres error is "column estimated_hours does not exist" —
- * i.e. migration 026 hasn't been run on the live DB yet. Writes retry
- * without the field so ticket create/update keeps working pre-migration. */
-function isMissingEstimatedHoursColumn(message: string): boolean {
-  return /estimated_hours/i.test(message) && /column|schema/i.test(message);
+/** True when a Postgres error is "column <name> does not exist" — i.e. the
+ * migration that adds it hasn't been run on the live DB yet. Writes retry
+ * without the field so ticket create/update keeps working pre-migration.
+ * `estimated_hours` comes from migration 026, `billing_month` from 032. */
+function isMissingColumn(message: string, column: string): boolean {
+  return new RegExp(column, 'i').test(message) && /column|schema/i.test(message);
+}
+
+/** Columns a not-yet-migrated database may reject. */
+const OPTIONAL_TICKET_COLUMNS = ['billing_month', 'estimated_hours'] as const;
+
+/**
+ * Run a ticket write, dropping any optional column the database says it does
+ * not have and retrying. Returns the columns that were dropped so the caller
+ * does not claim they persisted.
+ */
+async function writeTicketRow(
+  row: Record<string, unknown>,
+  // PromiseLike, not Promise: a PostgrestFilterBuilder is a thenable and is
+  // only turned into a real promise by awaiting it.
+  run: (row: Record<string, unknown>) => PromiseLike<{ error: { message: string } | null }>,
+): Promise<{ error: { message: string } | null; dropped: string[] }> {
+  const dropped: string[] = [];
+  let { error } = await run(row);
+  // At most one retry per optional column — a genuine failure still surfaces.
+  for (const column of OPTIONAL_TICKET_COLUMNS) {
+    if (!error) break;
+    if (!(column in row) || !isMissingColumn(error.message, column)) continue;
+    console.warn(`[concierge] tickets.${column} missing (run the migration that adds it); retrying without it`);
+    delete row[column];
+    dropped.push(column);
+    ({ error } = await run(row));
+  }
+  return { error, dropped };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -180,6 +216,7 @@ function rowToTicket(row: any): ConciergeTicket {
     resolvedAt: row.resolved_at ?? null,
     hoursLogged: Number(row.hours_logged ?? 0),
     estimatedHours: row.estimated_hours == null ? null : Number(row.estimated_hours),
+    billingMonth: row.billing_month ?? null,
     source: (row.source ?? 'zoho_desk_legacy') as ConciergeTicket['source'],
     senderEmail: row.sender_email ?? null,
     senderName: row.sender_name ?? null,
@@ -397,15 +434,11 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
       created_time: nowIso,
       last_synced_at: nowIso,
     };
-    // Only send estimated_hours when the user actually set one, so inserts
-    // keep working on a live DB where migration 026 hasn't been applied yet.
+    // Only send the optional columns when the user actually set one, so inserts
+    // keep working on a live DB where migration 026/032 hasn't been applied.
     if (input.estimatedHours != null) row.estimated_hours = input.estimatedHours;
-    let { error } = await supabase.from('tickets').insert(row);
-    if (error && 'estimated_hours' in row && isMissingEstimatedHoursColumn(error.message)) {
-      console.warn('[concierge] tickets.estimated_hours missing (run migration 026); retrying insert without it');
-      delete row.estimated_hours;
-      ({ error } = await supabase.from('tickets').insert(row));
-    }
+    if (input.billingMonth) row.billing_month = input.billingMonth;
+    const { error } = await writeTicketRow(row, (r) => supabase.from('tickets').insert(r));
     if (error) return { ok: false, message: error.message };
     await get().loadFromSupabase();
     return { ok: true, id };
@@ -423,18 +456,19 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     if ('description' in patch) row.description = patch.description;
     if ('resolution' in patch) row.resolution = patch.resolution;
     if ('estimatedHours' in patch) row.estimated_hours = patch.estimatedHours;
-    let applied = patch;
-    let { error } = await supabase.from('tickets').update(row).eq('id', id);
-    if (error && 'estimated_hours' in row && isMissingEstimatedHoursColumn(error.message)) {
-      console.warn('[concierge] tickets.estimated_hours missing (run migration 026); retrying update without it');
-      delete row.estimated_hours;
-      const rest = { ...applied }; // don't pretend the estimate persisted
-      delete rest.estimatedHours;
-      applied = rest;
-      if (Object.keys(row).length <= 1) return; // nothing left but updated_at
-      ({ error } = await supabase.from('tickets').update(row).eq('id', id));
-    }
+    if ('billingMonth' in patch) row.billing_month = patch.billingMonth;
+
+    const { error, dropped } = await writeTicketRow(
+      row, (r) => Object.keys(r).length <= 1
+        ? Promise.resolve({ error: null })          // nothing left but updated_at
+        : supabase.from('tickets').update(r).eq('id', id),
+    );
     if (error) { console.warn('[concierge] updateTicket:', error.message); return; }
+
+    // Don't pretend a dropped column persisted.
+    const applied = { ...patch };
+    if (dropped.includes('estimated_hours')) delete applied.estimatedHours;
+    if (dropped.includes('billing_month')) delete applied.billingMonth;
     set((s) => ({
       tickets: s.tickets.map((t) => t.id === id ? { ...t, ...applied } as ConciergeTicket : t),
     }));
@@ -484,16 +518,39 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
   },
 
   deleteTicket: async (id) => {
-    // Cascade any child rows first (messages, hours, notes) so we don't
-    // leave orphans behind. Best-effort — if a table doesn't exist the
-    // errors are logged and swallowed rather than aborting the delete.
-    for (const child of ['ticket_messages', 'ticket_hours_log', 'ticket_internal_notes'] as const) {
-      const { error: cErr } = await supabase.from(child).delete().eq('ticket_id', id);
-      if (cErr) console.warn(`[concierge] deleteTicket ${child}:`, cErr.message);
+    await get().deleteTickets([id]);
+  },
+
+  deleteTickets: async (ids) => {
+    const unique = Array.from(new Set(ids.filter(Boolean)));
+    if (unique.length === 0) return;
+
+    // ticket_messages, ticket_time_entries and ticket_attachments all declare
+    // ON DELETE CASCADE, so those rows go on their own — the old hand-rolled
+    // cascade here also named two tables that do not exist, and swallowed the
+    // errors. The stored attachment FILES are the part nothing cleans up, so
+    // collect and remove them first. Best-effort: an orphaned object in the
+    // bucket must not block deleting the ticket.
+    const { data: attachments, error: aErr } = await supabase
+      .from('ticket_attachments').select('storage_path').in('ticket_id', unique);
+    if (aErr) {
+      console.warn('[concierge] deleteTickets attachments lookup:', aErr.message);
+    } else {
+      const paths = (attachments ?? [])
+        .map((a: { storage_path?: string | null }) => a.storage_path)
+        .filter((p): p is string => Boolean(p));
+      if (paths.length > 0) {
+        const { error: sErr } = await supabase.storage.from('ticket-attachments').remove(paths);
+        if (sErr) console.warn('[concierge] deleteTickets storage:', sErr.message);
+      }
     }
-    const { error } = await supabase.from('tickets').delete().eq('id', id);
-    if (error) { console.warn('[concierge] deleteTicket:', error.message); throw new Error(error.message); }
-    set((s) => ({ tickets: s.tickets.filter((t) => t.id !== id) }));
+
+    const { error } = await supabase.from('tickets').delete().in('id', unique);
+    // Thrown, not swallowed: the caller reports the failure and keeps the rows
+    // on screen rather than letting the list disagree with the database.
+    if (error) { console.warn('[concierge] deleteTickets:', error.message); throw new Error(error.message); }
+    const gone = new Set(unique);
+    set((s) => ({ tickets: s.tickets.filter((t) => !gone.has(t.id)) }));
   },
 
   refreshFromZoho: async () => {

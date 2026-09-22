@@ -9,8 +9,8 @@ import {
   type ConciergeTicketMessage,
   type ConciergeTimeEntry,
 } from '../../store/useConciergeStore';
-import { useAccountStore } from '../../store/useAccountStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { resolveTicketAccount, useTicketAccountOptions, ticketAccountValue } from '../../lib/ticketAccountOptions';
 import { EmailBody } from './EmailBody';
 import { Clock, Mail, StickyNote, Check, RotateCcw, Trash2, Loader2, Paperclip, Download } from 'lucide-react';
 
@@ -56,14 +56,12 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   const deleteTicket = useConciergeStore((s) => s.deleteTicket);
   const attachmentDownloadUrl = useConciergeStore((s) => s.attachmentDownloadUrl);
 
-  /* Account Management accounts — the table `tickets.account_id` actually
-   * references. The drawer used to populate this control from
-   * `concierge_accounts`, whose ids live in a different namespace: a routed
-   * ticket's account_id matched no option (so the select showed "— none —"
-   * even when routing had worked), and picking an option wrote an id that
-   * violated tickets_account_id_fkey — a failure updateTicket only warns about.
-   * See the same note in NewTicketModal.tsx. */
-  const accounts = useAccountStore((s) => s.accounts);
+  /* Account Management accounts merged with the non-dormant Concierge
+   * accounts. Only the former have ids valid for tickets_account_id_fkey, so
+   * a Concierge-only pick is stored by name with a null account_id — see
+   * src/lib/ticketAccountOptions.ts. */
+  const { options: accountOptions, accountNameById } =
+    useTicketAccountOptions(ticket.account, ticket.accountId);
   const directory = useAuthStore((s) => s.directory);
   const currentUser = useAuthStore((s) => s.currentUser);
   const users = Object.values(directory).sort((a, b) =>
@@ -74,6 +72,9 @@ export function TicketDrawer({ ticket, onClose }: Props) {
   const [estHoursDraft, setEstHoursDraft] = useState(
     ticket.estimatedHours == null ? '' : String(ticket.estimatedHours));
   const [resolutionEdit, setResolutionEdit] = useState(ticket.resolution ?? '');
+  /* Blank shows the placeholder "same month it was raised"; committed on change
+   * because a month input has no useful intermediate state. */
+  const [billingMonthDraft, setBillingMonthDraft] = useState(ticket.billingMonth ?? '');
   const [hoursInput, setHoursInput] = useState('');
   const [hoursNotes, setHoursNotes] = useState('');
   const [resolutionDraft, setResolutionDraft] = useState('');
@@ -121,7 +122,6 @@ export function TicketDrawer({ ticket, onClose }: Props) {
     [messages],
   );
 
-  const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const openAttachment = async (storagePath: string) => {
     const url = await attachmentDownloadUrl(storagePath);
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -169,10 +169,10 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             onChange={(e) => updateTicket(ticket.id, { priority: e.target.value })}
           />
           <div className="space-y-1.5">
-            {accounts.length === 0 ? (
-              /* Account Management has not hydrated (or is empty). Rather than
-               * offer a dropdown that can only write null, show what the ticket
-               * is already routed to. */
+            {accountOptions.length === 0 ? (
+              /* Neither account store has hydrated (or both are empty). Rather
+               * than offer a dropdown that can only write null, show what the
+               * ticket is already routed to. */
               <>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wider">Account</label>
                 <div className="w-full px-3 py-2 rounded-lg border border-line bg-surface-2/70 text-sm text-ink">
@@ -180,22 +180,21 @@ export function TicketDrawer({ ticket, onClose }: Props) {
                 </div>
               </>
             ) : (
-              <Select label="Account" value={ticket.accountId ?? ''}
+              <Select label="Account" value={ticketAccountValue(ticket)}
                 placeholder="— none —"
-                options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+                options={accountOptions}
                 onChange={(e) => {
-                  const acct = accounts.find((a) => a.id === e.target.value);
-                  updateTicket(ticket.id, { accountId: acct?.id ?? null, account: acct?.name ?? '' });
+                  const { account, accountId } = resolveTicketAccount(e.target.value, accountNameById);
+                  updateTicket(ticket.id, { accountId, account: account ?? '' });
                 }}
               />
             )}
             {/* The name desk-inbound resolved from the sender's domain. Shown
-              * always, because it is the answer to "which client is this?"
-              * even when account_id points at a row this client cannot see. */}
+              * always, because it is the answer to "which client is this?" */}
             <div className="text-[11px] text-muted">
               Routed to <span className="font-medium text-ink/80">{ticket.account || '—'}</span>
-              {ticket.accountId && !accountsById.has(ticket.accountId) && (
-                <span className="text-amber-700"> · id not in Account Management</span>
+              {!ticket.accountId && ticket.account && (
+                <span className="text-muted/70"> · by name (no Account Management record)</span>
               )}
             </div>
           </div>
@@ -219,6 +218,21 @@ export function TicketDrawer({ ticket, onClose }: Props) {
             }}
             placeholder="e.g. 4"
           />
+          <div>
+            <Input label="Bill in" type="month"
+              value={billingMonthDraft}
+              onChange={(e) => {
+                const next = e.target.value || null;
+                setBillingMonthDraft(e.target.value);
+                if (next !== (ticket.billingMonth ?? null)) updateTicket(ticket.id, { billingMonth: next });
+              }}
+            />
+            <p className="mt-1 text-[11px] text-muted">
+              {billingMonthDraft
+                ? 'Counts toward this month on the Billing tab.'
+                : 'Empty — bills in the month it was raised.'}
+            </p>
+          </div>
         </section>
 
         {(firstInbound || ticket.description) && (

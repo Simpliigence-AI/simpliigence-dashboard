@@ -248,8 +248,40 @@ interface ClientGroup {
   onHoldCount: number;
 }
 
-function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicketClick: (id: string) => void }) {
+/** Header checkbox for one group: checked when all of its tickets are
+ *  selected, indeterminate when only some are. `indeterminate` is a DOM
+ *  property, not an attribute, so it has to be set through a ref. */
+function GroupCheckbox({ checked, indeterminate, onChange, label }: {
+  checked: boolean; indeterminate: boolean; onChange: (next: boolean) => void; label: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate && !checked;
+  }, [indeterminate, checked]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className="h-3.5 w-3.5 rounded border-line accent-primary cursor-pointer align-middle"
+      aria-label={label}
+    />
+  );
+}
+
+interface ClientGroupCardProps {
+  group: ClientGroup;
+  onTicketClick: (id: string) => void;
+  selected: ReadonlySet<string>;
+  onToggleTicket: (id: string, next: boolean) => void;
+  onToggleGroup: (ids: string[], next: boolean) => void;
+}
+
+function ClientGroupCard({ group, onTicketClick, selected, onToggleTicket, onToggleGroup }: ClientGroupCardProps) {
   const [expanded, setExpanded] = useState(group.openCount > 0);
+  const ids = group.tickets.map((t) => t.id);
+  const selectedHere = ids.filter((id) => selected.has(id)).length;
   return (
     <div className="bg-surface rounded-xl border border-line shadow-sm">
       <button
@@ -261,6 +293,7 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
           {expanded ? <ChevronDown size={18} className="text-muted/70" /> : <ChevronRight size={18} className="text-muted/70" />}
           <h3 className="text-sm font-semibold text-ink">{group.account}</h3>
           <Badge variant="neutral">{group.tickets.length} ticket{group.tickets.length !== 1 ? 's' : ''}</Badge>
+          {selectedHere > 0 && <Badge variant="info">{selectedHere} selected</Badge>}
         </div>
         <div className="flex items-center gap-2">
           {group.openCount > 0 && <Badge variant="danger">{group.openCount} Open</Badge>}
@@ -272,6 +305,14 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line/60">
+                <th className="py-2 pr-3 w-8">
+                  <GroupCheckbox
+                    checked={selectedHere > 0 && selectedHere === ids.length}
+                    indeterminate={selectedHere > 0}
+                    onChange={(next) => onToggleGroup(ids, next)}
+                    label={`Select all ${group.account} tickets`}
+                  />
+                </th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">#</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Subject</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Status</th>
@@ -287,8 +328,19 @@ function ClientGroupCard({ group, onTicketClick }: { group: ClientGroup; onTicke
                 <tr
                   key={t.id}
                   onClick={() => onTicketClick(t.id)}
-                  className="border-b border-line/40 last:border-0 cursor-pointer hover:bg-surface-2/70"
+                  className={`border-b border-line/40 last:border-0 cursor-pointer hover:bg-surface-2/70 ${
+                    selected.has(t.id) ? 'bg-primary/5' : ''}`}
                 >
+                  {/* Stop propagation, or ticking the box also opens the drawer. */}
+                  <td className="py-2.5 pr-3 w-8" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(t.id)}
+                      onChange={(e) => onToggleTicket(t.id, e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-line accent-primary cursor-pointer align-middle"
+                      aria-label={`Select ticket ${t.ticketNumber}`}
+                    />
+                  </td>
                   <td className="py-2.5 pr-4 text-muted font-mono text-xs">{t.ticketNumber}</td>
                   <td className="py-2.5 pr-4 max-w-xs">
                     <div className="text-primary inline-flex items-center gap-1">
@@ -1118,6 +1170,55 @@ export default function ConciergePage() {
   const [seedName, setSeedName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
   const conciergeStore = useConciergeAccountsStore();
+
+  /* Bulk ticket selection (Tickets tab). Held here rather than per group card
+   * so a selection can span accounts and survives a card collapsing. */
+  const deleteTickets = useConciergeStore((s) => s.deleteTickets);
+  const [selectedTickets, setSelectedTickets] = useState<ReadonlySet<string>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  const toggleTicket = useCallback((id: string, next: boolean) => {
+    setSelectedTickets((prev) => {
+      const s2 = new Set(prev);
+      if (next) s2.add(id); else s2.delete(id);
+      return s2;
+    });
+  }, []);
+
+  const toggleTicketGroup = useCallback((ids: string[], next: boolean) => {
+    setSelectedTickets((prev) => {
+      const s2 = new Set(prev);
+      for (const id of ids) { if (next) s2.add(id); else s2.delete(id); }
+      return s2;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedTickets(new Set()), []);
+
+  // Leaving the Tickets tab drops the selection — a Delete bar for rows that
+  // are no longer on screen is a trap.
+  useEffect(() => { if (tab !== 'tickets') clearSelection(); }, [tab, clearSelection]);
+
+  const deleteSelectedTickets = async () => {
+    const ids = Array.from(selectedTickets);
+    if (ids.length === 0) return;
+    if (!confirm(
+      `Delete ${ids.length} ticket${ids.length === 1 ? '' : 's'}?\n\n` +
+      'This is permanent and removes their messages, internal notes, hours logs and attachments.',
+    )) return;
+    setBulkBusy(true);
+    setBulkError(null);
+    try {
+      await deleteTickets(ids);
+      clearSelection();
+    } catch (e) {
+      // Keep the rows selected so the user can retry.
+      setBulkError((e as Error).message);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
   /** Which forecast cell is being edited inline (accountId + month key). */
   const [overrideCell, setOverrideCell] = useState<{ accountId: string; month: string } | null>(null);
   const [overrideValue, setOverrideValue] = useState('');
@@ -1488,7 +1589,41 @@ export default function ConciergePage() {
             <EmptyState icon={<Ticket size={32} />} title="No tickets" description="Zoho Desk tickets will appear here once synced." />
           ) : (
             <div className="space-y-4">
-              {clientGroups.map((g) => <ClientGroupCard key={g.account} group={g} onTicketClick={setOpenTicketId} />)}
+              {selectedTickets.size > 0 && (
+                <div className="sticky top-2 z-10 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 backdrop-blur">
+                  <span className="text-sm font-semibold text-ink">
+                    {selectedTickets.size} ticket{selectedTickets.size === 1 ? '' : 's'} selected
+                  </span>
+                  {bulkError && <span className="text-xs text-red-600">Delete failed: {bulkError}</span>}
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      disabled={bulkBusy}
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-md border border-line bg-surface text-muted hover:bg-surface-2/70 disabled:opacity-50"
+                    >Clear</button>
+                    <button
+                      type="button"
+                      onClick={() => { void deleteSelectedTickets(); }}
+                      disabled={bulkBusy}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                    >
+                      {bulkBusy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                      Delete selected
+                    </button>
+                  </div>
+                </div>
+              )}
+              {clientGroups.map((g) => (
+                <ClientGroupCard
+                  key={g.account}
+                  group={g}
+                  onTicketClick={setOpenTicketId}
+                  selected={selectedTickets}
+                  onToggleTicket={toggleTicket}
+                  onToggleGroup={toggleTicketGroup}
+                />
+              ))}
             </div>
           )}
         </>

@@ -34,6 +34,7 @@ export const PAGES: PageDef[] = [
 
   // India T&M
   { key: 'india-staffing',         label: 'India Demand',    section: 'India T&M' },
+  { key: 'india-demand-analytics', label: 'Demand Analytics',section: 'India T&M' },
   { key: 'india-roster',           label: 'Roster',          section: 'India T&M' },
   { key: 'india-hiring-forecast',  label: 'Hiring Forecast', section: 'India T&M' },
   { key: 'ta-daily-log',           label: 'TA Daily Log',    section: 'India T&M' },

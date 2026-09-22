@@ -1125,7 +1125,18 @@ async function fetchAllRows(
   return { data: all, error: null };
 }
 
-export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
+/** What `fetchActualHours` loaded, plus how it had to load it. */
+export interface ActualHoursFeed {
+  entries: ActualHourEntry[];
+  /** True when the `unified_actual_hours` view failed and we read the legacy
+   *  `actual_hours` table instead. Legacy rows carry no `source` column, so
+   *  every one of them maps to `zoho_people` — which the Forecast-vs-Actual
+   *  tab excludes by design. The tab reads this flag so that shows as a
+   *  plumbing failure instead of an empty grid. */
+  usedLegacyFallback: boolean;
+}
+
+export async function fetchActualHours(): Promise<ActualHoursFeed | null> {
   // unified_actual_hours UNIONs Zoho-synced rows with approved/submitted
   // Simpliigence time_entries (the source-of-truth for going-forward entry).
   // Same columns as the legacy actual_hours table plus a `source` tag.
@@ -1140,11 +1151,16 @@ export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
   );
   if (error) {
     // Fall back to legacy table if the view fails for any reason
+    console.error(
+      '[unified_actual_hours] view read failed:', error.message,
+      '— falling back to the legacy actual_hours table. Those rows have no',
+      'source tag, so the Actual Hours "vs Forecast" tab will show no actuals.',
+    );
     const fallback = await fetchAllRows('actual_hours', ['id'], 'actual_hours');
     if (fallback.error) return null;
-    return fallback.data.map(rowToActualHour);
+    return { entries: fallback.data.map(rowToActualHour), usedLegacyFallback: true };
   }
-  return data.map(rowToActualHour);
+  return { entries: data.map(rowToActualHour), usedLegacyFallback: false };
 }
 
 // ─── India Staffing fetchers ──────────────────────────────────────
@@ -2075,9 +2091,15 @@ export const db = {
   },
 
   // --- Time entries ---
-  async upsertTimeEntry(e: TimeEntry) {
+  /** Insert-or-update one entry. Returns the PostgREST error rather than
+   *  swallowing it: a rejected write (RLS, CHECK, constraint, network) has to
+   *  reach the caller, otherwise the optimistic row survives in local state
+   *  only — visible on My Time and absent from Team Time and every other
+   *  DB-backed view. */
+  async upsertTimeEntry(e: TimeEntry): Promise<{ error: PostgrestError | null }> {
     const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert time_entry failed:', error);
+    return { error };
   },
   /** Plain UPDATE of specific fields on an existing entry (no upsert/INSERT
    *  path). Used by the Team Time manager edit flow so it always takes the
@@ -3135,7 +3157,7 @@ type StoreSetters = {
   setTaDailyLog?: (entries: TADailyLogEntry[]) => void;
   setTeamMembers?: (members: TeamMember[]) => void;
   setTimeEntries?: (entries: TimeEntry[]) => void;
-  setActualHours?: (rows: ActualHourEntry[]) => void;
+  setActualHours?: (feed: ActualHoursFeed) => void;
   setCandidateCalls?: (rows: CandidateCall[]) => void;
   setCallTemplates?: (rows: CallTemplate[]) => void;
   setAccountManagement?: (data: { accounts: Account[]; connects: AccountConnect[]; actions: AccountActionItem[] }) => void;
@@ -3390,10 +3412,8 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       }
       // Also refresh the unified actual_hours feed so the cockpit picks up
       // approved/submitted time_entries rows without a page reload.
-      fetchActualHours().then((rows) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const set = (setters as any).setActualHours as ((rows: ActualHourEntry[]) => void) | undefined;
-        if (set && rows) set(rows);
+      fetchActualHours().then((feed) => {
+        if (setters.setActualHours && feed) setters.setActualHours(feed);
       });
     },
   );

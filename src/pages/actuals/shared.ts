@@ -36,6 +36,8 @@ export function emptyMonthCounter(): Record<Month, number> {
   return { Jan: 0, Feb: 0, Mar: 0, Apr: 0, May: 0, Jun: 0, Jul: 0, Aug: 0, Sep: 0, Oct: 0, Nov: 0, Dec: 0 };
 }
 
+/** Month-of-year only — the year is dropped. Never use it to decide whether a
+ *  date is inside a window; that is what `isComparisonDate` is for. */
 export function monthOf(dateStr: string): Month {
   const d = new Date(dateStr + 'T00:00:00Z');
   return MONTHS[d.getUTCMonth()];
@@ -44,28 +46,39 @@ export function monthOf(dateStr: string): Month {
 /* ─── Forecast-vs-Actual comparison window ───────────────────────── */
 
 /**
- * First month the Forecast-vs-Actual tab compares.
+ * First date the Forecast-vs-Actual tab compares.
  *
  * That tab counts only hours people entered themselves on /my-time, and
  * /my-time became the way hours are recorded in August 2026. Earlier months
  * hold almost no entries, so including them would read as a huge shortfall
  * against forecast when really it is just missing data. Move the window by
- * editing this one constant — nothing else hard-codes the month.
+ * editing this one constant — nothing else hard-codes the date.
  */
-export const COMPARISON_START_MONTH: Month = 'Aug';
+export const COMPARISON_START_DATE = '2026-08-01';
+
+/** Last date of the window. The grid runs to Dec, so without an upper bound a
+ *  January-2027 row would pass the `>=` test and then be counted by the
+ *  Project sub-view (which sums whole entries, not months) but not shown. */
+export const COMPARISON_END_DATE = `${COMPARISON_START_DATE.slice(0, 4)}-12-31`;
+
+export const COMPARISON_START_MONTH: Month = monthOf(COMPARISON_START_DATE);
 
 /** The months the comparison covers: COMPARISON_START_MONTH through Dec. */
 export const COMPARISON_MONTHS: Month[] = MONTHS.slice(MONTHS.indexOf(COMPARISON_START_MONTH));
 
-/** e.g. "Aug–Dec" — for column headers and captions. */
+/** e.g. "Aug 2026" — for prose that names when the window opens. */
+export const COMPARISON_START_LABEL =
+  `${COMPARISON_START_MONTH} ${COMPARISON_START_DATE.slice(0, 4)}`;
+
+/** e.g. "Aug–Dec 2026" — for column headers and captions. */
 export const COMPARISON_WINDOW_LABEL =
-  `${COMPARISON_MONTHS[0]}–${COMPARISON_MONTHS[COMPARISON_MONTHS.length - 1]}`;
+  `${COMPARISON_MONTHS[0]}–${COMPARISON_MONTHS[COMPARISON_MONTHS.length - 1]} ${COMPARISON_START_DATE.slice(0, 4)}`;
 
-const COMPARISON_MONTH_SET = new Set<Month>(COMPARISON_MONTHS);
-
-/** True when a `YYYY-MM-DD` date falls inside the comparison window. */
+/** True when a `YYYY-MM-DD` date falls inside the comparison window. A real
+ *  date comparison, not a month-name test: an Aug 2025 row is out of window
+ *  even though its month is in it. `YYYY-MM-DD` sorts lexicographically. */
 export function isComparisonDate(dateStr: string): boolean {
-  return COMPARISON_MONTH_SET.has(monthOf(dateStr));
+  return dateStr >= COMPARISON_START_DATE && dateStr <= COMPARISON_END_DATE;
 }
 
 /* ─── Week helpers (used by Forecast-vs-Actual week view) ────────── */

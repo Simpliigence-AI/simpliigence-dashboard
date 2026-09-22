@@ -22,6 +22,8 @@ export interface TnmAccount {
   ownerNote: string | null;
   notes: string | null;
   createdBy: string | null;
+  /** Set when this prospect has been promoted to a us_staffing_accounts row. */
+  promotedToUsId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

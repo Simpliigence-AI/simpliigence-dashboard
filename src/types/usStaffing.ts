@@ -18,7 +18,27 @@ export interface USStaffingAccount {
   id: string;
   name: string;
   category: AccountCategory;
+  notes?: string | null;
+  website?: string | null;
+  key_contact_name?: string | null;
+  key_contact_email?: string | null;
+  key_contact_phone?: string | null;
+  /** Set when this row was promoted from tnm_accounts. FK to tnm_accounts.id. */
+  promoted_from_tnm_id?: string | null;
   created_at: string;
+}
+
+/** Named SPOC / hiring manager / procurement contact under a Global Demand account. */
+export interface USStaffingAccountContact {
+  id: string;
+  accountId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface USStaffingRequisition {

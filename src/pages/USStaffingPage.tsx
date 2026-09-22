@@ -10,6 +10,7 @@ import { useUSStaffingStore } from '../store/useUSStaffingStore';
 import { useSalesPlanStore, normalizeAccountName, type AccountInsight } from '../store/useSalesPlanStore';
 import { Sensitive } from '../components/Sensitive';
 import { PageHeader } from '../components/shared/PageHeader';
+import { ScreeningModal } from '../components/staffing/ScreeningModal';
 import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { USStaffingStage, AccountCategory } from '../types/usStaffing';
 import { US_STAGE_COLORS } from '../types/usStaffing';
@@ -17,6 +18,7 @@ import { db } from '../lib/supabaseSync';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { USStaffingSplitView } from './us-staffing/USStaffingSplitView';
 import { Rows3, Columns3 } from 'lucide-react';
+import { AccountEditDrawer } from './us-staffing/AccountEditDrawer';
 
 // Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
 const URGENT_UNSECURED = 250_000;
@@ -98,6 +100,16 @@ function EditableCell({ value, onSave, type = 'text', options, className = '', d
 
 /* —— Constants —— */
 const ALL_STAGES: USStaffingStage[] = ['New','Sourcing','Profiles Shared','Interview','Shortlisted','Client Round','Closed/Selected','Onboarding','On Hold','Cancelled'];
+
+/**
+ * Stages that mean "this requisition is no longer being actively worked":
+ *   - Closed/Selected + Onboarding = won, moved to delivery
+ *   - On Hold = paused by client
+ *   - Cancelled = dropped / lost
+ * Everything else is in the active pipeline.
+ */
+const ARCHIVE_STAGES = new Set<string>(['Closed/Selected', 'Onboarding', 'On Hold', 'Cancelled']);
+const isArchived = (stage: string) => ARCHIVE_STAGES.has(stage);
 const CATEGORIES: AccountCategory[] = ['MSP', 'SI'];
 
 /* —— Main Component —— */
@@ -105,9 +117,18 @@ export default function USStaffingPage() {
   const { accounts, requisitions, addAccount, removeAccount, addRequisition, updateRequisition, removeRequisition } = useUSStaffingStore();
 
   const [activeTab, setActiveTab] = useState<'all' | 'forecast'>('all');
+  const [screeningOpen, setScreeningOpen] = useState(false);
   const [showAddReq, setShowAddReq] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [filterStage, setFilterStage] = useState<string>('All');
+  /**
+   * Split the requisition list into an "active" working view and an
+   * "archive" pile. Anything terminal — hired, live, dropped, paused —
+   * doesn't clutter the day-to-day pipeline; you flip to Archive to see
+   * them. Sourcing / Interview / Client Round / Profiles Shared / New /
+   * Shortlisted are all active. Default is active.
+   */
+  const [view, setView] = useState<'active' | 'archive'>('active');
   // Collapse-by-default per-account view. Uses the shared hook so state
   // persists to localStorage and matches the roster pages' behaviour.
   const accountCollapse = useCollapsedGroups('us-staffing-account', { defaultCollapsed: true });
@@ -132,6 +153,7 @@ export default function USStaffingPage() {
   // ── JD generator state (US side; mirror of India Demand) ──
   const [jdReqId, setJdReqId] = useState<string | null>(null);
   const [jdText, setJdText] = useState('');
+  const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [jdState, setJdState] = useState<'idle' | 'loading' | 'ready' | 'saving' | 'error'>('idle');
   const [jdError, setJdError] = useState<string | null>(null);
   const [jdGeneratedAt, setJdGeneratedAt] = useState<string | null>(null);
@@ -205,10 +227,18 @@ export default function USStaffingPage() {
   );
 
   const filteredReqs = useMemo(() => {
-    let data = reqsWithAccount;
+    // Active view = everything except archive stages. Archive view = only
+    // the archive stages. The stage-specific dropdown filter still applies
+    // on top so you can zero in on e.g. just "On Hold" inside Archive.
+    let data = reqsWithAccount.filter((r) => (
+      view === 'archive' ? isArchived(r.stage) : !isArchived(r.stage)
+    ));
     if (filterStage !== 'All') data = data.filter(r => r.stage === filterStage);
     return data;
-  }, [reqsWithAccount, filterStage]);
+  }, [reqsWithAccount, filterStage, view]);
+
+  const activeCount = useMemo(() => reqsWithAccount.filter((r) => !isArchived(r.stage)).length, [reqsWithAccount]);
+  const archiveCount = useMemo(() => reqsWithAccount.filter((r) => isArchived(r.stage)).length, [reqsWithAccount]);
 
   // Stats
   const totalReqs = requisitions.length;
@@ -271,9 +301,13 @@ export default function USStaffingPage() {
     return Math.max(5, Math.min(95, score));
   };
 
+  // Derive from filteredReqs (Active/Archive view + stage filter) so the
+  // Split view, Table view, and Cards view all respect the same filter.
+  // The AI Forecast tab still counts only active pipeline reqs — that's
+  // filteredReqs when view='active', which is what we want.
   const scoredReqs = useMemo(() =>
-    reqsWithAccount.map(r => ({ ...r, closureProb: scoreReq(r), risk: scoreReq(r) >= 65 ? 'low' as const : scoreReq(r) <= 35 ? 'high' as const : 'medium' as const })),
-    [reqsWithAccount]
+    filteredReqs.map(r => ({ ...r, closureProb: scoreReq(r), risk: scoreReq(r) >= 65 ? 'low' as const : scoreReq(r) <= 35 ? 'high' as const : 'medium' as const })),
+    [filteredReqs]
   );
 
   const forecastFiltered = useMemo(() => {
@@ -582,11 +616,24 @@ export default function USStaffingPage() {
                       key={a.id}
                       className={`flex items-center justify-between py-1.5 border-b border-line/40 last:border-0 group/row ${isEmpty ? 'opacity-60' : ''}`}
                     >
-                      <span className="text-xs text-ink/80">{a.name}</span>
+                      <button
+                        onClick={() => setEditAccountId(a.id)}
+                        className="text-xs text-ink/80 text-left hover:text-primary font-medium truncate"
+                        title="Edit account"
+                      >
+                        {a.name}
+                      </button>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-semibold ${isEmpty ? 'text-muted/70 italic' : 'text-muted'}`}>
                           {count} {count === 1 ? 'role' : 'roles'}
                         </span>
+                        <button
+                          onClick={() => setEditAccountId(a.id)}
+                          className="p-0.5 text-muted/60 hover:text-primary transition-opacity opacity-0 group-hover/row:opacity-100"
+                          title="Edit account"
+                        >
+                          <Pencil size={12} />
+                        </button>
                         <button
                           onClick={() => {
                             const msg = isEmpty
@@ -623,10 +670,36 @@ export default function USStaffingPage() {
     <div className="space-y-4">
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Active / Archive segmented toggle — default is active so the
+         *  day-to-day list stays clean; archive holds Closed/Onboarding/
+         *  On Hold/Cancelled. Counts follow the raw requisitions list. */}
+        <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
+          <button
+            type="button"
+            onClick={() => setView('active')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition ${
+              view === 'active' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+          >
+            Active <span className={`ml-1.5 ${view === 'active' ? 'text-white/80' : 'text-muted/70'}`}>{activeCount}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('archive')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition ${
+              view === 'archive' ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+          >
+            Archive <span className={`ml-1.5 ${view === 'archive' ? 'text-white/80' : 'text-muted/70'}`}>{archiveCount}</span>
+          </button>
+        </div>
         <select value={filterStage} onChange={e => setFilterStage(e.target.value)}
           className="text-xs border border-line rounded-lg px-3 py-1.5 bg-surface">
           <option value="All">All Stages</option>
-          {ALL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          {(view === 'archive'
+            ? ALL_STAGES.filter((s) => ARCHIVE_STAGES.has(s))
+            : ALL_STAGES.filter((s) => !ARCHIVE_STAGES.has(s))
+          ).map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <button onClick={() => setShowAddReq(true)} className="flex items-center gap-1 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90">
           <Plus size={14} /> Add Requisition
@@ -799,7 +872,29 @@ export default function USStaffingPage() {
         tone="teal"
         title="Global Demand"
         subtitle="Manage staffing requisitions across MSP and SI accounts"
+        action={
+          <button
+            type="button"
+            onClick={() => setScreeningOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-br from-purple-600 to-sky-600 hover:opacity-90"
+            title="AI-assisted candidate screening"
+          >
+            <Sparkles size={14} /> Screening
+          </button>
+        }
       />
+      {screeningOpen && (
+        <ScreeningModal
+          requisitionSource="us"
+          requisitionOptions={requisitions.map((r) => ({
+            id: r.id,
+            title: `${r.title}${r.stage ? ` · ${r.stage}` : ''}`,
+            accountName: accounts.find((a) => a.id === r.account_id)?.name,
+            jd: r.job_description ?? null,
+          }))}
+          onClose={() => setScreeningOpen(false)}
+        />
+      )}
 
       {/* Tab Navigation + View mode toggle */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -999,6 +1094,16 @@ export default function USStaffingPage() {
           </div>
         );
       })()}
+
+      {/* Account edit drawer — opens from clicking an account row in the
+       *  MSP / SI account lists. Handles name/category/website/notes,
+       *  key contact fields, and the named-contact CRUD. */}
+      {editAccountId && (
+        <AccountEditDrawer
+          accountId={editAccountId}
+          onClose={() => setEditAccountId(null)}
+        />
+      )}
     </div>
   );
 }

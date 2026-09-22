@@ -10,6 +10,8 @@
 import { nanoid } from 'nanoid';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase, CLIENT_ID } from './supabase';
+import { useAuthStore } from '../store/useAuthStore';
+
 import type { ForecastAssignment, Month, ZohoPipelineProject } from '../types/forecast';
 import type { FinancialSettings } from '../types/financial';
 import type { ConciergeConfig, ScenarioSettings, StaffingRequest } from '../types/hiringForecast';
@@ -32,9 +34,32 @@ import type {
   ConciergeAccount, ConciergeFeature, ConciergeBillingEntry,
 } from '../types/concierge';
 import type { LeaveType, LeaveRequest, LeaveAllocation, LeaveAuditEntry } from '../types/leave';
+import type { UserPageAccess } from '../types/access';
 import type { SowSectionInput as SowSection } from './sowDocx';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } from '../types/candidateCalls';
+
+/**
+ * Cost is the only confidential figure — it implies salaries. The masked v_*
+ * views NULL out cost_per_hour for users without
+ * authorized_users.can_view_financials; bill_rate (revenue) stays visible.
+ * Writes still target the base tables, so we must strip cost_per_hour for
+ * those users — otherwise the masked value round-trips and overwrites the
+ * real cost. See permissions-framework.md.
+ */
+function canSeeMoney(): boolean {
+  return !!useAuthStore.getState().currentUser?.canViewFinancials;
+}
+
+function stripRates<T extends Record<string, unknown>>(row: T): T {
+  if (canSeeMoney()) return row;
+  // Rebuild without the key rather than destructuring it into an unused
+  // binding, which the no-unused-vars rule rejects.
+  const rest = { ...row };
+  delete rest.cost_per_hour;
+  return rest as T;
+}
+
 
 // ─── Error formatting ──────────────────────────────────────────────
 
@@ -160,14 +185,17 @@ function rowToActualHour(row: any): ActualHourEntry {
     id: String(row.id),
     employeeId: row.employee_id ?? '',
     employeeName: row.employee_name ?? '',
-    email: row.email ?? null,
+    // `unified_actual_hours` aliases the columns (email -> employee_email,
+    // synced_at -> recorded_at); the legacy `actual_hours` table does not.
+    // Read both so the same mapper works for the view and the fallback.
+    email: row.employee_email ?? row.email ?? null,
     project: row.project ?? null,
     workDate: row.work_date ?? '',
     hours: Number(row.hours ?? 0),
     billing: row.billing ?? null,
     notes: row.notes ?? null,
     source: row.source ?? 'zoho_people',
-    syncedAt: row.synced_at ?? new Date().toISOString(),
+    syncedAt: row.recorded_at ?? row.synced_at ?? new Date().toISOString(),
   };
 }
 
@@ -556,11 +584,57 @@ function rowToTeamMember(row: any): TeamMember {
 // ─── US Staffing converters ────────────────────────────────────────
 
 function usAccountToRow(a: USStaffingAccount) {
-  return { id: a.id, name: a.name, category: a.category, created_at: a.created_at, updated_by: CLIENT_ID, updated_at: new Date().toISOString() };
+  return {
+    id: a.id, name: a.name, category: a.category, created_at: a.created_at,
+    notes: a.notes ?? null,
+    website: a.website ?? null,
+    key_contact_name: a.key_contact_name ?? null,
+    key_contact_email: a.key_contact_email?.toLowerCase() || null,
+    key_contact_phone: a.key_contact_phone ?? null,
+    promoted_from_tnm_id: a.promoted_from_tnm_id ?? null,
+    updated_by: CLIENT_ID, updated_at: new Date().toISOString(),
+  };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToUSAccount(row: any): USStaffingAccount {
-  return { id: row.id, name: row.name, category: (row.category || 'SI') as AccountCategory, created_at: row.created_at };
+  return {
+    id: row.id, name: row.name, category: (row.category || 'SI') as AccountCategory,
+    notes: row.notes ?? null,
+    website: row.website ?? null,
+    key_contact_name: row.key_contact_name ?? null,
+    key_contact_email: row.key_contact_email ?? null,
+    key_contact_phone: row.key_contact_phone ?? null,
+    promoted_from_tnm_id: row.promoted_from_tnm_id ?? null,
+    created_at: row.created_at,
+  };
+}
+
+// US Staffing account contacts
+function usAccountContactToRow(c: import('../types/usStaffing').USStaffingAccountContact) {
+  return {
+    id: c.id,
+    account_id: c.accountId,
+    name: c.name.trim(),
+    email: c.email?.trim().toLowerCase() || null,
+    phone: c.phone?.trim() || null,
+    title: c.title?.trim() || null,
+    notes: c.notes ?? null,
+    updated_at: new Date().toISOString(),
+  };
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToUSAccountContact(row: any): import('../types/usStaffing').USStaffingAccountContact {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    name: row.name,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    title: row.title ?? null,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function usReqToRow(r: USStaffingRequisition) {
@@ -585,7 +659,7 @@ function rowToUSReq(row: any): USStaffingRequisition {
 
 export async function fetchAssignments(): Promise<{ assignments: ForecastAssignment[]; weekDates: string[] } | null> {
   const [{ data: rows, error }, { data: meta }] = await Promise.all([
-    supabase.from('forecast_assignments').select('*'),
+    supabase.from('v_forecast_assignments').select('*'),
     supabase.from('forecast_meta').select('*').eq('id', 'singleton').single(),
   ]);
   if (error) { console.warn('[supabase] fetch assignments failed:', error.message, error.code, error.details); return null; }
@@ -837,6 +911,7 @@ function tnmAccountToRow(a: TnmAccount) {
     owner_note: a.ownerNote,
     notes: a.notes,
     created_by: a.createdBy,
+    promoted_to_us_id: a.promotedToUsId ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -854,6 +929,7 @@ function rowToTnmAccount(row: any): TnmAccount {
     ownerNote: row.owner_note ?? null,
     notes: row.notes ?? null,
     createdBy: row.created_by ?? null,
+    promotedToUsId: row.promoted_to_us_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -883,6 +959,41 @@ function rowToTnmContact(row: any): TnmAccountContact {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+export async function fetchUserPageAccess(): Promise<UserPageAccess[] | null> {
+  const { data, error } = await supabase.from('user_page_access').select('*');
+  if (error) {
+    console.warn('[supabase] fetch user_page_access failed:', error.message);
+    return null;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((row: any) => ({
+    userEmail: (row.user_email || '').toLowerCase(),
+    pageKey: row.page_key,
+    level: row.level,
+    grantedBy: row.granted_by ?? null,
+    grantedAt: row.granted_at,
+  }));
+}
+
+export async function fetchAuthorizedUsersForMatrix(): Promise<Array<{
+  email: string; fullName: string | null; isAdmin: boolean; canViewFinancials: boolean;
+}> | null> {
+  const { data, error } = await supabase
+    .from('authorized_users')
+    .select('email, full_name, is_admin, can_view_financials');
+  if (error) {
+    console.warn('[supabase] fetch authorized_users failed:', error.message);
+    return null;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((row: any) => ({
+    email: (row.email || '').toLowerCase(),
+    fullName: row.full_name ?? null,
+    isAdmin: !!row.is_admin,
+    canViewFinancials: !!row.can_view_financials,
+  }));
 }
 
 export async function fetchTnmAccounts(): Promise<{
@@ -997,19 +1108,83 @@ export async function fetchTeamMembers(): Promise<TeamMember[] | null> {
   return (data || []).map(rowToTeamMember);
 }
 
-export async function fetchActualHours(): Promise<ActualHourEntry[] | null> {
-  // unified_actual_hours UNIONs Zoho-synced rows with approved Simpliigence
-  // time_entries (the source-of-truth for going-forward entry). Same columns
-  // as the legacy actual_hours table plus a `source` tag.
-  const { data, error } = await supabase.from('unified_actual_hours').select('*');
-  if (error) {
-    console.warn('[supabase] fetch unified_actual_hours failed:', error.message);
-    // Fall back to legacy table if the view fails for any reason
-    const fallback = await supabase.from('actual_hours').select('*');
-    if (fallback.error) return null;
-    return (fallback.data || []).map(rowToActualHour);
+/**
+ * Read every row of a table/view that PostgREST would otherwise truncate at
+ * 1000 rows, one page at a time (same cap that fetchTimeEntries and
+ * fetchAllCandidates page around).
+ *
+ * `order` must be a deterministic TOTAL ordering. Range paging duplicates and
+ * skips rows whenever the sort has ties, because postgres breaks ties
+ * differently per request — hence a column LIST, with tie-breakers, rather
+ * than a single date column.
+ */
+async function fetchAllRows(
+  table: string,
+  order: string[],
+  label: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ data: any[]; error: { message: string } | null }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
+  const pageSize = 1000;
+  let page = 0;
+  while (true) {
+    let q = supabase.from(table).select('*');
+    for (const col of order) q = q.order(col, { ascending: true });
+    const from = page * pageSize;
+    const { data, error } = await q.range(from, from + pageSize - 1);
+    page++;
+    if (error) {
+      console.warn(`[${label}] page ${page} failed:`, error.message, '— have', all.length, 'rows so far');
+      return { data: all, error };
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []) as any[];
+    console.log(`[${label}] page ${page}: ${rows.length} rows (from ${from}) — total so far ${all.length + rows.length}`);
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    if (all.length >= 100_000) { console.warn(`[${label}] hit 100k safety cap`); break; }
   }
-  return (data || []).map(rowToActualHour);
+  console.log(`[${label}] fetched ${all.length} total across ${page} page(s)`);
+  return { data: all, error: null };
+}
+
+/** What `fetchActualHours` loaded, plus how it had to load it. */
+export interface ActualHoursFeed {
+  entries: ActualHourEntry[];
+  /** True when the `unified_actual_hours` view failed and we read the legacy
+   *  `actual_hours` table instead. Legacy rows carry no `source` column, so
+   *  every one of them maps to `zoho_people` — which the Forecast-vs-Actual
+   *  tab excludes by design. The tab reads this flag so that shows as a
+   *  plumbing failure instead of an empty grid. */
+  usedLegacyFallback: boolean;
+}
+
+export async function fetchActualHours(): Promise<ActualHoursFeed | null> {
+  // unified_actual_hours UNIONs Zoho-synced rows with approved/submitted
+  // Simpliigence time_entries (the source-of-truth for going-forward entry).
+  // Same columns as the legacy actual_hours table plus a `source` tag.
+  //
+  // `id` is NOT unique across the two UNION ALL branches, so it cannot order
+  // the pages on its own — (work_date, id, source) can, since `id` is the
+  // primary key within each branch.
+  const { data, error } = await fetchAllRows(
+    'unified_actual_hours',
+    ['work_date', 'id', 'source'],
+    'unified_actual_hours',
+  );
+  if (error) {
+    // Fall back to legacy table if the view fails for any reason
+    console.error(
+      '[unified_actual_hours] view read failed:', error.message,
+      '— falling back to the legacy actual_hours table. Those rows have no',
+      'source tag, so the Actual Hours "vs Forecast" tab will show no actuals.',
+    );
+    const fallback = await fetchAllRows('actual_hours', ['id'], 'actual_hours');
+    if (fallback.error) return null;
+    return { entries: fallback.data.map(rowToActualHour), usedLegacyFallback: true };
+  }
+  return { entries: data.map(rowToActualHour), usedLegacyFallback: false };
 }
 
 // ─── India Staffing fetchers ──────────────────────────────────────
@@ -1285,7 +1460,7 @@ function rowToUSRosterAssignment(row: any): USRosterAssignment {
 }
 
 export async function fetchUSRosterAssignments(): Promise<USRosterAssignment[] | null> {
-  const { data, error } = await supabase.from('us_roster_assignments').select('*');
+  const { data, error } = await supabase.from('v_us_roster_assignments').select('*');
   if (error) {
     console.warn('[supabase] fetch us_roster_assignments failed (table may be missing):', error.message);
     return null;
@@ -1295,10 +1470,15 @@ export async function fetchUSRosterAssignments(): Promise<USRosterAssignment[] |
 
 // ─── US Staffing fetchers ─────────────────────────────────────────
 
-export async function fetchUSStaffing(): Promise<{ accounts: USStaffingAccount[]; requisitions: USStaffingRequisition[] } | null> {
-  const [acctRes, reqRes] = await Promise.all([
+export async function fetchUSStaffing(): Promise<{
+  accounts: USStaffingAccount[];
+  requisitions: USStaffingRequisition[];
+  contacts: import('../types/usStaffing').USStaffingAccountContact[];
+} | null> {
+  const [acctRes, reqRes, contactRes] = await Promise.all([
     supabase.from('us_staffing_accounts').select('*'),
     supabase.from('us_staffing_requisitions').select('*'),
+    supabase.from('us_staffing_account_contacts').select('*'),
   ]);
   if (acctRes.error || reqRes.error) {
     console.warn('[supabase] fetch us staffing failed:', acctRes.error?.message, reqRes.error?.message);
@@ -1307,13 +1487,14 @@ export async function fetchUSStaffing(): Promise<{ accounts: USStaffingAccount[]
   return {
     accounts: (acctRes.data || []).map(rowToUSAccount),
     requisitions: (reqRes.data || []).map(rowToUSReq),
+    contacts: (contactRes.data || []).map(rowToUSAccountContact),
   };
 }
 
 // ─── India Roster fetcher ─────────────────────────────────────────
 
 export async function fetchIndiaRoster(): Promise<IndiaRosterMember[] | null> {
-  const { data, error } = await supabase.from('india_roster').select('*');
+  const { data, error } = await supabase.from('v_india_roster').select('*');
   if (error) {
     console.warn('[supabase] fetch india_roster failed (table may be missing):', error.message);
     return null;
@@ -1324,7 +1505,7 @@ export async function fetchIndiaRoster(): Promise<IndiaRosterMember[] | null> {
 // ─── US Roster fetcher ────────────────────────────────────────────
 
 export async function fetchUSRoster(): Promise<USRosterMember[] | null> {
-  const { data, error } = await supabase.from('us_roster').select('*');
+  const { data, error } = await supabase.from('v_us_roster').select('*');
   if (error) {
     console.warn('[supabase] fetch us_roster failed (table may be missing):', error.message);
     return null;
@@ -1633,7 +1814,16 @@ export const db = {
     await Promise.all([
       supabase.from('us_staffing_accounts').delete().eq('id', id),
       supabase.from('us_staffing_requisitions').delete().eq('account_id', id),
+      supabase.from('us_staffing_account_contacts').delete().eq('account_id', id),
     ]);
+  },
+  async upsertUSAccountContact(c: import('../types/usStaffing').USStaffingAccountContact) {
+    const { error } = await supabase.from('us_staffing_account_contacts').upsert(usAccountContactToRow(c), { onConflict: 'id' });
+    if (error) console.warn('[supabase] upsert us account contact failed:', error);
+  },
+  async deleteUSAccountContact(id: string) {
+    const { error } = await supabase.from('us_staffing_account_contacts').delete().eq('id', id);
+    if (error) console.warn('[supabase] delete us account contact failed:', error);
   },
   async upsertUSRequisition(r: USStaffingRequisition) {
     const { error } = await supabase.from('us_staffing_requisitions').upsert(usReqToRow(r), { onConflict: 'id' });
@@ -1682,7 +1872,7 @@ export const db = {
 
   // --- India Roster ---
   async upsertIndiaRosterMember(m: IndiaRosterMember) {
-    const { error } = await supabase.from('india_roster').upsert(indiaRosterToRow(m), { onConflict: 'id' });
+    const { error } = await supabase.from('india_roster').upsert(stripRates(indiaRosterToRow(m)), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert india_roster failed:', error);
   },
 
@@ -1706,12 +1896,12 @@ export const db = {
   },
   async replaceAllIndiaRoster(members: IndiaRosterMember[]) {
     await supabase.from('india_roster').delete().neq('id', '');
-    if (members.length) await supabase.from('india_roster').insert(members.map(indiaRosterToRow));
+    if (members.length) await supabase.from('india_roster').insert(members.map((m) => stripRates(indiaRosterToRow(m))));
   },
 
   // --- US Roster ---
   async upsertUSRosterMember(m: USRosterMember) {
-    const { error } = await supabase.from('us_roster').upsert(usRosterToRow(m), { onConflict: 'id' });
+    const { error } = await supabase.from('us_roster').upsert(stripRates(usRosterToRow(m)), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert us_roster failed:', error);
   },
   async deleteUSRosterMember(id: string) {
@@ -1720,7 +1910,7 @@ export const db = {
   },
   async replaceAllUSRoster(members: USRosterMember[]) {
     await supabase.from('us_roster').delete().neq('id', '');
-    if (members.length) await supabase.from('us_roster').insert(members.map(usRosterToRow));
+    if (members.length) await supabase.from('us_roster').insert(members.map((m) => stripRates(usRosterToRow(m))));
   },
 
   // --- US Roster Assignments ---
@@ -1862,6 +2052,24 @@ export const db = {
     if (error) console.warn('[supabase] delete tnm_account_contact failed:', error);
   },
 
+  // --- Access matrix ---
+  async upsertUserPageAccess(a: UserPageAccess) {
+    const { error } = await supabase.from('user_page_access').upsert({
+      user_email: a.userEmail.trim().toLowerCase(),
+      page_key: a.pageKey.trim(),
+      level: a.level,
+      granted_by: a.grantedBy,
+      granted_at: a.grantedAt,
+    }, { onConflict: 'user_email,page_key' });
+    if (error) console.warn('[supabase] upsert user_page_access failed:', error);
+  },
+  async setUserCanViewFinancials(email: string, allow: boolean) {
+    const { error } = await supabase.from('authorized_users')
+      .update({ can_view_financials: allow })
+      .eq('email', email.trim().toLowerCase());
+    if (error) console.warn('[supabase] update can_view_financials failed:', error);
+  },
+
   // --- Candidate AI calls ---
   /** Trigger an outbound AI screening call to a candidate via Vapi. */
   async startCandidateCall(params: {
@@ -1907,9 +2115,15 @@ export const db = {
   },
 
   // --- Time entries ---
-  async upsertTimeEntry(e: TimeEntry) {
+  /** Insert-or-update one entry. Returns the PostgREST error rather than
+   *  swallowing it: a rejected write (RLS, CHECK, constraint, network) has to
+   *  reach the caller, otherwise the optimistic row survives in local state
+   *  only — visible on My Time and absent from Team Time and every other
+   *  DB-backed view. */
+  async upsertTimeEntry(e: TimeEntry): Promise<{ error: PostgrestError | null }> {
     const { error } = await supabase.from('time_entries').upsert(timeEntryToRow(e), { onConflict: 'id' });
     if (error) console.warn('[supabase] upsert time_entry failed:', error);
+    return { error };
   },
   /** Plain UPDATE of specific fields on an existing entry (no upsert/INSERT
    *  path). Used by the Team Time manager edit flow so it always takes the
@@ -2955,7 +3169,11 @@ type StoreSetters = {
   setHiringConfig: (concierge: ConciergeConfig, scenario: ScenarioSettings, requests: StaffingRequest[]) => void;
   setPipelineProjects: (p: ZohoPipelineProject[]) => void;
   setIndiaStaffing: (accounts: IndiaAccount[], requisitions: IndiaRequisition[], statuses: DailyStatus[], history?: StaffingHistoryEntry[], candidates?: StaffingCandidate[]) => void;
-  setUSStaffing: (accounts: USStaffingAccount[], requisitions: USStaffingRequisition[]) => void;
+  setUSStaffing: (
+    accounts: USStaffingAccount[],
+    requisitions: USStaffingRequisition[],
+    contacts?: import('../types/usStaffing').USStaffingAccountContact[],
+  ) => void;
   setOpenBench: (resources: BenchResource[], updates: BenchUpdate[]) => void;
   setIndiaRoster: (members: IndiaRosterMember[]) => void;
   setUSRoster: (members: USRosterMember[]) => void;
@@ -2963,7 +3181,7 @@ type StoreSetters = {
   setTaDailyLog?: (entries: TADailyLogEntry[]) => void;
   setTeamMembers?: (members: TeamMember[]) => void;
   setTimeEntries?: (entries: TimeEntry[]) => void;
-  setActualHours?: (rows: ActualHourEntry[]) => void;
+  setActualHours?: (feed: ActualHoursFeed) => void;
   setCandidateCalls?: (rows: CandidateCall[]) => void;
   setCallTemplates?: (rows: CallTemplate[]) => void;
   setAccountManagement?: (data: { accounts: Account[]; connects: AccountConnect[]; actions: AccountActionItem[] }) => void;
@@ -3133,7 +3351,7 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
   }
 
   // --- US Staffing (refetch all on any change) ---
-  for (const table of ['us_staffing_accounts', 'us_staffing_requisitions'] as const) {
+  for (const table of ['us_staffing_accounts', 'us_staffing_requisitions', 'us_staffing_account_contacts'] as const) {
     channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table },
@@ -3142,7 +3360,7 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
         const row = (payload.new || payload.old) as any;
         if (row?.updated_by === CLIENT_ID) return;
         fetchUSStaffing().then((data) => {
-          if (data) setters.setUSStaffing(data.accounts, data.requisitions);
+          if (data) setters.setUSStaffing(data.accounts, data.requisitions, data.contacts);
         });
       },
     );
@@ -3218,10 +3436,8 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       }
       // Also refresh the unified actual_hours feed so the cockpit picks up
       // approved/submitted time_entries rows without a page reload.
-      fetchActualHours().then((rows) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const set = (setters as any).setActualHours as ((rows: ActualHourEntry[]) => void) | undefined;
-        if (set && rows) set(rows);
+      fetchActualHours().then((feed) => {
+        if (setters.setActualHours && feed) setters.setActualHours(feed);
       });
     },
   );

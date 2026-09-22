@@ -92,6 +92,7 @@ function primaryGroup(m: USRosterMember): string {
   if (projects.length > 0) return projects[0];
   if (m.status === 'Bench') return '— Bench —';
   if (m.status === 'Proactive Bench') return '— Proactive Bench —';
+  if (m.status === 'SG&A') return '— SG&A —';
   if (m.status === 'On Leave') return '— On Leave —';
   if (m.status === 'Notice') return '— Notice —';
   return '— Unassigned —';

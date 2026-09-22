@@ -10,6 +10,9 @@
  * What the sync pulls:
  *   - project start / end dates
  *   - the plan, as phases derived from Governance's tasks
+ *   - completion: a project whose every phase is closed in Governance is
+ *     marked Completed here, so a project the PM has finished stops counting
+ *     as active work on this side too
  *
  * What it deliberately does NOT touch:
  *   - team allocation. That comes from the Project Team tab (forecast
@@ -150,6 +153,41 @@ function suggest(p: ZohoPipelineProject, gov: GovProject[]): GovProject | null {
     if (partial) return partial;
   }
   return null;
+}
+
+/**
+ * Has Governance finished this project?
+ *
+ * True only when the plan HAS phases and every one of them is closed — a
+ * phase is closed when every task in it is at 100% (see toPhases in the
+ * governance-sync function). An empty plan means Governance has nothing to
+ * say about the project, not that the work is done, so it never counts as
+ * complete.
+ */
+function planIsComplete(plan: GovPlan | undefined | null): boolean {
+  return !!plan && plan.phases.length > 0 && plan.phases.every((ph) => ph.isClosed);
+}
+
+/**
+ * Statuses the write-back leaves alone.
+ *
+ * The sync only ever CLOSES a project; it never reopens one. If Governance
+ * shows open tasks on something already Completed or Archived here, that is a
+ * human decision the sync must not undo — a task reopened on a delivered
+ * project is usually a warranty fix, not a restart.
+ */
+const CLOSED_STATUSES = new Set(['Completed', 'Archived']);
+
+/** The status patch Governance's plan implies, or null for "leave it". */
+function statusFromPlan(current: string, plan: GovPlan | undefined | null): 'Completed' | null {
+  if (!planIsComplete(plan)) return null;
+  return CLOSED_STATUSES.has(current) ? null : 'Completed';
+}
+
+/** Same rule as planIsComplete, against the phases already stored here. */
+function allPhasesClosed(p: ZohoPipelineProject): boolean {
+  const ph = p.phases ?? [];
+  return ph.length > 0 && ph.every((x) => x.isClosed) && !CLOSED_STATUSES.has(p.status);
 }
 
 function fmt(d: string | null): string {
@@ -340,11 +378,20 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
       if (plan.startDate) patch.startDate = plan.startDate;
       if (plan.endDate) patch.endDate = plan.endDate;
 
+      // Governance's phase state decides whether the project is still live.
+      // Derived from the plan rather than from Governance's own free-text
+      // `status` field, which is nullable and typed by hand.
+      const closing = statusFromPlan(p.status, plan);
+      if (closing) patch.status = closing;
+
       if (plan.phases.length > 0) {
         patch.phases = plan.phases;
+        const closed = plan.phases.filter((ph) => ph.isClosed).length;
         report.push({
           name: p.name,
-          note: `${plan.phases.length} phases from ${plan.taskCount} tasks`,
+          note: `${plan.phases.length} phases from ${plan.taskCount} tasks · `
+            + `${closed}/${plan.phases.length} closed`
+            + (closing ? ' · all phases closed → marked Completed' : ''),
           ok: true,
         });
       } else {
@@ -384,10 +431,13 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
       if (plan?.startDate) patch.startDate = plan.startDate;
       if (plan?.endDate) patch.endDate = plan.endDate;
       if (plan && plan.phases.length > 0) patch.phases = plan.phases;
+      const closingLink = statusFromPlan(target.status, plan);
+      if (closingLink) patch.status = closingLink;
       updates.push({ id: target.id, patch });
       report.push({
         name: target.name,
-        note: `linked to “${g.name}”${plan?.phases.length ? ` · ${plan.phases.length} phases` : ' · no plan yet'}`,
+        note: `linked to “${g.name}”${plan?.phases.length ? ` · ${plan.phases.length} phases` : ' · no plan yet'}`
+          + (closingLink ? ' · all phases closed → marked Completed' : ''),
         ok: true,
       });
     }
@@ -407,7 +457,10 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
         // long gone; renaming the value would mean touching seven filters
         // across the app, so it stays as the marker for "a live project".
         source: 'zoho',
-        status: 'In Progress',
+        // A Governance project that arrives already finished comes in
+        // Completed, not In Progress — otherwise the first sync would add
+        // closed work to the active-project count and the timeline KPI.
+        status: planIsComplete(plan) ? 'Completed' : 'In Progress',
         owner: g.pm || g.deliveryLead || '',
         startDate: plan?.startDate ?? g.startDate,
         endDate: plan?.endDate ?? g.currentEnd ?? g.plannedEnd,
@@ -419,7 +472,8 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
       });
       report.push({
         name: g.name,
-        note: `created${plan?.phases.length ? ` · ${plan.phases.length} phases from ${plan.taskCount} tasks` : ' · no plan in Governance yet'}`,
+        note: `created${plan?.phases.length ? ` · ${plan.phases.length} phases from ${plan.taskCount} tasks` : ' · no plan in Governance yet'}`
+          + (planIsComplete(plan) ? ' · already complete → Completed' : ''),
         ok: true,
       });
     }
@@ -458,8 +512,8 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-ink">Sync with Delivery Governance</div>
             <div className="text-[11px] text-muted">
-              Confirm which Governance project each one is, then pull its dates and plan.
-              Team allocation stays from the Project Team tab.
+              Confirm which Governance project each one is, then pull its dates, plan
+              and completion. Team allocation stays from the Project Team tab.
             </div>
           </div>
           <button type="button" onClick={onClose} className="text-muted/70 hover:text-ink/80 p-1 rounded hover:bg-surface-2">
@@ -523,6 +577,15 @@ export function GovernanceSyncModal({ projects, allProjects, onClose, onApply, o
                       <div className="text-[11px] text-muted/70">
                         {fmt(p.startDate)} – {fmt(p.endDate)} · {p.phases?.length ?? 0} phases
                       </div>
+                      {/* Reads the phases from the LAST sync, so it's a
+                          likelihood rather than a promise — the pull may
+                          find a phase reopened since. The authoritative
+                          answer is in the report after syncing. */}
+                      {allPhasesClosed(p) && (
+                        <div className="text-[11px] text-emerald-700">
+                          all phases closed → will be marked Completed
+                        </div>
+                      )}
                     </div>
 
                     <div className="text-line">

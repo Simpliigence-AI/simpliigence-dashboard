@@ -97,6 +97,35 @@ override with reason, raise change request, absorb/decline) and **Documents**
 (upload / drag-drop, SharePoint or Drive links, type and Draft/In review/Frozen,
 open via 10-minute signed link).
 
+## Phase 4 — the rest of Governance
+
+`supabase/migrations/036_delivery_governance_parity.sql` plus three edge
+functions (`delivery-ai`, `delivery-digest`, updated `governance-docs-import`):
+
+- **New project** on Project Plans: link to Current Projects, team, dates, then
+  **Read the SOW with AI** (scope list + phased plan + heatmap, previewed
+  before saving) or **Start from a template**.
+- **Change requests tab**: four sign-offs (PM, architect, delivery lead,
+  client sponsor). Last approval runs `delivery_cr_decide()`: CR task added,
+  end date moved by the CR's days, new baseline saved. One rejection rejects.
+  CRs raised from a client request are drafted by Claude.
+- **Requests**: *Draft client reply* (decline with the CR route, or clarifying
+  questions when unclear).
+- **Plan**: *Shift plan* (`delivery_shift_plan()`), add from SOW / template.
+- **Team** fields editable on every project (PM, lead, architect, sponsor).
+- **AI**: project summary + health, check-in draft, heatmap suggestions,
+  documents (user stories, test cases, process flows, status report) with
+  review comments and *Regenerate with comments*.
+- **History**: every change is logged by triggers into `delivery_audit`;
+  Governance's audit trail is copied with
+  `governance-docs-import` `{"action":"audit"}`.
+- **Current Projects** is kept in step by a trigger (`delivery_push_to_pipeline`),
+  so the *Sync with Delivery Governance* and *Push to Governance* buttons and
+  the sidebar link to Governance are gone.
+- **Digest** (pg_cron `delivery-digest`, 12:30 UTC): daily PM email of what's
+  waiting on them; Monday portfolio email. Settings and preview under
+  *Email digest* on Project Plans (admins).
+
 ## What happens to the old sync
 
 `governance-sync` and the "Sync with Delivery Governance" button keep working

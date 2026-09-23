@@ -5,7 +5,8 @@
  * SharePoint or Drive. Frozen SOW PDFs are what the scope classifier reads.
  */
 import { useMemo, useRef, useState } from 'react';
-import { FileText, FileSpreadsheet, FileImage, FileVideo, Presentation, Link2, Download, Trash2, Upload, Loader2, Lock, Search } from 'lucide-react';
+import { FileText, FileSpreadsheet, FileImage, FileVideo, Presentation, Link2, Download, Trash2, Upload, Loader2, Lock, Search, Sparkles, MessageSquare, Copy } from 'lucide-react';
+import { DocDrawer, GenerateDialog, CopyDocsDialog } from './DocTools';
 import { Card, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { alertError, toast } from '../../lib/planToast';
@@ -51,11 +52,25 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
   const shown = docs.filter((d) =>
     (type === 'all' || (d.docType ?? 'Other') === type) &&
     (!q.trim() || d.name.toLowerCase().includes(q.trim().toLowerCase())));
-  const moving = docs.filter((d) => d.legacyId && !d.storagePath).length;
+  const moving = docs.filter((d) => d.legacyId && !d.storagePath && !d.importError).length;
+  const [viewing, setViewing] = useState<string | null>(null);
+  const [gen, setGen] = useState(false);
+  const [copy, setCopy] = useState(false);
+  const feedback = useDeliveryStore((s) => s.feedback);
+  const openComments = (id: string) => feedback.filter((f) => f.documentId === id && f.state === 'open').length;
 
   return (
     <div className="space-y-4">
       {canEdit && <AddDocuments projectId={projectId} />}
+      {canEdit && (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setGen(true)}><Sparkles size={14} /> Generate with AI</Button>
+          <Button size="sm" variant="ghost" onClick={() => setCopy(true)}><Copy size={14} /> Copy from another project</Button>
+        </div>
+      )}
+      <GenerateDialog projectId={projectId} open={gen} onClose={() => setGen(false)} onDone={(id) => setViewing(id)} />
+      <CopyDocsDialog projectId={projectId} open={copy} onClose={() => setCopy(false)} />
+      <DocDrawer docId={viewing} canEdit={canEdit} onClose={() => setViewing(null)} onOpenDoc={setViewing} />
 
       {moving > 0 && (
         <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-2/60 px-4 py-2.5 text-sm text-muted">
@@ -93,11 +108,11 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
                     <th className="px-3 py-2 w-32">State</th>
                     <th className="px-3 py-2 w-20 text-right">Size</th>
                     <th className="px-3 py-2 w-28">Updated</th>
-                    <th className="px-3 py-2 w-16" />
+                    <th className="px-3 py-2 w-24" />
                   </tr>
                 </thead>
                 <tbody>
-                  {shown.map((d) => <DocRow key={d.id} d={d} canEdit={canEdit} />)}
+                  {shown.map((d) => <DocRow key={d.id} d={d} canEdit={canEdit} comments={openComments(d.id)} onView={() => setViewing(d.id)} />)}
                   {shown.length === 0 && (
                     <tr><td colSpan={6} className="px-5 py-6 text-center text-sm text-muted">No documents match.</td></tr>
                   )}
@@ -112,7 +127,7 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
   );
 }
 
-function DocRow({ d, canEdit }: { d: DeliveryDocument; canEdit: boolean }) {
+function DocRow({ d, canEdit, comments, onView }: { d: DeliveryDocument; canEdit: boolean; comments: number; onView: () => void }) {
   const { updateDocument, removeDocument, documentUrl } = useDeliveryStore.getState();
   const pending = !d.webUrl && !d.storagePath;
   const st = STATE[d.state] ?? STATE.review;
@@ -134,7 +149,7 @@ function DocRow({ d, canEdit }: { d: DeliveryDocument; canEdit: boolean }) {
       <td className="px-5 py-2">
         <div className="flex items-center gap-2 min-w-[16rem]">
           <DocIcon d={d} />
-          <button disabled={pending} onClick={() => open()} title={pending ? (d.importError ? `Copy failed: ${d.importError}` : 'Still being copied from Governance') : 'Open'}
+          <button disabled={pending} onClick={() => (/\.(md|txt)$/i.test(d.name) ? onView() : open())} title={pending ? (d.importError ? `Copy failed: ${d.importError}` : 'Still being copied from Governance') : 'Open'}
             className="text-left font-medium text-ink hover:text-primary hover:underline disabled:text-muted disabled:no-underline disabled:cursor-default truncate max-w-[32rem]">
             {d.name}
           </button>
@@ -167,6 +182,9 @@ function DocRow({ d, canEdit }: { d: DeliveryDocument; canEdit: boolean }) {
       <td className="px-3 py-2 text-muted whitespace-nowrap">{fmtDate((d.modifiedAt ?? d.createdAt).slice(0, 10))}</td>
       <td className="px-3 py-2">
         <div className="flex items-center justify-end gap-2">
+          <button title="Comments and details" className={`inline-flex items-center gap-0.5 ${comments ? 'text-gold' : 'text-muted hover:text-ink'}`} onClick={onView}>
+            <MessageSquare size={14} />{comments > 0 && <span className="text-[10px] font-bold">{comments}</span>}
+          </button>
           {d.storagePath && (
             <button title="Download" className="text-muted hover:text-ink" onClick={() => open(true)}><Download size={14} /></button>
           )}

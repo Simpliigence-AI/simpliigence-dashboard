@@ -21,6 +21,10 @@
  *   edge-function time limit; the first file is always attempted.
  *   Rows that failed before are skipped unless retry=true or named in ids.
  * Response: { ok, moved: [...], failed: [{id, name, error}], remaining }
+ *
+ * Body { action: 'audit' } instead copies Governance's audit trail
+ * (/api/projects/{id}/audit for every project) into delivery_audit, ids
+ * prefixed 'gov-' so re-running doesn't duplicate.
  */
 
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
@@ -90,13 +94,44 @@ async function govLogin(): Promise<string> {
   return d.access_token;
 }
 
+/** Copy Governance's audit events for every project into delivery_audit. */
+async function importAudit() {
+  const db = createClient(SUPABASE_URL, SERVICE_KEY);
+  const token = await govLogin();
+  const { data: projects } = await db.from('delivery_projects').select('id');
+  let copied = 0;
+  const failed: string[] = [];
+  for (const p of projects ?? []) {
+    const r = await fetch(`${BASE}/api/projects/${p.id}/audit`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) { failed.push(`${p.id}: ${r.status}`); continue; }
+    const raw = await r.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const events: any[] = Array.isArray(raw) ? raw : (raw.events ?? raw.audit ?? raw.items ?? []);
+    const rows = events.filter((e) => e && (e.id || e.at)).map((e) => ({
+      id: `gov-${e.id ?? `${p.id}-${e.at}-${e.action}`}`,
+      project_id: e.project_id ?? p.id,
+      at: e.at ?? e.created_at ?? e.timestamp,
+      actor: e.actor ?? e.actor_name ?? e.user ?? null,
+      action: e.action ?? e.kind ?? 'event',
+      payload: typeof e.payload === 'string' ? (() => { try { return JSON.parse(e.payload); } catch { return { text: e.payload }; } })() : (e.payload ?? {}),
+    })).filter((x) => x.at);
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await db.from('delivery_audit').upsert(rows.slice(i, i + 500), { onConflict: 'id', ignoreDuplicates: true });
+      if (error) { failed.push(`${p.id}: ${error.message}`); break; }
+      copied += Math.min(500, rows.length - i);
+    }
+  }
+  return { ok: true, action: 'audit', copied, failed };
+}
+
 // @ts-expect-error Deno
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return reply({ error: 'POST only' }, 405);
   try {
     if (!(await authorised(req))) return reply({ error: 'Admins only' }, 403);
-    const body = (await req.json().catch(() => ({}))) as { limit?: number; ids?: string[]; retry?: boolean };
+    const body = (await req.json().catch(() => ({}))) as { limit?: number; ids?: string[]; retry?: boolean; action?: string };
+    if (body.action === 'audit') return reply(await importAudit());
     const limit = Math.max(1, Math.min(10, body.limit ?? 3));
 
     const db = createClient(SUPABASE_URL, SERVICE_KEY);

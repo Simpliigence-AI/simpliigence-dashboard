@@ -5,12 +5,15 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ClipboardList, Search, AlertTriangle, Loader2, ChevronRight } from 'lucide-react';
+import { ClipboardList, Search, AlertTriangle, Loader2, ChevronRight, Plus, Mail } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
-import { Card, Badge, EmptyState } from '../components/ui';
+import { Card, Badge, EmptyState, Button } from '../components/ui';
+import { NewProjectDialog } from './project-plans/NewProjectDialog';
+import { DigestPanel } from './project-plans/DigestPanel';
+import { currentWeekEnding } from '../store/useDeliveryStore';
 import { useDeliveryStore } from '../store/useDeliveryStore';
 import { useTabPermission } from '../hooks/useTabPermission';
-import { fmtDate } from '../lib/deliveryPlan';
+import { fmtDate, HEALTH } from '../lib/deliveryPlan';
 import type { DeliveryProjectStatus } from '../types/delivery';
 
 type Filter = 'active' | 'completed' | 'all';
@@ -34,6 +37,8 @@ export default function ProjectPlansPage() {
   const { projects, summaries, loading, error, loadProjects } = useDeliveryStore();
   const [filter, setFilter] = useState<Filter>('active');
   const [q, setQ] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [digest, setDigest] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => { if (perm.canView) void loadProjects(); }, [perm.canView, loadProjects]);
@@ -66,8 +71,11 @@ export default function ProjectPlansPage() {
         eyebrow="Delivery"
         tone="brand"
         title="Project Plans"
-        subtitle="Plans, tasks and issues for every delivery project — formerly the Delivery Governance tool."
+        subtitle="Plans, scope control, change requests and status for every delivery project."
       />
+
+      <Portfolio />
+
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
@@ -80,6 +88,10 @@ export default function ProjectPlansPage() {
               {f} <span className="opacity-70 tabular-nums">{counts[f]}</span>
             </button>
           ))}
+        </div>
+        <div className="ml-auto order-last flex gap-2">
+          {perm.canApprove && <Button variant="ghost" onClick={() => setDigest(true)}><Mail size={14} /> Email digest</Button>}
+          {perm.canEdit && <Button onClick={() => setCreating(true)}><Plus size={14} /> New project</Button>}
         </div>
         <label className="relative flex-1 min-w-[12rem] max-w-sm">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/70" />
@@ -95,6 +107,8 @@ export default function ProjectPlansPage() {
       {error && (
         <div className="rounded-lg border border-rose/30 bg-rose/5 px-4 py-3 text-sm text-rose">{error}</div>
       )}
+      <NewProjectDialog open={creating} onClose={() => setCreating(false)} />
+      {digest && <DigestPanel onClose={() => setDigest(false)} />}
 
       <Card flush>
         {loading && projects.length === 0 ? (
@@ -113,6 +127,9 @@ export default function ProjectPlansPage() {
                   <th className="px-3 py-3 font-semibold w-40">Plan</th>
                   <th className="px-3 py-3 font-semibold text-right">Late</th>
                   <th className="px-3 py-3 font-semibold text-right">Open issues</th>
+                  <th className="px-3 py-3 font-semibold text-right" title="Out-of-scope client requests nobody has acted on">Out of scope</th>
+                  <th className="px-3 py-3 font-semibold text-right" title="Change requests awaiting sign-off">CRs</th>
+                  <th className="px-3 py-3 font-semibold">Check-in</th>
                   <th className="w-8 pr-4" />
                 </tr>
               </thead>
@@ -126,6 +143,7 @@ export default function ProjectPlansPage() {
                   return (
                     <tr key={p.id} onClick={() => navigate(`/project-plans/${p.id}`)} className="border-b border-line/40 hover:bg-surface-2/50 cursor-pointer">
                       <td className="px-5 py-3">
+                        {p.health && <span title={HEALTH[p.health].label} className={`inline-block h-2 w-2 rounded-full mr-2 ${HEALTH[p.health].dot}`} />}
                         <Link to={`/project-plans/${p.id}`} className="font-semibold text-ink hover:text-primary">{p.name}</Link>
                         {p.client && p.client !== p.name && <div className="text-xs text-muted">{p.client}</div>}
                       </td>
@@ -154,6 +172,18 @@ export default function ProjectPlansPage() {
                           </span>
                         ) : <span className="text-muted/60">0</span>}
                       </td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        {s?.openOutOfScope ? <span className="font-semibold text-rose" title={`${s.outOfScopeHours} hrs estimated`}>{s.openOutOfScope}</span> : <span className="text-muted/60">0</span>}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        {s?.pendingCrs ? <span className="font-semibold text-gold">{s.pendingCrs}</span> : <span className="text-muted/60">0</span>}
+                      </td>
+                      <td className="px-3 py-3 text-xs whitespace-nowrap">
+                        {p.status !== 'active' ? <span className="text-muted/60">—</span>
+                          : s?.lastCheckin === currentWeekEnding() ? <span className="text-green font-semibold">This week</span>
+                          : s?.lastCheckin ? <span className="text-muted">{fmtDate(s.lastCheckin)}</span>
+                          : <span className="text-muted/60">None</span>}
+                      </td>
                       <td className="pr-4 text-muted/60"><ChevronRight size={16} /></td>
                     </tr>
                   );
@@ -163,6 +193,37 @@ export default function ProjectPlansPage() {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+/** Portfolio tiles across active projects — Governance's portfolio KPI strip. */
+function Portfolio() {
+  const projects = useDeliveryStore((s) => s.projects);
+  const summaries = useDeliveryStore((s) => s.summaries);
+  const active = projects.filter((p) => p.status === 'active');
+  if (!active.length) return null;
+  const sum = (k: 'late' | 'criticalIssues' | 'openOutOfScope' | 'outOfScopeHours' | 'pendingCrs') => active.reduce((n, p) => n + (summaries[p.id]?.[k] ?? 0), 0);
+  const week = currentWeekEnding();
+  const checkedIn = active.filter((p) => summaries[p.id]?.lastCheckin === week).length;
+  const atRisk = active.filter((p) => p.health === 'amber' || p.health === 'red').length;
+  const tiles: [string, string, string?, boolean?][] = [
+    ['Active projects', String(active.length), atRisk ? `${atRisk} at risk or off track` : undefined],
+    ['Late tasks', String(sum('late')), undefined, sum('late') > 0],
+    ['High / critical issues', String(sum('criticalIssues')), undefined, sum('criticalIssues') > 0],
+    ['Out-of-scope requests', String(sum('openOutOfScope')), sum('outOfScopeHours') ? `${sum('outOfScopeHours')} hrs unbilled` : undefined, sum('openOutOfScope') > 0],
+    ['CRs awaiting sign-off', String(sum('pendingCrs'))],
+    ['Checked in this week', `${checkedIn}/${active.length}`],
+  ];
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      {tiles.map(([label, value, sub, bad]) => (
+        <div key={label} className="rounded-xl border border-line/70 bg-surface px-4 py-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</div>
+          <div className={`mt-1 text-2xl font-bold tabular-nums ${bad ? 'text-rose' : 'text-ink'}`}>{value}</div>
+          {sub && <div className="text-[11px] text-muted">{sub}</div>}
+        </div>
+      ))}
     </div>
   );
 }

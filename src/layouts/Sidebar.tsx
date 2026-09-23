@@ -75,7 +75,6 @@ const sections: NavSection[] = [
       { to: '/my-time',                                                icon: Timer,             label: 'Timesheets' },
       { to: '/leave',                                                  icon: CalendarCheck,     label: 'Leave' },
       { to: '/home',                                                   icon: BriefcaseBusiness, label: 'Delivery Cockpit' },
-      { href: 'https://simpliigence-governance.onrender.com/',         icon: ShieldCheck,       label: 'Delivery Governance' },
       { href: 'https://simpliigence-hr-portal.vercel.app/dossier',     icon: UserCog,           label: 'HR Portal' },
     ],
   },

@@ -112,3 +112,44 @@ export interface PhaseGroup {
   done: number;
   total: number;
 }
+
+export type FeatureCompletion = 'not_started' | 'partial' | 'complete';
+export type FeatureDemo = 'not_demoed' | 'demoed';
+
+/** One row of the feature heatmap: what's built and what the client has seen. */
+export interface DeliveryFeature {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  completionState: FeatureCompletion;
+  demoState: FeatureDemo;
+  orderIndex: number;
+  notes: string | null;
+}
+
+export type CheckinStatus = 'draft' | 'submitted';
+
+/** Snapshot shapes are whatever was frozen at submit time — Governance rows
+ *  use snake_case, Dashboard rows use the same keys, so read defensively. */
+export interface SnapshotTask { id: string; name: string; phase?: string | null; start?: string | null; end?: string | null; percent?: number; status?: string }
+export interface SnapshotFeature { id: string; name: string; completion_state?: string; demo_state?: string }
+export interface SnapshotIssue { id: string; description: string; owner?: string | null; due_date?: string | null; criticality?: string }
+
+export interface DeliveryCheckin {
+  id: string;
+  projectId: string;
+  weekEnding: string;
+  status: CheckinStatus;
+  activitiesBuild: string | null;
+  activitiesTesting: string | null;
+  activitiesDemos: string | null;
+  activitiesPm: string | null;
+  upcomingFocus: string | null;
+  planSnapshot: SnapshotTask[];
+  heatmapSnapshot: SnapshotFeature[];
+  parkingLotSnapshot: SnapshotIssue[];
+  submittedAt: string | null;
+  submittedBy: string | null;
+  createdAt: string;
+}

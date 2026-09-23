@@ -5,8 +5,8 @@ Documents stay in SharePoint; only links move.
 
 | Phase | Moves | Status |
 |---|---|---|
-| 1 | Projects, tasks/phases, baselines, change requests, issues | This PR |
-| 2 | Weekly check-ins (status reports), feature heatmap | Next |
+| 1 | Projects, tasks/phases, baselines, change requests, issues | Built |
+| 2 | Weekly check-ins (status reports), feature heatmap | Built |
 | 3 | Document links (SharePoint), client requests + scope classifier | After |
 | 4 | Parallel run with Governance read-only, then shut down Render | Last |
 
@@ -45,6 +45,23 @@ Governance data: 22 projects (all 22 link to an existing Current Projects row),
   get nothing — add them in Admin → Users first, then re-run. As of the test
   export that's `vasanth@simpliigence.com` (PM on 7 projects) plus two
   personal-address test accounts.
+
+## Phase 2 cut-over
+
+After phase 1 is applied and copied:
+
+1. Run `supabase/migrations/034_delivery_checkins_heatmap.sql`.
+2. `python3 scripts/governance-migration/copy_phase2.py` (dry run), then `--apply`.
+
+Copies all 70 heatmap features and the 7 submitted check-ins. The other 67
+check-ins are empty drafts Governance auto-created each week; they're skipped.
+Submitted check-ins are locked in the database (034 trigger) — a report is a
+record of what was said that week.
+
+New tabs on each project: **Heatmap** (click a chip to cycle Not started →
+In progress → Built, and Not demoed ↔ Demoed) and **Check-ins** (this week's
+draft, Submit to freeze plan + heatmap + open issues, past reports with
+**Copy as text** for email/Teams).
 
 ## What happens to the old sync
 

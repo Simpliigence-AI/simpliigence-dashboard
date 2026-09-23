@@ -9,54 +9,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag,
+  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck,
 } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { useTabPermission } from '../../hooks/useTabPermission';
 import { groupPhases, isDone, isLate, planProgress, fmtDate } from '../../lib/deliveryPlan';
 import type { DeliveryTask, DeliveryIssue, IssueCriticality, DeliveryProjectStatus } from '../../types/delivery';
+import { EditCell, cellInput } from './planUi';
+import { alertError } from '../../lib/planToast';
+import { HeatmapTab } from './HeatmapTab';
+import { CheckinsTab } from './CheckinsTab';
 
-type Tab = 'plan' | 'issues' | 'history';
-
-const cellInput =
-  'w-full bg-transparent rounded px-1.5 py-1 text-sm border border-transparent hover:border-line focus:border-primary/50 focus:bg-surface focus:outline-none disabled:hover:border-transparent disabled:cursor-default';
-
-/** Text/date input that saves on blur only when the value changed. */
-function EditCell({ value, onSave, type = 'text', disabled, placeholder, className = '' }: {
-  value: string | null; onSave: (v: string) => Promise<void>; type?: 'text' | 'date' | 'number';
-  disabled?: boolean; placeholder?: string; className?: string;
-}) {
-  const [v, setV] = useState(value ?? '');
-  const [saving, setSaving] = useState(false);
-  useEffect(() => { setV(value ?? ''); }, [value]);
-  return (
-    <input
-      type={type}
-      value={v}
-      disabled={disabled || saving}
-      placeholder={disabled ? '' : placeholder}
-      onChange={(e) => setV(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setV(value ?? ''); (e.target as HTMLInputElement).blur(); } }}
-      onBlur={async () => {
-        if ((value ?? '') === v) return;
-        setSaving(true);
-        try { await onSave(v); } catch (err) { alertError(err); setV(value ?? ''); } finally { setSaving(false); }
-      }}
-      className={`${cellInput} ${className}`}
-    />
-  );
-}
-
-// Non-blocking error surface. window.alert would freeze the tab mid-edit.
-function alertError(err: unknown) {
-  const msg = (err as Error)?.message ?? String(err);
-  const el = document.createElement('div');
-  el.textContent = msg;
-  el.className = 'fixed bottom-4 right-4 z-50 max-w-sm rounded-lg bg-rose text-white text-sm px-4 py-3 shadow-lg';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 5000);
-}
+type Tab = 'plan' | 'issues' | 'heatmap' | 'checkins' | 'history';
 
 export default function ProjectPlanDetailPage() {
   const { id = '' } = useParams();
@@ -132,8 +97,8 @@ export default function ProjectPlanDetailPage() {
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-line">
-        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['history', 'History', History, s.baselines.length + s.changeRequests.length]] as const).map(([k, label, Icon, n]) => (
+      <div className="flex gap-1 border-b border-line overflow-x-auto">
+        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length + s.changeRequests.filter((c) => c.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -148,6 +113,8 @@ export default function ProjectPlanDetailPage() {
 
       {tab === 'plan' && <PlanTab projectId={project.id} tasks={tasks} canEdit={canEdit} />}
       {tab === 'issues' && <IssuesTab projectId={project.id} issues={issues} canEdit={canEdit} />}
+      {tab === 'heatmap' && <HeatmapTab projectId={project.id} canEdit={canEdit} />}
+      {tab === 'checkins' && <CheckinsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
       {tab === 'history' && <HistoryTab projectId={project.id} />}
     </div>
   );

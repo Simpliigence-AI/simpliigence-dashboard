@@ -16,6 +16,8 @@ import type {
   DeliveryIssue,
   DeliveryBaseline,
   DeliveryChangeRequest,
+  DeliveryFeature,
+  DeliveryCheckin,
 } from '../types/delivery';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -94,7 +96,52 @@ const toCr = (r: any): DeliveryChangeRequest => ({
   state: r.state,
   createdAt: r.created_at,
 });
+const toFeature = (r: any): DeliveryFeature => ({
+  id: r.id,
+  projectId: r.project_id,
+  name: r.name,
+  description: r.description ?? null,
+  completionState: r.completion_state ?? 'not_started',
+  demoState: r.demo_state ?? 'not_demoed',
+  orderIndex: r.order_index ?? 0,
+  notes: r.notes ?? null,
+});
+
+const arr = (v: any) => (Array.isArray(v) ? v : []);
+const toCheckin = (r: any): DeliveryCheckin => ({
+  id: r.id,
+  projectId: r.project_id,
+  weekEnding: r.week_ending,
+  status: r.status === 'submitted' ? 'submitted' : 'draft',
+  activitiesBuild: r.activities_build ?? null,
+  activitiesTesting: r.activities_testing ?? null,
+  activitiesDemos: r.activities_demos ?? null,
+  activitiesPm: r.activities_pm ?? null,
+  upcomingFocus: r.upcoming_focus ?? null,
+  planSnapshot: arr(r.plan_snapshot),
+  heatmapSnapshot: arr(r.heatmap_snapshot),
+  parkingLotSnapshot: arr(r.parking_lot_snapshot),
+  submittedAt: r.submitted_at ?? null,
+  submittedBy: r.submitted_by ?? null,
+  createdAt: r.created_at,
+});
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** The Friday that ends the current week (today, if today is Friday). */
+export function currentWeekEnding(now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export type CheckinTextField = 'activitiesBuild' | 'activitiesTesting' | 'activitiesDemos' | 'activitiesPm' | 'upcomingFocus';
+const CHECKIN_COL: Record<CheckinTextField, string> = {
+  activitiesBuild: 'activities_build',
+  activitiesTesting: 'activities_testing',
+  activitiesDemos: 'activities_demos',
+  activitiesPm: 'activities_pm',
+  upcomingFocus: 'upcoming_focus',
+};
 
 const me = () => useAuthStore.getState().currentUser?.email ?? null;
 const orNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
@@ -121,6 +168,8 @@ interface State {
   issues: DeliveryIssue[];
   baselines: DeliveryBaseline[];
   changeRequests: DeliveryChangeRequest[];
+  features: DeliveryFeature[];
+  checkins: DeliveryCheckin[];
   detailId: string | null;
   detailLoading: boolean;
 
@@ -138,6 +187,17 @@ interface State {
   addIssue: (projectId: string, i: { description: string; owner?: string | null; dueDate?: string | null; criticality?: DeliveryIssue['criticality'] }) => Promise<void>;
   updateIssue: (id: string, patch: Partial<Pick<DeliveryIssue,
     'description' | 'owner' | 'dueDate' | 'criticality' | 'impact' | 'state'>>) => Promise<void>;
+
+  addFeature: (projectId: string, f: { name: string; description?: string | null }) => Promise<void>;
+  updateFeature: (id: string, patch: Partial<Pick<DeliveryFeature, 'name' | 'description' | 'completionState' | 'demoState' | 'notes'>>) => Promise<void>;
+  removeFeature: (id: string) => Promise<void>;
+
+  /** Open (or create) this week's draft for the project. */
+  startCheckin: (projectId: string) => Promise<DeliveryCheckin>;
+  updateCheckin: (id: string, field: CheckinTextField, value: string) => Promise<void>;
+  /** Freeze plan, heatmap and open issues into the draft and submit it. */
+  submitCheckin: (id: string) => Promise<void>;
+  removeCheckin: (id: string) => Promise<void>;
 }
 
 export const useDeliveryStore = create<State>((set, get) => ({
@@ -149,6 +209,8 @@ export const useDeliveryStore = create<State>((set, get) => ({
   issues: [],
   baselines: [],
   changeRequests: [],
+  features: [],
+  checkins: [],
   detailId: null,
   detailLoading: false,
 
@@ -192,14 +254,16 @@ export const useDeliveryStore = create<State>((set, get) => ({
   loadDetail: async (projectId) => {
     set({ detailLoading: true, detailId: projectId, error: null });
     try {
-      const [p, t, i, b, c] = await Promise.all([
+      const [p, t, i, b, c, f, k] = await Promise.all([
         supabase.from('delivery_projects').select('*').eq('id', projectId).maybeSingle(),
         supabase.from('delivery_tasks').select('*').eq('project_id', projectId).order('sort_order').order('start_date'),
         supabase.from('delivery_issues').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
         supabase.from('delivery_baselines').select('*').eq('project_id', projectId).order('snapshot_at'),
         supabase.from('delivery_change_requests').select('*').eq('project_id', projectId).order('created_at'),
+        supabase.from('delivery_features').select('*').eq('project_id', projectId).order('order_index'),
+        supabase.from('delivery_checkins').select('*').eq('project_id', projectId).order('week_ending', { ascending: false }).order('created_at', { ascending: false }),
       ]);
-      const err = p.error || t.error || i.error || b.error || c.error;
+      const err = p.error || t.error || i.error || b.error || c.error || f.error || k.error;
       if (err) throw new Error(err.message);
       // A stale response for a project the user has already navigated away from.
       if (get().detailId !== projectId) return;
@@ -214,6 +278,8 @@ export const useDeliveryStore = create<State>((set, get) => ({
         issues: (i.data ?? []).map(toIssue),
         baselines: (b.data ?? []).map(toBaseline),
         changeRequests: (c.data ?? []).map(toCr),
+        features: (f.data ?? []).map(toFeature),
+        checkins: (k.data ?? []).map(toCheckin),
       }));
     } catch (e) {
       set({ error: (e as Error).message });
@@ -320,5 +386,99 @@ export const useDeliveryStore = create<State>((set, get) => ({
     if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
     const i = toIssue(data);
     set((s) => ({ issues: s.issues.map((x) => (x.id === id ? i : x)) }));
+  },
+
+  addFeature: async (projectId, f) => {
+    const last = get().features.reduce((m, x) => Math.max(m, x.orderIndex), -1);
+    const { data, error } = await supabase.from('delivery_features').insert({
+      id: nanoid(16), project_id: projectId, name: f.name.trim(), description: orNull(f.description), order_index: last + 1,
+    }).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Could not add feature — you may only have view access.');
+    set((st) => ({ features: [...st.features, toFeature(data)] }));
+  },
+
+  updateFeature: async (id, patch) => {
+    const db: Record<string, unknown> = {};
+    if (patch.name !== undefined) db.name = patch.name.trim();
+    if (patch.description !== undefined) db.description = orNull(patch.description);
+    if (patch.completionState !== undefined) db.completion_state = patch.completionState;
+    if (patch.demoState !== undefined) db.demo_state = patch.demoState;
+    if (patch.notes !== undefined) db.notes = orNull(patch.notes);
+    const { data, error } = await supabase.from('delivery_features').update(db).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
+    const f = toFeature(data);
+    set((st) => ({ features: st.features.map((x) => (x.id === id ? f : x)) }));
+  },
+
+  removeFeature: async (id) => {
+    const { error } = await supabase.from('delivery_features').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((st) => ({ features: st.features.filter((x) => x.id !== id) }));
+  },
+
+  startCheckin: async (projectId) => {
+    const week = currentWeekEnding();
+    const existing = get().checkins.find((c) => c.projectId === projectId && c.weekEnding === week && c.status === 'draft');
+    if (existing) return existing;
+    const { data, error } = await supabase.from('delivery_checkins')
+      .insert({ id: nanoid(16), project_id: projectId, week_ending: week, status: 'draft' })
+      .select().single();
+    if (error || !data) {
+      // Someone else opened this week's draft a moment ago — use theirs.
+      const { data: again } = await supabase.from('delivery_checkins').select('*')
+        .eq('project_id', projectId).eq('week_ending', week).eq('status', 'draft').maybeSingle();
+      if (!again) throw new Error(error?.message ?? 'Could not start a check-in — you may only have view access.');
+      const c = toCheckin(again);
+      set((st) => ({ checkins: [c, ...st.checkins.filter((x) => x.id !== c.id)] }));
+      return c;
+    }
+    const c = toCheckin(data);
+    set((st) => ({ checkins: [c, ...st.checkins] }));
+    return c;
+  },
+
+  updateCheckin: async (id, field, value) => {
+    const { data, error } = await supabase.from('delivery_checkins')
+      .update({ [CHECKIN_COL[field]]: orNull(value) }).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused.');
+    const c = toCheckin(data);
+    set((st) => ({ checkins: st.checkins.map((x) => (x.id === id ? c : x)) }));
+  },
+
+  submitCheckin: async (id) => {
+    const st = get();
+    const draft = st.checkins.find((c) => c.id === id);
+    if (!draft) throw new Error('Check-in not found.');
+    // Snapshot from the plan currently loaded for this project, in the same
+    // snake_case shape Governance used so old and new reports read alike.
+    const tasks = st.detailId === draft.projectId ? st.tasks : [];
+    const plan = tasks.map((t) => ({
+      id: t.id, name: t.name, phase: t.phase, start: t.startDate, end: t.endDate,
+      percent: t.percent, status: t.status, source: t.source, assignee: t.assignee,
+    }));
+    const heat = st.features.filter((f) => f.projectId === draft.projectId).map((f) => ({
+      id: f.id, name: f.name, description: f.description, completion_state: f.completionState,
+      demo_state: f.demoState, notes: f.notes, order_index: f.orderIndex,
+    }));
+    const parking = st.issues.filter((i) => i.projectId === draft.projectId && i.state === 'open').map((i) => ({
+      id: i.id, description: i.description, owner: i.owner, due_date: i.dueDate, criticality: i.criticality,
+    }));
+    const { data, error } = await supabase.from('delivery_checkins').update({
+      status: 'submitted',
+      submitted_at: new Date().toISOString(),
+      submitted_by: useAuthStore.getState().currentUser?.fullName ?? me(),
+      plan_snapshot: plan,
+      heatmap_snapshot: heat,
+      parking_lot_snapshot: parking,
+    }).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Submit refused.');
+    const c = toCheckin(data);
+    set((s2) => ({ checkins: s2.checkins.map((x) => (x.id === id ? c : x)) }));
+  },
+
+  removeCheckin: async (id) => {
+    const { error } = await supabase.from('delivery_checkins').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((st) => ({ checkins: st.checkins.filter((x) => x.id !== id) }));
   },
 }));

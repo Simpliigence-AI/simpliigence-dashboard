@@ -31,6 +31,11 @@ export interface DeliveryProject {
   summaryAt: string | null;
   health: 'green' | 'amber' | 'red' | null;
   zohoProjectId: string | null;
+  /** Linked SharePoint / OneDrive folder, listed into Documents (migration 037). */
+  spFolderUrl: string | null;
+  spFolderName: string | null;
+  spSyncedAt: string | null;
+  spSyncError: string | null;
   updatedAt: string;
 }
 
@@ -177,7 +182,7 @@ export interface DeliveryDocument {
   projectId: string;
   name: string;
   docType: string | null;
-  source: 'upload' | 'generated' | 'link';
+  source: 'upload' | 'generated' | 'link' | 'sharepoint';
   version: string | null;
   state: DocumentState;
   storagePath: string | null;
@@ -192,7 +197,15 @@ export interface DeliveryDocument {
   createdAt: string;
   /** Set on AI-generated documents: which generator made it (migration 036). */
   generator: DocGenerator | null;
+  /** SharePoint files: folder path inside the linked folder (migration 037). */
+  spPath: string | null;
+  /** Whether the AI can read it: pending | reading | ok | none | error. */
+  textStatus: DocTextStatus | null;
+  textError: string | null;
+  textChars: number | null;
 }
+
+export type DocTextStatus = 'pending' | 'reading' | 'ok' | 'none' | 'error';
 
 export type DocGenerator = 'user_stories' | 'test_cases' | 'process_flows' | 'status_report';
 

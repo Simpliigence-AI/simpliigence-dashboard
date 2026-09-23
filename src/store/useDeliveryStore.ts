@@ -57,6 +57,10 @@ const toProject = (r: any): DeliveryProject => ({
   summaryAt: r.summary_at ?? null,
   health: r.health ?? null,
   zohoProjectId: r.zoho_project_id ?? null,
+  spFolderUrl: r.sp_folder_url ?? null,
+  spFolderName: r.sp_folder_name ?? null,
+  spSyncedAt: r.sp_synced_at ?? null,
+  spSyncError: r.sp_sync_error ?? null,
   updatedAt: r.updated_at,
 });
 
@@ -166,6 +170,10 @@ const toDocument = (r: any): DeliveryDocument => ({
   addedBy: r.added_by ?? null,
   createdAt: r.created_at,
   generator: r.generator ?? null,
+  spPath: r.sp_path ?? null,
+  textStatus: r.text_status ?? null,
+  textError: r.text_status === 'reading' ? null : (r.text_error ?? null),
+  textChars: r.text_chars ?? null,
 });
 const toFeedback = (r: any): DocFeedback => ({
   id: r.id, documentId: r.document_id, projectId: r.project_id, author: r.author ?? null,
@@ -321,7 +329,14 @@ interface State {
   addFeatures: (projectId: string, list: { name: string; description?: string }[]) => Promise<void>;
   /** Call the delivery-ai edge function. */
   ai: <T = Record<string, unknown>>(action: string, body: Record<string, unknown>) => Promise<T>;
-  generateDocument: (projectId: string, kind: DocGenerator, instructions?: string) => Promise<DeliveryDocument>;
+  generateDocument: (projectId: string, kind: DocGenerator, instructions?: string, sourceIds?: string[] | null) => Promise<DeliveryDocument>;
+  /** SharePoint folder + document text (delivery-sharepoint, migration 037). */
+  linkSharePoint: (projectId: string, url: string) => Promise<SpResult>;
+  syncSharePoint: (projectId: string) => Promise<SpResult>;
+  unlinkSharePoint: (projectId: string) => Promise<void>;
+  /** Read files still waiting for text extraction; resolves with how many are left. */
+  readPendingDocs: (projectId: string, documentId?: string) => Promise<number>;
+  refreshDocuments: (projectId: string) => Promise<void>;
   refreshSummary: (projectId: string) => Promise<void>;
   addFeedback: (doc: DeliveryDocument, body: string) => Promise<void>;
   setFeedbackState: (id: string, state: 'open' | 'resolved') => Promise<void>;
@@ -330,6 +345,7 @@ interface State {
   documentText: (doc: DeliveryDocument) => Promise<string>;
 }
 
+export interface SpResult { total?: number; added?: number; updated?: number; removed?: number; truncated?: boolean; read?: number; pending?: number }
 export interface CrDraft { title: string; description?: string | null; impactDays?: number | null; impactHours?: number | null; milestoneShift?: string | null }
 export interface NewProject {
   name: string; client?: string | null; pipelineProjectId?: string | null; startDate?: string | null; plannedEnd?: string | null;
@@ -368,6 +384,19 @@ async function fnError(error: unknown, data: { error?: string } | null): Promise
     try { const j = await ctx.json(); msg = j.error ?? msg; } catch { /* keep msg */ }
   }
   return msg;
+}
+
+let reading = false;   // one background text-extraction call at a time after uploads
+async function spCall(body: Record<string, unknown>): Promise<SpResult & { project?: unknown }> {
+  const { data, error } = await supabase.functions.invoke<SpResult & { ok?: boolean; error?: string; project?: unknown }>('delivery-sharepoint', { body });
+  if (error || !data?.ok) throw new Error(await fnError(error, data ?? null));
+  return data;
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applySpProject(set: (fn: (s: State) => Partial<State>) => void, row: any) {
+  if (!row) return;
+  const p = toProject(row);
+  set((st) => ({ projects: st.projects.map((x) => (x.id === p.id ? p : x)) }));
 }
 
 export const useDeliveryStore = create<State>((set, get) => ({
@@ -704,6 +733,11 @@ export const useDeliveryStore = create<State>((set, get) => ({
       throw new Error(error?.message ?? 'Could not save the document — you may only have view access.');
     }
     set((st) => ({ documents: [toDocument(data), ...st.documents] }));
+    // Pull its text for the AI in the background; the 10-minute job catches anything this misses.
+    if (!reading) {
+      reading = true;
+      window.setTimeout(() => { void get().readPendingDocs(projectId).catch(() => undefined).finally(() => { reading = false; }); }, 1500);
+    }
   },
 
   addDocumentLink: async (projectId, l) => {
@@ -1003,14 +1037,47 @@ export const useDeliveryStore = create<State>((set, get) => ({
     return data as never;
   },
 
-  generateDocument: async (projectId, kind, instructions) => {
-    const out = await get().ai<{ document: unknown }>('generate-doc', { projectId, kind, instructions: instructions || undefined });
+  generateDocument: async (projectId, kind, instructions, sourceIds) => {
+    const out = await get().ai<{ document: unknown }>('generate-doc', { projectId, kind, instructions: instructions || undefined, sourceIds: sourceIds ?? undefined });
     const doc = toDocument(out.document);
     set((st) => ({
       documents: [doc, ...st.documents],
       feedback: st.feedback.map((f) => (doc.supersedesId && f.documentId === doc.supersedesId && f.state === 'open' ? { ...f, state: 'resolved' as const } : f)),
     }));
     return doc;
+  },
+
+  linkSharePoint: async (projectId, url) => {
+    const out = await spCall({ action: 'link', projectId, url: url.trim() });
+    applySpProject(set, out.project);
+    await get().refreshDocuments(projectId);
+    return out;
+  },
+
+  syncSharePoint: async (projectId) => {
+    const out = await spCall({ action: 'sync', projectId });
+    applySpProject(set, out.project);
+    await get().refreshDocuments(projectId);
+    return out;
+  },
+
+  unlinkSharePoint: async (projectId) => {
+    const out = await spCall({ action: 'unlink', projectId });
+    applySpProject(set, out.project);
+    set((st) => ({ documents: st.documents.filter((d) => !(d.projectId === projectId && d.source === 'sharepoint')) }));
+  },
+
+  readPendingDocs: async (projectId, documentId) => {
+    const out = await spCall({ action: 'extract', projectId, documentId });
+    await get().refreshDocuments(projectId);
+    return out.pending ?? 0;
+  },
+
+  refreshDocuments: async (projectId) => {
+    const { data, error } = await supabase.from('delivery_documents').select('*').eq('project_id', projectId).order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    const fresh = (data ?? []).map(toDocument);
+    set((st) => ({ documents: [...fresh, ...st.documents.filter((d) => d.projectId !== projectId)] }));
   },
 
   refreshSummary: async (projectId) => {
@@ -1055,7 +1122,7 @@ export const useDeliveryStore = create<State>((set, get) => ({
         if (cp.error) throw new Error(`Could not copy ${d.name}: ${cp.error.message}`);
       } else if (!d.web_url) continue; // still being moved from Governance
       const { data: row, error: e2 } = await supabase.from('delivery_documents').insert({
-        id, project_id: toProjectId, name: d.name, doc_type: d.doc_type, source: d.source, version: d.version, state: 'review',
+        id, project_id: toProjectId, name: d.name, doc_type: d.doc_type, source: d.source === 'sharepoint' ? 'link' : d.source, version: d.version, state: 'review',
         storage_path: path, mime_type: d.mime_type, web_url: d.web_url, size_bytes: d.size_bytes, modified_at: new Date().toISOString(), added_by: me(),
       }).select().single();
       if (e2 || !row) throw new Error(e2?.message ?? `Could not copy ${d.name}.`);

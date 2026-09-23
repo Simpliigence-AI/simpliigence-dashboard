@@ -12,8 +12,9 @@
  *   decline-reply  { requestId }              → email to the client explaining it's out of scope
  *   checkin-draft  { projectId }              → this week's check-in text from the last 7 days
  *   summary        { projectId }              → health (green/amber/red) + exec summary, saved on the project
- *   generate-doc   { projectId, kind, instructions? } → user stories / test cases / process flows /
- *                                                status report as Markdown, saved to Documents
+ *   generate-doc   { projectId, kind, instructions?, sourceIds? } → user stories / test cases /
+ *                                                process flows / status report as Markdown, saved to
+ *                                                Documents; reads the project's documents (all, or sourceIds)
  *
  * Required secret: ANTHROPIC_API_KEY
  */
@@ -132,8 +133,14 @@ async function projectContext(db: Db, projectId: string, opts: { audit?: boolean
 }
 
 async function docBlock(db: Db, doc: Row): Promise<unknown> {
-  if (!doc.storage_path) throw new UserError('That file is still being copied over. Try again in a few minutes.');
   const name = String(doc.name).toLowerCase();
+  // Word, PowerPoint, SharePoint files: use the text pulled out by delivery-sharepoint (migration 037).
+  if (!doc.storage_path || !/\.(pdf|md|txt|csv)$/.test(name)) {
+    const { data: t } = await db.from('delivery_document_text').select('body').eq('document_id', doc.id).maybeSingle();
+    if (t?.body) return { type: 'document', source: { type: 'text', media_type: 'text/plain', data: t.body }, title: doc.name };
+    if (doc.text_status === 'pending' || doc.text_status === 'reading') throw new UserError(`${doc.name} is still being read. Try again in a minute.`);
+  }
+  if (!doc.storage_path) throw new UserError(`${doc.name} has no readable text${doc.text_error ? ` (${doc.text_error})` : ''}.`);
   const { data, error } = await db.storage.from(BUCKET).download(doc.storage_path);
   if (error || !data) throw new UserError(`Could not read ${doc.name}: ${error?.message ?? 'no data'}`);
   if (data.size > MAX_DOC_BYTES) throw new UserError(`${doc.name} is too large to read (over 20 MB).`);
@@ -143,7 +150,7 @@ async function docBlock(db: Db, doc: Row): Promise<unknown> {
   if (/\.(md|txt|csv)$/.test(name)) {
     return { type: 'document', source: { type: 'text', media_type: 'text/plain', data: await data.text() }, title: doc.name };
   }
-  throw new UserError('Upload the SOW as a PDF — Word and PowerPoint files can’t be read directly. In Word: File → Save As → PDF.');
+  throw new UserError(`${doc.name} has no readable text${doc.text_error ? ` (${doc.text_error})` : ''}. Upload it as a PDF or Word file.`);
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────
@@ -302,6 +309,46 @@ Call record_summary once.`,
   return { project: data };
 }
 
+/**
+ * The project's own documents as prompt text: SOW, requirements, meeting
+ * transcripts, designs — uploads and SharePoint files alike (text pulled out
+ * by delivery-sharepoint). `ids` limits it to the PM's picks. The character
+ * budget is shared fairly: short documents go in whole, long ones are cut.
+ */
+const SOURCE_BUDGET = 250_000;
+const TYPE_RANK: Record<string, number> = { SOW: 0, Requirements: 1, Meeting: 2, Design: 3, 'Process Flows': 4, 'User Stories': 5, 'Test Cases': 6, Status: 7 };
+async function sourceDocs(db: Db, projectId: string, opts: { ids?: string[] | null; excludeGenerator?: string }) {
+  const [{ data: docs }, { data: texts }] = await Promise.all([
+    db.from('delivery_documents').select('id, name, doc_type, state, sp_path, modified_at, created_at, generator, supersedes_id').eq('project_id', projectId),
+    db.from('delivery_document_text').select('document_id, body').eq('project_id', projectId),
+  ]);
+  const body = new Map(((texts ?? []) as Row[]).map((t) => [t.document_id, String(t.body)]));
+  const all = (docs ?? []) as Row[];
+  const superseded = new Set(all.map((d) => d.supersedes_id).filter(Boolean));
+  let pick = all.filter((d) => body.has(d.id));
+  if (opts.ids) { const want = new Set(opts.ids); pick = pick.filter((d) => want.has(d.id)); }
+  else pick = pick.filter((d) => !superseded.has(d.id) && (!opts.excludeGenerator || d.generator !== opts.excludeGenerator));
+  pick.sort((a, b) => (a.state === 'frozen' ? -1 : 0) - (b.state === 'frozen' ? -1 : 0)
+    || (TYPE_RANK[a.doc_type] ?? 9) - (TYPE_RANK[b.doc_type] ?? 9)
+    || String(b.modified_at ?? b.created_at).localeCompare(String(a.modified_at ?? a.created_at)));
+  // Fair share: smallest first, each gets what it needs up to an even split of what's left.
+  const sizes = pick.map((d) => body.get(d.id)!.length);
+  const order = pick.map((_, i) => i).sort((a, b) => sizes[a] - sizes[b]);
+  const allow = new Array(pick.length).fill(0);
+  let left = SOURCE_BUDGET;
+  order.forEach((i, k) => { const share = Math.floor(left / (order.length - k)); allow[i] = Math.min(sizes[i], share); left -= allow[i]; });
+  const used: Row[] = [];
+  const blocks = pick.map((d, i) => {
+    if (allow[i] < 200) return '';
+    const t = body.get(d.id)!;
+    const cut = allow[i] < t.length;
+    used.push({ id: d.id, name: d.name, chars: allow[i], truncated: cut });
+    const attrs = [`name="${d.name}"`, `type="${d.doc_type ?? 'Other'}"`, d.state === 'frozen' ? 'frozen="yes"' : '', d.sp_path ? `folder="${d.sp_path}"` : '', `updated="${String(d.modified_at ?? d.created_at).slice(0, 10)}"`].filter(Boolean).join(' ');
+    return `<document ${attrs}>\n${cut ? `${t.slice(0, allow[i])}\n…[cut for length]` : t}\n</document>`;
+  }).filter(Boolean);
+  return { text: blocks.length ? `\n\nSource documents (${blocks.length}):\n${blocks.join('\n\n')}` : '', used };
+}
+
 const DOC_KINDS: Record<string, { label: string; docType: string; prompt: string }> = {
   user_stories: {
     label: 'User Stories', docType: 'User Stories',
@@ -340,10 +387,14 @@ async function generateDoc(db: Db, b: Row, email: string | null) {
     if (prevText) revision += `\n\nPrevious version (${prev[0].version}) — revise it rather than starting over:\n<<<\n${prevText}\n>>>`;
     if (fb?.length) revision += `\n\nReviewer comments to apply in this version (every one must be addressed):\n${fb.map((f: Row) => `- ${f.body}${f.author ? ` (${f.author})` : ''}`).join('\n')}`;
   }
+  const sources = await sourceDocs(db, b.projectId, { ids: Array.isArray(b.sourceIds) ? b.sourceIds : null, excludeGenerator: b.kind });
+  const grounding = sources.used.length
+    ? `\nBase the document on the source documents (SOW, requirements, meeting transcripts, designs) as well as the project data. Frozen documents are the agreed scope; where sources disagree, follow the newest frozen one and flag the conflict in a short "Open questions" section at the end. Never invent requirements that no source or scope item supports.${b.kind === 'status_report' ? '' : ' After each story, test case group or process, add a line "Source: <document name(s)>".'}`
+    : '';
   const { text: md } = await claude({
     maxTokens: 8000,
-    system: `${kind.prompt}\nOutput only the Markdown document, starting with a # title line. No preamble. Stay under about 4,500 words — group or summarise rather than stop mid-document.`,
-    content: [{ type: 'text', text: `${text}${b.instructions ? `\n\nExtra instructions from the PM:\n${b.instructions}` : ''}${revision}` }],
+    system: `${kind.prompt}${grounding}\nOutput only the Markdown document, starting with a # title line. No preamble. Stay under about 4,500 words — group or summarise rather than stop mid-document.`,
+    content: [{ type: 'text', text: `${text}${sources.text}${b.instructions ? `\n\nExtra instructions from the PM:\n${b.instructions}` : ''}${revision}` }],
   });
   if (!md) throw new UserError('Claude returned an empty document. Try again.', 502);
 
@@ -368,7 +419,7 @@ async function generateDoc(db: Db, b: Row, email: string | null) {
   if (feedbackIds.length) {
     await db.from('delivery_document_feedback').update({ state: 'resolved' }).in('id', feedbackIds);
   }
-  return { document: doc, addressed: feedbackIds.length };
+  return { document: doc, addressed: feedbackIds.length, sources: sources.used };
 }
 
 // @ts-expect-error Deno

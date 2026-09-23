@@ -130,3 +130,11 @@ functions (`delivery-ai`, `delivery-digest`, updated `governance-docs-import`):
 
 `governance-sync` and the "Sync with Delivery Governance" button keep working
 until phase 4 so nothing breaks mid-way. They're removed when Render is shut down.
+
+## SharePoint folders and document text (migration 037)
+
+- Each project can link one SharePoint / OneDrive for Business folder (Documents tab → **Link the project's SharePoint folder**). The `delivery-sharepoint` edge function lists the folder and its subfolders into `delivery_documents` (`source = 'sharepoint'`); files stay in SharePoint. pg_cron `delivery-sharepoint-sync` re-syncs daily at 07:00 UTC.
+- Text is pulled out of every document (SharePoint files and uploads: Word, PowerPoint, Excel, PDF, VTT/SRT transcripts, text) into `delivery_document_text`. pg_cron `delivery-document-text` reads anything pending every 10 minutes. Video, images and scanned PDFs are marked "AI can't read".
+- `delivery-ai` `generate-doc` now reads those documents (all readable ones, or the PM's picks in the Generate dialog), within a 250k-character budget.
+- Graph access: the function uses `SHAREPOINT_TENANT_ID` / `SHAREPOINT_CLIENT_ID` / `SHAREPOINT_CLIENT_SECRET` when set (a separate Azure app with Sites.Read.All), otherwise the Dashboard's `GRAPH_*` app. `{"action":"probe"}` (cron secret) reports which Graph roles the app has.
+- One-off: `{"action":"link-legacy"}` (cron secret) links the folders Governance kept in `delivery_projects.sharepoint_folder`.

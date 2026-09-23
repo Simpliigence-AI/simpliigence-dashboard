@@ -1,12 +1,15 @@
 /**
  * Project documents: SOWs, requirements, designs, status reports, meeting
  * recordings. Files live in the private 'delivery-documents' bucket and open
- * through a short-lived signed link; a row can also point at a file kept in
- * SharePoint or Drive. Frozen SOW PDFs are what the scope classifier reads.
+ * through a short-lived signed link. A linked SharePoint folder lists its files
+ * here too (source 'sharepoint', opened in SharePoint). Every document's text
+ * is pulled out for the AI (migration 037). Frozen SOW PDFs are what the
+ * scope classifier reads.
  */
 import { useMemo, useRef, useState } from 'react';
-import { FileText, FileSpreadsheet, FileImage, FileVideo, Presentation, Link2, Download, Trash2, Upload, Loader2, Lock, Search, Sparkles, MessageSquare, Copy } from 'lucide-react';
+import { FileText, FileSpreadsheet, FileImage, FileVideo, Presentation, Link2, Download, Trash2, Upload, Loader2, Lock, Search, Sparkles, MessageSquare, Copy, FolderSync } from 'lucide-react';
 import { DocDrawer, GenerateDialog, CopyDocsDialog } from './DocTools';
+import { SharePointPanel } from './SharePointPanel';
 import { Card, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { alertError, toast } from '../../lib/planToast';
@@ -34,8 +37,8 @@ function DocIcon({ d }: { d: DeliveryDocument }) {
   if (d.source === 'link') return <Link2 size={16} className={cls} />;
   if (['xlsx', 'xls', 'csv'].includes(ext)) return <FileSpreadsheet size={16} className={cls} />;
   if (['pptx', 'ppt'].includes(ext)) return <Presentation size={16} className={cls} />;
-  if (['png', 'jpg', 'jpeg', 'gif'].includes(ext)) return <FileImage size={16} className={cls} />;
-  if (['mp4', 'mov', 'webm'].includes(ext)) return <FileVideo size={16} className={cls} />;
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return <FileImage size={16} className={cls} />;
+  if (['mp4', 'mov', 'webm', 'm4v', 'mkv', 'avi', 'mp3', 'm4a', 'wav'].includes(ext)) return <FileVideo size={16} className={cls} />;
   return <FileText size={16} className={cls} />;
 }
 
@@ -43,15 +46,18 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
   const all = useDeliveryStore((s) => s.documents);
   const docs = useMemo(() => all.filter((d) => d.projectId === projectId), [all, projectId]);
   const [type, setType] = useState('all');
+  const [src, setSrc] = useState<'all' | 'sharepoint' | 'files' | 'generated'>('all');
   const [q, setQ] = useState('');
 
   const types = useMemo(() => {
     const seen = new Set(docs.map((d) => d.docType ?? 'Other'));
     return DOC_TYPES.filter((t) => seen.has(t)).concat([...seen].filter((t) => !DOC_TYPES.includes(t)));
   }, [docs]);
+  const hasSp = docs.some((d) => d.source === 'sharepoint');
   const shown = docs.filter((d) =>
     (type === 'all' || (d.docType ?? 'Other') === type) &&
-    (!q.trim() || d.name.toLowerCase().includes(q.trim().toLowerCase())));
+    (src === 'all' || (src === 'sharepoint' ? d.source === 'sharepoint' : src === 'generated' ? d.source === 'generated' : d.source === 'upload' || d.source === 'link')) &&
+    (!q.trim() || `${d.spPath ?? ''}/${d.name}`.toLowerCase().includes(q.trim().toLowerCase())));
   const moving = docs.filter((d) => d.legacyId && !d.storagePath && !d.importError).length;
   const [viewing, setViewing] = useState<string | null>(null);
   const [gen, setGen] = useState(false);
@@ -61,6 +67,7 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
 
   return (
     <div className="space-y-4">
+      <SharePointPanel projectId={projectId} canEdit={canEdit} />
       {canEdit && <AddDocuments projectId={projectId} />}
       {canEdit && (
         <div className="flex flex-wrap gap-2">
@@ -81,7 +88,7 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
 
       <Card flush>
         {docs.length === 0 ? (
-          <EmptyState icon={<FileText size={32} />} title="No documents yet" description="Upload the signed SOW, requirements, designs and status reports so the whole team works from the same files." />
+          <EmptyState icon={<FileText size={32} />} title="No documents yet" description="Link the project’s SharePoint folder above, or upload the signed SOW, requirements, designs and status reports, so the whole team — and the AI — works from the same files." />
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-line/60">
@@ -90,6 +97,14 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search documents"
                   className="w-56 rounded-lg border border-line bg-surface pl-8 pr-3 py-1.5 text-sm" />
               </div>
+              {hasSp && (
+                <select value={src} onChange={(e) => setSrc(e.target.value as typeof src)} className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm">
+                  <option value="all">All sources</option>
+                  <option value="sharepoint">SharePoint folder</option>
+                  <option value="files">Uploaded here</option>
+                  <option value="generated">AI-generated</option>
+                </select>
+              )}
               <div className="flex flex-wrap gap-1">
                 {['all', ...types].map((t) => (
                   <button key={t} onClick={() => setType(t)}
@@ -122,9 +137,20 @@ export function DocumentsTab({ projectId, canEdit }: { projectId: string; canEdi
           </>
         )}
       </Card>
-      <p className="text-xs text-muted">Mark the signed SOW <strong>Frozen</strong> (as a PDF) — the scope check on the Requests tab reads it when judging client requests.</p>
+      <p className="text-xs text-muted">Mark the signed SOW <strong>Frozen</strong> (as a PDF) — the scope check on the Requests tab reads it when judging client requests. <Sparkles size={11} className="inline text-primary/70" /> marks files the AI reads when it generates documents.</p>
     </div>
   );
+}
+
+/** Whether the AI can read this document (its text is pulled out after upload / sync). */
+function AiBadge({ d }: { d: DeliveryDocument }) {
+  const s = d.textStatus;
+  if (!s || (s === 'none' && d.source === 'link')) return null;
+  if (s === 'ok') {
+    return <span title={`The AI reads this (${Math.round((d.textChars ?? 0) / 1000)}k characters)`} className="shrink-0 text-primary/70"><Sparkles size={12} /></span>;
+  }
+  if (s === 'pending' || s === 'reading') return <span className="shrink-0 text-[11px] text-muted" title="Pulling out the text for the AI">reading…</span>;
+  return <span className="shrink-0 text-[11px] text-muted/80 underline decoration-dotted cursor-help" title={d.textError ?? 'The AI can’t read this file.'}>AI can’t read</span>;
 }
 
 function DocRow({ d, canEdit, comments, onView }: { d: DeliveryDocument; canEdit: boolean; comments: number; onView: () => void }) {
@@ -149,13 +175,19 @@ function DocRow({ d, canEdit, comments, onView }: { d: DeliveryDocument; canEdit
       <td className="px-5 py-2">
         <div className="flex items-center gap-2 min-w-[16rem]">
           <DocIcon d={d} />
-          <button disabled={pending} onClick={() => (/\.(md|txt)$/i.test(d.name) ? onView() : open())} title={pending ? (d.importError ? `Copy failed: ${d.importError}` : 'Still being copied from Governance') : 'Open'}
+          <button disabled={pending} onClick={() => (/\.(md|txt)$/i.test(d.name) && d.storagePath ? onView() : open())} title={pending ? (d.importError ? `Copy failed: ${d.importError}` : 'Still being copied from Governance') : 'Open'}
             className="text-left font-medium text-ink hover:text-primary hover:underline disabled:text-muted disabled:no-underline disabled:cursor-default truncate max-w-[32rem]">
             {d.name}
           </button>
           {d.version && d.version !== 'v1' && <span className="text-[11px] text-muted">{d.version}</span>}
           {pending && <span className={`text-[11px] ${d.importError ? 'text-rose' : 'text-muted'}`}>{d.importError ? 'copy failed' : 'copying…'}</span>}
+          <AiBadge d={d} />
         </div>
+        {d.source === 'sharepoint' && (
+          <div className="ml-6 mt-0.5 flex items-center gap-1 text-[11px] text-muted truncate max-w-[32rem]" title="In the linked SharePoint folder">
+            <FolderSync size={11} className="shrink-0" /> {d.spPath ? d.spPath : 'SharePoint folder'}
+          </div>
+        )}
       </td>
       <td className="px-3 py-2">
         <select value={d.docType ?? 'Other'} disabled={!canEdit}
@@ -188,7 +220,7 @@ function DocRow({ d, canEdit, comments, onView }: { d: DeliveryDocument; canEdit
           {d.storagePath && (
             <button title="Download" className="text-muted hover:text-ink" onClick={() => open(true)}><Download size={14} /></button>
           )}
-          {canEdit && (
+          {canEdit && d.source !== 'sharepoint' && (
             <button title="Delete" className="text-muted/60 hover:text-rose"
               onClick={() => { if (window.confirm(`Delete “${d.name}”? This removes the file for everyone.`)) removeDocument(d.id).catch(alertError); }}>
               <Trash2 size={14} />
@@ -242,7 +274,7 @@ function AddDocuments({ projectId }: { projectId: string }) {
           </select>
         </label>
         <button onClick={() => setLinkOpen((v) => !v)} className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
-          <Link2 size={14} /> Add a SharePoint / Drive link
+          <Link2 size={14} /> Add a link to one file
         </button>
         <input ref={input} type="file" multiple className="hidden" onChange={(e) => e.target.files && void upload(e.target.files)} />
       </div>

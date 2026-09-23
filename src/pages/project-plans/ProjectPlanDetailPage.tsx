@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck,
+  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen,
 } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
@@ -21,8 +21,10 @@ import { alertError } from '../../lib/planToast';
 import { HeatmapTab } from './HeatmapTab';
 import { GanttChart } from './GanttChart';
 import { CheckinsTab } from './CheckinsTab';
+import { DocumentsTab } from './DocumentsTab';
+import { RequestsTab } from './RequestsTab';
 
-type Tab = 'plan' | 'issues' | 'heatmap' | 'checkins' | 'history';
+type Tab = 'plan' | 'issues' | 'requests' | 'heatmap' | 'checkins' | 'documents' | 'history';
 
 export default function ProjectPlanDetailPage() {
   const { id = '' } = useParams();
@@ -99,7 +101,7 @@ export default function ProjectPlanDetailPage() {
       </div>
 
       <div className="flex gap-1 border-b border-line overflow-x-auto">
-        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length + s.changeRequests.filter((c) => c.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
+        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length + s.changeRequests.filter((c) => c.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -114,8 +116,10 @@ export default function ProjectPlanDetailPage() {
 
       {tab === 'plan' && <PlanTab projectId={project.id} tasks={tasks} canEdit={canEdit} baseline={s.baselines.filter((b) => b.projectId === project.id).at(-1) ?? null} />}
       {tab === 'issues' && <IssuesTab projectId={project.id} issues={issues} canEdit={canEdit} />}
+      {tab === 'requests' && <RequestsTab project={project} canEdit={canEdit} />}
       {tab === 'heatmap' && <HeatmapTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'checkins' && <CheckinsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
+      {tab === 'documents' && <DocumentsTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'history' && <HistoryTab projectId={project.id} />}
     </div>
   );

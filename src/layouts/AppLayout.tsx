@@ -79,7 +79,7 @@ export default function AppLayout() {
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <main className={`flex-1 ml-0 ${collapsed ? 'md:ml-[76px]' : 'md:ml-72'} transition-[margin] duration-300 ease-in-out`}>
+      <main className={`flex-1 min-w-0 ml-0 ${collapsed ? 'md:ml-[76px]' : 'md:ml-72'} transition-[margin] duration-300 ease-in-out`}>
         <DemoBanner />
 
         {/* Mobile hamburger — overlays the content area, only visible on <md */}

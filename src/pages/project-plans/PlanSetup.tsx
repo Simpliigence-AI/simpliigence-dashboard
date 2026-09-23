@@ -86,8 +86,8 @@ export function SowImportDialog({ projectId, open, onClose }: { projectId: strin
   const project = useDeliveryStore((s) => s.projects.find((p) => p.id === projectId));
   const docs = useDeliveryStore((s) => s.documents);
   const tasks = useDeliveryStore((s) => s.tasks);
-  const { ai, uploadDocument, applySowProposal } = useDeliveryStore.getState();
-  const readable = useMemo(() => docs.filter((d) => d.projectId === projectId && d.storagePath && /\.(pdf|md|txt)$/i.test(d.name))
+  const { ai, uploadDocument, applySowProposal, readPendingDocs } = useDeliveryStore.getState();
+  const readable = useMemo(() => docs.filter((d) => d.projectId === projectId && ((d.storagePath && /\.(pdf|md|txt)$/i.test(d.name)) || d.textStatus === 'ok'))
     .sort((a, b) => Number(b.state === 'frozen') - Number(a.state === 'frozen') || Number((b.docType ?? '').startsWith('SOW')) - Number((a.docType ?? '').startsWith('SOW'))), [docs, projectId]);
   const [docId, setDocId] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export function SowImportDialog({ projectId, open, onClose }: { projectId: strin
     <Drawer open={open} onClose={reset} title="Read the SOW with AI" width="max-w-2xl">
       {!prop ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted">Pick the signed SOW. Only PDFs (and text files) can be read — save Word files as PDF first.</p>
+          <p className="text-sm text-muted">Pick the signed SOW — PDF or Word, uploaded here or in the project’s SharePoint folder.</p>
           {readable.length > 0 && (
             <Field label="From this project’s documents">
               <select value={selected} onChange={(e) => setDocId(e.target.value)} className={inputClass}>
@@ -125,14 +125,22 @@ export function SowImportDialog({ projectId, open, onClose }: { projectId: strin
             {readable.length > 0 && (
               <Button disabled={!!busy || !selected} onClick={() => run(selected)}><Sparkles size={14} /> Read this SOW</Button>
             )}
-            <Button variant="secondary" disabled={!!busy} onClick={() => file.current?.click()}><Upload size={14} /> Upload a SOW PDF</Button>
-            <input ref={file} type="file" accept=".pdf,.md,.txt" className="hidden" onChange={async (e) => {
+            <Button variant="secondary" disabled={!!busy} onClick={() => file.current?.click()}><Upload size={14} /> Upload a SOW</Button>
+            <input ref={file} type="file" accept=".pdf,.docx,.md,.txt" className="hidden" onChange={async (e) => {
               const f = e.target.files?.[0];
               if (!f) return;
               setBusy(`Uploading ${f.name}…`);
               try {
                 await uploadDocument(projectId, f, { docType: 'SOW', state: 'frozen' });
                 const d = useDeliveryStore.getState().documents.find((x) => x.projectId === projectId && x.name === f.name);
+                if (d && !/\.(pdf|md|txt)$/i.test(f.name)) {
+                  setBusy('Reading the Word file…');
+                  for (let i = 0; i < 5; i++) {
+                    await readPendingDocs(projectId);
+                    const st = useDeliveryStore.getState().documents.find((x) => x.id === d.id)?.textStatus;
+                    if (st !== 'pending' && st !== 'reading') break;
+                  }
+                }
                 if (d) await run(d.id); else setBusy(null);
               } catch (err) { alertError(err); setBusy(null); }
               if (file.current) file.current.value = '';

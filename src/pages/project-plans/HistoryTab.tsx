@@ -11,19 +11,19 @@ import { fmtDate } from '../../lib/deliveryPlan';
 
 const ENTITY: Record<string, string> = {
   task: 'Task', issue: 'Issue', heatmap: 'Feature', checkin: 'Check-in', cr: 'Change request', request: 'Client request',
-  document: 'Document', project: 'Project', baseline: 'Baseline', sow: 'SOW', feedback: 'Feedback', team: 'Team',
+  document: 'Document', project: 'Project', baseline: 'Baseline', sow: 'SOW', feedback: 'Feedback', team: 'Team', sharepoint: 'SharePoint',
 };
 const VERB: Record<string, string> = {
   insert: 'added', add: 'added', create: 'added', update: 'changed', delete: 'deleted', remove: 'deleted',
   submit: 'submitted', approve: 'approved', reject: 'rejected', classify: 'classified', upload: 'uploaded',
-  generate: 'generated', apply: 'applied', shift: 'shifted', appeal: 'appealed',
+  generate: 'generated', apply: 'applied', shift: 'shifted', appeal: 'appealed', sync: 'synced',
 };
 const FIELD: Record<string, string> = {
   start_date: 'start', end_date: 'end', percent: '% done', status: 'status', name: 'name', phase: 'phase', assignee: 'assignee',
   current_end: 'end date', planned_end: 'baseline end', state: 'state', verdict: 'verdict', criticality: 'criticality',
   completion_state: 'build state', demo_state: 'demo state', approvers: 'sign-off', frozen_requirements: 'scope list',
   frozen_exclusions: 'exclusions', pm: 'PM', delivery_lead: 'delivery lead', storage_path: 'file', doc_type: 'type',
-  sort_order: 'order', impact_hours: 'hours', impact_days: 'days', owner: 'owner', due_date: 'due date', description: 'description',
+  sort_order: 'order', sp_folder_url: 'SharePoint folder', sp_folder_name: 'SharePoint folder', sp_item_id: 'SharePoint folder', sp_drive_id: 'SharePoint folder', impact_hours: 'hours', impact_days: 'days', owner: 'owner', due_date: 'due date', description: 'description',
 };
 
 function describe(action: string, payload: Record<string, unknown>): string {
@@ -31,7 +31,7 @@ function describe(action: string, payload: Record<string, unknown>): string {
   const what = ENTITY[ent] ?? ent;
   const did = VERB[verb] ?? verb ?? '';
   const label = (payload.label ?? payload.name ?? payload.title ?? payload.desc ?? payload.week ?? '') as string;
-  const fields = Array.isArray(payload.fields) ? (payload.fields as string[]).map((f) => FIELD[f] ?? f.replace(/_/g, ' ')) : [];
+  const fields = Array.isArray(payload.fields) ? [...new Set((payload.fields as string[]).map((f) => FIELD[f] ?? f.replace(/_/g, ' ')))] : [];
   return `${what} ${did}${label ? ` — ${String(label).slice(0, 120)}` : ''}${fields.length ? ` (${fields.join(', ')})` : ''}`;
 }
 

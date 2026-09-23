@@ -62,7 +62,7 @@ export default function ActualPeopleView() {
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="w-full rounded-lg border border-line px-2 py-1 text-xs"
+            className="w-full min-w-0 truncate rounded-lg border border-line px-2 py-1 text-xs"
           >
             <option value="">All Projects</option>
             {projects.map((p) => <option key={p} value={p}>{p}</option>)}

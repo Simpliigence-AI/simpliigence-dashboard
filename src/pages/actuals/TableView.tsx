@@ -55,7 +55,7 @@ export default function ActualTableView() {
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="rounded-lg border border-line px-2 py-1.5 text-sm"
+          className="w-64 max-w-full min-w-0 truncate rounded-lg border border-line px-2 py-1.5 text-sm"
         >
           <option value="">All Projects</option>
           {projects.map((p) => <option key={p} value={p}>{p}</option>)}

@@ -730,7 +730,7 @@ export default function TeamTimePage() {
  *  project name grandfathered in so historic values still render. ── */
 function ProjectSelect({ value, onChange, historicName }: { value: string; onChange: (v: string) => void; historicName?: string }) {
   const options = useTimeProjectOptions(historicName ? [historicName] : []);
-  const grouped: Record<string, typeof options> = { current: [], concierge: [], internal: [], other: [] };
+  const grouped: Record<string, typeof options> = { current: [], concierge: [], roster: [], internal: [], other: [] };
   for (const o of options) {
     const src = (o.source as keyof typeof grouped) || 'other';
     (grouped[src] ||= []).push(o);
@@ -738,6 +738,7 @@ function ProjectSelect({ value, onChange, historicName }: { value: string; onCha
   const groupLabel: Record<string, string> = {
     current: 'Current projects',
     concierge: 'Concierge active accounts',
+    roster: 'T&M projects',
     internal: 'Internal',
     other: 'Other / historic',
   };
@@ -748,12 +749,16 @@ function ProjectSelect({ value, onChange, historicName }: { value: string; onCha
       className="w-full border border-line rounded-md px-3 py-1.5 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
     >
       <option value="" disabled>— pick a project —</option>
-      {(['current', 'concierge', 'internal', 'other'] as const).map((k) => {
+      {(['current', 'concierge', 'roster', 'internal', 'other'] as const).map((k) => {
         const list = grouped[k];
         if (!list?.length) return null;
         return (
           <optgroup key={k} label={groupLabel[k]}>
-            {list.map((p) => <option key={`${k}-${p.name}`} value={p.name}>{p.name}</option>)}
+            {list.map((p) => (
+              <option key={`${k}-${p.name}`} value={p.name} disabled={k === 'other'}>
+                {k === 'other' ? `${p.name.slice(0, 60)}${p.name.length > 60 ? '…' : ''} (legacy — re-pick)` : p.name}
+              </option>
+            ))}
           </optgroup>
         );
       })}

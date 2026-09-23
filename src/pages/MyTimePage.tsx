@@ -127,6 +127,10 @@ export default function MyTimePage() {
     [allEntries, myEmail],
   );
   const myProjects = useTimeProjectOptions(historicNames);
+  const pickableNames = useMemo(
+    () => new Set(myProjects.filter((p) => p.source !== 'other').map((p) => p.name)),
+    [myProjects],
+  );
 
   // My entries this week, grouped by day
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -173,6 +177,14 @@ export default function MyTimePage() {
     );
     const result: CopyResult = { copied: 0, failed: 0, firstError: null };
     for (const e of source) {
+      // Don't carry a legacy / retired project name forward. Id-linked rows
+      // are fine; name-only rows must match a current option.
+      if (!e.projectId && !pickableNames.has(e.projectName)) {
+        result.failed++;
+        result.firstError = result.firstError
+          ?? `"${e.projectName.slice(0, 40)}" is no longer a project — re-pick it on that day`;
+        continue;
+      }
       try {
         await addEntry({
           employeeEmail: myEmail,
@@ -937,7 +949,13 @@ function ProjectPicker({ value, onChange, options, autoFocus = false, onEnter }:
         if (!list?.length) return null;
         return (
           <optgroup key={k} label={groupLabel[k]}>
-            {list.map((p) => <option key={`${k}-${p.name}`} value={p.name}>{p.name}</option>)}
+            {list.map((p) => (
+              // Legacy names render only so an existing row shows its value;
+              // they can't be picked for new time.
+              <option key={`${k}-${p.name}`} value={p.name} disabled={k === 'other'}>
+                {k === 'other' ? `${p.name.slice(0, 60)}${p.name.length > 60 ? '…' : ''} (legacy — re-pick)` : p.name}
+              </option>
+            ))}
           </optgroup>
         );
       })}

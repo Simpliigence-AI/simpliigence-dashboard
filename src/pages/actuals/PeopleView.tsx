@@ -20,7 +20,12 @@ export default function ActualPeopleView() {
 
   const projects = useMemo(() => {
     const s = new Set<string>();
-    for (const g of groups) for (const a of g.assignments) s.add(a.project);
+    // Utilization is read for the current month — only offer projects with
+    // time logged this month.
+    const month = MONTHS[new Date().getMonth()];
+    for (const g of groups) for (const a of g.assignments) {
+      if ((a.monthlyTotals[month] ?? 0) > 0) s.add(a.project);
+    }
     return [...s].sort();
   }, [groups]);
 

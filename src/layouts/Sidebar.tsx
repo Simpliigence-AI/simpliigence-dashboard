@@ -44,8 +44,10 @@ import {
   SunMoon,
   Eye,
   EyeOff,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react';
+import { useTabPermission } from '../hooks/useTabPermission';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { useAuthStore } from '../store/useAuthStore';
@@ -91,6 +93,7 @@ const sections: NavSection[] = [
       { to: '/team', icon: Users, label: 'Project Team' },
       { to: '/actual-hours', icon: Clock, label: 'Actual Hours' },
       { to: '/projects', icon: FolderKanban, label: 'Current Projects' },
+      { to: '/project-plans', icon: ListChecks, label: 'Project Plans' },
       { to: '/pipeline', icon: Layers, label: 'Pipeline Projects' },
       { to: '/forecasting', icon: TrendingUp, label: 'Utilization Forecast' },
       { to: '/hiring-forecast', icon: UserPlus, label: 'Hiring Forecast' },
@@ -248,8 +251,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   //     own "My Work" group at the top.
   //   - admin: full nav + Admin section, with "My Time" + "Team Time" injected
   //     under Projects.
+  // Project Plans is gated by its tab, not by role: BAs / project leads are
+  // role='employee' and TA managers are role='manager', and some of each own
+  // plans. Admins already get it in the Projects section.
+  const plansPerm = useTabPermission('project-plans');
+  const planItem: NavItem = { to: '/project-plans', icon: ListChecks, label: 'Project Plans' };
   const rawSections: NavSection[] = isEmployee
-    ? employeeOnlySections
+    ? employeeOnlySections.map((sec) =>
+        sec.label === 'My Work' && plansPerm.canView ? { ...sec, items: [...sec.items, planItem] } : sec,
+      )
     : isAdmin
       ? sections
           .map((s) =>
@@ -260,7 +270,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
           .concat([adminSection])
       : // TA Manager
         [
-          { label: 'My Work', items: [myTimeItem, teamTimeItem, teamLeaveItem] } as NavSection,
+          { label: 'My Work', items: [myTimeItem, teamTimeItem, teamLeaveItem, ...(plansPerm.canView ? [planItem] : [])] } as NavSection,
           ...sections.filter((s) => s.label !== 'Projects'),
         ];
 

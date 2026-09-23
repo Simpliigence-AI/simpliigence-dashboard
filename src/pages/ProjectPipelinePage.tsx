@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useForecastStore, usePipelineStore, useFinancialStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
@@ -7,7 +8,7 @@ import { GovernanceSyncModal } from './projects/GovernanceSyncModal';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import { supabase } from '../lib/supabase';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore, Link2, Upload, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore, Link2, Upload, Loader2, ListChecks } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -301,6 +302,17 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
 
       {expanded && (
         <div className="mt-4 border-t border-line/60 pt-4 space-y-4">
+          {/* Plan now lives in the Dashboard (migration 033). Migrated plans keep
+              their Governance id, so the existing link is the plan's id. */}
+          {project.governanceProjectId && (
+            <Link
+              to={`/project-plans/${project.governanceProjectId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+            >
+              <ListChecks size={13} /> Open project plan
+            </Link>
+          )}
           {/* Phase timeline */}
           {phases.length > 0 && project.startDate && project.endDate && (
             <PhaseTimeline phases={phases} projectStart={project.startDate} projectEnd={project.endDate} />

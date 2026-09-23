@@ -44,7 +44,13 @@ export default function AppLayout() {
 
   // Hard lockdown: role='employee' may only visit EMPLOYEE_ALLOWED_PATHS.
   // Any other URL (typed, bookmarked, deep-linked) bounces back to /my-time.
-  const isEmployeeBlocked = role === 'employee' && !EMPLOYEE_ALLOWED_PATHS.has(location.pathname);
+  // Exception: /project-plans/* — BAs and project leads are role='employee'
+  // but own plans. Those pages check the 'project-plans' tab themselves and
+  // bounce anyone without it.
+  const isEmployeeBlocked =
+    role === 'employee' &&
+    !EMPLOYEE_ALLOWED_PATHS.has(location.pathname) &&
+    !location.pathname.startsWith('/project-plans');
 
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_KEY, String(collapsed)); } catch {}

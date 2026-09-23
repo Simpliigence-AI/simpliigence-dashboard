@@ -40,6 +40,8 @@ import AuditLogPage from '../pages/admin/AuditLogPage';
 import LeaveAdminPage from '../pages/admin/LeaveAdminPage';
 import AccessMatrixPage from '../pages/admin/AccessMatrixPage';
 import CheckinAdminPage from '../pages/admin/CheckinAdminPage';
+import ProjectPlansPage from '../pages/ProjectPlansPage';
+import ProjectPlanDetailPage from '../pages/project-plans/ProjectPlanDetailPage';
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
@@ -74,6 +76,10 @@ export const router = createBrowserRouter(
         { path: 'actual-hours', element: <RoleOnly allow={['admin']}><ActualHoursPage /></RoleOnly> },
         { path: 'projects', element: <RoleOnly allow={['admin']}><ProjectPipelinePage /></RoleOnly> },
         { path: 'pipeline', element: <RoleOnly allow={['admin']}><PipelinePage /></RoleOnly> },
+        // Gated by the 'project-plans' tab (role + per-user grants), not by role alone —
+        // BAs and project leads with role='employee' own plans too. Pages redirect if denied.
+        { path: 'project-plans', element: <ProjectPlansPage /> },
+        { path: 'project-plans/:id', element: <ProjectPlanDetailPage /> },
         { path: 'forecasting', element: <RoleOnly allow={['admin']}><ForecastingPage /></RoleOnly> },
         { path: 'hiring-forecast', element: <RoleOnly allow={['admin']}><HiringForecastPage /></RoleOnly> },
         { path: 'financials', element: <RoleOnly allow={['admin']}><FinancialsPage /></RoleOnly> },

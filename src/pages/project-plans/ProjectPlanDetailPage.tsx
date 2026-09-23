@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen,
+  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen, FileSignature, CalendarClock, FileSearch, LayoutTemplate,
 } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
@@ -17,14 +17,19 @@ import { useTabPermission } from '../../hooks/useTabPermission';
 import { groupPhases, isDone, isLate, planProgress, fmtDate } from '../../lib/deliveryPlan';
 import type { DeliveryTask, DeliveryIssue, IssueCriticality, DeliveryProjectStatus, DeliveryBaseline } from '../../types/delivery';
 import { EditCell, cellInput } from './planUi';
-import { alertError } from '../../lib/planToast';
+import { alertError, toast } from '../../lib/planToast';
 import { HeatmapTab } from './HeatmapTab';
 import { GanttChart } from './GanttChart';
 import { CheckinsTab } from './CheckinsTab';
 import { DocumentsTab } from './DocumentsTab';
 import { RequestsTab } from './RequestsTab';
+import { ChangeRequestsTab } from './ChangeRequestsTab';
+import { HistoryTab } from './HistoryTab';
+import { PlanSetupCard, SowImportDialog, TemplateDialog } from './PlanSetup';
+import { ProjectSummary } from './ProjectSummary';
+import { PersonCell } from './planUi';
 
-type Tab = 'plan' | 'issues' | 'requests' | 'heatmap' | 'checkins' | 'documents' | 'history';
+type Tab = 'plan' | 'issues' | 'requests' | 'changes' | 'heatmap' | 'checkins' | 'documents' | 'history';
 
 export default function ProjectPlanDetailPage() {
   const { id = '' } = useParams();
@@ -65,7 +70,15 @@ export default function ProjectPlanDetailPage() {
         <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-[-0.02em] text-ink">{project.name}</h1>
-            <div className="mt-1 text-sm text-muted">{[project.client, project.pm && `PM ${project.pm}`, project.deliveryLead && `Lead ${project.deliveryLead}`].filter(Boolean).join(' · ') || '—'}</div>
+            {project.client && project.client !== project.name && <div className="mt-1 text-sm text-muted">{project.client}</div>}
+            <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 max-w-3xl">
+              {([['pm', 'Project manager'], ['deliveryLead', 'Delivery lead'], ['architect', 'Solution architect'], ['sponsor', 'Client sponsor']] as const).map(([k, label]) => (
+                <div key={k}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</div>
+                  <PersonCell value={project[k]} disabled={!canEdit} placeholder="Set…" className="!px-0 text-sm font-medium" onSave={(v) => save({ [k]: v })} />
+                </div>
+              ))}
+            </div>
           </div>
           <select
             value={project.status}
@@ -100,8 +113,10 @@ export default function ProjectPlanDetailPage() {
         </div>
       </div>
 
+      <ProjectSummary project={project} canEdit={canEdit} />
+
       <div className="flex gap-1 border-b border-line overflow-x-auto">
-        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length + s.changeRequests.filter((c) => c.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
+        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['changes', 'Change requests', FileSignature, s.changeRequests.filter((c) => c.projectId === project.id && c.state === 'pending').length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -117,6 +132,7 @@ export default function ProjectPlanDetailPage() {
       {tab === 'plan' && <PlanTab projectId={project.id} tasks={tasks} canEdit={canEdit} baseline={s.baselines.filter((b) => b.projectId === project.id).at(-1) ?? null} />}
       {tab === 'issues' && <IssuesTab projectId={project.id} issues={issues} canEdit={canEdit} />}
       {tab === 'requests' && <RequestsTab project={project} canEdit={canEdit} />}
+      {tab === 'changes' && <ChangeRequestsTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'heatmap' && <HeatmapTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'checkins' && <CheckinsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
       {tab === 'documents' && <DocumentsTab projectId={project.id} canEdit={canEdit} />}
@@ -148,8 +164,11 @@ function PlanTab({ projectId, tasks, canEdit, baseline }: { projectId: string; t
   if (tasks.length === 0 && !canEdit) {
     return <Card><EmptyState icon={<ListChecks size={36} />} title="No plan yet" description="Nobody has added tasks to this project." /></Card>;
   }
+  if (tasks.length === 0) return <PlanSetupCard projectId={projectId} />;
 
   const viewToggle = (
+    <div className="flex flex-wrap items-center gap-2">
+    {canEdit && <PlanTools projectId={projectId} />}
     <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
       {(['gantt', 'table'] as const).map((v) => (
         <button key={v} onClick={() => setView(v)}
@@ -157,6 +176,7 @@ function PlanTab({ projectId, tasks, canEdit, baseline }: { projectId: string; t
           {v === 'gantt' ? 'Gantt chart' : 'Table'}
         </button>
       ))}
+    </div>
     </div>
   );
 
@@ -421,59 +441,55 @@ function IssuesTab({ projectId, issues, canEdit }: { projectId: string; issues: 
 
 /* ── History ──────────────────────────────────────────────────────────── */
 
-function HistoryTab({ projectId }: { projectId: string }) {
-  const allBaselines = useDeliveryStore((st) => st.baselines);
-  const allCrs = useDeliveryStore((st) => st.changeRequests);
-  const baselines = allBaselines.filter((b) => b.projectId === projectId);
-  const crs = allCrs.filter((c) => c.projectId === projectId);
-  if (baselines.length === 0 && crs.length === 0) {
-    return <Card><EmptyState icon={<History size={32} />} title="No history yet" description="Baselines and change requests for this project will appear here." /></Card>;
-  }
+/* ── Plan tools: shift, SOW import, template ─────────────────────────── */
+
+function PlanTools({ projectId }: { projectId: string }) {
+  const [shift, setShift] = useState(false);
+  const [sow, setSow] = useState(false);
+  const [tpl, setTpl] = useState(false);
+  const btn = 'inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink';
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Card title="Baselines">
-        {baselines.length === 0 ? <p className="text-sm text-muted">No baselines captured.</p> : (
-          <ul className="space-y-3">
-            {baselines.map((b) => (
-              <li key={b.id} className="border-b border-line/40 pb-3 last:border-0 last:pb-0">
-                <div className="font-semibold text-ink">{b.label ?? 'Baseline'}</div>
-                <div className="text-xs text-muted">
-                  {fmtDate(b.snapshotAt.slice(0, 10))} · {b.taskCount} tasks · planned end {fmtDate(b.plannedEnd)}
-                  {b.source === 'cr' && ' · after change request'}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-      <Card title="Change requests">
-        {crs.length === 0 ? <p className="text-sm text-muted">No change requests.</p> : (
-          <ul className="space-y-3">
-            {crs.map((c) => (
-              <li key={c.id} className="border-b border-line/40 pb-3 last:border-0 last:pb-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-ink">{c.title}</div>
-                  <Badge variant={c.state === 'approved' ? 'success' : c.state === 'rejected' ? 'danger' : 'warning'}>{c.state}</Badge>
-                </div>
-                <div className="text-xs text-muted">
-                  {fmtDate(c.createdAt.slice(0, 10))}
-                  {c.impactDays != null && ` · +${c.impactDays} days`}
-                  {c.impactHours != null && ` · +${c.impactHours} hrs`}
-                </div>
-                {c.approvers.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {c.approvers.map((a, n) => (
-                      <span key={n} className="text-[11px] rounded bg-surface-2 px-1.5 py-0.5 text-muted">
-                        {a.role}: {a.who} — {a.state}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+    <>
+      <button className={btn} onClick={() => setShift(true)}><CalendarClock size={13} /> Shift plan</button>
+      <button className={btn} onClick={() => setSow(true)}><FileSearch size={13} /> Add from SOW</button>
+      <button className={btn} onClick={() => setTpl(true)}><LayoutTemplate size={13} /> Add from template</button>
+      <ShiftPlanDialog projectId={projectId} open={shift} onClose={() => setShift(false)} />
+      <SowImportDialog projectId={projectId} open={sow} onClose={() => setSow(false)} />
+      <TemplateDialog projectId={projectId} open={tpl} onClose={() => setTpl(false)} />
+    </>
+  );
+}
+
+function ShiftPlanDialog({ projectId, open, onClose }: { projectId: string; open: boolean; onClose: () => void }) {
+  const shiftPlan = useDeliveryStore((st) => st.shiftPlan);
+  const [days, setDays] = useState(7);
+  const [from, setFrom] = useState('');
+  const [moveEnd, setMoveEnd] = useState(true);
+  const [busy, setBusy] = useState(false);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <form className="w-full max-w-md rounded-xl bg-surface p-5 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try { const n = await shiftPlan(projectId, days, from || null, moveEnd); toast(`${n} task${n === 1 ? '' : 's'} moved`, 'ok'); onClose(); }
+          catch (err) { alertError(err); } finally { setBusy(false); }
+        }}>
+        <div className="text-base font-bold text-ink">Shift the plan</div>
+        <p className="text-sm text-muted">Moves every unfinished task. Finished tasks stay where they are.</p>
+        <label className="block text-xs font-semibold text-muted">Days (negative pulls the plan in)
+          <input type="number" value={days} onChange={(e) => setDays(Math.round(Number(e.target.value)) || 0)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" />
+        </label>
+        <label className="block text-xs font-semibold text-muted">Only tasks ending on or after (optional)
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" />
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={moveEnd} onChange={(e) => setMoveEnd(e.target.checked)} /> Move the project end date too</label>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={busy || days === 0}>{busy && <Loader2 size={14} className="animate-spin" />} Shift {days > 0 ? '+' : ''}{days} days</Button>
+        </div>
+      </form>
     </div>
   );
 }

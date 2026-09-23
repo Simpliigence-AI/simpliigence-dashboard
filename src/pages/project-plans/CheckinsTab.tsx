@@ -5,7 +5,7 @@
  * (enforced in the database, migration 034).
  */
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Send, Copy, ClipboardCheck, Trash2, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Send, Copy, ClipboardCheck, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore, currentWeekEnding, type CheckinTextField } from '../../store/useDeliveryStore';
 import { fmtDate } from '../../lib/deliveryPlan';
@@ -42,6 +42,7 @@ export function CheckinsTab({ projectId, projectName, canEdit }: { projectId: st
       <Card title={`This week · ending ${fmtDate(week)}`}>
         {draft ? (
           <div className="space-y-4">
+            {canEdit && <AiDraftButton checkinId={draft.id} projectId={projectId} hasText={FIELDS.some((f) => !!draft[f.key])} />}
             {FIELDS.map((f) => (
               <DraftField key={f.key} label={f.label} hint={f.hint} value={draft[f.key]} disabled={!canEdit}
                 onSave={(v) => updateCheckin(draft.id, f.key, v)} />
@@ -236,6 +237,34 @@ function Report({ c, projectName }: { c: DeliveryCheckin; projectName: string })
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+const AI_FIELD: Record<CheckinTextField, string> = {
+  activitiesBuild: 'activities_build', activitiesTesting: 'activities_testing', activitiesDemos: 'activities_demos',
+  activitiesPm: 'activities_pm', upcomingFocus: 'upcoming_focus',
+};
+
+/** Fill this week's draft from the last 7 days of plan, issue, request and CR changes. */
+function AiDraftButton({ checkinId, projectId, hasText }: { checkinId: string; projectId: string; hasText: boolean }) {
+  const { ai, updateCheckin } = useDeliveryStore.getState();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-surface-2/60 px-3 py-2">
+      <Button size="sm" variant="secondary" disabled={busy} onClick={async () => {
+        if (hasText && !window.confirm('Replace what’s written with an AI draft?')) return;
+        setBusy(true);
+        try {
+          const out = await ai<{ draft: Record<string, string> }>('checkin-draft', { projectId });
+          for (const f of FIELDS) {
+            const v = out.draft[AI_FIELD[f.key]];
+            if (typeof v === 'string') await updateCheckin(checkinId, f.key, v);
+          }
+          toast('Draft written — review before submitting', 'ok');
+        } catch (e) { alertError(e); } finally { setBusy(false); }
+      }}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Draft with AI</Button>
+      <span className="text-xs text-muted">Written from this week’s plan changes, issues, client requests and change requests.</span>
     </div>
   );
 }

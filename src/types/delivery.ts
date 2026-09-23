@@ -26,6 +26,10 @@ export interface DeliveryProject {
   /** Signed scope — what the scope classifier judges client requests against. */
   frozenRequirements: string[];
   frozenExclusions: string[];
+  /** AI executive summary (migration 036). */
+  summary: string | null;
+  summaryAt: string | null;
+  health: 'green' | 'amber' | 'red' | null;
   zohoProjectId: string | null;
   updatedAt: string;
 }
@@ -72,8 +76,11 @@ export interface DeliveryBaseline {
 export interface CrApprover {
   role: string;
   who: string;
-  state: string;
+  state: 'pending' | 'approved' | 'rejected' | string;
   at?: string;
+  /** Who recorded the decision in the Dashboard (migration 036). */
+  by?: string;
+  note?: string;
 }
 
 export interface DeliveryChangeRequest {
@@ -87,6 +94,10 @@ export interface DeliveryChangeRequest {
   approvers: CrApprover[];
   state: string;
   createdAt: string;
+  requestId: string | null;
+  requestedBy: string | null;
+  decidedAt: string | null;
+  baselineId: string | null;
 }
 
 export type IssueCriticality = 'low' | 'medium' | 'high' | 'critical';
@@ -179,6 +190,44 @@ export interface DeliveryDocument {
   supersedesId: string | null;
   addedBy: string | null;
   createdAt: string;
+  /** Set on AI-generated documents: which generator made it (migration 036). */
+  generator: DocGenerator | null;
+}
+
+export type DocGenerator = 'user_stories' | 'test_cases' | 'process_flows' | 'status_report';
+
+export interface DocFeedback {
+  id: string;
+  documentId: string;
+  projectId: string;
+  author: string | null;
+  body: string;
+  state: 'open' | 'resolved';
+  createdAt: string;
+}
+
+/** One entry in the project's change log (migration 036). */
+export interface AuditEvent {
+  id: string;
+  projectId: string | null;
+  at: string;
+  actor: string | null;
+  action: string;
+  payload: { id?: string; label?: string; fields?: string[]; [k: string]: unknown };
+}
+
+export interface Person { email: string; fullName: string }
+
+export interface PipelineOption { id: string; name: string; status: string | null; startDate: string | null; endDate: string | null; linkedTo: string | null }
+
+/** What delivery-ai's sow-parse proposes. Nothing is saved until applied. */
+export interface SowProposal {
+  requirements: string[];
+  exclusions: string[];
+  phases: { name: string; tasks: { name: string; start_week: number; duration_weeks: number }[] }[];
+  features: { name: string; description?: string }[];
+  milestones?: string[];
+  total_weeks?: number;
 }
 
 export type RequestVerdict = 'green' | 'amber' | 'red';

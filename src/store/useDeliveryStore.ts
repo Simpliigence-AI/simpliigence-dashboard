@@ -23,7 +23,15 @@ import type {
   RequestVerdict,
   RequestState,
   DocumentState,
+  DocFeedback,
+  AuditEvent,
+  Person,
+  PipelineOption,
+  SowProposal,
+  DocGenerator,
+  CrApprover,
 } from '../types/delivery';
+import { PLAN_TEMPLATES, addDays, type TemplatePhase } from '../lib/planTemplates';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toProject = (r: any): DeliveryProject => ({
@@ -45,6 +53,9 @@ const toProject = (r: any): DeliveryProject => ({
   teamsChannelId: r.teams_channel_id ?? null,
   frozenRequirements: Array.isArray(r.frozen_requirements) ? r.frozen_requirements.map(String) : [],
   frozenExclusions: Array.isArray(r.frozen_exclusions) ? r.frozen_exclusions.map(String) : [],
+  summary: r.summary ?? null,
+  summaryAt: r.summary_at ?? null,
+  health: r.health ?? null,
   zohoProjectId: r.zoho_project_id ?? null,
   updatedAt: r.updated_at,
 });
@@ -102,6 +113,10 @@ const toCr = (r: any): DeliveryChangeRequest => ({
   approvers: Array.isArray(r.approvers) ? r.approvers : [],
   state: r.state,
   createdAt: r.created_at,
+  requestId: r.request_id ?? null,
+  requestedBy: r.requested_by ?? null,
+  decidedAt: r.decided_at ?? null,
+  baselineId: r.baseline_id ?? null,
 });
 const toFeature = (r: any): DeliveryFeature => ({
   id: r.id,
@@ -150,6 +165,15 @@ const toDocument = (r: any): DeliveryDocument => ({
   supersedesId: r.supersedes_id ?? null,
   addedBy: r.added_by ?? null,
   createdAt: r.created_at,
+  generator: r.generator ?? null,
+});
+const toFeedback = (r: any): DocFeedback => ({
+  id: r.id, documentId: r.document_id, projectId: r.project_id, author: r.author ?? null,
+  body: r.body, state: r.state === 'resolved' ? 'resolved' : 'open', createdAt: r.created_at,
+});
+const toAudit = (r: any): AuditEvent => ({
+  id: r.id, projectId: r.project_id ?? null, at: r.at, actor: r.actor ?? null, action: r.action,
+  payload: r.payload && typeof r.payload === 'object' ? r.payload : {},
 });
 const toRequest = (r: any): DeliveryRequest => ({
   id: r.id,
@@ -207,6 +231,12 @@ export interface PlanSummary {
   criticalIssues: number;
   /** Latest task end date — the plan's own end when the project has none set. */
   planEnd: string | null;
+  /** Out-of-scope client requests nobody has acted on, and their estimated hours. */
+  openOutOfScope: number;
+  outOfScopeHours: number;
+  pendingCrs: number;
+  /** Week-ending date of the last submitted check-in. */
+  lastCheckin: string | null;
 }
 
 interface State {
@@ -224,6 +254,9 @@ interface State {
   checkins: DeliveryCheckin[];
   documents: DeliveryDocument[];
   requests: DeliveryRequest[];
+  feedback: DocFeedback[];
+  audit: AuditEvent[];
+  people: Person[];
   detailId: string | null;
   detailLoading: boolean;
 
@@ -231,7 +264,7 @@ interface State {
   loadDetail: (projectId: string) => Promise<void>;
 
   updateProject: (id: string, patch: Partial<Pick<DeliveryProject,
-    'status' | 'startDate' | 'plannedEnd' | 'currentEnd' | 'pm' | 'deliveryLead' | 'client'>>) => Promise<void>;
+    'status' | 'startDate' | 'plannedEnd' | 'currentEnd' | 'pm' | 'deliveryLead' | 'client' | 'architect' | 'sponsor' | 'name' | 'pipelineProjectId'>>) => Promise<void>;
 
   addTask: (projectId: string, t: { name: string; phase?: string | null; startDate?: string | null; endDate?: string | null; assignee?: string | null }) => Promise<void>;
   updateTask: (id: string, patch: Partial<Pick<DeliveryTask,
@@ -270,7 +303,71 @@ interface State {
   setRequestState: (id: string, state: RequestState) => Promise<void>;
   removeRequest: (id: string) => Promise<void>;
   /** Create a pending change request from an out-of-scope request. */
-  raiseChangeRequest: (requestId: string) => Promise<void>;
+  raiseChangeRequest: (requestId: string, draft?: CrDraft) => Promise<void>;
+
+  /* ── Phase 4 ── */
+  loadPeople: () => Promise<Person[]>;
+  loadPipelineOptions: () => Promise<PipelineOption[]>;
+  createProject: (p: NewProject) => Promise<string>;
+  createChangeRequest: (projectId: string, d: CrDraft & { requestId?: string | null }) => Promise<void>;
+  updateChangeRequest: (id: string, patch: Partial<CrDraft> & { approvers?: CrApprover[] }) => Promise<void>;
+  /** Record one approver's decision; the database applies the CR when all approve. */
+  decideCr: (crId: string, idx: number, decision: 'approved' | 'rejected' | 'pending', note?: string) => Promise<void>;
+  removeChangeRequest: (id: string) => Promise<void>;
+  shiftPlan: (projectId: string, days: number, from: string | null, moveEnd: boolean) => Promise<number>;
+  applyTemplate: (projectId: string, templateKey: string, startDate: string) => Promise<void>;
+  /** Write an accepted SOW extraction: scope lists, plan tasks, heatmap features. */
+  applySowProposal: (projectId: string, p: SowProposal, opts: { scope: boolean; plan: boolean; features: boolean; startDate: string; replaceScope: boolean }) => Promise<void>;
+  addFeatures: (projectId: string, list: { name: string; description?: string }[]) => Promise<void>;
+  /** Call the delivery-ai edge function. */
+  ai: <T = Record<string, unknown>>(action: string, body: Record<string, unknown>) => Promise<T>;
+  generateDocument: (projectId: string, kind: DocGenerator, instructions?: string) => Promise<DeliveryDocument>;
+  refreshSummary: (projectId: string) => Promise<void>;
+  addFeedback: (doc: DeliveryDocument, body: string) => Promise<void>;
+  setFeedbackState: (id: string, state: 'open' | 'resolved') => Promise<void>;
+  removeFeedback: (id: string) => Promise<void>;
+  copyDocuments: (fromProjectId: string, docIds: string[], toProjectId: string) => Promise<number>;
+  documentText: (doc: DeliveryDocument) => Promise<string>;
+}
+
+export interface CrDraft { title: string; description?: string | null; impactDays?: number | null; impactHours?: number | null; milestoneShift?: string | null }
+export interface NewProject {
+  name: string; client?: string | null; pipelineProjectId?: string | null; startDate?: string | null; plannedEnd?: string | null;
+  pm?: string | null; deliveryLead?: string | null; architect?: string | null; sponsor?: string | null;
+}
+
+/** Governance's four sign-offs, filled from the project team. */
+export function defaultApprovers(p?: DeliveryProject | null): CrApprover[] {
+  return [
+    { role: 'Project Manager', who: p?.pm || 'TBD', state: 'pending' },
+    { role: 'Solution Architect', who: p?.architect || 'TBD', state: 'pending' },
+    { role: 'Delivery Lead', who: p?.deliveryLead || 'TBD', state: 'pending' },
+    { role: 'Client Sponsor', who: p?.sponsor || 'TBD', state: 'pending' },
+  ];
+}
+
+/** Turn weeks-from-start phases into task rows. */
+function planRows(projectId: string, phases: TemplatePhase[], startDate: string, firstSort: number, source: string) {
+  let sort = firstSort;
+  const rows: Record<string, unknown>[] = [];
+  for (const ph of phases) {
+    for (const t of ph.tasks) {
+      const start = addDays(startDate, Math.max(0, t.start_week) * 7);
+      const end = addDays(start, Math.max(1, t.duration_weeks) * 7 - 3); // end on the Friday
+      sort += 10;
+      rows.push({ id: nanoid(16), project_id: projectId, name: t.name.trim(), phase: ph.name.trim() || null, start_date: start, end_date: end, source, sort_order: sort, updated_by: me() });
+    }
+  }
+  return rows;
+}
+
+async function fnError(error: unknown, data: { error?: string } | null): Promise<string> {
+  let msg = data?.error ?? (error as Error)?.message ?? 'Request failed.';
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof ctx.json === 'function') {
+    try { const j = await ctx.json(); msg = j.error ?? msg; } catch { /* keep msg */ }
+  }
+  return msg;
 }
 
 export const useDeliveryStore = create<State>((set, get) => ({
@@ -286,24 +383,30 @@ export const useDeliveryStore = create<State>((set, get) => ({
   checkins: [],
   documents: [],
   requests: [],
+  feedback: [],
+  audit: [],
+  people: [],
   detailId: null,
   detailLoading: false,
 
   loadProjects: async () => {
     set({ loading: true, error: null });
     try {
-      const [p, t, i] = await Promise.all([
+      const [p, t, i, q, c, k] = await Promise.all([
         supabase.from('delivery_projects').select('*').order('name'),
         supabase.from('delivery_tasks').select('project_id, status, percent, end_date'),
         supabase.from('delivery_issues').select('project_id, state, criticality'),
+        supabase.from('delivery_requests').select('project_id, verdict, state, impact_hours'),
+        supabase.from('delivery_change_requests').select('project_id, state'),
+        supabase.from('delivery_checkins').select('project_id, week_ending').eq('status', 'submitted'),
       ]);
-      const err = p.error || t.error || i.error;
+      const err = p.error || t.error || i.error || q.error || c.error || k.error;
       if (err) throw new Error(err.message);
 
       const today = new Date().toISOString().slice(0, 10);
       const summaries: Record<string, PlanSummary> = {};
       const row = (id: string) =>
-        (summaries[id] ??= { tasks: 0, done: 0, late: 0, openIssues: 0, criticalIssues: 0, planEnd: null });
+        (summaries[id] ??= { tasks: 0, done: 0, late: 0, openIssues: 0, criticalIssues: 0, planEnd: null, openOutOfScope: 0, outOfScopeHours: 0, pendingCrs: 0, lastCheckin: null });
       for (const r of t.data ?? []) {
         const s = row(r.project_id);
         const done = r.status === 'done' || (r.percent ?? 0) >= 100;
@@ -318,6 +421,17 @@ export const useDeliveryStore = create<State>((set, get) => ({
         s.openIssues += 1;
         if (r.criticality === 'critical' || r.criticality === 'high') s.criticalIssues += 1;
       }
+      for (const r of q.data ?? []) {
+        if (r.verdict !== 'red' || r.state !== 'open') continue;
+        const s = row(r.project_id);
+        s.openOutOfScope += 1;
+        s.outOfScopeHours += r.impact_hours ?? 0;
+      }
+      for (const r of c.data ?? []) if (r.state === 'pending') row(r.project_id).pendingCrs += 1;
+      for (const r of k.data ?? []) {
+        const s = row(r.project_id);
+        if (!s.lastCheckin || r.week_ending > s.lastCheckin) s.lastCheckin = r.week_ending;
+      }
       set({ projects: (p.data ?? []).map(toProject), summaries });
     } catch (e) {
       set({ error: (e as Error).message });
@@ -329,7 +443,7 @@ export const useDeliveryStore = create<State>((set, get) => ({
   loadDetail: async (projectId) => {
     set({ detailLoading: true, detailId: projectId, error: null });
     try {
-      const [p, t, i, b, c, f, k, d, q] = await Promise.all([
+      const [p, t, i, b, c, f, k, d, q, fb, au] = await Promise.all([
         supabase.from('delivery_projects').select('*').eq('id', projectId).maybeSingle(),
         supabase.from('delivery_tasks').select('*').eq('project_id', projectId).order('sort_order').order('start_date'),
         supabase.from('delivery_issues').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
@@ -339,6 +453,8 @@ export const useDeliveryStore = create<State>((set, get) => ({
         supabase.from('delivery_checkins').select('*').eq('project_id', projectId).order('week_ending', { ascending: false }).order('created_at', { ascending: false }),
         supabase.from('delivery_documents').select('*').eq('project_id', projectId).order('modified_at', { ascending: false, nullsFirst: false }),
         supabase.from('delivery_requests').select('*').eq('project_id', projectId).order('received_at', { ascending: false }),
+        supabase.from('delivery_document_feedback').select('*').eq('project_id', projectId).order('created_at'),
+        supabase.from('delivery_audit').select('*').eq('project_id', projectId).order('at', { ascending: false }).limit(300),
       ]);
       const err = p.error || t.error || i.error || b.error || c.error || f.error || k.error || d.error || q.error;
       if (err) throw new Error(err.message);
@@ -359,6 +475,9 @@ export const useDeliveryStore = create<State>((set, get) => ({
         checkins: (k.data ?? []).map(toCheckin),
         documents: (d.data ?? []).map(toDocument),
         requests: (q.data ?? []).map(toRequest),
+        // Phase-4 tables: tolerate them not existing yet (migration 036 not run).
+        feedback: fb.error ? [] : (fb.data ?? []).map(toFeedback),
+        audit: au.error ? [] : (au.data ?? []).map(toAudit),
       }));
     } catch (e) {
       set({ error: (e as Error).message });
@@ -376,6 +495,13 @@ export const useDeliveryStore = create<State>((set, get) => ({
     if (patch.pm !== undefined) db.pm = orNull(patch.pm);
     if (patch.deliveryLead !== undefined) db.delivery_lead = orNull(patch.deliveryLead);
     if (patch.client !== undefined) db.client = orNull(patch.client);
+    if (patch.architect !== undefined) db.architect = orNull(patch.architect);
+    if (patch.sponsor !== undefined) db.sponsor = orNull(patch.sponsor);
+    if (patch.name !== undefined) {
+      if (!patch.name.trim()) throw new Error('Project name can’t be empty.');
+      db.name = patch.name.trim();
+    }
+    if (patch.pipelineProjectId !== undefined) db.pipeline_project_id = patch.pipelineProjectId || null;
     const { data, error } = await supabase.from('delivery_projects').update(db).eq('id', id).select().single();
     if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
     const p = toProject(data);
@@ -693,26 +819,256 @@ export const useDeliveryStore = create<State>((set, get) => ({
     set((st) => ({ requests: st.requests.filter((x) => x.id !== id) }));
   },
 
-  raiseChangeRequest: async (requestId) => {
+  raiseChangeRequest: async (requestId, draft) => {
     const req = get().requests.find((x) => x.id === requestId);
     if (!req) throw new Error('Request not found.');
     if (req.crId) throw new Error('A change request already exists for this request.');
     const firstLine = req.text.split('\n').map((l) => l.trim()).find(Boolean) ?? req.text;
-    const title = firstLine.length > 90 ? `${firstLine.slice(0, 87)}…` : firstLine;
-    const crId = nanoid(16);
-    const cr = await supabase.from('delivery_change_requests').insert({
-      id: crId, project_id: req.projectId, request_id: req.id, title,
+    const d: CrDraft = draft ?? {
+      title: firstLine.length > 90 ? `${firstLine.slice(0, 87)}…` : firstLine,
       description: [req.text, req.detail && `Scope review: ${req.detail}`].filter(Boolean).join('\n\n'),
-      impact_days: req.impactDays, impact_hours: req.impactHours, state: 'pending',
-    }).select().single();
-    if (cr.error || !cr.data) throw new Error(cr.error?.message ?? 'Could not create the change request.');
-    const { data, error } = await supabase.from('delivery_requests').update({ cr_id: crId, state: 'cr-raised' })
-      .eq('id', requestId).select().single();
-    if (error || !data) throw new Error(error?.message ?? 'Change request created, but the request could not be linked.');
-    const r = toRequest(data);
-    set((st) => ({
-      changeRequests: [...st.changeRequests, toCr(cr.data)],
-      requests: st.requests.map((x) => (x.id === requestId ? r : x)),
+      impactDays: req.impactDays, impactHours: req.impactHours,
+    };
+    await get().createChangeRequest(req.projectId, { ...d, requestId: req.id });
+  },
+
+  loadPeople: async () => {
+    if (get().people.length) return get().people;
+    const { data, error } = await supabase.rpc('delivery_people');
+    if (error) return [];
+    const people = (data ?? []).map((r: { email: string; full_name: string }) => ({ email: r.email, fullName: r.full_name }));
+    set({ people });
+    return people;
+  },
+
+  loadPipelineOptions: async () => {
+    const { data, error } = await supabase.rpc('delivery_pipeline_options');
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r: Record<string, string | null>) => ({
+      id: r.id as string, name: r.name as string, status: r.status, startDate: r.start_date || null, endDate: r.end_date || null, linkedTo: r.linked_to,
     }));
+  },
+
+  createProject: async (n) => {
+    if (!n.name.trim()) throw new Error('Give the project a name.');
+    const id = nanoid(16);
+    const { data, error } = await supabase.from('delivery_projects').insert({
+      id, name: n.name.trim(), client: orNull(n.client), pipeline_project_id: n.pipelineProjectId || null,
+      status: 'active', start_date: n.startDate || null, planned_end: n.plannedEnd || null, current_end: n.plannedEnd || null,
+      pm: orNull(n.pm), delivery_lead: orNull(n.deliveryLead), architect: orNull(n.architect), sponsor: orNull(n.sponsor),
+      updated_by: me(),
+    }).select().single();
+    if (error || !data) {
+      if (error?.code === '23505') throw new Error('That Current Projects entry already has a plan. Pick another, or open the existing plan.');
+      throw new Error(error?.message ?? 'Could not create the project — you may only have view access.');
+    }
+    set((st) => ({ projects: [...st.projects, toProject(data)].sort((a, b) => a.name.localeCompare(b.name)) }));
+    return id;
+  },
+
+  createChangeRequest: async (projectId, d) => {
+    if (!d.title.trim()) throw new Error('Give the change request a title.');
+    const project = get().projects.find((p) => p.id === projectId) ?? null;
+    const crId = nanoid(16);
+    const row: Record<string, unknown> = {
+      id: crId, project_id: projectId, request_id: d.requestId ?? null, title: d.title.trim().slice(0, 200),
+      description: orNull(d.description ?? null), impact_days: d.impactDays ?? null, impact_hours: d.impactHours ?? null,
+      milestone_shift: orNull(d.milestoneShift ?? null), approvers: defaultApprovers(project), state: 'pending',
+      requested_by: useAuthStore.getState().currentUser?.fullName ?? me(),
+    };
+    let cr = await supabase.from('delivery_change_requests').insert(row).select().single();
+    if (cr.error && /requested_by/.test(cr.error.message)) {
+      // Migration 036 not run yet — save without the new column.
+      delete row.requested_by;
+      cr = await supabase.from('delivery_change_requests').insert(row).select().single();
+    }
+    if (cr.error || !cr.data) throw new Error(cr.error?.message ?? 'Could not create the change request.');
+    set((st) => ({ changeRequests: [...st.changeRequests, toCr(cr.data)] }));
+    if (d.requestId) {
+      const { data, error } = await supabase.from('delivery_requests').update({ cr_id: crId, state: 'cr-raised' })
+        .eq('id', d.requestId).select().single();
+      if (error || !data) throw new Error(error?.message ?? 'Change request created, but the request could not be linked.');
+      const r = toRequest(data);
+      set((st) => ({ requests: st.requests.map((x) => (x.id === d.requestId ? r : x)) }));
+    }
+  },
+
+  updateChangeRequest: async (id, patch) => {
+    const db: Record<string, unknown> = {};
+    if (patch.title !== undefined) db.title = patch.title.trim();
+    if (patch.description !== undefined) db.description = orNull(patch.description ?? null);
+    if (patch.impactDays !== undefined) db.impact_days = patch.impactDays;
+    if (patch.impactHours !== undefined) db.impact_hours = patch.impactHours;
+    if (patch.milestoneShift !== undefined) db.milestone_shift = orNull(patch.milestoneShift ?? null);
+    if (patch.approvers !== undefined) db.approvers = patch.approvers;
+    const { data, error } = await supabase.from('delivery_change_requests').update(db).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
+    const c = toCr(data);
+    set((st) => ({ changeRequests: st.changeRequests.map((x) => (x.id === id ? c : x)) }));
+  },
+
+  decideCr: async (crId, idx, decision, note) => {
+    const { data, error } = await supabase.rpc('delivery_cr_decide', { p_cr_id: crId, p_idx: idx, p_decision: decision, p_note: note ?? null });
+    if (error) throw new Error(error.message.includes('function') && error.message.includes('does not exist')
+      ? 'Approvals need database update 036 — ask an admin to run it.' : error.message);
+    const c = toCr(Array.isArray(data) ? data[0] : data);
+    set((st) => ({ changeRequests: st.changeRequests.map((x) => (x.id === crId ? c : x)) }));
+    // An approval can add a task, move the end date and snapshot a baseline.
+    if (c.state === 'approved' && get().detailId === c.projectId) await get().loadDetail(c.projectId);
+  },
+
+  removeChangeRequest: async (id) => {
+    const cr = get().changeRequests.find((x) => x.id === id);
+    const { error } = await supabase.from('delivery_change_requests').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((st) => ({ changeRequests: st.changeRequests.filter((x) => x.id !== id) }));
+    if (cr?.requestId) {
+      const { data } = await supabase.from('delivery_requests').update({ cr_id: null, state: 'open' }).eq('id', cr.requestId).select().single();
+      if (data) { const r = toRequest(data); set((st) => ({ requests: st.requests.map((x) => (x.id === r.id ? r : x)) })); }
+    }
+  },
+
+  shiftPlan: async (projectId, days, from, moveEnd) => {
+    const { data, error } = await supabase.rpc('delivery_shift_plan', { p_project_id: projectId, p_days: days, p_from: from || null, p_move_end: moveEnd });
+    if (error) throw new Error(error.message);
+    await get().loadDetail(projectId);
+    return (data as number) ?? 0;
+  },
+
+  applyTemplate: async (projectId, templateKey, startDate) => {
+    const tpl = PLAN_TEMPLATES.find((x) => x.key === templateKey);
+    if (!tpl) throw new Error('Unknown template.');
+    if (!startDate) throw new Error('Pick a start date.');
+    const last = get().tasks.filter((x) => x.projectId === projectId).reduce((m, x) => Math.max(m, x.sortOrder), 0);
+    const rows = planRows(projectId, tpl.phases, startDate, last, 'manual');
+    const { error } = await supabase.from('delivery_tasks').insert(rows);
+    if (error) throw new Error(error.message);
+    const p = get().projects.find((x) => x.id === projectId);
+    const end = addDays(startDate, tpl.weeks * 7 - 3);
+    await supabase.from('delivery_projects').update({
+      template: tpl.key,
+      start_date: p?.startDate ?? startDate,
+      planned_end: p?.plannedEnd ?? end,
+      current_end: p?.currentEnd ?? p?.plannedEnd ?? end,
+      updated_by: me(),
+    }).eq('id', projectId);
+    if (!get().features.some((f) => f.projectId === projectId)) {
+      await get().addFeatures(projectId, tpl.features.map((name) => ({ name })));
+    }
+    await get().loadDetail(projectId);
+  },
+
+  applySowProposal: async (projectId, prop, opts) => {
+    const p = get().projects.find((x) => x.id === projectId);
+    if (opts.scope) {
+      const merge = (cur: string[], add: string[]) => (opts.replaceScope ? add : [...cur, ...add.filter((a) => !cur.includes(a))]);
+      await get().updateScope(projectId, {
+        frozenRequirements: merge(p?.frozenRequirements ?? [], prop.requirements),
+        frozenExclusions: merge(p?.frozenExclusions ?? [], prop.exclusions),
+      });
+    }
+    if (opts.plan && prop.phases.length) {
+      if (!opts.startDate) throw new Error('Pick a start date for the plan.');
+      const last = get().tasks.filter((x) => x.projectId === projectId).reduce((m, x) => Math.max(m, x.sortOrder), 0);
+      const rows = planRows(projectId, prop.phases, opts.startDate, last, 'sow');
+      const { error } = await supabase.from('delivery_tasks').insert(rows);
+      if (error) throw new Error(error.message);
+      const ends = rows.map((r) => r.end_date as string).sort();
+      const end = ends[ends.length - 1];
+      await supabase.from('delivery_projects').update({
+        start_date: p?.startDate ?? opts.startDate,
+        planned_end: p?.plannedEnd ?? end,
+        current_end: p?.currentEnd ?? p?.plannedEnd ?? end,
+        updated_by: me(),
+      }).eq('id', projectId);
+    }
+    if (opts.features && prop.features.length) await get().addFeatures(projectId, prop.features);
+    await get().loadDetail(projectId);
+  },
+
+  addFeatures: async (projectId, items) => {
+    const existing = new Set(get().features.filter((f) => f.projectId === projectId).map((f) => f.name.trim().toLowerCase()));
+    let order = get().features.filter((f) => f.projectId === projectId).reduce((m, x) => Math.max(m, x.orderIndex), -1);
+    const rows = items.filter((f) => f.name?.trim() && !existing.has(f.name.trim().toLowerCase()))
+      .map((f) => ({ id: nanoid(16), project_id: projectId, name: f.name.trim(), description: orNull(f.description ?? null), order_index: ++order }));
+    if (!rows.length) return;
+    const { data, error } = await supabase.from('delivery_features').insert(rows).select();
+    if (error) throw new Error(error.message);
+    set((st) => ({ features: [...st.features, ...(data ?? []).map(toFeature)] }));
+  },
+
+  ai: async (action, body) => {
+    const { data, error } = await supabase.functions.invoke<Record<string, unknown> & { ok?: boolean; error?: string }>('delivery-ai', { body: { action, ...body } });
+    if (error || !data?.ok) throw new Error(await fnError(error, data ?? null));
+    return data as never;
+  },
+
+  generateDocument: async (projectId, kind, instructions) => {
+    const out = await get().ai<{ document: unknown }>('generate-doc', { projectId, kind, instructions: instructions || undefined });
+    const doc = toDocument(out.document);
+    set((st) => ({
+      documents: [doc, ...st.documents],
+      feedback: st.feedback.map((f) => (doc.supersedesId && f.documentId === doc.supersedesId && f.state === 'open' ? { ...f, state: 'resolved' as const } : f)),
+    }));
+    return doc;
+  },
+
+  refreshSummary: async (projectId) => {
+    const out = await get().ai<{ project: unknown }>('summary', { projectId });
+    const p = toProject(out.project);
+    set((st) => ({ projects: st.projects.map((x) => (x.id === projectId ? p : x)) }));
+  },
+
+  addFeedback: async (doc, body) => {
+    if (!body.trim()) return;
+    const { data, error } = await supabase.from('delivery_document_feedback').insert({
+      id: nanoid(16), document_id: doc.id, project_id: doc.projectId, body: body.trim(),
+      author: useAuthStore.getState().currentUser?.fullName ?? me(),
+    }).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Could not add the comment.');
+    set((st) => ({ feedback: [...st.feedback, toFeedback(data)] }));
+  },
+
+  setFeedbackState: async (id, state) => {
+    const { data, error } = await supabase.from('delivery_document_feedback').update({ state }).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused.');
+    const f = toFeedback(data);
+    set((st) => ({ feedback: st.feedback.map((x) => (x.id === id ? f : x)) }));
+  },
+
+  removeFeedback: async (id) => {
+    const { error } = await supabase.from('delivery_document_feedback').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((st) => ({ feedback: st.feedback.filter((x) => x.id !== id) }));
+  },
+
+  copyDocuments: async (fromProjectId, docIds, toProjectId) => {
+    const { data: src, error } = await supabase.from('delivery_documents').select('*').eq('project_id', fromProjectId).in('id', docIds);
+    if (error) throw new Error(error.message);
+    let n = 0;
+    for (const d of src ?? []) {
+      const id = nanoid(16);
+      let path: string | null = null;
+      if (d.storage_path) {
+        path = `${toProjectId}/${id}/${safeName(d.name)}`;
+        const cp = await supabase.storage.from(DOCS_BUCKET).copy(d.storage_path, path);
+        if (cp.error) throw new Error(`Could not copy ${d.name}: ${cp.error.message}`);
+      } else if (!d.web_url) continue; // still being moved from Governance
+      const { data: row, error: e2 } = await supabase.from('delivery_documents').insert({
+        id, project_id: toProjectId, name: d.name, doc_type: d.doc_type, source: d.source, version: d.version, state: 'review',
+        storage_path: path, mime_type: d.mime_type, web_url: d.web_url, size_bytes: d.size_bytes, modified_at: new Date().toISOString(), added_by: me(),
+      }).select().single();
+      if (e2 || !row) throw new Error(e2?.message ?? `Could not copy ${d.name}.`);
+      n += 1;
+      if (get().detailId === toProjectId) set((st) => ({ documents: [toDocument(row), ...st.documents] }));
+    }
+    return n;
+  },
+
+  documentText: async (doc) => {
+    if (!doc.storagePath) throw new Error('This file is still being copied over.');
+    const { data, error } = await supabase.storage.from(DOCS_BUCKET).download(doc.storagePath);
+    if (error || !data) throw new Error(error?.message ?? 'Could not read the file.');
+    return data.text();
   },
 }));

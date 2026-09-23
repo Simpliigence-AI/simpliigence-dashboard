@@ -7,10 +7,10 @@
  * PMs can override a verdict (the first verdict is kept) and turn a request
  * into a change request in one click.
  */
-import { useMemo, useState } from 'react';
-import { MessageSquareWarning, Loader2, RefreshCw, FileSignature, Copy, Trash2, ChevronDown, ChevronRight, Pencil, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { Card, Button, Badge, EmptyState } from '../../components/ui';
-import { useDeliveryStore } from '../../store/useDeliveryStore';
+import { useEffect, useMemo, useState } from 'react';
+import { MessageSquareWarning, Loader2, RefreshCw, FileSignature, Copy, Trash2, ChevronDown, ChevronRight, Pencil, ShieldCheck, AlertTriangle, Mail, Sparkles } from 'lucide-react';
+import { Card, Button, Badge, EmptyState, Drawer } from '../../components/ui';
+import { useDeliveryStore, type CrDraft } from '../../store/useDeliveryStore';
 import { alertError, toast } from '../../lib/planToast';
 import { fmtDate, todayIso } from '../../lib/deliveryPlan';
 import type { DeliveryProject, DeliveryRequest, RequestVerdict, RequestState } from '../../types/delivery';
@@ -213,7 +213,8 @@ function LogRequest({ projectId }: { projectId: string }) {
 }
 
 function RequestRow({ r, canEdit }: { r: DeliveryRequest; canEdit: boolean }) {
-  const { classifyRequest, overrideVerdict, setRequestState, removeRequest, raiseChangeRequest } = useDeliveryStore.getState();
+  const { classifyRequest, overrideVerdict, setRequestState, removeRequest, raiseChangeRequest, ai } = useDeliveryStore.getState();
+  const [replyOpen, setReplyOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [overriding, setOverriding] = useState(false);
@@ -283,8 +284,21 @@ function RequestRow({ r, canEdit }: { r: DeliveryRequest; canEdit: boolean }) {
       {canEdit && (
         <div className="mt-3 ml-0 md:ml-[8.75rem] flex flex-wrap gap-2">
           {!r.crId && r.verdict !== 'green' && r.state !== 'declined' && (
-            <Button size="sm" disabled={busy} onClick={() => run(() => raiseChangeRequest(r.id), 'Change request created — see History')}>
-              <FileSignature size={14} /> Raise change request
+            <Button size="sm" disabled={busy} onClick={() => run(async () => {
+              // Let Claude write the CR from the request and the SOW; fall back to the plain version.
+              let draft: CrDraft | undefined;
+              try {
+                const out = await ai<{ draft: { title: string; description: string; impact_days: number; impact_hours: number; milestone_shift: string } }>('draft-cr', { requestId: r.id });
+                draft = { title: out.draft.title, description: out.draft.description, impactDays: out.draft.impact_days, impactHours: out.draft.impact_hours, milestoneShift: out.draft.milestone_shift };
+              } catch { /* plain CR below */ }
+              await raiseChangeRequest(r.id, draft);
+            }, 'Change request drafted — review and sign off on the Change requests tab')}>
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <FileSignature size={14} />} Raise change request
+            </Button>
+          )}
+          {r.verdict && r.verdict !== 'green' && (
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => setReplyOpen(true)}>
+              <Mail size={14} /> Draft client reply
             </Button>
           )}
           {isOpen(r) && (
@@ -303,6 +317,8 @@ function RequestRow({ r, canEdit }: { r: DeliveryRequest; canEdit: boolean }) {
           )}
         </div>
       )}
+
+      {replyOpen && <ReplyDrawer request={r} onClose={() => setReplyOpen(false)} />}
 
       {overriding && (
         <form className="mt-2 ml-0 md:ml-[8.75rem] flex flex-wrap items-center gap-2"
@@ -323,5 +339,48 @@ function RequestRow({ r, canEdit }: { r: DeliveryRequest; canEdit: boolean }) {
         </form>
       )}
     </li>
+  );
+}
+
+/** AI-written email to the client: decline with the CR route (red) or clarifying questions (amber). */
+function ReplyDrawer({ request, onClose }: { request: DeliveryRequest; onClose: () => void }) {
+  const ai = useDeliveryStore((s) => s.ai);
+  const [mail, setMail] = useState<{ subject: string; body: string } | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let live = true;
+    ai<{ email: { subject: string; body: string } }>('decline-reply', { requestId: request.id })
+      .then((out) => { if (live) setMail(out.email); })
+      .catch((e) => { if (live) alertError(e); })
+      .finally(() => { if (live) setBusy(false); });
+    return () => { live = false; };
+  }, [ai, request.id, attempt]);
+  const draft = () => { setBusy(true); setAttempt((n) => n + 1); };
+  const open = true;
+  return (
+    <Drawer open={open} onClose={onClose} title="Reply to the client" width="max-w-xl">
+      {busy && !mail ? (
+        <div className="flex items-center gap-2 text-sm text-muted"><Loader2 size={14} className="animate-spin" /> Writing the reply…</div>
+      ) : mail ? (
+        <div className="space-y-3">
+          <label className="block text-xs font-semibold text-muted">Subject
+            <input value={mail.subject} onChange={(e) => setMail({ ...mail, subject: e.target.value })} className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" />
+          </label>
+          <label className="block text-xs font-semibold text-muted">Message
+            <textarea rows={12} value={mail.body} onChange={(e) => setMail({ ...mail, body: e.target.value })} className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => navigator.clipboard.writeText(`${mail.subject}\n\n${mail.body}`).then(() => toast('Copied', 'ok'), alertError)}><Copy size={14} /> Copy</Button>
+            <a className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink hover:bg-surface-2"
+              href={`mailto:?subject=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`}><Mail size={14} /> Open in Outlook</a>
+            <Button variant="ghost" disabled={busy} onClick={draft}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Rewrite</Button>
+          </div>
+          <p className="text-xs text-muted">No sign-off included — Outlook adds your signature.</p>
+        </div>
+      ) : (
+        <Button onClick={draft}><Sparkles size={14} /> Try again</Button>
+      )}
+    </Drawer>
   );
 }

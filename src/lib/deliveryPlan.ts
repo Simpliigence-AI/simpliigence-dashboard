@@ -57,3 +57,10 @@ export function fmtDate(d: string | null | undefined): string {
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' });
 }
+
+/** Project health flag from the AI summary. */
+export const HEALTH = {
+  green: { label: 'On track', dot: 'bg-green', cls: 'text-green' },
+  amber: { label: 'At risk', dot: 'bg-gold', cls: 'text-gold' },
+  red: { label: 'Off track', dot: 'bg-rose', cls: 'text-rose' },
+} as const;

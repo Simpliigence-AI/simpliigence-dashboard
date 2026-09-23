@@ -3,11 +3,11 @@
  * the client has seen it demoed. Click a state chip to cycle it.
  */
 import { useState } from 'react';
-import { Plus, Trash2, LayoutGrid } from 'lucide-react';
-import { Card, Button, EmptyState } from '../../components/ui';
+import { Plus, Trash2, LayoutGrid, Sparkles, Loader2 } from 'lucide-react';
+import { Card, Button, EmptyState, Drawer } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { EditCell } from './planUi';
-import { alertError } from '../../lib/planToast';
+import { alertError, toast } from '../../lib/planToast';
 import type { DeliveryFeature, FeatureCompletion, FeatureDemo } from '../../types/delivery';
 
 const COMPLETION: Record<FeatureCompletion, { label: string; cls: string; next: FeatureCompletion }> = {
@@ -32,6 +32,7 @@ export function HeatmapTab({ projectId, canEdit }: { projectId: string; canEdit:
 
   return (
     <div className="space-y-4">
+      {canEdit && <SuggestFeatures projectId={projectId} />}
       {features.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <Summary label="Built" n={built} of={features.length} bar="bg-green" />
@@ -103,5 +104,50 @@ function FeatureRow({ f, canEdit, onUpdate, onRemove }: {
         </button>
       )}
     </li>
+  );
+}
+
+/** Ask Claude for heatmap features from the scope and plan; pick which to add. */
+function SuggestFeatures({ projectId }: { projectId: string }) {
+  const { ai, addFeatures } = useDeliveryStore.getState();
+  const [list, setList] = useState<{ name: string; description?: string; pick: boolean }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <>
+      <div className="flex justify-end">
+        <Button size="sm" variant="secondary" disabled={busy} onClick={async () => {
+          setBusy(true);
+          try {
+            const out = await ai<{ features: { name: string; description?: string }[] }>('heatmap', { projectId });
+            setList(out.features.map((f) => ({ ...f, pick: true })));
+          } catch (e) { alertError(e); } finally { setBusy(false); }
+        }}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Suggest features from the scope</Button>
+      </div>
+      <Drawer open={!!list} onClose={() => setList(null)} title="Suggested features" width="max-w-lg">
+        {list && (
+          <div className="space-y-3">
+            <ul className="space-y-1">
+              {list.map((f, i) => (
+                <li key={i}>
+                  <label className="flex gap-2 text-sm">
+                    <input type="checkbox" checked={f.pick} onChange={(e) => setList(list.map((x, j) => (j === i ? { ...x, pick: e.target.checked } : x)))} className="mt-1" />
+                    <span><span className="font-semibold text-ink">{f.name}</span>{f.description && <span className="block text-xs text-muted">{f.description}</span>}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted">Features already on the heatmap are skipped.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setList(null)}>Cancel</Button>
+              <Button disabled={busy || !list.some((f) => f.pick)} onClick={async () => {
+                setBusy(true);
+                try { await addFeatures(projectId, list.filter((f) => f.pick)); toast('Features added', 'ok'); setList(null); }
+                catch (e) { alertError(e); } finally { setBusy(false); }
+              }}>Add {list.filter((f) => f.pick).length}</Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
+    </>
   );
 }

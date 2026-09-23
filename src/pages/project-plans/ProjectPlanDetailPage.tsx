@@ -9,19 +9,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck,
+  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen,
 } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { useTabPermission } from '../../hooks/useTabPermission';
 import { groupPhases, isDone, isLate, planProgress, fmtDate } from '../../lib/deliveryPlan';
-import type { DeliveryTask, DeliveryIssue, IssueCriticality, DeliveryProjectStatus } from '../../types/delivery';
+import type { DeliveryTask, DeliveryIssue, IssueCriticality, DeliveryProjectStatus, DeliveryBaseline } from '../../types/delivery';
 import { EditCell, cellInput } from './planUi';
 import { alertError } from '../../lib/planToast';
 import { HeatmapTab } from './HeatmapTab';
+import { GanttChart } from './GanttChart';
 import { CheckinsTab } from './CheckinsTab';
+import { DocumentsTab } from './DocumentsTab';
+import { RequestsTab } from './RequestsTab';
 
-type Tab = 'plan' | 'issues' | 'heatmap' | 'checkins' | 'history';
+type Tab = 'plan' | 'issues' | 'requests' | 'heatmap' | 'checkins' | 'documents' | 'history';
 
 export default function ProjectPlanDetailPage() {
   const { id = '' } = useParams();
@@ -98,7 +101,7 @@ export default function ProjectPlanDetailPage() {
       </div>
 
       <div className="flex gap-1 border-b border-line overflow-x-auto">
-        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length + s.changeRequests.filter((c) => c.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
+        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length + s.changeRequests.filter((c) => c.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -111,10 +114,12 @@ export default function ProjectPlanDetailPage() {
 
       {s.error && <div className="rounded-lg border border-rose/30 bg-rose/5 px-4 py-3 text-sm text-rose">{s.error}</div>}
 
-      {tab === 'plan' && <PlanTab projectId={project.id} tasks={tasks} canEdit={canEdit} />}
+      {tab === 'plan' && <PlanTab projectId={project.id} tasks={tasks} canEdit={canEdit} baseline={s.baselines.filter((b) => b.projectId === project.id).at(-1) ?? null} />}
       {tab === 'issues' && <IssuesTab projectId={project.id} issues={issues} canEdit={canEdit} />}
+      {tab === 'requests' && <RequestsTab project={project} canEdit={canEdit} />}
       {tab === 'heatmap' && <HeatmapTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'checkins' && <CheckinsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
+      {tab === 'documents' && <DocumentsTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'history' && <HistoryTab projectId={project.id} />}
     </div>
   );
@@ -132,8 +137,9 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
 
 /* ── Plan ─────────────────────────────────────────────────────────────── */
 
-function PlanTab({ projectId, tasks, canEdit }: { projectId: string; tasks: DeliveryTask[]; canEdit: boolean }) {
+function PlanTab({ projectId, tasks, canEdit, baseline }: { projectId: string; tasks: DeliveryTask[]; canEdit: boolean; baseline: DeliveryBaseline | null }) {
   const phases = useMemo(() => groupPhases(tasks), [tasks]);
+  const [view, setView] = useState<'gantt' | 'table'>('gantt');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const addTask = useDeliveryStore((st) => st.addTask);
   const [newPhase, setNewPhase] = useState('');
@@ -143,8 +149,30 @@ function PlanTab({ projectId, tasks, canEdit }: { projectId: string; tasks: Deli
     return <Card><EmptyState icon={<ListChecks size={36} />} title="No plan yet" description="Nobody has added tasks to this project." /></Card>;
   }
 
+  const viewToggle = (
+    <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
+      {(['gantt', 'table'] as const).map((v) => (
+        <button key={v} onClick={() => setView(v)}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-md ${view === v ? 'bg-primary text-white' : 'text-muted hover:text-ink'}`}>
+          {v === 'gantt' ? 'Gantt chart' : 'Table'}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (view === 'gantt') {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">{viewToggle}</div>
+        <Card flush><GanttChart tasks={tasks} baseline={baseline} canEdit={canEdit} /></Card>
+        <p className="text-xs text-muted">To add or rename tasks, switch to Table.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">{viewToggle}</div>
       {phases.map((ph) => {
         const open = !collapsed[ph.name];
         const pct = ph.total ? Math.round((ph.done / ph.total) * 100) : 0;

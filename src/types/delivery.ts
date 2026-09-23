@@ -23,6 +23,9 @@ export interface DeliveryProject {
   sponsor: string | null;
   sharepointFolder: string | null;
   teamsChannelId: string | null;
+  /** Signed scope — what the scope classifier judges client requests against. */
+  frozenRequirements: string[];
+  frozenExclusions: string[];
   zohoProjectId: string | null;
   updatedAt: string;
 }
@@ -152,4 +155,54 @@ export interface DeliveryCheckin {
   submittedAt: string | null;
   submittedBy: string | null;
   createdAt: string;
+}
+
+export type DocumentState = 'draft' | 'review' | 'frozen';
+
+/** A project document. The file is in the 'delivery-documents' bucket
+ *  (storagePath) or, for source='link', elsewhere at webUrl (migration 035). */
+export interface DeliveryDocument {
+  id: string;
+  projectId: string;
+  name: string;
+  docType: string | null;
+  source: 'upload' | 'generated' | 'link';
+  version: string | null;
+  state: DocumentState;
+  storagePath: string | null;
+  mimeType: string | null;
+  webUrl: string | null;
+  legacyId: string | null;
+  importError: string | null;
+  sizeBytes: number | null;
+  modifiedAt: string | null;
+  supersedesId: string | null;
+  addedBy: string | null;
+  createdAt: string;
+}
+
+export type RequestVerdict = 'green' | 'amber' | 'red';
+export type RequestState = 'open' | 'awaiting-clarification' | 'applied' | 'cr-raised' | 'declined';
+
+/** Something the client asked for mid-project, with the scope verdict. */
+export interface DeliveryRequest {
+  id: string;
+  projectId: string;
+  receivedAt: string;
+  requester: string | null;
+  source: string | null;
+  text: string;
+  verdict: RequestVerdict | null;
+  confidence: number | null;
+  impactDays: number | null;
+  impactHours: number | null;
+  matched: string | null;
+  detail: string | null;
+  classifier: string | null;
+  state: RequestState;
+  crId: string | null;
+  originalVerdict: RequestVerdict | null;
+  appealResolution: string | null;
+  appealResolvedBy: string | null;
+  createdBy: string | null;
 }

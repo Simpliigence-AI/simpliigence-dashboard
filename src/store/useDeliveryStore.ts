@@ -18,6 +18,11 @@ import type {
   DeliveryChangeRequest,
   DeliveryFeature,
   DeliveryCheckin,
+  DeliveryDocument,
+  DeliveryRequest,
+  RequestVerdict,
+  RequestState,
+  DocumentState,
 } from '../types/delivery';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -38,6 +43,8 @@ const toProject = (r: any): DeliveryProject => ({
   sponsor: r.sponsor ?? null,
   sharepointFolder: r.sharepoint_folder ?? null,
   teamsChannelId: r.teams_channel_id ?? null,
+  frozenRequirements: Array.isArray(r.frozen_requirements) ? r.frozen_requirements.map(String) : [],
+  frozenExclusions: Array.isArray(r.frozen_exclusions) ? r.frozen_exclusions.map(String) : [],
   zohoProjectId: r.zoho_project_id ?? null,
   updatedAt: r.updated_at,
 });
@@ -125,7 +132,52 @@ const toCheckin = (r: any): DeliveryCheckin => ({
   submittedBy: r.submitted_by ?? null,
   createdAt: r.created_at,
 });
+const toDocument = (r: any): DeliveryDocument => ({
+  id: r.id,
+  projectId: r.project_id,
+  name: r.name,
+  docType: r.doc_type ?? null,
+  source: r.source ?? 'upload',
+  version: r.version ?? null,
+  state: r.state ?? 'review',
+  storagePath: r.storage_path ?? null,
+  mimeType: r.mime_type ?? null,
+  webUrl: r.web_url ?? null,
+  legacyId: r.legacy_id ?? null,
+  importError: r.import_error ?? null,
+  sizeBytes: r.size_bytes ?? null,
+  modifiedAt: r.modified_at ?? null,
+  supersedesId: r.supersedes_id ?? null,
+  addedBy: r.added_by ?? null,
+  createdAt: r.created_at,
+});
+const toRequest = (r: any): DeliveryRequest => ({
+  id: r.id,
+  projectId: r.project_id,
+  receivedAt: r.received_at,
+  requester: r.requester ?? null,
+  source: r.source ?? null,
+  text: r.text,
+  verdict: r.verdict ?? null,
+  confidence: r.confidence == null ? null : Number(r.confidence),
+  impactDays: r.impact_days ?? null,
+  impactHours: r.impact_hours ?? null,
+  matched: r.matched ?? null,
+  detail: r.detail ?? null,
+  classifier: r.classifier ?? null,
+  state: r.state ?? 'open',
+  crId: r.cr_id ?? null,
+  originalVerdict: r.original_verdict ?? null,
+  appealResolution: r.appeal_resolution ?? null,
+  appealResolvedBy: r.appeal_resolved_by ?? null,
+  createdBy: r.created_by ?? null,
+});
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+export const DOCS_BUCKET = 'delivery-documents';
+/** Storage keys: readable, but only characters every client handles. */
+const safeName = (name: string) =>
+  name.normalize('NFKD').replace(/[^\w.\- ]+/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').slice(0, 150) || 'file';
 
 /** The Friday that ends the current week (today, if today is Friday). */
 export function currentWeekEnding(now = new Date()): string {
@@ -170,6 +222,8 @@ interface State {
   changeRequests: DeliveryChangeRequest[];
   features: DeliveryFeature[];
   checkins: DeliveryCheckin[];
+  documents: DeliveryDocument[];
+  requests: DeliveryRequest[];
   detailId: string | null;
   detailLoading: boolean;
 
@@ -198,6 +252,25 @@ interface State {
   /** Freeze plan, heatmap and open issues into the draft and submit it. */
   submitCheckin: (id: string) => Promise<void>;
   removeCheckin: (id: string) => Promise<void>;
+
+  /** Upload a file into the project's documents. */
+  uploadDocument: (projectId: string, file: File, meta: { docType: string | null; state?: DocumentState }) => Promise<void>;
+  /** Link a file kept elsewhere (SharePoint, Drive). */
+  addDocumentLink: (projectId: string, l: { name: string; url: string; docType: string | null }) => Promise<void>;
+  updateDocument: (id: string, patch: Partial<Pick<DeliveryDocument, 'name' | 'docType' | 'state'>>) => Promise<void>;
+  removeDocument: (id: string) => Promise<void>;
+  /** Short-lived URL to open or download the file. */
+  documentUrl: (doc: DeliveryDocument, download?: boolean) => Promise<string>;
+
+  updateScope: (projectId: string, patch: { frozenRequirements?: string[]; frozenExclusions?: string[] }) => Promise<void>;
+  /** Log a client request and classify it against the signed scope. */
+  addRequest: (projectId: string, r: { text: string; requester?: string | null; source?: string | null; receivedAt?: string | null }) => Promise<DeliveryRequest>;
+  classifyRequest: (id: string) => Promise<void>;
+  overrideVerdict: (id: string, verdict: RequestVerdict, reason: string) => Promise<void>;
+  setRequestState: (id: string, state: RequestState) => Promise<void>;
+  removeRequest: (id: string) => Promise<void>;
+  /** Create a pending change request from an out-of-scope request. */
+  raiseChangeRequest: (requestId: string) => Promise<void>;
 }
 
 export const useDeliveryStore = create<State>((set, get) => ({
@@ -211,6 +284,8 @@ export const useDeliveryStore = create<State>((set, get) => ({
   changeRequests: [],
   features: [],
   checkins: [],
+  documents: [],
+  requests: [],
   detailId: null,
   detailLoading: false,
 
@@ -254,7 +329,7 @@ export const useDeliveryStore = create<State>((set, get) => ({
   loadDetail: async (projectId) => {
     set({ detailLoading: true, detailId: projectId, error: null });
     try {
-      const [p, t, i, b, c, f, k] = await Promise.all([
+      const [p, t, i, b, c, f, k, d, q] = await Promise.all([
         supabase.from('delivery_projects').select('*').eq('id', projectId).maybeSingle(),
         supabase.from('delivery_tasks').select('*').eq('project_id', projectId).order('sort_order').order('start_date'),
         supabase.from('delivery_issues').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
@@ -262,8 +337,10 @@ export const useDeliveryStore = create<State>((set, get) => ({
         supabase.from('delivery_change_requests').select('*').eq('project_id', projectId).order('created_at'),
         supabase.from('delivery_features').select('*').eq('project_id', projectId).order('order_index'),
         supabase.from('delivery_checkins').select('*').eq('project_id', projectId).order('week_ending', { ascending: false }).order('created_at', { ascending: false }),
+        supabase.from('delivery_documents').select('*').eq('project_id', projectId).order('modified_at', { ascending: false, nullsFirst: false }),
+        supabase.from('delivery_requests').select('*').eq('project_id', projectId).order('received_at', { ascending: false }),
       ]);
-      const err = p.error || t.error || i.error || b.error || c.error || f.error || k.error;
+      const err = p.error || t.error || i.error || b.error || c.error || f.error || k.error || d.error || q.error;
       if (err) throw new Error(err.message);
       // A stale response for a project the user has already navigated away from.
       if (get().detailId !== projectId) return;
@@ -280,6 +357,8 @@ export const useDeliveryStore = create<State>((set, get) => ({
         changeRequests: (c.data ?? []).map(toCr),
         features: (f.data ?? []).map(toFeature),
         checkins: (k.data ?? []).map(toCheckin),
+        documents: (d.data ?? []).map(toDocument),
+        requests: (q.data ?? []).map(toRequest),
       }));
     } catch (e) {
       set({ error: (e as Error).message });
@@ -480,5 +559,160 @@ export const useDeliveryStore = create<State>((set, get) => ({
     const { error } = await supabase.from('delivery_checkins').delete().eq('id', id);
     if (error) throw new Error(error.message);
     set((st) => ({ checkins: st.checkins.filter((x) => x.id !== id) }));
+  },
+
+  uploadDocument: async (projectId, file, meta) => {
+    const id = nanoid(16);
+    const path = `${projectId}/${id}/${safeName(file.name)}`;
+    const up = await supabase.storage.from(DOCS_BUCKET).upload(path, file, {
+      contentType: file.type || undefined, upsert: false,
+    });
+    if (up.error) throw new Error(up.error.message.includes('exceeded') ? `${file.name} is larger than the 250 MB limit.` : up.error.message);
+    const { data, error } = await supabase.from('delivery_documents').insert({
+      id, project_id: projectId, name: file.name, doc_type: orNull(meta.docType), source: 'upload', version: 'v1',
+      state: meta.state ?? 'review', storage_path: path, mime_type: file.type || null, size_bytes: file.size,
+      modified_at: new Date().toISOString(), added_by: me(),
+    }).select().single();
+    if (error || !data) {
+      await supabase.storage.from(DOCS_BUCKET).remove([path]);
+      throw new Error(error?.message ?? 'Could not save the document — you may only have view access.');
+    }
+    set((st) => ({ documents: [toDocument(data), ...st.documents] }));
+  },
+
+  addDocumentLink: async (projectId, l) => {
+    const url = l.url.trim();
+    if (!/^https?:\/\//i.test(url)) throw new Error('Paste a full link starting with https://');
+    const { data, error } = await supabase.from('delivery_documents').insert({
+      id: nanoid(16), project_id: projectId, name: l.name.trim() || url, doc_type: orNull(l.docType), source: 'link',
+      state: 'review', web_url: url, modified_at: new Date().toISOString(), added_by: me(),
+    }).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Could not add the link — you may only have view access.');
+    set((st) => ({ documents: [toDocument(data), ...st.documents] }));
+  },
+
+  updateDocument: async (id, patch) => {
+    const db: Record<string, unknown> = {};
+    if (patch.name !== undefined) db.name = patch.name.trim();
+    if (patch.docType !== undefined) db.doc_type = orNull(patch.docType);
+    if (patch.state !== undefined) db.state = patch.state;
+    const { data, error } = await supabase.from('delivery_documents').update(db).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
+    const d = toDocument(data);
+    set((st) => ({ documents: st.documents.map((x) => (x.id === id ? d : x)) }));
+  },
+
+  removeDocument: async (id) => {
+    const doc = get().documents.find((x) => x.id === id);
+    const { error } = await supabase.from('delivery_documents').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    if (doc?.storagePath) await supabase.storage.from(DOCS_BUCKET).remove([doc.storagePath]);
+    set((st) => ({ documents: st.documents.filter((x) => x.id !== id) }));
+  },
+
+  documentUrl: async (doc, download = false) => {
+    if (doc.webUrl) return doc.webUrl;
+    if (!doc.storagePath) throw new Error('This file is still being moved from Governance. Try again in a few minutes.');
+    const { data, error } = await supabase.storage.from(DOCS_BUCKET)
+      .createSignedUrl(doc.storagePath, 60 * 10, download ? { download: doc.name } : undefined);
+    if (error || !data) throw new Error(error?.message ?? 'Could not open the file.');
+    return data.signedUrl;
+  },
+
+  updateScope: async (projectId, patch) => {
+    const db: Record<string, unknown> = { updated_by: me() };
+    const clean = (xs: string[]) => xs.map((x) => x.trim()).filter(Boolean);
+    if (patch.frozenRequirements) db.frozen_requirements = clean(patch.frozenRequirements);
+    if (patch.frozenExclusions) db.frozen_exclusions = clean(patch.frozenExclusions);
+    const { data, error } = await supabase.from('delivery_projects').update(db).eq('id', projectId).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
+    const p = toProject(data);
+    set((st) => ({ projects: st.projects.map((x) => (x.id === projectId ? p : x)) }));
+  },
+
+  addRequest: async (projectId, r) => {
+    const { data, error } = await supabase.from('delivery_requests').insert({
+      id: nanoid(16), project_id: projectId, text: r.text.trim(), requester: orNull(r.requester), source: orNull(r.source),
+      received_at: r.receivedAt ? new Date(r.receivedAt + 'T12:00:00').toISOString() : new Date().toISOString(),
+      state: 'open', created_by: me(),
+    }).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Could not log the request — you may only have view access.');
+    const req = toRequest(data);
+    set((st) => ({ requests: [req, ...st.requests] }));
+    return req;
+  },
+
+  classifyRequest: async (id) => {
+    const { data, error } = await supabase.functions.invoke<{ ok?: boolean; error?: string; detail?: string; request?: unknown }>(
+      'scope-classify', { body: { requestId: id } },
+    );
+    if (error || !data?.ok || !data.request) {
+      // functions.invoke hides the JSON body on non-2xx; dig it out for a useful message.
+      let msg = data?.error ?? error?.message ?? 'Classification failed.';
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === 'function') {
+        try { const j = await ctx.json(); msg = j.error ?? msg; } catch { /* keep msg */ }
+      }
+      throw new Error(msg);
+    }
+    const r = toRequest(data.request);
+    set((st) => ({ requests: st.requests.map((x) => (x.id === id ? r : x)) }));
+  },
+
+  overrideVerdict: async (id, verdict, reason) => {
+    const cur = get().requests.find((x) => x.id === id);
+    if (!cur) throw new Error('Request not found.');
+    const who = useAuthStore.getState().currentUser?.fullName ?? me();
+    const db: Record<string, unknown> = {
+      verdict,
+      original_verdict: cur.originalVerdict ?? cur.verdict,
+      appeal_state: 'resolved',
+      appeal_reason: orNull(reason),
+      appeal_resolution: orNull(reason),
+      appeal_resolved_by: who,
+    };
+    if (!cur.crId && cur.state !== 'declined') {
+      db.state = verdict === 'green' ? 'applied' : verdict === 'amber' ? 'awaiting-clarification' : 'open';
+    }
+    const { data, error } = await supabase.from('delivery_requests').update(db).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
+    const r = toRequest(data);
+    set((st) => ({ requests: st.requests.map((x) => (x.id === id ? r : x)) }));
+  },
+
+  setRequestState: async (id, state) => {
+    const { data, error } = await supabase.from('delivery_requests').update({ state }).eq('id', id).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
+    const r = toRequest(data);
+    set((st) => ({ requests: st.requests.map((x) => (x.id === id ? r : x)) }));
+  },
+
+  removeRequest: async (id) => {
+    const { error } = await supabase.from('delivery_requests').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((st) => ({ requests: st.requests.filter((x) => x.id !== id) }));
+  },
+
+  raiseChangeRequest: async (requestId) => {
+    const req = get().requests.find((x) => x.id === requestId);
+    if (!req) throw new Error('Request not found.');
+    if (req.crId) throw new Error('A change request already exists for this request.');
+    const firstLine = req.text.split('\n').map((l) => l.trim()).find(Boolean) ?? req.text;
+    const title = firstLine.length > 90 ? `${firstLine.slice(0, 87)}…` : firstLine;
+    const crId = nanoid(16);
+    const cr = await supabase.from('delivery_change_requests').insert({
+      id: crId, project_id: req.projectId, request_id: req.id, title,
+      description: [req.text, req.detail && `Scope review: ${req.detail}`].filter(Boolean).join('\n\n'),
+      impact_days: req.impactDays, impact_hours: req.impactHours, state: 'pending',
+    }).select().single();
+    if (cr.error || !cr.data) throw new Error(cr.error?.message ?? 'Could not create the change request.');
+    const { data, error } = await supabase.from('delivery_requests').update({ cr_id: crId, state: 'cr-raised' })
+      .eq('id', requestId).select().single();
+    if (error || !data) throw new Error(error?.message ?? 'Change request created, but the request could not be linked.');
+    const r = toRequest(data);
+    set((st) => ({
+      changeRequests: [...st.changeRequests, toCr(cr.data)],
+      requests: st.requests.map((x) => (x.id === requestId ? r : x)),
+    }));
   },
 }));

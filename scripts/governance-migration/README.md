@@ -63,6 +63,40 @@ In progress → Built, and Not demoed ↔ Demoed) and **Check-ins** (this week's
 draft, Submit to freeze plan + heatmap + open issues, past reports with
 **Copy as text** for email/Teams).
 
+## Phase 3 cut-over — documents and client requests
+
+Applied and copied on 23 Sep 2026 (row counts and checksums match Governance):
+
+- `supabase/migrations/035_delivery_documents_requests.sql` — `delivery_documents`,
+  `delivery_requests`, the private `delivery-documents` Storage bucket (250 MB
+  per file) and its RLS.
+- 120 document rows and 26 client requests copied (ids kept, so the change
+  request that came from a request still links to it).
+- Files: Governance kept them on its Render disk, not in SharePoint. The
+  `governance-docs-import` edge function downloads each through the Governance
+  API and streams it into Storage. A pg_cron job (`delivery-docs-import`, every
+  3 min) drives it until nothing is left, then goes quiet. Check progress:
+
+  ```sql
+  select count(*) filter (where storage_path is not null) moved,
+         count(*) filter (where import_error is not null) failed,
+         count(*) total
+  from delivery_documents where legacy_id is not null;
+  ```
+
+  Failed rows keep the reason in `import_error`; retry with
+  `{"retry": true}` or `{"ids": [...]}` in the function body.
+  When done: `select cron.unschedule('delivery-docs-import');`
+
+- `scope-classify` edge function — Claude judges a client request against the
+  project's frozen requirements, exclusions and frozen SOW PDF. Uses
+  `ANTHROPIC_API_KEY` (already set) and runs as the caller, so RLS applies.
+
+New tabs on each project: **Requests** (signed scope, log a request, verdict,
+override with reason, raise change request, absorb/decline) and **Documents**
+(upload / drag-drop, SharePoint or Drive links, type and Draft/In review/Frozen,
+open via 10-minute signed link).
+
 ## What happens to the old sync
 
 `governance-sync` and the "Sync with Delivery Governance" button keep working

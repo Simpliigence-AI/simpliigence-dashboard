@@ -4,8 +4,8 @@
  * Replaces the project list in the standalone Delivery Governance app.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
-import { ClipboardList, Search, AlertTriangle, Loader2 } from 'lucide-react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { ClipboardList, Search, AlertTriangle, Loader2, ChevronRight } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge, EmptyState } from '../components/ui';
 import { useDeliveryStore } from '../store/useDeliveryStore';
@@ -34,6 +34,7 @@ export default function ProjectPlansPage() {
   const { projects, summaries, loading, error, loadProjects } = useDeliveryStore();
   const [filter, setFilter] = useState<Filter>('active');
   const [q, setQ] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => { if (perm.canView) void loadProjects(); }, [perm.canView, loadProjects]);
 
@@ -111,7 +112,8 @@ export default function ProjectPlansPage() {
                   <th className="px-3 py-3 font-semibold">End</th>
                   <th className="px-3 py-3 font-semibold w-40">Plan</th>
                   <th className="px-3 py-3 font-semibold text-right">Late</th>
-                  <th className="px-5 py-3 font-semibold text-right">Open issues</th>
+                  <th className="px-3 py-3 font-semibold text-right">Open issues</th>
+                  <th className="w-8 pr-4" />
                 </tr>
               </thead>
               <tbody>
@@ -122,7 +124,7 @@ export default function ProjectPlansPage() {
                   const planEnd = !end ? s?.planEnd ?? null : null;
                   const slipped = p.currentEnd && p.plannedEnd && p.currentEnd > p.plannedEnd;
                   return (
-                    <tr key={p.id} className="border-b border-line/40 hover:bg-surface-2/50">
+                    <tr key={p.id} onClick={() => navigate(`/project-plans/${p.id}`)} className="border-b border-line/40 hover:bg-surface-2/50 cursor-pointer">
                       <td className="px-5 py-3">
                         <Link to={`/project-plans/${p.id}`} className="font-semibold text-ink hover:text-primary">{p.name}</Link>
                         {p.client && p.client !== p.name && <div className="text-xs text-muted">{p.client}</div>}
@@ -144,7 +146,7 @@ export default function ProjectPlansPage() {
                       <td className="px-3 py-3 text-right tabular-nums">
                         {s?.late ? <span className="font-semibold text-rose">{s.late}</span> : <span className="text-muted/60">0</span>}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums">
+                      <td className="px-3 py-3 text-right tabular-nums">
                         {s?.openIssues ? (
                           <span className="inline-flex items-center gap-1">
                             {s.criticalIssues > 0 && <AlertTriangle size={12} className="text-rose" />}
@@ -152,6 +154,7 @@ export default function ProjectPlansPage() {
                           </span>
                         ) : <span className="text-muted/60">0</span>}
                       </td>
+                      <td className="pr-4 text-muted/60"><ChevronRight size={16} /></td>
                     </tr>
                   );
                 })}

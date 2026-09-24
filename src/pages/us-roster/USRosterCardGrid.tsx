@@ -38,6 +38,7 @@ import { OwnerOnly, useIsOwner } from '../../components/OwnerOnly';
 import { useUSRosterStore } from '../../store/useUSRosterStore';
 import { blendConsultantTotals } from '../../types/usRoster';
 import { useCollapsedGroups } from '../../lib/useCollapsedGroups';
+import { chipStyle } from '../../lib/chipStyle';
 
 const VISA_CATEGORIES: VisaCategory[] = ['H1B', 'L1', 'L2 EAD', 'H4 EAD', 'GC', 'GC EAD', 'US Citizen', 'OPT', 'CPT', 'TN', 'Other'];
 const VISA_COLORS: Record<string, string> = {
@@ -264,7 +265,7 @@ function MemberCard({ member: m, onOpen }: { member: USRosterMember; onOpen: () 
       <div className="flex items-start gap-3">
         <div
           className="w-11 h-11 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm"
-          style={{ background: statusColor }}
+          style={chipStyle(statusColor)}
         >
           {initials(m.name)}
         </div>
@@ -273,7 +274,7 @@ function MemberCard({ member: m, onOpen }: { member: USRosterMember; onOpen: () 
           <div className="text-[11px] text-muted truncate">{m.role || '—'}</div>
           <div
             className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-white"
-            style={{ background: statusColor }}
+            style={chipStyle(statusColor)}
           >
             {m.status}
           </div>
@@ -351,14 +352,14 @@ function MemberDrawer({
         <div className="sticky top-0 z-10 bg-surface border-b border-line/60 px-5 py-4 flex items-start gap-3">
           <div
             className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-sm"
-            style={{ background: statusColor }}
+            style={chipStyle(statusColor)}
           >
             {initials(m.name)}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-base font-extrabold text-ink tracking-tight truncate">{m.name || 'Unnamed'}</div>
             <div className="text-xs text-muted truncate">{m.role} · <OwnerOnly>{displayBillRate > 0 ? <Sensitive>{`$${displayBillRate}/hr`}</Sensitive> : 'no rate'}</OwnerOnly></div>
-            <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: statusColor }}>
+            <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white" style={chipStyle(statusColor)}>
               {m.status}
             </div>
           </div>

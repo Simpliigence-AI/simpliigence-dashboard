@@ -322,7 +322,7 @@ export default function CandidatesPage() {
             type="button"
             onClick={runAiSearch}
             disabled={aiBusy || !aiQuery.trim()}
-            className="text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 inline-flex items-center gap-1.5 shadow-sm"
+            className="text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 px-4 py-2 rounded-lg hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 inline-flex items-center gap-1.5 shadow-sm"
           >
             <Sparkles size={12} /> {aiBusy ? 'Searching…' : 'Ask Claude'}
           </button>

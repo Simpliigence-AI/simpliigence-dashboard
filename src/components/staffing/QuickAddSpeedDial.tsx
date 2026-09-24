@@ -218,7 +218,7 @@ function QuickAccountModal({ onAdd, onClose }: {
         <div className="flex items-center justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="text-xs text-muted hover:text-ink px-3 py-1.5">Cancel</button>
           <button type="button" onClick={submit} disabled={saving}
-                  className="text-xs font-semibold bg-amber-500 text-white px-4 py-1.5 rounded-md hover:bg-amber-600 disabled:opacity-50">
+                  className="text-xs font-semibold bg-amber-400 text-amber-950 px-4 py-1.5 rounded-md hover:bg-amber-600 disabled:opacity-50">
             {saving ? 'Saving…' : 'Create account'}
           </button>
         </div>

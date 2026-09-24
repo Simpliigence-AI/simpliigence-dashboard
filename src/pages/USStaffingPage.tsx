@@ -19,6 +19,7 @@ import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { USStaffingSplitView } from './us-staffing/USStaffingSplitView';
 import { Rows3, Columns3 } from 'lucide-react';
 import { AccountEditDrawer } from './us-staffing/AccountEditDrawer';
+import { chipStyle } from '../lib/chipStyle';
 
 // Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
 const URGENT_UNSECURED = 250_000;
@@ -500,7 +501,7 @@ export default function USStaffingPage() {
                               value={req.stage} type="select" options={ALL_STAGES}
                               onSave={(v) => handleCellSave(req.id, 'stage', v)}
                               displayContent={
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8' }}>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8')}>
                                   {req.stage}
                                 </span>
                               }
@@ -999,7 +1000,7 @@ export default function USStaffingPage() {
                         <td className="p-2 font-bold">{req.account_name}</td>
                         <td className="p-2">{req.role}</td>
                         <td className="p-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8' }}>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8')}>
                             {req.stage}
                           </span>
                         </td>

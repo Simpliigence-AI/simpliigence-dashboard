@@ -246,7 +246,7 @@ export function QuickIdeaModal({ accounts, defaultAccountId, onClose, onSaved }:
             type="button"
             onClick={() => void save(false)}
             disabled={saving}
-            className="text-xs font-semibold px-3 py-1.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 inline-flex items-center gap-1.5"
+            className="text-xs font-semibold px-3 py-1.5 rounded-md bg-amber-400 text-amber-950 hover:bg-amber-300 disabled:opacity-50 inline-flex items-center gap-1.5"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Lightbulb size={12} />}
             {saving ? 'Saving…' : 'Save idea'}

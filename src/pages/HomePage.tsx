@@ -12,169 +12,35 @@
  */
 import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users, UserPlus, UserCog,
-  Building2, Handshake, Target,
-  Headset, Sparkles,
-  ClipboardList, Globe,
-  CalendarCheck, Contact, FileEdit, BarChart3,
-  FolderKanban, Layers, Clock, TrendingUp, DollarSign,
-  Activity, History,
-  ArrowRight,
-  type LucideIcon,
-} from 'lucide-react';
+import { ArrowRight, type LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { useNavSections } from '../hooks/useNavSections';
+import { NAV_ACCENT, type NavAccent, type NavGroup, type NavItem } from '../lib/navConfig';
 import { useForecastStore, usePipelineStore } from '../store';
 import { MONTHS } from '../types/forecast';
 
 /**
- * Categorical accents. One flat token per hub rather than a gradient pair —
- * gradients on 30 small cards turn the page into a swatch book, and the hue is
- * doing identification work, not decoration.
+ * Hubs are the same groups the sidebar shows (lib/navConfig.ts), filtered by
+ * the same hook — so Home and the sidebar can never drift apart. Only items
+ * with a `desc` get a card; the Home link itself is skipped.
  */
-type AccentKey = 'blue' | 'green' | 'gold' | 'violet' | 'teal' | 'rose' | 'navy';
-
-const ACCENT: Record<AccentKey, { chip: string; icon: string; hover: string }> = {
-  blue:   { chip: 'bg-brand/10',  icon: 'text-brand',   hover: 'group-hover:text-brand' },
-  green:  { chip: 'bg-green/10',  icon: 'text-green',   hover: 'group-hover:text-green' },
-  gold:   { chip: 'bg-gold/12',   icon: 'text-gold',    hover: 'group-hover:text-gold' },
-  violet: { chip: 'bg-violet/10', icon: 'text-violet',  hover: 'group-hover:text-violet' },
-  teal:   { chip: 'bg-teal/10',   icon: 'text-teal',    hover: 'group-hover:text-teal' },
-  rose:   { chip: 'bg-rose/10',   icon: 'text-rose',    hover: 'group-hover:text-rose' },
-  navy:   { chip: 'bg-navy/8',    icon: 'text-navy',    hover: 'group-hover:text-navy' },
-};
-
-interface HubLink {
-  to: string;
-  icon: LucideIcon;
-  label: string;
-  desc: string;
-}
-interface Hub {
-  key: string;
-  label: string;
-  tagline: string;
-  /** Categorical token — keys into ACCENT below. */
-  accent: AccentKey;
-  icon: LucideIcon;
-  links: HubLink[];
-  adminOnly?: boolean;
-}
-
-const HUBS: Hub[] = [
-  {
-    key: 'sales',
-    label: 'Sales & Growth',
-    tagline: 'Accounts, partnerships, and go-to-market motion',
-    accent: 'green',
-    icon: TrendingUp,
-    links: [
-      { to: '/accounts',    icon: Building2, label: 'Accounts',        desc: 'Client accounts, sales + delivery connects, forecast vs secured' },
-      { to: '/gtm-list',    icon: Target,    label: 'GTM List',        desc: 'Strategic partnership targets — assignees, contacts, action items' },
-      { to: '/pipeline',    icon: Layers,    label: 'Pipeline Projects', desc: 'Pre-sales / pipeline projects in flight' },
-    ],
-  },
-  {
-    key: 'delivery',
-    label: 'Delivery',
-    tagline: 'Active projects, utilization, and hours',
-    accent: 'blue',
-    icon: FolderKanban,
-    links: [
-      { to: '/projects',      icon: FolderKanban, label: 'Current Projects',    desc: 'Delivery projects in flight' },
-      { to: '/team',          icon: Users,        label: 'Project Team',        desc: 'Team allocations by project' },
-      { to: '/actual-hours',  icon: Clock,        label: 'Actual Hours',        desc: 'Recorded billable hours by person + project' },
-      { to: '/forecasting',   icon: TrendingUp,   label: 'Utilization Forecast', desc: 'Bench + billable forecast across the roster' },
-      { to: '/financials',    icon: DollarSign,   label: 'Financials',          desc: 'Revenue, margin, and P&L rollups' },
-    ],
-  },
-  {
-    key: 'talent',
-    label: 'Talent Acquisition',
-    tagline: 'Recruiting, candidates, and hiring plan',
-    accent: 'violet',
-    icon: Users,
-    links: [
-      { to: '/ta-daily-log',        icon: CalendarCheck, label: 'TA Daily Log',       desc: 'Daily recruiting activity log across the TA team' },
-      { to: '/ta-metrics',          icon: BarChart3,     label: 'TA Metrics',         desc: 'Team-level TA KPIs and trends' },
-      { to: '/candidates',          icon: Contact,       label: 'Candidates',         desc: 'Candidate database with Ask Claude search' },
-      { to: '/vendors',             icon: Handshake,     label: 'Vendors',            desc: 'TA vendor directory — staffing + recruiting partners' },
-      { to: '/profile-format',      icon: FileEdit,      label: 'Profile Format',     desc: 'Resume reformatter + parser' },
-      { to: '/india-hiring-forecast', icon: UserPlus,    label: 'Hiring Forecast (India)', desc: 'India hiring plan vs demand' },
-      { to: '/hiring-forecast',     icon: UserPlus,      label: 'Hiring Forecast (Global)', desc: 'Global hiring plan vs demand' },
-    ],
-  },
-  {
-    key: 'india_tm',
-    label: 'India T&M',
-    tagline: 'India staffing operations',
-    accent: 'gold',
-    icon: Globe,
-    links: [
-      { to: '/india-staffing',        icon: ClipboardList, label: 'India Demand',    desc: 'Open positions + demand pipeline (India)' },
-      { to: '/india-roster',          icon: Users,         label: 'India Roster',    desc: 'Every India billable + bench resource' },
-      { to: '/india-hiring-forecast', icon: UserPlus,      label: 'Hiring Forecast', desc: 'Weekly demand vs supply for India hiring' },
-    ],
-  },
-  {
-    key: 'us_tm',
-    label: 'Global T&M',
-    tagline: 'Global staffing operations',
-    accent: 'teal',
-    icon: Globe,
-    links: [
-      { to: '/us-staffing', icon: Globe, label: 'Global Demand', desc: 'Open positions + demand pipeline' },
-      { to: '/us-roster',   icon: Users, label: 'Global Roster', desc: 'Every billable + bench resource' },
-    ],
-  },
-  {
-    key: 'concierge',
-    label: 'Concierge',
-    tagline: 'Managed-services accounts + AI account planning',
-    accent: 'violet',
-    icon: Headset,
-    links: [
-      { to: '/concierge', icon: Headset,   label: 'Concierge',          desc: 'Accounts, tickets, feature coverage, AI profile + opportunities' },
-      { to: '/concierge', icon: Sparkles,  label: 'Concierge AI Query', desc: 'Ask cross-account questions on the Concierge homepage' },
-    ],
-  },
-  {
-    key: 'personal',
-    label: 'Personal',
-    tagline: 'Your day-to-day',
-    accent: 'navy',
-    icon: LayoutDashboard,
-    links: [
-      { to: '/',            icon: LayoutDashboard, label: 'Dashboard',    desc: 'Company-wide KPIs and quick links' },
-      { to: '/my-time',     icon: Clock,           label: 'My Time',      desc: 'Log and edit your own time entries' },
-      { to: '/team-time',   icon: Clock,           label: 'Team Time',    desc: 'Approve time for your reports' },
-    ],
-  },
-  {
-    key: 'admin',
-    label: 'Admin',
-    tagline: 'User management + audit trail',
-    accent: 'navy',
-    icon: UserCog,
-    adminOnly: true,
-    links: [
-      { to: '/admin/users',    icon: UserCog,  label: 'Users',    desc: 'Manage authorized users, roles, permissions' },
-      { to: '/admin/activity', icon: Activity, label: 'Activity', desc: 'Team activity feed' },
-      { to: '/admin/audit',    icon: History,  label: 'Audit Log', desc: 'Immutable change log across the app' },
-    ],
-  },
-];
+type Hub = NavGroup & { links: (NavItem & { to: string; desc: string })[] };
 
 export default function HomePage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const assignments = useForecastStore((s) => s.assignments);
   const pipelineProjects = usePipelineStore((s) => s.projects);
-  const isAdmin = !!currentUser?.isAdmin;
+  const groups = useNavSections();
 
-  const visibleHubs = useMemo(
-    () => HUBS.filter((h) => !h.adminOnly || isAdmin),
-    [isAdmin],
+  const visibleHubs: Hub[] = useMemo(
+    () => groups
+      .filter((g) => g.key !== 'apps')
+      .map((g) => ({
+        ...g,
+        links: g.items.filter((i): i is NavItem & { to: string; desc: string } => !!i.to && !!i.desc && i.to !== '/home'),
+      }))
+      .filter((g) => g.links.length > 0),
+    [groups],
   );
 
   const [tab, setTab] = useState<string>('all');
@@ -293,7 +159,7 @@ function HubBlock({ hub }: { hub: Hub }) {
   return (
     <section>
       <div className="flex items-center gap-3 mb-4">
-        <div className={`w-11 h-11 rounded-xl ${ACCENT[hub.accent].chip} ${ACCENT[hub.accent].icon} flex items-center justify-center shrink-0`}>
+        <div className={`w-11 h-11 rounded-xl ${NAV_ACCENT[hub.accent].chip} flex items-center justify-center shrink-0`}>
           <hub.icon size={22} strokeWidth={2} />
         </div>
         <div className="min-w-0">
@@ -311,15 +177,15 @@ function HubBlock({ hub }: { hub: Hub }) {
   );
 }
 
-function HubCard({ link, accent }: { link: HubLink; accent: AccentKey }) {
-  const a = ACCENT[accent];
+function HubCard({ link, accent }: { link: Hub['links'][number]; accent: NavAccent }) {
+  const a = NAV_ACCENT[accent];
   return (
     <NavLink to={link.to} className="group h-full">
       <div className="h-full bg-surface rounded-2xl border border-line/70 p-5 shadow-[0_16px_48px_#0f1b2d0f] transition-all duration-150 group-hover:-translate-y-0.5 group-hover:shadow-[0_20px_56px_#0f1b2d24] group-hover:border-line">
         <div className="flex items-start gap-3.5">
           {/* Bigger icon — at 16px these read as decoration; at 22px they're
               the thing you actually scan the grid by. */}
-          <div className={`w-11 h-11 rounded-xl ${a.chip} ${a.icon} flex items-center justify-center flex-shrink-0`}>
+          <div className={`w-11 h-11 rounded-xl ${a.chip} flex items-center justify-center flex-shrink-0`}>
             <link.icon size={22} strokeWidth={2} />
           </div>
           <div className="flex-1 min-w-0">

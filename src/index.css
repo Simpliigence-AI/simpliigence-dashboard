@@ -62,8 +62,11 @@
   --color-danger: #e11d48;
   --color-surface-dark: #eef1f6;
   --color-sidebar: #1e293b;
-  --color-sidebar-hover: #334155;
+  --color-sidebar-hover: #2c3a52;
   --color-sidebar-active: #3b82f6;
+  --color-sidebar-text: #e2e8f0;   /* nav labels — ~12:1 on the sidebar */
+  --color-sidebar-dim: #9aa9bf;    /* group headers, icons, counts — ~5.5:1 */
+  --color-sidebar-line: #334155;   /* dividers + right edge */
 
   /* One shadow, used everywhere. Long, soft, navy-tinted — a grey shadow on a
    * tinted ground reads as smudge. */
@@ -94,8 +97,13 @@
   --color-muted:     #94a3b8;   /* secondary text */
   --color-navy:      #0a1220;   /* sidebar, one shade deeper than the page */
   --color-navy-2:    #172236;
-  --color-sidebar:   #0a1220;
-  --color-sidebar-hover: #172236;
+  /* Sidebar sits a step LIGHTER than the page with a visible edge, so the two
+   * never merge into one black slab. */
+  --color-sidebar:   #121d31;
+  --color-sidebar-hover: #1c2a44;
+  --color-sidebar-text: #dbe3ee;
+  --color-sidebar-dim:  #8fa0b8;
+  --color-sidebar-line: #26344f;
   --color-brand-soft: #1e2a3e;  /* soft brand backgrounds need to sit on dark */
   --color-primary-light: #1e3a5f;
   --color-coral:      #ff8563;  /* dark-mode coral — punchier for the navy ground */

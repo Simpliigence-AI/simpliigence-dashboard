@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
 import DashboardPage from '../pages/DashboardPage';
 import TeamRosterPage from '../pages/TeamRosterPage';
@@ -8,7 +8,6 @@ import PipelinePage from '../pages/PipelinePage';
 import ForecastingPage from '../pages/ForecastingPage';
 import FinancialsPage from '../pages/FinancialsPage';
 import SettingsPage from '../pages/SettingsPage';
-import HiringForecastPage from '../pages/HiringForecastPage';
 import ConciergePage from '../pages/ConciergePage';
 import IndiaStaffingPage from '../pages/IndiaStaffingPage';
 import USStaffingPage from '../pages/USStaffingPage';
@@ -81,7 +80,7 @@ export const router = createBrowserRouter(
         { path: 'project-plans', element: <ProjectPlansPage /> },
         { path: 'project-plans/:id', element: <ProjectPlanDetailPage /> },
         { path: 'forecasting', element: <RoleOnly allow={['admin']}><ForecastingPage /></RoleOnly> },
-        { path: 'hiring-forecast', element: <RoleOnly allow={['admin']}><HiringForecastPage /></RoleOnly> },
+        { path: 'hiring-forecast', element: <Navigate to="/home" replace /> }, // retired — India Hiring Forecast remains
         { path: 'financials', element: <RoleOnly allow={['admin']}><FinancialsPage /></RoleOnly> },
 
         // India T&M section

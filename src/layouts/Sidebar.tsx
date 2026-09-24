@@ -1,224 +1,32 @@
+/**
+ * App sidebar.
+ *
+ * Groups come from `lib/navConfig.ts` via `useNavSections()` (role, tab
+ * permission, access matrix and financials filtering all live there).
+ *
+ * Behaviour:
+ *   - Accordion: one group open at a time. The group holding the current
+ *     page opens automatically; clicking another header opens that one.
+ *   - Each group has its own accent colour (dot, active bar, active icon),
+ *     matching the Home page cards.
+ *   - ⌘K / Ctrl+K (or the Search button) opens the page finder.
+ *   - Collapsed rail: icons only, grouped by thin dividers, with tooltips.
+ */
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Users,
-  FolderKanban,
-  Layers,
-  DollarSign,
-  UserPlus,
-  Settings,
-  Headset,
-  Zap,
-  PanelLeftClose,
-  ClipboardList,
-  PanelLeftOpen,
-  Globe,
-  TrendingUp,
-  Clock,
-  Timer,
-  CheckSquare,
-  CalendarCheck,
-  Contact,
-  BarChart3,
-  PieChart,
-  Building2,
-  Handshake,
-  Target,
-  Radar,
-  ClipboardCheck,
-  Home,
-  ChevronDown,
-  ChevronRight,
-  FileEdit,
-  UserCog,
-  Activity,
-  History,
-  LogOut,
-  ExternalLink,
-  ShieldCheck,
-  BriefcaseBusiness,
-  PhoneCall,
-  Sun,
-  Moon,
-  SunMoon,
-  Eye,
-  EyeOff,
-  ListChecks,
-  type LucideIcon,
+  Settings, Zap, PanelLeftClose, PanelLeftOpen, ChevronDown, LogOut, ExternalLink,
+  Sun, Moon, SunMoon, Eye, EyeOff, Search,
 } from 'lucide-react';
-import { useTabPermission } from '../hooks/useTabPermission';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
-import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore, type ThemePreference } from '../store/useThemeStore';
-import { useAccessStore } from '../store/useAccessStore';
 import { useFinancialsRevealStore } from '../store/useFinancialsRevealStore';
-import { useIsOwner } from '../components/OwnerOnly';
 import { useCanRevealFinancials } from '../hooks/usePageAccess';
-import { normalizePageKey } from '../lib/pageCatalog';
-
-/** Nav entry. If `href` is set the item renders as an external <a> that opens
- *  a new tab. Otherwise `to` renders as an internal React Router NavLink. */
-interface NavItem {
-  to?: string;
-  href?: string;
-  icon: LucideIcon;
-  label: string;
-}
-interface NavSection { label: string; items: NavItem[]; }
-
-const sections: NavSection[] = [
-  {
-    label: 'Portals',
-    items: [
-      { to: '/my-time',                                                icon: Timer,             label: 'Timesheets' },
-      { to: '/leave',                                                  icon: CalendarCheck,     label: 'Leave' },
-      { to: '/home',                                                   icon: BriefcaseBusiness, label: 'Delivery Cockpit' },
-      { href: 'https://simpliigence-hr-portal.vercel.app/dossier',     icon: UserCog,           label: 'HR Portal' },
-    ],
-  },
-  {
-    label: 'Home',
-    items: [
-      { to: '/home', icon: Home,             label: 'Home' },
-      { to: '/',     icon: LayoutDashboard,  label: 'Dashboard' },
-      { to: '/checkins', icon: ClipboardCheck, label: 'Check-ins' },
-    ],
-  },
-  {
-    label: 'Projects',
-    items: [
-      { to: '/team', icon: Users, label: 'Project Team' },
-      { to: '/actual-hours', icon: Clock, label: 'Actual Hours' },
-      { to: '/projects', icon: FolderKanban, label: 'Current Projects' },
-      { to: '/project-plans', icon: ListChecks, label: 'Project Plans' },
-      { to: '/pipeline', icon: Layers, label: 'Pipeline Projects' },
-      { to: '/forecasting', icon: TrendingUp, label: 'Utilization Forecast' },
-      { to: '/hiring-forecast', icon: UserPlus, label: 'Hiring Forecast' },
-      { to: '/financials', icon: DollarSign, label: 'Financials' },
-    ],
-  },
-  {
-    label: 'India T&M',
-    items: [
-      { to: '/india-staffing', icon: ClipboardList, label: 'India Demand' },
-      { to: '/india-demand-analytics', icon: PieChart, label: 'Demand Analytics' },
-      { to: '/india-roster', icon: Users, label: 'Roster' },
-      { to: '/india-hiring-forecast', icon: UserPlus, label: 'Hiring Forecast' },
-      { to: '/ta-daily-log', icon: CalendarCheck, label: 'TA Daily Log' },
-      { to: '/ta-metrics', icon: BarChart3, label: 'TA Metrics' },
-      { to: '/candidates', icon: Contact, label: 'Candidates' },
-      { to: '/profile-format', icon: FileEdit, label: 'Profile Format' },
-      { to: '/hiring-radar', icon: Radar, label: 'Hiring Radar' },
-      { to: '/screenings', icon: ClipboardCheck, label: 'Screenings' },
-    ],
-  },
-  {
-    label: 'Global T&M',
-    items: [
-      { to: '/us-staffing', icon: Globe, label: 'Global Demand' },
-      { to: '/us-roster', icon: Users, label: 'Global Roster' },
-      { to: '/tnm-accounts', icon: Building2, label: 'TNM Accounts' },
-    ],
-  },
-  {
-    label: 'Account Management',
-    items: [
-      { to: '/accounts', icon: Building2, label: 'Accounts' },
-      { to: '/vendors',  icon: Handshake, label: 'Vendors' },
-      { to: '/gtm-list', icon: Target,    label: 'GTM List' },
-      { to: '/dialer',   icon: PhoneCall, label: 'Dialer' },
-    ],
-  },
-  {
-    label: 'Other',
-    items: [
-      { to: '/concierge', icon: Headset, label: 'Concierge' },
-    ],
-  },
-];
-
-const adminSection: NavSection = {
-  label: 'Admin',
-  items: [
-    { to: '/admin/users',    icon: UserCog,      label: 'Users' },
-    { to: '/admin/access',   icon: ShieldCheck,  label: 'Access Matrix' },
-    { to: '/admin/checkins', icon: ClipboardCheck, label: 'Check-in Admin' },
-    { to: '/admin/leave',    icon: CalendarCheck, label: 'Leave Admin' },
-    { to: '/admin/activity', icon: Activity,     label: 'Activity' },
-    { to: '/admin/audit',    icon: History,      label: 'Audit Log' },
-  ],
-};
-
-/** Nav shown to role='employee' users — timesheet, leave, and the
- *  Concierge Tickets pane (view/log hours on tickets they've been
- *  assigned or care about; the Concierge page detects role='employee'
- *  and strips down to just the Tickets tab). */
-const employeeOnlySections: NavSection[] = [
-  {
-    label: 'My Work',
-    items: [
-      { to: '/my-time',   icon: Timer,         label: 'My Time' },
-      { to: '/leave',     icon: CalendarCheck, label: 'Leave' },
-      { to: '/concierge', icon: Headset,       label: 'Concierge Tickets' },
-    ],
-  },
-];
-
-/** "My Time" link surfaced to admins/managers too, under the Projects group. */
-const myTimeItem: NavItem = { to: '/my-time', icon: Timer, label: 'My Time' };
-/** Manager approval queue, shown to admins/managers under the Projects group. */
-const teamTimeItem: NavItem = { to: '/my-team-time', icon: CheckSquare, label: 'Team Time' };
-/** Manager/admin view of all employees' leave requests, next to Team Time. */
-const teamLeaveItem: NavItem = { to: '/team-leave', icon: CalendarCheck, label: 'Team Leave' };
-
-/** Wraps NavLink (internal) or a plain <a target=_blank> (external) so we can
- *  render both shapes side-by-side in the sidebar. External items get a small
- *  ↗ affordance so users know they're leaving the app. */
-function NavItemLink({
-  item, className, iconOnly, title,
-}: {
-  item: NavItem;
-  className: (isActive: boolean) => string;
-  iconOnly?: boolean;
-  title?: string;
-}) {
-  const Icon = item.icon;
-  if (item.href) {
-    return (
-      <a
-        href={item.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={title ?? item.label}
-        className={className(false)}
-      >
-        <Icon size={17} className="flex-shrink-0" />
-        {!iconOnly && (
-          <span className="whitespace-nowrap overflow-hidden flex-1">{item.label}</span>
-        )}
-        {!iconOnly && (
-          <ExternalLink size={10} className="flex-shrink-0 opacity-50" />
-        )}
-      </a>
-    );
-  }
-  const to = item.to || '/';
-  return (
-    <NavLink
-      to={to}
-      end={to === '/'}
-      title={title}
-      className={({ isActive }) => className(isActive)}
-    >
-      <Icon size={17} className="flex-shrink-0" />
-      {!iconOnly && (
-        <span className="whitespace-nowrap overflow-hidden">{item.label}</span>
-      )}
-    </NavLink>
-  );
-}
+import { useNavSections } from '../hooks/useNavSections';
+import { NAV_ACCENT, navMatches, type NavGroup, type NavItem } from '../lib/navConfig';
+import { CommandPalette } from '../components/CommandPalette';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -231,82 +39,11 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const [email, setEmail] = useState<string | null>(null);
-  const role = useAuthStore((s) => s.currentUser?.role);
-  // Canonical admin flag from the store (is_admin || role==='admin') — same value
-  // AdminOnly gates the /admin/* routes with, so the nav and the routes agree.
-  const isAdmin = useAuthStore((s) => !!s.currentUser?.isAdmin);
-  const isEmployee = role === 'employee';
-  /**
-   * "Effectively collapsed" — only applies on desktop. When the mobile drawer
-   * is open the sidebar always renders the full labeled view (icons-only is
-   * a desktop space-saver and unhelpful in a touch drawer).
-   */
+  /** "Effectively collapsed" — icon rail on desktop only; the mobile drawer is always full. */
   const eff = collapsed && !mobileOpen;
 
-  // Build role-appropriate nav:
-  //   - employee: only "My Work · My Time"
-  //   - TA Manager (role='manager'): everything EXCEPT the "Projects" section
-  //     (no delivery/financials visibility). My Time + Team Time go into their
-  //     own "My Work" group at the top.
-  //   - admin: full nav + Admin section, with "My Time" + "Team Time" injected
-  //     under Projects.
-  // Project Plans is gated by its tab, not by role: BAs / project leads are
-  // role='employee' and TA managers are role='manager', and some of each own
-  // plans. Admins already get it in the Projects section.
-  const plansPerm = useTabPermission('project-plans');
-  const planItem: NavItem = { to: '/project-plans', icon: ListChecks, label: 'Project Plans' };
-  const rawSections: NavSection[] = isEmployee
-    ? employeeOnlySections.map((sec) =>
-        sec.label === 'My Work' && plansPerm.canView ? { ...sec, items: [...sec.items, planItem] } : sec,
-      )
-    : isAdmin
-      ? sections
-          .map((s) =>
-            s.label === 'Projects'
-              ? { ...s, items: [myTimeItem, teamTimeItem, teamLeaveItem, ...s.items] }
-              : s,
-          )
-          .concat([adminSection])
-      : // TA Manager
-        [
-          { label: 'My Work', items: [myTimeItem, teamTimeItem, teamLeaveItem, ...(plansPerm.canView ? [planItem] : [])] } as NavSection,
-          ...sections.filter((s) => s.label !== 'Projects'),
-        ];
+  const groups = useNavSections();
 
-  /**
-   * Access-matrix filter. Owner sees everything. Everyone else has their
-   * per-page level in the access store — items keyed to a page they have
-   * `none` on get hidden. External links (href-only) and items missing
-   * from the catalog (My Time, Delivery Cockpit portal shortcuts, etc.)
-   * fall through by default so we don't accidentally hide the world if a
-   * page key isn't in the catalog yet.
-   */
-  const isOwner = useIsOwner();
-  const currentEmail = useAuthStore((s) => s.currentUser?.email);
-  const accessEntries = useAccessStore((s) => s.entries);
-  const visibleSections: NavSection[] = useMemo(() => {
-    if (isOwner) return rawSections;
-    const email = (currentEmail ?? '').toLowerCase();
-    const levelFor = (to: string | undefined): 'none' | 'read' | 'write' | 'unknown' => {
-      if (!to) return 'unknown';
-      const key = normalizePageKey(to);
-      const row = accessEntries.find((e) => e.userEmail === email && e.pageKey === key);
-      return row?.level ?? 'unknown';
-    };
-    return rawSections
-      .map((s) => ({
-        ...s,
-        items: s.items.filter((item) => {
-          if (item.href) return true;                   // external links unfiltered
-          const level = levelFor(item.to);
-          if (level === 'unknown') return true;         // page not in catalog → don't hide
-          return level !== 'none';
-        }),
-      }))
-      .filter((s) => s.items.length > 0);
-  }, [rawSections, isOwner, currentEmail, accessEntries]);
-
-  // Financial-reveal toggle in the profile / footer area.
   const revealed = useFinancialsRevealStore((s) => s.revealed);
   const toggleReveal = useFinancialsRevealStore((s) => s.toggle);
   const canReveal = useCanRevealFinancials();
@@ -322,49 +59,38 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
-  // ── Collapsible section state ──
-  const SECTION_STATE_KEY = 'sidebar-sections-expanded';
+  // ── Which group is open ──
+  // The group containing the current page wins. A header click overrides it
+  // until the next navigation (stored with the path it was made on, so no
+  // effect is needed to "reset" it).
   const location = useLocation();
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
-    try {
-      const stored = localStorage.getItem(SECTION_STATE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch { /* ignore */ }
-    return {};
-  });
-  const activeSectionLabel = useMemo(() => {
-    const path = location.pathname;
-    for (const section of visibleSections) {
-      // External items (href-only) never match the current location — only
-      // internal `to` items contribute to the "which section am I in" check.
-      if (section.items.some((i) => {
-        if (!i.to) return false;
-        if (path === i.to) return true;
-        if (i.to === '/') return path === '/';
-        return path.startsWith(i.to + '/');
-      })) {
-        return section.label;
+  const activeGroupKey = useMemo(() => {
+    const hit = groups.find((g) => g.items.some((i) => navMatches(location.pathname, i.to)));
+    return hit?.key ?? null;
+  }, [groups, location.pathname]);
+  const [manual, setManual] = useState<{ path: string; key: string | null } | null>(null);
+  const openKey = manual && manual.path === location.pathname ? manual.key : activeGroupKey;
+  const toggleGroup = (key: string) =>
+    setManual({ path: location.pathname, key: openKey === key ? null : key });
+
+  // ── ⌘K palette ──
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
       }
-    }
-    return null;
-  }, [location.pathname, visibleSections]);
-  useEffect(() => {
-    if (Object.keys(expandedSections).length === 0 && activeSectionLabel) {
-      setExpandedSections({ [activeSectionLabel]: true });
-    }
-  }, [activeSectionLabel]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    try { localStorage.setItem(SECTION_STATE_KEY, JSON.stringify(expandedSections)); } catch { /* ignore */ }
-  }, [expandedSections]);
-  const isSectionExpanded = (label: string) =>
-    label === activeSectionLabel || expandedSections[label] === true;
-  const toggleSection = (label: string) =>
-    setExpandedSections((s) => ({ ...s, [label]: !isSectionExpanded(label) }));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
   return (
     <aside
       className={`
-        bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-40
+        bg-sidebar border-r border-sidebar-line h-screen flex flex-col fixed left-0 top-0 z-40
         transition-all duration-300 ease-in-out
         ${collapsed ? 'md:w-[76px]' : 'md:w-72'}
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -372,257 +98,267 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         w-72
       `}
     >
-      {/* Mobile close button — only visible <md when drawer is open */}
       {onMobileClose && (
         <button
           type="button"
           onClick={onMobileClose}
-          className="md:hidden absolute top-3 right-3 z-10 inline-flex items-center justify-center w-8 h-8 rounded text-muted hover:text-white hover:bg-sidebar-hover"
+          className="md:hidden absolute top-3 right-3 z-10 inline-flex items-center justify-center w-8 h-8 rounded text-sidebar-dim hover:text-white hover:bg-sidebar-hover"
           aria-label="Close menu"
         >
           ×
         </button>
       )}
-      {/* Logo */}
-      <div className={`flex items-center ${eff ? 'justify-center px-2' : 'px-5'} py-5 gap-2.5`}>
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
+
+      {/* Brand */}
+      <div className={`flex items-center ${eff ? 'justify-center px-2' : 'px-5'} pt-5 pb-4 gap-2.5`}>
+        <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
           <Zap size={18} className="text-white" />
         </div>
         {!eff && (
-          <span className="text-white font-bold text-lg tracking-tight whitespace-nowrap overflow-hidden">
-            Simpliigence
-          </span>
+          <div className="min-w-0 leading-tight">
+            <div className="text-white font-bold text-[1.0625rem] tracking-tight truncate">Simpliigence</div>
+            <div className="text-[11px] text-sidebar-dim truncate">Delivery Cockpit</div>
+          </div>
         )}
       </div>
 
-      {/* Nav — grouped by section */}
-      <nav className={`flex-1 ${eff ? 'px-2' : 'px-3'} pb-2 space-y-2 overflow-y-auto overflow-x-hidden`}>
-        {visibleSections.map((section, idx) => {
-          // Desktop icon-only mode: show all items, no toggles.
-          if (eff) {
-            return (
-              <div key={section.label}>
-                {idx > 0 && <div className="mx-2 my-2 border-t border-slate-700/40" />}
-                <div className="space-y-0.5">
-                  {section.items.map((item) => (
-                    <NavItemLink
-                      key={item.to || item.href}
-                      item={item}
-                      iconOnly
-                      title={`${section.label} — ${item.label}`}
-                      className={(isActive) =>
-                        `flex items-center justify-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-sidebar-active text-white'
-                            : 'text-muted hover:text-white hover:bg-sidebar-hover'
-                        }`
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          }
-          // Expanded sidebar: section header toggles. Active section is forced open.
-          const expanded = isSectionExpanded(section.label);
-          const isActiveSection = section.label === activeSectionLabel;
-          return (
-            <div key={section.label}>
-              <button
-                type="button"
-                onClick={() => toggleSection(section.label)}
-                aria-expanded={expanded}
-                className={`w-full flex items-center justify-between gap-2 px-3 pb-1 pt-1 rounded-md text-[9px] font-bold uppercase tracking-widest hover:bg-sidebar-hover transition-colors ${
-                  isActiveSection ? 'text-muted/70' : 'text-muted hover:text-muted/70'
-                }`}
-                title={expanded ? 'Collapse section' : 'Expand section'}
-              >
-                <span className="truncate">{section.label}</span>
-                <span className="flex items-center gap-1.5">
-                  {!expanded && (
-                    <span className="text-[9px] font-normal tracking-normal text-muted normal-case">
-                      {section.items.length}
-                    </span>
-                  )}
-                  {expanded
-                    ? <ChevronDown size={11} className="flex-shrink-0" />
-                    : <ChevronRight size={11} className="flex-shrink-0" />}
-                </span>
-              </button>
-              {expanded && (
-                <div className="space-y-0.5 mt-0.5">
-                  {section.items.map((item) => (
-                    <NavItemLink
-                      key={item.to || item.href}
-                      item={item}
-                      className={(isActive) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-sidebar-active text-white'
-                            : 'text-muted hover:text-white hover:bg-sidebar-hover'
-                        }`
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {!eff && visibleSections.length > 1 && (
-          <div className="px-3 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                const allExpanded = visibleSections.every((s) => isSectionExpanded(s.label));
-                const next: Record<string, boolean> = {};
-                for (const s of visibleSections) next[s.label] = !allExpanded;
-                setExpandedSections(next);
-              }}
-              className="text-[10px] text-muted hover:text-muted/70 transition-colors"
-            >
-              {visibleSections.every((s) => isSectionExpanded(s.label)) ? 'Collapse all' : 'Expand all'}
-            </button>
-          </div>
+      {/* Search */}
+      <div className={`${eff ? 'px-2' : 'px-3'} pb-3`}>
+        <button
+          type="button"
+          onClick={() => setPaletteOpen(true)}
+          title={`Search pages (${isMac ? '⌘' : 'Ctrl+'}K)`}
+          className={`w-full flex items-center ${eff ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2'} rounded-lg bg-white/[0.05] border border-sidebar-line text-sidebar-dim hover:text-white hover:bg-white/[0.08] transition-colors text-sm`}
+        >
+          <Search size={16} className="flex-shrink-0" />
+          {!eff && (
+            <>
+              <span className="flex-1 text-left">Search pages…</span>
+              <kbd className="text-[10px] font-semibold border border-sidebar-line rounded px-1.5 py-0.5">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Groups */}
+      <nav className={`flex-1 ${eff ? 'px-2' : 'px-3'} pb-2 overflow-y-auto overflow-x-hidden`} aria-label="Main">
+        {groups.map((group, idx) =>
+          eff ? (
+            <RailGroup key={group.key} group={group} first={idx === 0} />
+          ) : (
+            <AccordionGroup
+              key={group.key}
+              group={group}
+              open={openKey === group.key}
+              containsActive={activeGroupKey === group.key}
+              onToggle={() => toggleGroup(group.key)}
+            />
+          ),
         )}
       </nav>
 
-      {/* User identity + sign-out */}
-      {email && (
-        <div className={`${eff ? 'px-2' : 'px-3'} pt-3 border-t border-slate-700/40`}>
-          {eff ? (
-            <button
-              type="button"
-              onClick={() => signOut()}
-              title={`Signed in as ${email} — click to sign out`}
-              className="flex items-center justify-center w-full py-2 rounded-lg text-muted hover:text-white hover:bg-sidebar-hover transition-colors"
-            >
-              <span className="w-7 h-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center uppercase">
-                {email.charAt(0)}
-              </span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <span className="w-7 h-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center uppercase flex-shrink-0">
-                {email.charAt(0)}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-muted/70 truncate" title={email}>{email}</div>
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className="text-[10px] text-muted hover:text-white inline-flex items-center gap-1 mt-0.5 transition-colors"
-                >
-                  <LogOut size={10} /> Sign out
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Bottom: Theme + Financial reveal + Settings + Toggle */}
-      <div className={`${eff ? 'px-2' : 'px-3'} pb-3 pt-2 space-y-1`}>
-        {/* Reveal-financials toggle. Owner + can_view_financials users get
-         *  the working button; anyone else sees a locked variant that
-         *  explains why. Kept above the Settings row so it's discoverable. */}
+      {/* Footer */}
+      <div className={`${eff ? 'px-2' : 'px-3'} pt-2 pb-3 border-t border-sidebar-line space-y-1`}>
+        {/* Financials reveal toggle — hides the Financials page and masks values when off. */}
         <button
           type="button"
           onClick={() => { if (canReveal) toggleReveal(); }}
           title={
             !canReveal
-              ? 'Financial values are hidden. You do not have permission to reveal them.'
+              ? 'Financials are hidden. You do not have permission to reveal them.'
               : revealed
-                ? 'Financial values are visible for this session — click to hide'
-                : 'Financial values are hidden — click to reveal for this session'
+                ? 'Financials are visible for this session — click to hide'
+                : 'Financials are hidden — click to show for this session'
           }
-          className={`w-full flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`w-full flex items-center ${eff ? 'justify-center px-2' : 'gap-3 px-3'} py-2 rounded-lg text-sm font-medium transition-colors ${
             revealed && canReveal
               ? 'bg-emerald-600/90 text-white hover:bg-emerald-500'
               : canReveal
-                ? 'text-muted hover:text-white hover:bg-sidebar-hover'
-                : 'text-muted/60 cursor-not-allowed'
+                ? 'text-sidebar-text hover:text-white hover:bg-sidebar-hover'
+                : 'text-sidebar-dim/60 cursor-not-allowed'
           }`}
         >
-          {revealed && canReveal ? <Eye size={18} className="flex-shrink-0" /> : <EyeOff size={18} className="flex-shrink-0" />}
-          {!eff && (
-            <span className="flex-1 text-left">
-              {revealed && canReveal ? 'Financials shown' : 'Financials hidden'}
+          {revealed && canReveal ? <Eye size={17} className="flex-shrink-0" /> : <EyeOff size={17} className="flex-shrink-0" />}
+          {!eff && <span className="flex-1 text-left">{revealed && canReveal ? 'Financials shown' : 'Financials hidden'}</span>}
+        </button>
+
+        {/* User */}
+        {email && (
+          <div className={`flex items-center ${eff ? 'justify-center' : 'gap-2.5 px-2'} py-1.5`}>
+            <span
+              className="w-8 h-8 rounded-full bg-primary/25 text-blue-200 text-xs font-bold flex items-center justify-center uppercase flex-shrink-0"
+              title={email}
+            >
+              {email.charAt(0)}
             </span>
+            {!eff && (
+              <>
+                <div className="flex-1 min-w-0 text-[12px] text-sidebar-text truncate" title={email}>{email}</div>
+                <IconButton title="Sign out" onClick={() => signOut()}><LogOut size={15} /></IconButton>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Utility row: theme · settings · collapse */}
+        <div className={`flex ${eff ? 'flex-col items-center gap-1' : 'items-center gap-1 px-1'}`}>
+          <ThemeToggle />
+          <NavLink
+            to="/settings"
+            title="Settings"
+            className={({ isActive }) =>
+              `inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+                isActive ? 'bg-white/10 text-white' : 'text-sidebar-dim hover:text-white hover:bg-sidebar-hover'
+              }`
+            }
+          >
+            <Settings size={17} />
+          </NavLink>
+          {eff && email && (
+            <IconButton title={`Sign out (${email})`} onClick={() => signOut()}><LogOut size={16} /></IconButton>
           )}
-        </button>
-
-        <ThemeToggle collapsed={eff} />
-
-        <NavLink
-          to="/settings"
-          title={eff ? 'Settings' : undefined}
-          className={({ isActive }) =>
-            `flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isActive
-                ? 'bg-sidebar-active text-white'
-                : 'text-muted hover:text-white hover:bg-sidebar-hover'
-            }`
-          }
-        >
-          <Settings size={18} className="flex-shrink-0" />
-          {!eff && <span>Settings</span>}
-        </NavLink>
-
-        {/* Desktop-only sidebar collapse toggle */}
-        <button
-          type="button"
-          onClick={onToggle}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={`hidden md:flex items-center ${eff ? 'justify-center' : ''} gap-3 ${eff ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-muted hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
-        >
-          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          {!eff && <span>Collapse</span>}
-        </button>
+          <span className={`hidden md:inline-flex ${eff ? '' : 'md:ml-auto'}`}>
+            <IconButton title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>
+              {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+            </IconButton>
+          </span>
+        </div>
       </div>
+
+      {/* Portalled to <body>: the aside's translate makes it the containing
+          block for fixed children, which would trap the palette inside it. */}
+      {paletteOpen && createPortal(<CommandPalette groups={groups} onClose={() => setPaletteOpen(false)} />, document.body)}
     </aside>
   );
 }
 
+/* ─────────────────────────── pieces ─────────────────────────── */
+
+function AccordionGroup({
+  group, open, containsActive, onToggle,
+}: { group: NavGroup; open: boolean; containsActive: boolean; onToggle: () => void }) {
+  const a = NAV_ACCENT[group.accent];
+  return (
+    <div className="mb-0.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-sidebar-hover ${
+          open || containsActive ? 'text-white' : 'text-sidebar-dim hover:text-sidebar-text'
+        }`}
+      >
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${a.dot} ${open || containsActive ? '' : 'opacity-70'}`} />
+        <span className="flex-1 text-left truncate">{group.label}</span>
+        {!open && (
+          <span className="text-[10px] font-medium tracking-normal normal-case text-sidebar-dim tabular-nums">
+            {group.items.length}
+          </span>
+        )}
+        <ChevronDown size={13} className={`flex-shrink-0 transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
+      </button>
+      {open && (
+        <div className="mt-0.5 mb-2 space-y-0.5">
+          {group.items.map((item) => (
+            <ItemLink key={item.to ?? item.href} item={item} accent={group.accent} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RailGroup({ group, first }: { group: NavGroup; first: boolean }) {
+  return (
+    <div>
+      {!first && <div className="mx-3 my-2 border-t border-sidebar-line" />}
+      <div className="space-y-0.5">
+        {group.items.map((item) => (
+          <ItemLink key={item.to ?? item.href} item={item} accent={group.accent} iconOnly title={`${group.label} — ${item.label}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ItemLink({
+  item, accent, iconOnly, title,
+}: { item: NavItem; accent: NavGroup['accent']; iconOnly?: boolean; title?: string }) {
+  const a = NAV_ACCENT[accent];
+  const Icon = item.icon;
+  const base = `group relative flex items-center ${iconOnly ? 'justify-center px-2' : 'gap-3 pl-4 pr-3'} py-2 rounded-lg text-[0.875rem] transition-colors`;
+
+  if (item.href) {
+    return (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={title ?? item.label}
+        className={`${base} text-sidebar-text hover:text-white hover:bg-sidebar-hover font-medium`}
+      >
+        <Icon size={17} className="flex-shrink-0 text-sidebar-dim group-hover:text-white" />
+        {!iconOnly && <span className="flex-1 truncate">{item.label}</span>}
+        {!iconOnly && <ExternalLink size={11} className="flex-shrink-0 opacity-50" />}
+      </a>
+    );
+  }
+  const to = item.to || '/';
+  return (
+    <NavLink
+      to={to}
+      end={to === '/'}
+      title={iconOnly ? title : undefined}
+      className={({ isActive }) =>
+        `${base} ${
+          isActive
+            ? 'bg-white/[0.08] text-white font-semibold'
+            : 'text-sidebar-text hover:text-white hover:bg-sidebar-hover font-medium'
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && <span className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full ${a.bar}`} />}
+          <Icon size={17} className={`flex-shrink-0 ${isActive ? a.icon : 'text-sidebar-dim group-hover:text-white'}`} />
+          {!iconOnly && <span className="truncate">{item.label}</span>}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+function IconButton({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-sidebar-dim hover:text-white hover:bg-sidebar-hover transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
 /**
- * Sidebar theme toggle. Three-state cycle: auto → light → dark → auto.
- * The current selection is shown as its own icon (SunMoon for auto,
- * Sun for forced-light, Moon for forced-dark). In auto mode the label also
- * notes what the clock is resolving to right now.
+ * Theme toggle. Three-state cycle: auto → light → dark → auto.
+ * Icon shows the current preference; the tooltip says what auto resolves to.
  */
-function ThemeToggle({ collapsed }: { collapsed: boolean }) {
+function ThemeToggle() {
   const preference = useThemeStore((s) => s.preference);
   const mode = useThemeStore((s) => s.mode);
   const setPreference = useThemeStore((s) => s.setPreference);
 
   const cycle: ThemePreference[] = ['auto', 'light', 'dark'];
   const next = cycle[(cycle.indexOf(preference) + 1) % cycle.length];
-
-  const Icon =
-    preference === 'auto' ? SunMoon : preference === 'light' ? Sun : Moon;
-  const label =
-    preference === 'auto' ? `Theme: auto (${mode})`
-    : preference === 'light' ? 'Theme: light'
-    : 'Theme: dark';
-  const title = `${label} — click to switch to ${next}`;
+  const Icon = preference === 'auto' ? SunMoon : preference === 'light' ? Sun : Moon;
+  const label = preference === 'auto' ? `Theme: auto (${mode})` : preference === 'light' ? 'Theme: light' : 'Theme: dark';
 
   return (
-    <button
-      type="button"
-      onClick={() => setPreference(next)}
-      title={title}
-      aria-label={title}
-      className={`flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2' : 'px-3'} py-2.5 rounded-lg text-sm font-medium text-muted hover:text-white hover:bg-sidebar-hover transition-colors w-full`}
-    >
-      <Icon size={18} className="flex-shrink-0" />
-      {!collapsed && (
-        <span className="flex-1 text-left">
-          {preference === 'auto' ? 'Auto' : preference === 'light' ? 'Light' : 'Dark'}
-          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted/60">
-            {preference === 'auto' ? `${mode}` : ''}
-          </span>
-        </span>
-      )}
-    </button>
+    <IconButton title={`${label} — click for ${next}`} onClick={() => setPreference(next)}>
+      <Icon size={17} />
+    </IconButton>
   );
 }

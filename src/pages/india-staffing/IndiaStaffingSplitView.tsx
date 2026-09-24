@@ -16,6 +16,7 @@ import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes 
 import { Building2, Trash2, ArrowRight, Filter } from 'lucide-react';
 import type { StaffingRow, StaffingStatus } from '../../types/staffing';
 import { Card } from '../../components/ui';
+import { chipStyle } from '../../lib/chipStyle';
 
 const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed Won', 'Closed Lost', 'Cancelled'];
 
@@ -131,7 +132,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                       </span>
                       <span
                         className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full whitespace-nowrap"
-                        style={{ background: STATUS_COLORS[r.statusField] || '#94a3b8' }}
+                        style={chipStyle(STATUS_COLORS[r.statusField] || '#94a3b8')}
                       >
                         {r.statusField}
                       </span>

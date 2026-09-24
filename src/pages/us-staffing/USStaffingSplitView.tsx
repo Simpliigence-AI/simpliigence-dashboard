@@ -23,6 +23,7 @@ import { Building2, Trash2, ArrowRight, Filter } from 'lucide-react';
 import type { USStaffingAccount, USStaffingRequisition, USStaffingStage } from '../../types/usStaffing';
 import { US_STAGE_COLORS } from '../../types/usStaffing';
 import { Card } from '../../components/ui';
+import { chipStyle } from '../../lib/chipStyle';
 
 const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
@@ -159,7 +160,7 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                       </span>
                       <span
                         className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full whitespace-nowrap"
-                        style={{ background: US_STAGE_COLORS[r.stage as USStaffingStage] || '#94a3b8' }}
+                        style={chipStyle(US_STAGE_COLORS[r.stage as USStaffingStage] || '#94a3b8')}
                       >
                         {r.stage}
                       </span>

@@ -297,7 +297,7 @@ export default function IndiaHiringForecastPage() {
                         </span>
                         <div className="flex-1 bg-sky-50 rounded-full h-5 overflow-hidden relative border border-sky-100">
                           <div className="bg-gradient-to-r from-sky-400 to-blue-500 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${(sfTotal / max) * 100}%` }}>
-                            <span className="text-[10px] font-bold text-white">{sfTotal} pos · {sfReqs} reqs</span>
+                            <span className="text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">{sfTotal} pos · {sfReqs} reqs</span>
                           </div>
                         </div>
                       </div>
@@ -310,7 +310,7 @@ export default function IndiaHiringForecastPage() {
                           </span>
                           <div className="flex-1 bg-surface-2 rounded-full h-5 overflow-hidden relative">
                             <div className="bg-sky-500/70 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${Math.max(6, (s.positions / max) * 100)}%` }}>
-                              <span className="text-[10px] font-bold text-white">{s.positions} pos</span>
+                              <span className="text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">{s.positions} pos</span>
                             </div>
                           </div>
                           <span className="text-[10px] text-muted w-20 text-right">
@@ -329,7 +329,7 @@ export default function IndiaHiringForecastPage() {
                           <span className="w-32 text-ink/80 font-medium truncate" title={s.skill}>{s.skill}</span>
                           <div className="flex-1 bg-surface-2 rounded-full h-5 overflow-hidden relative">
                             <div className="bg-blue-500/70 h-full rounded-full flex items-center justify-end pr-2" style={{ width: `${(s.positions / max) * 100}%` }}>
-                              <span className="text-[10px] font-bold text-white">{s.positions} pos</span>
+                              <span className="text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">{s.positions} pos</span>
                             </div>
                           </div>
                           <span className="text-[10px] text-muted w-20 text-right">

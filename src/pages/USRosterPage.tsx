@@ -28,6 +28,7 @@ import { USRosterCardGrid } from './us-roster/USRosterCardGrid';
 import { LayoutGrid, Rows3, Building2, User as UserIcon } from 'lucide-react';
 import { USRosterClientView } from './us-roster/USRosterClientView';
 import { USRosterConsultantView } from './us-roster/USRosterConsultantView';
+import { chipStyle } from '../lib/chipStyle';
 
 /* —— Multi-project helpers ——
  * `project` is stored as a single TEXT column (comma-separated). One US
@@ -779,7 +780,7 @@ export default function USRosterPage() {
                       <EditableCell value={m.status} type="select" options={US_ROSTER_STATUSES}
                         onSave={(v) => handleCellSave(m.id, 'status', v)}
                         displayContent={
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: US_ROSTER_STATUS_COLORS[m.status] || '#94a3b8' }}>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(US_ROSTER_STATUS_COLORS[m.status] || '#94a3b8')}>
                             {m.status}
                           </span>
                         }

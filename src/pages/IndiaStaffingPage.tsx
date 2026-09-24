@@ -33,6 +33,7 @@ import { forecastRealisticClosures } from '../lib/aiForecastCloseRate';
 import type { ForecastEntry, MonthBucket } from '../lib/aiForecastCloseRate';
 import { STAGE_COLORS, ARCHIVED_STATUSES, CLOSED_WON_STATUSES, LOST_OR_CANCELLED_STATUSES } from '../types/staffing';
 import confetti from 'canvas-confetti';
+import { chipStyle } from '../lib/chipStyle';
 
 /* -- Constants -- */
 const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed Won', 'Closed Lost', 'Cancelled'];
@@ -671,7 +672,7 @@ export default function IndiaStaffingPage() {
           <td className="p-2">
             <EditableCell value={r.statusField} type="select" options={STATUS_OPTIONS}
               onSave={(val) => handleCellSave(r.id, 'status_field', val)}
-              displayContent={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STATUS_COLORS[r.statusField] || '#94a3b8' }}>{r.statusField}</span>} />
+              displayContent={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(STATUS_COLORS[r.statusField] || '#94a3b8')}>{r.statusField}</span>} />
           </td>
           {/* Risk */}
           <td className="p-2">
@@ -2012,7 +2013,7 @@ export default function IndiaStaffingPage() {
                               {r.filledPositions > 0 ? <><span className={r.openPositions === 0 ? 'text-emerald-600' : ''}>{r.openPositions}</span><span className="text-muted/70">/{r.newPositions}</span></> : r.newPositions}
                             </td>
                             <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
-                            <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
+                            <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(STAGE_COLORS[r.stage])}>{r.stage}</span></td>
                             <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
                             <td className="p-2 font-bold">{r.probability > 0 ? `${r.probability}%` : '—'}</td>
                             <td className="p-2 font-bold">{r.aiProbability}%</td>

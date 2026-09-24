@@ -9,6 +9,7 @@ import { PageHeader } from '../components/shared/PageHeader';
 import { Card, StatCard } from '../components/ui';
 import type { VisaCategory, JobPriority, BenchUpdateType } from '../types/openBench';
 import { BENCH_UPDATE_TYPES, BENCH_UPDATE_TYPE_COLORS } from '../types/openBench';
+import { chipStyle } from '../lib/chipStyle';
 
 /* —— Editable Cell Component —— */
 function EditableCell({ value, onSave, type = 'text', options, className = '', displayContent }: {
@@ -492,7 +493,7 @@ export default function OpenBenchPage() {
                         <div className="flex items-center gap-1 mb-0.5">
                           <span
                             className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded uppercase tracking-wide"
-                            style={{ background: BENCH_UPDATE_TYPE_COLORS[latest.type] || '#94a3b8' }}
+                            style={chipStyle(BENCH_UPDATE_TYPE_COLORS[latest.type] || '#94a3b8')}
                           >
                             {latest.type}
                           </span>
@@ -547,7 +548,7 @@ export default function OpenBenchPage() {
                             <div key={u.id} className="flex items-start gap-2 group bg-surface border border-line rounded-lg px-2.5 py-1.5 hover:border-blue-300 transition-colors">
                               <span
                                 className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0 mt-0.5"
-                                style={{ background: BENCH_UPDATE_TYPE_COLORS[u.type] || '#94a3b8' }}
+                                style={chipStyle(BENCH_UPDATE_TYPE_COLORS[u.type] || '#94a3b8')}
                               >
                                 {u.type}
                               </span>

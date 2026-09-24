@@ -719,7 +719,7 @@ export default function DialerPage() {
               </div>
             ) : (
               <button
-                className="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-line/60 disabled:text-muted/70 text-white font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
+                className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-line/60 disabled:text-muted/70 text-white font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
                 onClick={() => placeCall()}
                 disabled={!e164 || phoneState !== 'ready'}
               >

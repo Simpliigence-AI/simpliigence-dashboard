@@ -225,8 +225,8 @@ html { scroll-behavior: smooth; }
   --gtm-line-soft: rgba(255, 255, 255, 0.05);
   --gtm-text-1: #ffffff;
   --gtm-text-2: rgba(255, 255, 255, 0.72);
-  --gtm-text-3: rgba(255, 255, 255, 0.45);
-  --gtm-text-4: rgba(255, 255, 255, 0.25);
+  --gtm-text-3: rgba(255, 255, 255, 0.62);
+  --gtm-text-4: rgba(255, 255, 255, 0.45);
   --gtm-chip-bg: rgba(255, 255, 255, 0.06);
   --gtm-chip-border: rgba(255, 255, 255, 0.08);
   --gtm-input-bg: #1d2a41;
@@ -346,3 +346,277 @@ html { scroll-behavior: smooth; }
   vertical-align: top;
 }
 .email-html hr { border: 0; border-top: 1px solid var(--color-line); margin: 0.8em 0; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Dark-mode safety net for hard-coded light palette classes.
+ *
+ * Many pages use light-mode Tailwind tints directly (bg-rose-50, border-
+ * violet-200, text-indigo-700, bg-white, from-white …). In dark mode those
+ * produced white panels with white text. Rather than touching hundreds of
+ * call sites, dark mode remaps:
+ *   - the 50/100/200 palette steps to dark tints of the same hue
+ *     (covers bg-, border-, ring-, from-/via-/to-, opacity modifiers, hover:)
+ *   - text in the 600–900 steps to the light 200–400 steps
+ *   - white surfaces / gradient stops to the card surface
+ * 300–950 palette vars are left alone, so solid buttons (bg-emerald-600,
+ * hover:bg-violet-700, bg-slate-900 toasts) keep their colours; text-*-950
+ * is left alone because it only ever sits on a bright solid fill.
+ * Generated from Tailwind's default palette. Verified with a per-page
+ * contrast audit (every tab, dark mode, text vs rendered background).
+ * ───────────────────────────────────────────────────────────────────────── */
+:root[data-mode='dark'] {
+  --color-red-50: color-mix(in oklab, oklch(63.7% 0.237 25.331) 13%, #172236);
+  --color-red-100: color-mix(in oklab, oklch(63.7% 0.237 25.331) 20%, #172236);
+  --color-red-200: color-mix(in oklab, oklch(63.7% 0.237 25.331) 34%, #172236);
+  --color-orange-50: color-mix(in oklab, oklch(70.5% 0.213 47.604) 13%, #172236);
+  --color-orange-100: color-mix(in oklab, oklch(70.5% 0.213 47.604) 20%, #172236);
+  --color-orange-200: color-mix(in oklab, oklch(70.5% 0.213 47.604) 34%, #172236);
+  --color-amber-50: color-mix(in oklab, oklch(76.9% 0.188 70.08) 13%, #172236);
+  --color-amber-100: color-mix(in oklab, oklch(76.9% 0.188 70.08) 20%, #172236);
+  --color-amber-200: color-mix(in oklab, oklch(76.9% 0.188 70.08) 34%, #172236);
+  --color-yellow-50: color-mix(in oklab, oklch(79.5% 0.184 86.047) 13%, #172236);
+  --color-yellow-100: color-mix(in oklab, oklch(79.5% 0.184 86.047) 20%, #172236);
+  --color-yellow-200: color-mix(in oklab, oklch(79.5% 0.184 86.047) 34%, #172236);
+  --color-lime-50: color-mix(in oklab, oklch(76.8% 0.233 130.85) 13%, #172236);
+  --color-lime-100: color-mix(in oklab, oklch(76.8% 0.233 130.85) 20%, #172236);
+  --color-lime-200: color-mix(in oklab, oklch(76.8% 0.233 130.85) 34%, #172236);
+  --color-green-50: color-mix(in oklab, oklch(72.3% 0.219 149.579) 13%, #172236);
+  --color-green-100: color-mix(in oklab, oklch(72.3% 0.219 149.579) 20%, #172236);
+  --color-green-200: color-mix(in oklab, oklch(72.3% 0.219 149.579) 34%, #172236);
+  --color-emerald-50: color-mix(in oklab, oklch(69.6% 0.17 162.48) 13%, #172236);
+  --color-emerald-100: color-mix(in oklab, oklch(69.6% 0.17 162.48) 20%, #172236);
+  --color-emerald-200: color-mix(in oklab, oklch(69.6% 0.17 162.48) 34%, #172236);
+  --color-teal-50: color-mix(in oklab, oklch(70.4% 0.14 182.503) 13%, #172236);
+  --color-teal-100: color-mix(in oklab, oklch(70.4% 0.14 182.503) 20%, #172236);
+  --color-teal-200: color-mix(in oklab, oklch(70.4% 0.14 182.503) 34%, #172236);
+  --color-cyan-50: color-mix(in oklab, oklch(71.5% 0.143 215.221) 13%, #172236);
+  --color-cyan-100: color-mix(in oklab, oklch(71.5% 0.143 215.221) 20%, #172236);
+  --color-cyan-200: color-mix(in oklab, oklch(71.5% 0.143 215.221) 34%, #172236);
+  --color-sky-50: color-mix(in oklab, oklch(68.5% 0.169 237.323) 13%, #172236);
+  --color-sky-100: color-mix(in oklab, oklch(68.5% 0.169 237.323) 20%, #172236);
+  --color-sky-200: color-mix(in oklab, oklch(68.5% 0.169 237.323) 34%, #172236);
+  --color-blue-50: color-mix(in oklab, oklch(62.3% 0.214 259.815) 13%, #172236);
+  --color-blue-100: color-mix(in oklab, oklch(62.3% 0.214 259.815) 20%, #172236);
+  --color-blue-200: color-mix(in oklab, oklch(62.3% 0.214 259.815) 34%, #172236);
+  --color-indigo-50: color-mix(in oklab, oklch(58.5% 0.233 277.117) 13%, #172236);
+  --color-indigo-100: color-mix(in oklab, oklch(58.5% 0.233 277.117) 20%, #172236);
+  --color-indigo-200: color-mix(in oklab, oklch(58.5% 0.233 277.117) 34%, #172236);
+  --color-violet-50: color-mix(in oklab, oklch(60.6% 0.25 292.717) 13%, #172236);
+  --color-violet-100: color-mix(in oklab, oklch(60.6% 0.25 292.717) 20%, #172236);
+  --color-violet-200: color-mix(in oklab, oklch(60.6% 0.25 292.717) 34%, #172236);
+  --color-purple-50: color-mix(in oklab, oklch(62.7% 0.265 303.9) 13%, #172236);
+  --color-purple-100: color-mix(in oklab, oklch(62.7% 0.265 303.9) 20%, #172236);
+  --color-purple-200: color-mix(in oklab, oklch(62.7% 0.265 303.9) 34%, #172236);
+  --color-fuchsia-50: color-mix(in oklab, oklch(66.7% 0.295 322.15) 13%, #172236);
+  --color-fuchsia-100: color-mix(in oklab, oklch(66.7% 0.295 322.15) 20%, #172236);
+  --color-fuchsia-200: color-mix(in oklab, oklch(66.7% 0.295 322.15) 34%, #172236);
+  --color-pink-50: color-mix(in oklab, oklch(65.6% 0.241 354.308) 13%, #172236);
+  --color-pink-100: color-mix(in oklab, oklch(65.6% 0.241 354.308) 20%, #172236);
+  --color-pink-200: color-mix(in oklab, oklch(65.6% 0.241 354.308) 34%, #172236);
+  --color-rose-50: color-mix(in oklab, oklch(64.5% 0.246 16.439) 13%, #172236);
+  --color-rose-100: color-mix(in oklab, oklch(64.5% 0.246 16.439) 20%, #172236);
+  --color-rose-200: color-mix(in oklab, oklch(64.5% 0.246 16.439) 34%, #172236);
+  --color-slate-50: #1d2a41;
+  --color-slate-100: #22304a;
+  --color-slate-200: #2a3859;
+  --color-gray-50: #1d2a41;
+  --color-gray-100: #22304a;
+  --color-gray-200: #2a3859;
+  --color-zinc-50: #1d2a41;
+  --color-zinc-100: #22304a;
+  --color-zinc-200: #2a3859;
+  --color-neutral-50: #1d2a41;
+  --color-neutral-100: #22304a;
+  --color-neutral-200: #2a3859;
+  --color-stone-50: #1d2a41;
+  --color-stone-100: #22304a;
+  --color-stone-200: #2a3859;
+  /* Categorical tokens, lifted so they read as text on the navy ground. */
+  --color-teal: #2dd4bf;
+  --color-gold: #fbbf24;
+  --color-green: #34d399;
+  --color-violet: #a78bfa;
+  --color-rose: #fb7185;
+}
+:root[data-mode='dark'] .text-red-50, :root[data-mode='dark'] .hover\:text-red-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-red-50, :root[data-mode='dark'] [class*='text-red-50/'] { color: oklch(97.1% 0.013 17.38); }
+:root[data-mode='dark'] .text-red-100, :root[data-mode='dark'] .hover\:text-red-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-red-100, :root[data-mode='dark'] [class*='text-red-100/'] { color: oklch(93.6% 0.032 17.717); }
+:root[data-mode='dark'] .text-red-200, :root[data-mode='dark'] .hover\:text-red-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-red-200, :root[data-mode='dark'] [class*='text-red-200/'] { color: oklch(88.5% 0.062 18.334); }
+:root[data-mode='dark'] .text-red-600, :root[data-mode='dark'] .hover\:text-red-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-red-600, :root[data-mode='dark'] [class*='text-red-600/'] { color: oklch(70.4% 0.191 22.216); }
+:root[data-mode='dark'] .text-red-700, :root[data-mode='dark'] .hover\:text-red-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-red-700, :root[data-mode='dark'] [class*='text-red-700/'] { color: oklch(80.8% 0.114 19.571); }
+:root[data-mode='dark'] .text-red-800, :root[data-mode='dark'] .hover\:text-red-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-red-800, :root[data-mode='dark'] [class*='text-red-800/'] { color: oklch(88.5% 0.062 18.334); }
+:root[data-mode='dark'] .text-red-900, :root[data-mode='dark'] .hover\:text-red-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-red-900, :root[data-mode='dark'] [class*='text-red-900/'] { color: oklch(88.5% 0.062 18.334); }
+:root[data-mode='dark'] .text-orange-50, :root[data-mode='dark'] .hover\:text-orange-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-orange-50, :root[data-mode='dark'] [class*='text-orange-50/'] { color: oklch(98% 0.016 73.684); }
+:root[data-mode='dark'] .text-orange-100, :root[data-mode='dark'] .hover\:text-orange-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-orange-100, :root[data-mode='dark'] [class*='text-orange-100/'] { color: oklch(95.4% 0.038 75.164); }
+:root[data-mode='dark'] .text-orange-200, :root[data-mode='dark'] .hover\:text-orange-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-orange-200, :root[data-mode='dark'] [class*='text-orange-200/'] { color: oklch(90.1% 0.076 70.697); }
+:root[data-mode='dark'] .text-orange-600, :root[data-mode='dark'] .hover\:text-orange-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-orange-600, :root[data-mode='dark'] [class*='text-orange-600/'] { color: oklch(75% 0.183 55.934); }
+:root[data-mode='dark'] .text-orange-700, :root[data-mode='dark'] .hover\:text-orange-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-orange-700, :root[data-mode='dark'] [class*='text-orange-700/'] { color: oklch(83.7% 0.128 66.29); }
+:root[data-mode='dark'] .text-orange-800, :root[data-mode='dark'] .hover\:text-orange-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-orange-800, :root[data-mode='dark'] [class*='text-orange-800/'] { color: oklch(90.1% 0.076 70.697); }
+:root[data-mode='dark'] .text-orange-900, :root[data-mode='dark'] .hover\:text-orange-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-orange-900, :root[data-mode='dark'] [class*='text-orange-900/'] { color: oklch(90.1% 0.076 70.697); }
+:root[data-mode='dark'] .text-amber-50, :root[data-mode='dark'] .hover\:text-amber-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-amber-50, :root[data-mode='dark'] [class*='text-amber-50/'] { color: oklch(98.7% 0.022 95.277); }
+:root[data-mode='dark'] .text-amber-100, :root[data-mode='dark'] .hover\:text-amber-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-amber-100, :root[data-mode='dark'] [class*='text-amber-100/'] { color: oklch(96.2% 0.059 95.617); }
+:root[data-mode='dark'] .text-amber-200, :root[data-mode='dark'] .hover\:text-amber-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-amber-200, :root[data-mode='dark'] [class*='text-amber-200/'] { color: oklch(92.4% 0.12 95.746); }
+:root[data-mode='dark'] .text-amber-600, :root[data-mode='dark'] .hover\:text-amber-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-amber-600, :root[data-mode='dark'] [class*='text-amber-600/'] { color: oklch(82.8% 0.189 84.429); }
+:root[data-mode='dark'] .text-amber-700, :root[data-mode='dark'] .hover\:text-amber-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-amber-700, :root[data-mode='dark'] [class*='text-amber-700/'] { color: oklch(87.9% 0.169 91.605); }
+:root[data-mode='dark'] .text-amber-800, :root[data-mode='dark'] .hover\:text-amber-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-amber-800, :root[data-mode='dark'] [class*='text-amber-800/'] { color: oklch(92.4% 0.12 95.746); }
+:root[data-mode='dark'] .text-amber-900, :root[data-mode='dark'] .hover\:text-amber-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-amber-900, :root[data-mode='dark'] [class*='text-amber-900/'] { color: oklch(92.4% 0.12 95.746); }
+:root[data-mode='dark'] .text-yellow-50, :root[data-mode='dark'] .hover\:text-yellow-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-yellow-50, :root[data-mode='dark'] [class*='text-yellow-50/'] { color: oklch(98.7% 0.026 102.212); }
+:root[data-mode='dark'] .text-yellow-100, :root[data-mode='dark'] .hover\:text-yellow-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-yellow-100, :root[data-mode='dark'] [class*='text-yellow-100/'] { color: oklch(97.3% 0.071 103.193); }
+:root[data-mode='dark'] .text-yellow-200, :root[data-mode='dark'] .hover\:text-yellow-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-yellow-200, :root[data-mode='dark'] [class*='text-yellow-200/'] { color: oklch(94.5% 0.129 101.54); }
+:root[data-mode='dark'] .text-yellow-600, :root[data-mode='dark'] .hover\:text-yellow-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-yellow-600, :root[data-mode='dark'] [class*='text-yellow-600/'] { color: oklch(85.2% 0.199 91.936); }
+:root[data-mode='dark'] .text-yellow-700, :root[data-mode='dark'] .hover\:text-yellow-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-yellow-700, :root[data-mode='dark'] [class*='text-yellow-700/'] { color: oklch(90.5% 0.182 98.111); }
+:root[data-mode='dark'] .text-yellow-800, :root[data-mode='dark'] .hover\:text-yellow-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-yellow-800, :root[data-mode='dark'] [class*='text-yellow-800/'] { color: oklch(94.5% 0.129 101.54); }
+:root[data-mode='dark'] .text-yellow-900, :root[data-mode='dark'] .hover\:text-yellow-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-yellow-900, :root[data-mode='dark'] [class*='text-yellow-900/'] { color: oklch(94.5% 0.129 101.54); }
+:root[data-mode='dark'] .text-lime-50, :root[data-mode='dark'] .hover\:text-lime-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-lime-50, :root[data-mode='dark'] [class*='text-lime-50/'] { color: oklch(98.6% 0.031 120.757); }
+:root[data-mode='dark'] .text-lime-100, :root[data-mode='dark'] .hover\:text-lime-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-lime-100, :root[data-mode='dark'] [class*='text-lime-100/'] { color: oklch(96.7% 0.067 122.328); }
+:root[data-mode='dark'] .text-lime-200, :root[data-mode='dark'] .hover\:text-lime-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-lime-200, :root[data-mode='dark'] [class*='text-lime-200/'] { color: oklch(93.8% 0.127 124.321); }
+:root[data-mode='dark'] .text-lime-600, :root[data-mode='dark'] .hover\:text-lime-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-lime-600, :root[data-mode='dark'] [class*='text-lime-600/'] { color: oklch(84.1% 0.238 128.85); }
+:root[data-mode='dark'] .text-lime-700, :root[data-mode='dark'] .hover\:text-lime-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-lime-700, :root[data-mode='dark'] [class*='text-lime-700/'] { color: oklch(89.7% 0.196 126.665); }
+:root[data-mode='dark'] .text-lime-800, :root[data-mode='dark'] .hover\:text-lime-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-lime-800, :root[data-mode='dark'] [class*='text-lime-800/'] { color: oklch(93.8% 0.127 124.321); }
+:root[data-mode='dark'] .text-lime-900, :root[data-mode='dark'] .hover\:text-lime-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-lime-900, :root[data-mode='dark'] [class*='text-lime-900/'] { color: oklch(93.8% 0.127 124.321); }
+:root[data-mode='dark'] .text-green-50, :root[data-mode='dark'] .hover\:text-green-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-green-50, :root[data-mode='dark'] [class*='text-green-50/'] { color: oklch(98.2% 0.018 155.826); }
+:root[data-mode='dark'] .text-green-100, :root[data-mode='dark'] .hover\:text-green-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-green-100, :root[data-mode='dark'] [class*='text-green-100/'] { color: oklch(96.2% 0.044 156.743); }
+:root[data-mode='dark'] .text-green-200, :root[data-mode='dark'] .hover\:text-green-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-green-200, :root[data-mode='dark'] [class*='text-green-200/'] { color: oklch(92.5% 0.084 155.995); }
+:root[data-mode='dark'] .text-green-600, :root[data-mode='dark'] .hover\:text-green-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-green-600, :root[data-mode='dark'] [class*='text-green-600/'] { color: oklch(79.2% 0.209 151.711); }
+:root[data-mode='dark'] .text-green-700, :root[data-mode='dark'] .hover\:text-green-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-green-700, :root[data-mode='dark'] [class*='text-green-700/'] { color: oklch(87.1% 0.15 154.449); }
+:root[data-mode='dark'] .text-green-800, :root[data-mode='dark'] .hover\:text-green-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-green-800, :root[data-mode='dark'] [class*='text-green-800/'] { color: oklch(92.5% 0.084 155.995); }
+:root[data-mode='dark'] .text-green-900, :root[data-mode='dark'] .hover\:text-green-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-green-900, :root[data-mode='dark'] [class*='text-green-900/'] { color: oklch(92.5% 0.084 155.995); }
+:root[data-mode='dark'] .text-emerald-50, :root[data-mode='dark'] .hover\:text-emerald-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-emerald-50, :root[data-mode='dark'] [class*='text-emerald-50/'] { color: oklch(97.9% 0.021 166.113); }
+:root[data-mode='dark'] .text-emerald-100, :root[data-mode='dark'] .hover\:text-emerald-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-emerald-100, :root[data-mode='dark'] [class*='text-emerald-100/'] { color: oklch(95% 0.052 163.051); }
+:root[data-mode='dark'] .text-emerald-200, :root[data-mode='dark'] .hover\:text-emerald-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-emerald-200, :root[data-mode='dark'] [class*='text-emerald-200/'] { color: oklch(90.5% 0.093 164.15); }
+:root[data-mode='dark'] .text-emerald-600, :root[data-mode='dark'] .hover\:text-emerald-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-emerald-600, :root[data-mode='dark'] [class*='text-emerald-600/'] { color: oklch(76.5% 0.177 163.223); }
+:root[data-mode='dark'] .text-emerald-700, :root[data-mode='dark'] .hover\:text-emerald-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-emerald-700, :root[data-mode='dark'] [class*='text-emerald-700/'] { color: oklch(84.5% 0.143 164.978); }
+:root[data-mode='dark'] .text-emerald-800, :root[data-mode='dark'] .hover\:text-emerald-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-emerald-800, :root[data-mode='dark'] [class*='text-emerald-800/'] { color: oklch(90.5% 0.093 164.15); }
+:root[data-mode='dark'] .text-emerald-900, :root[data-mode='dark'] .hover\:text-emerald-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-emerald-900, :root[data-mode='dark'] [class*='text-emerald-900/'] { color: oklch(90.5% 0.093 164.15); }
+:root[data-mode='dark'] .text-teal-50, :root[data-mode='dark'] .hover\:text-teal-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-teal-50, :root[data-mode='dark'] [class*='text-teal-50/'] { color: oklch(98.4% 0.014 180.72); }
+:root[data-mode='dark'] .text-teal-100, :root[data-mode='dark'] .hover\:text-teal-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-teal-100, :root[data-mode='dark'] [class*='text-teal-100/'] { color: oklch(95.3% 0.051 180.801); }
+:root[data-mode='dark'] .text-teal-200, :root[data-mode='dark'] .hover\:text-teal-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-teal-200, :root[data-mode='dark'] [class*='text-teal-200/'] { color: oklch(91% 0.096 180.426); }
+:root[data-mode='dark'] .text-teal-600, :root[data-mode='dark'] .hover\:text-teal-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-teal-600, :root[data-mode='dark'] [class*='text-teal-600/'] { color: oklch(77.7% 0.152 181.912); }
+:root[data-mode='dark'] .text-teal-700, :root[data-mode='dark'] .hover\:text-teal-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-teal-700, :root[data-mode='dark'] [class*='text-teal-700/'] { color: oklch(85.5% 0.138 181.071); }
+:root[data-mode='dark'] .text-teal-800, :root[data-mode='dark'] .hover\:text-teal-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-teal-800, :root[data-mode='dark'] [class*='text-teal-800/'] { color: oklch(91% 0.096 180.426); }
+:root[data-mode='dark'] .text-teal-900, :root[data-mode='dark'] .hover\:text-teal-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-teal-900, :root[data-mode='dark'] [class*='text-teal-900/'] { color: oklch(91% 0.096 180.426); }
+:root[data-mode='dark'] .text-cyan-50, :root[data-mode='dark'] .hover\:text-cyan-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-cyan-50, :root[data-mode='dark'] [class*='text-cyan-50/'] { color: oklch(98.4% 0.019 200.873); }
+:root[data-mode='dark'] .text-cyan-100, :root[data-mode='dark'] .hover\:text-cyan-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-cyan-100, :root[data-mode='dark'] [class*='text-cyan-100/'] { color: oklch(95.6% 0.045 203.388); }
+:root[data-mode='dark'] .text-cyan-200, :root[data-mode='dark'] .hover\:text-cyan-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-cyan-200, :root[data-mode='dark'] [class*='text-cyan-200/'] { color: oklch(91.7% 0.08 205.041); }
+:root[data-mode='dark'] .text-cyan-600, :root[data-mode='dark'] .hover\:text-cyan-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-cyan-600, :root[data-mode='dark'] [class*='text-cyan-600/'] { color: oklch(78.9% 0.154 211.53); }
+:root[data-mode='dark'] .text-cyan-700, :root[data-mode='dark'] .hover\:text-cyan-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-cyan-700, :root[data-mode='dark'] [class*='text-cyan-700/'] { color: oklch(86.5% 0.127 207.078); }
+:root[data-mode='dark'] .text-cyan-800, :root[data-mode='dark'] .hover\:text-cyan-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-cyan-800, :root[data-mode='dark'] [class*='text-cyan-800/'] { color: oklch(91.7% 0.08 205.041); }
+:root[data-mode='dark'] .text-cyan-900, :root[data-mode='dark'] .hover\:text-cyan-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-cyan-900, :root[data-mode='dark'] [class*='text-cyan-900/'] { color: oklch(91.7% 0.08 205.041); }
+:root[data-mode='dark'] .text-sky-50, :root[data-mode='dark'] .hover\:text-sky-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-sky-50, :root[data-mode='dark'] [class*='text-sky-50/'] { color: oklch(97.7% 0.013 236.62); }
+:root[data-mode='dark'] .text-sky-100, :root[data-mode='dark'] .hover\:text-sky-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-sky-100, :root[data-mode='dark'] [class*='text-sky-100/'] { color: oklch(95.1% 0.026 236.824); }
+:root[data-mode='dark'] .text-sky-200, :root[data-mode='dark'] .hover\:text-sky-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-sky-200, :root[data-mode='dark'] [class*='text-sky-200/'] { color: oklch(90.1% 0.058 230.902); }
+:root[data-mode='dark'] .text-sky-600, :root[data-mode='dark'] .hover\:text-sky-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-sky-600, :root[data-mode='dark'] [class*='text-sky-600/'] { color: oklch(74.6% 0.16 232.661); }
+:root[data-mode='dark'] .text-sky-700, :root[data-mode='dark'] .hover\:text-sky-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-sky-700, :root[data-mode='dark'] [class*='text-sky-700/'] { color: oklch(82.8% 0.111 230.318); }
+:root[data-mode='dark'] .text-sky-800, :root[data-mode='dark'] .hover\:text-sky-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-sky-800, :root[data-mode='dark'] [class*='text-sky-800/'] { color: oklch(90.1% 0.058 230.902); }
+:root[data-mode='dark'] .text-sky-900, :root[data-mode='dark'] .hover\:text-sky-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-sky-900, :root[data-mode='dark'] [class*='text-sky-900/'] { color: oklch(90.1% 0.058 230.902); }
+:root[data-mode='dark'] .text-blue-50, :root[data-mode='dark'] .hover\:text-blue-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-blue-50, :root[data-mode='dark'] [class*='text-blue-50/'] { color: oklch(97% 0.014 254.604); }
+:root[data-mode='dark'] .text-blue-100, :root[data-mode='dark'] .hover\:text-blue-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-blue-100, :root[data-mode='dark'] [class*='text-blue-100/'] { color: oklch(93.2% 0.032 255.585); }
+:root[data-mode='dark'] .text-blue-200, :root[data-mode='dark'] .hover\:text-blue-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-blue-200, :root[data-mode='dark'] [class*='text-blue-200/'] { color: oklch(88.2% 0.059 254.128); }
+:root[data-mode='dark'] .text-blue-600, :root[data-mode='dark'] .hover\:text-blue-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-blue-600, :root[data-mode='dark'] [class*='text-blue-600/'] { color: oklch(70.7% 0.165 254.624); }
+:root[data-mode='dark'] .text-blue-700, :root[data-mode='dark'] .hover\:text-blue-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-blue-700, :root[data-mode='dark'] [class*='text-blue-700/'] { color: oklch(80.9% 0.105 251.813); }
+:root[data-mode='dark'] .text-blue-800, :root[data-mode='dark'] .hover\:text-blue-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-blue-800, :root[data-mode='dark'] [class*='text-blue-800/'] { color: oklch(88.2% 0.059 254.128); }
+:root[data-mode='dark'] .text-blue-900, :root[data-mode='dark'] .hover\:text-blue-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-blue-900, :root[data-mode='dark'] [class*='text-blue-900/'] { color: oklch(88.2% 0.059 254.128); }
+:root[data-mode='dark'] .text-indigo-50, :root[data-mode='dark'] .hover\:text-indigo-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-indigo-50, :root[data-mode='dark'] [class*='text-indigo-50/'] { color: oklch(96.2% 0.018 272.314); }
+:root[data-mode='dark'] .text-indigo-100, :root[data-mode='dark'] .hover\:text-indigo-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-indigo-100, :root[data-mode='dark'] [class*='text-indigo-100/'] { color: oklch(93% 0.034 272.788); }
+:root[data-mode='dark'] .text-indigo-200, :root[data-mode='dark'] .hover\:text-indigo-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-indigo-200, :root[data-mode='dark'] [class*='text-indigo-200/'] { color: oklch(87% 0.065 274.039); }
+:root[data-mode='dark'] .text-indigo-600, :root[data-mode='dark'] .hover\:text-indigo-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-indigo-600, :root[data-mode='dark'] [class*='text-indigo-600/'] { color: oklch(67.3% 0.182 276.935); }
+:root[data-mode='dark'] .text-indigo-700, :root[data-mode='dark'] .hover\:text-indigo-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-indigo-700, :root[data-mode='dark'] [class*='text-indigo-700/'] { color: oklch(78.5% 0.115 274.713); }
+:root[data-mode='dark'] .text-indigo-800, :root[data-mode='dark'] .hover\:text-indigo-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-indigo-800, :root[data-mode='dark'] [class*='text-indigo-800/'] { color: oklch(87% 0.065 274.039); }
+:root[data-mode='dark'] .text-indigo-900, :root[data-mode='dark'] .hover\:text-indigo-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-indigo-900, :root[data-mode='dark'] [class*='text-indigo-900/'] { color: oklch(87% 0.065 274.039); }
+:root[data-mode='dark'] .text-violet-50, :root[data-mode='dark'] .hover\:text-violet-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-violet-50, :root[data-mode='dark'] [class*='text-violet-50/'] { color: oklch(96.9% 0.016 293.756); }
+:root[data-mode='dark'] .text-violet-100, :root[data-mode='dark'] .hover\:text-violet-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-violet-100, :root[data-mode='dark'] [class*='text-violet-100/'] { color: oklch(94.3% 0.029 294.588); }
+:root[data-mode='dark'] .text-violet-200, :root[data-mode='dark'] .hover\:text-violet-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-violet-200, :root[data-mode='dark'] [class*='text-violet-200/'] { color: oklch(89.4% 0.057 293.283); }
+:root[data-mode='dark'] .text-violet-600, :root[data-mode='dark'] .hover\:text-violet-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-violet-600, :root[data-mode='dark'] [class*='text-violet-600/'] { color: oklch(70.2% 0.183 293.541); }
+:root[data-mode='dark'] .text-violet-700, :root[data-mode='dark'] .hover\:text-violet-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-violet-700, :root[data-mode='dark'] [class*='text-violet-700/'] { color: oklch(81.1% 0.111 293.571); }
+:root[data-mode='dark'] .text-violet-800, :root[data-mode='dark'] .hover\:text-violet-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-violet-800, :root[data-mode='dark'] [class*='text-violet-800/'] { color: oklch(89.4% 0.057 293.283); }
+:root[data-mode='dark'] .text-violet-900, :root[data-mode='dark'] .hover\:text-violet-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-violet-900, :root[data-mode='dark'] [class*='text-violet-900/'] { color: oklch(89.4% 0.057 293.283); }
+:root[data-mode='dark'] .text-purple-50, :root[data-mode='dark'] .hover\:text-purple-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-purple-50, :root[data-mode='dark'] [class*='text-purple-50/'] { color: oklch(97.7% 0.014 308.299); }
+:root[data-mode='dark'] .text-purple-100, :root[data-mode='dark'] .hover\:text-purple-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-purple-100, :root[data-mode='dark'] [class*='text-purple-100/'] { color: oklch(94.6% 0.033 307.174); }
+:root[data-mode='dark'] .text-purple-200, :root[data-mode='dark'] .hover\:text-purple-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-purple-200, :root[data-mode='dark'] [class*='text-purple-200/'] { color: oklch(90.2% 0.063 306.703); }
+:root[data-mode='dark'] .text-purple-600, :root[data-mode='dark'] .hover\:text-purple-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-purple-600, :root[data-mode='dark'] [class*='text-purple-600/'] { color: oklch(71.4% 0.203 305.504); }
+:root[data-mode='dark'] .text-purple-700, :root[data-mode='dark'] .hover\:text-purple-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-purple-700, :root[data-mode='dark'] [class*='text-purple-700/'] { color: oklch(82.7% 0.119 306.383); }
+:root[data-mode='dark'] .text-purple-800, :root[data-mode='dark'] .hover\:text-purple-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-purple-800, :root[data-mode='dark'] [class*='text-purple-800/'] { color: oklch(90.2% 0.063 306.703); }
+:root[data-mode='dark'] .text-purple-900, :root[data-mode='dark'] .hover\:text-purple-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-purple-900, :root[data-mode='dark'] [class*='text-purple-900/'] { color: oklch(90.2% 0.063 306.703); }
+:root[data-mode='dark'] .text-fuchsia-50, :root[data-mode='dark'] .hover\:text-fuchsia-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-fuchsia-50, :root[data-mode='dark'] [class*='text-fuchsia-50/'] { color: oklch(97.7% 0.017 320.058); }
+:root[data-mode='dark'] .text-fuchsia-100, :root[data-mode='dark'] .hover\:text-fuchsia-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-fuchsia-100, :root[data-mode='dark'] [class*='text-fuchsia-100/'] { color: oklch(95.2% 0.037 318.852); }
+:root[data-mode='dark'] .text-fuchsia-200, :root[data-mode='dark'] .hover\:text-fuchsia-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-fuchsia-200, :root[data-mode='dark'] [class*='text-fuchsia-200/'] { color: oklch(90.3% 0.076 319.62); }
+:root[data-mode='dark'] .text-fuchsia-600, :root[data-mode='dark'] .hover\:text-fuchsia-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-fuchsia-600, :root[data-mode='dark'] [class*='text-fuchsia-600/'] { color: oklch(74% 0.238 322.16); }
+:root[data-mode='dark'] .text-fuchsia-700, :root[data-mode='dark'] .hover\:text-fuchsia-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-fuchsia-700, :root[data-mode='dark'] [class*='text-fuchsia-700/'] { color: oklch(83.3% 0.145 321.434); }
+:root[data-mode='dark'] .text-fuchsia-800, :root[data-mode='dark'] .hover\:text-fuchsia-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-fuchsia-800, :root[data-mode='dark'] [class*='text-fuchsia-800/'] { color: oklch(90.3% 0.076 319.62); }
+:root[data-mode='dark'] .text-fuchsia-900, :root[data-mode='dark'] .hover\:text-fuchsia-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-fuchsia-900, :root[data-mode='dark'] [class*='text-fuchsia-900/'] { color: oklch(90.3% 0.076 319.62); }
+:root[data-mode='dark'] .text-pink-50, :root[data-mode='dark'] .hover\:text-pink-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-pink-50, :root[data-mode='dark'] [class*='text-pink-50/'] { color: oklch(97.1% 0.014 343.198); }
+:root[data-mode='dark'] .text-pink-100, :root[data-mode='dark'] .hover\:text-pink-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-pink-100, :root[data-mode='dark'] [class*='text-pink-100/'] { color: oklch(94.8% 0.028 342.258); }
+:root[data-mode='dark'] .text-pink-200, :root[data-mode='dark'] .hover\:text-pink-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-pink-200, :root[data-mode='dark'] [class*='text-pink-200/'] { color: oklch(89.9% 0.061 343.231); }
+:root[data-mode='dark'] .text-pink-600, :root[data-mode='dark'] .hover\:text-pink-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-pink-600, :root[data-mode='dark'] [class*='text-pink-600/'] { color: oklch(71.8% 0.202 349.761); }
+:root[data-mode='dark'] .text-pink-700, :root[data-mode='dark'] .hover\:text-pink-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-pink-700, :root[data-mode='dark'] [class*='text-pink-700/'] { color: oklch(82.3% 0.12 346.018); }
+:root[data-mode='dark'] .text-pink-800, :root[data-mode='dark'] .hover\:text-pink-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-pink-800, :root[data-mode='dark'] [class*='text-pink-800/'] { color: oklch(89.9% 0.061 343.231); }
+:root[data-mode='dark'] .text-pink-900, :root[data-mode='dark'] .hover\:text-pink-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-pink-900, :root[data-mode='dark'] [class*='text-pink-900/'] { color: oklch(89.9% 0.061 343.231); }
+:root[data-mode='dark'] .text-rose-50, :root[data-mode='dark'] .hover\:text-rose-50:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-rose-50, :root[data-mode='dark'] [class*='text-rose-50/'] { color: oklch(96.9% 0.015 12.422); }
+:root[data-mode='dark'] .text-rose-100, :root[data-mode='dark'] .hover\:text-rose-100:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-rose-100, :root[data-mode='dark'] [class*='text-rose-100/'] { color: oklch(94.1% 0.03 12.58); }
+:root[data-mode='dark'] .text-rose-200, :root[data-mode='dark'] .hover\:text-rose-200:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-rose-200, :root[data-mode='dark'] [class*='text-rose-200/'] { color: oklch(89.2% 0.058 10.001); }
+:root[data-mode='dark'] .text-rose-600, :root[data-mode='dark'] .hover\:text-rose-600:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-rose-600, :root[data-mode='dark'] [class*='text-rose-600/'] { color: oklch(71.2% 0.194 13.428); }
+:root[data-mode='dark'] .text-rose-700, :root[data-mode='dark'] .hover\:text-rose-700:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-rose-700, :root[data-mode='dark'] [class*='text-rose-700/'] { color: oklch(81% 0.117 11.638); }
+:root[data-mode='dark'] .text-rose-800, :root[data-mode='dark'] .hover\:text-rose-800:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-rose-800, :root[data-mode='dark'] [class*='text-rose-800/'] { color: oklch(89.2% 0.058 10.001); }
+:root[data-mode='dark'] .text-rose-900, :root[data-mode='dark'] .hover\:text-rose-900:hover, :root[data-mode='dark'] .group:hover .group-hover\:text-rose-900, :root[data-mode='dark'] [class*='text-rose-900/'] { color: oklch(89.2% 0.058 10.001); }
+:root[data-mode='dark'] .text-slate-700, :root[data-mode='dark'] .hover\:text-slate-700:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-slate-800, :root[data-mode='dark'] .hover\:text-slate-800:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-slate-900, :root[data-mode='dark'] .hover\:text-slate-900:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-slate-950, :root[data-mode='dark'] .hover\:text-slate-950:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-slate-500 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-slate-600 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-slate-50 { color: oklch(98.4% 0.003 247.858); }
+:root[data-mode='dark'] .text-slate-100 { color: oklch(96.8% 0.007 247.896); }
+:root[data-mode='dark'] .text-slate-200 { color: oklch(92.9% 0.013 255.508); }
+:root[data-mode='dark'] .text-gray-700, :root[data-mode='dark'] .hover\:text-gray-700:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-gray-800, :root[data-mode='dark'] .hover\:text-gray-800:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-gray-900, :root[data-mode='dark'] .hover\:text-gray-900:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-gray-950, :root[data-mode='dark'] .hover\:text-gray-950:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-gray-500 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-gray-600 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-gray-50 { color: oklch(98.5% 0.002 247.839); }
+:root[data-mode='dark'] .text-gray-100 { color: oklch(96.7% 0.003 264.542); }
+:root[data-mode='dark'] .text-gray-200 { color: oklch(92.8% 0.006 264.531); }
+:root[data-mode='dark'] .text-zinc-700, :root[data-mode='dark'] .hover\:text-zinc-700:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-zinc-800, :root[data-mode='dark'] .hover\:text-zinc-800:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-zinc-900, :root[data-mode='dark'] .hover\:text-zinc-900:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-zinc-950, :root[data-mode='dark'] .hover\:text-zinc-950:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-zinc-500 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-zinc-600 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-zinc-50 { color: oklch(98.5% 0 0); }
+:root[data-mode='dark'] .text-zinc-100 { color: oklch(96.7% 0.001 286.375); }
+:root[data-mode='dark'] .text-zinc-200 { color: oklch(92% 0.004 286.32); }
+:root[data-mode='dark'] .text-neutral-700, :root[data-mode='dark'] .hover\:text-neutral-700:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-neutral-800, :root[data-mode='dark'] .hover\:text-neutral-800:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-neutral-900, :root[data-mode='dark'] .hover\:text-neutral-900:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-neutral-950, :root[data-mode='dark'] .hover\:text-neutral-950:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-neutral-500 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-neutral-600 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-neutral-50 { color: oklch(98.5% 0 0); }
+:root[data-mode='dark'] .text-neutral-100 { color: oklch(97% 0 0); }
+:root[data-mode='dark'] .text-neutral-200 { color: oklch(92.2% 0 0); }
+:root[data-mode='dark'] .text-stone-700, :root[data-mode='dark'] .hover\:text-stone-700:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-stone-800, :root[data-mode='dark'] .hover\:text-stone-800:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-stone-900, :root[data-mode='dark'] .hover\:text-stone-900:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-stone-950, :root[data-mode='dark'] .hover\:text-stone-950:hover { color: var(--color-ink); }
+:root[data-mode='dark'] .text-stone-500 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-stone-600 { color: var(--color-muted); }
+:root[data-mode='dark'] .text-stone-50 { color: oklch(98.5% 0.001 106.423); }
+:root[data-mode='dark'] .text-stone-100 { color: oklch(97% 0.001 106.424); }
+:root[data-mode='dark'] .text-stone-200 { color: oklch(92.3% 0.003 48.717); }
+
+/* White surfaces and gradient stops → card surface. */
+:root[data-mode='dark'] .bg-white { background-color: var(--color-surface); }
+:root[data-mode='dark'] [class*='bg-white/'] { background-color: color-mix(in oklab, var(--color-surface) 85%, transparent); }
+:root[data-mode='dark'] .hover\:bg-white:hover { background-color: var(--color-surface-2); }
+:root[data-mode='dark'] .from-white { --tw-gradient-from: var(--color-surface); }
+:root[data-mode='dark'] .via-white  { --tw-gradient-via: var(--color-surface); }
+:root[data-mode='dark'] .to-white   { --tw-gradient-to: var(--color-surface); }
+:root[data-mode='dark'] .border-white { border-color: var(--color-line); }
+/* `text-line` is a border colour used as "zero / empty" text — keep it quiet but legible. */
+:root[data-mode='dark'] .text-line { color: #6f7f9b; }
+
+
+/* Light mode: faded-muted text (text-muted/70 etc.) and `text-line` used as
+ * text fell to ~1.5–2:1 on white. Hold them at a readable floor. */
+:root:not([data-mode='dark']) [class*='text-muted/'] { color: var(--color-muted); }
+:root:not([data-mode='dark']) .text-line { color: #7c8a9e; }
+:root:not([data-mode='dark']) .text-slate-400 { color: #7c8a9e; }

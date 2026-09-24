@@ -21,6 +21,7 @@ import {
   type CandidateStage,
 } from '../../types/staffing';
 import { useStaffingStore } from '../../store/useStaffingStore';
+import { chipStyle } from '../../lib/chipStyle';
 
 interface Props {
   requisitionId: string;
@@ -117,7 +118,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
               <span
                 key={s}
                 className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold text-white"
-                style={{ background: CANDIDATE_STAGE_COLORS[s] }}
+                style={chipStyle(CANDIDATE_STAGE_COLORS[s])}
                 title={`${count} candidate${count > 1 ? 's' : ''} at ${s}`}
               >
                 {s} <span className="bg-surface/25 rounded px-1">{count}</span>
@@ -239,7 +240,7 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
                   value={c.stage}
                   onChange={(e) => onUpdate(c.id, { stage: e.target.value as CandidateStage })}
                   className="text-[10px] font-bold text-white rounded px-1.5 py-0.5 border-0 cursor-pointer flex-shrink-0"
-                  style={{ background: CANDIDATE_STAGE_COLORS[c.stage] }}
+                  style={chipStyle(CANDIDATE_STAGE_COLORS[c.stage])}
                   title="Click to change stage"
                 >
                   {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}

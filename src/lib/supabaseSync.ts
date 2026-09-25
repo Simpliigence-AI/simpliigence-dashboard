@@ -260,6 +260,7 @@ function indiaReqToRow(r: IndiaRequisition) {
     probability: r.probability ?? 0,
     ai_probability: r.ai_probability ?? 0,
     onboarding_date: r.onboarding_date ?? null,
+    share_to_referrals: r.share_to_referrals ?? false,
     created_at: r.created_at, updated_at: r.updated_at, updated_by: CLIENT_ID,
   };
 }
@@ -275,6 +276,7 @@ function rowToIndiaReq(row: any): IndiaRequisition {
     probability: row.probability ?? 0,
     ai_probability: row.ai_probability ?? 0,
     onboarding_date: row.onboarding_date ?? null,
+    share_to_referrals: !!row.share_to_referrals,
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }
@@ -642,6 +644,7 @@ function usReqToRow(r: USStaffingRequisition) {
     id: r.id, account_id: r.account_id, role: r.role,
     initiation_date: r.initiation_date, stage: r.stage,
     closure_date: r.closure_date, notes: r.notes,
+    share_to_referrals: r.share_to_referrals ?? false,
     created_at: r.created_at, updated_at: r.updated_at, updated_by: CLIENT_ID,
   };
 }
@@ -651,6 +654,7 @@ function rowToUSReq(row: any): USStaffingRequisition {
     id: row.id, account_id: row.account_id, role: row.role,
     initiation_date: row.initiation_date ?? '', stage: row.stage ?? 'New',
     closure_date: row.closure_date ?? '', notes: row.notes ?? '',
+    share_to_referrals: !!row.share_to_referrals,
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }

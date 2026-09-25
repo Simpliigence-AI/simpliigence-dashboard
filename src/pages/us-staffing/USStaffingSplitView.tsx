@@ -24,6 +24,7 @@ import type { USStaffingAccount, USStaffingRequisition, USStaffingStage } from '
 import { US_STAGE_COLORS } from '../../types/usStaffing';
 import { Card } from '../../components/ui';
 import { chipStyle } from '../../lib/chipStyle';
+import { ShareToReferralsToggle, isInternalAccountName } from '../../components/staffing/ShareToReferralsToggle';
 
 const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
@@ -273,6 +274,10 @@ export function USStaffingSplitView({ reqs, accounts, onSave, onDelete }: Props)
                   onChange={(e) => onSave(selected.id, 'closure_date', e.target.value)}
                   className="mt-1"
                 />
+              </div>
+              <div className="md:col-span-2">
+                <ShareToReferralsToggle checked={!!selected.share_to_referrals} internal={isInternalAccountName(selectedAcct?.name)}
+                  onChange={(next) => onSave(selected.id, 'share_to_referrals', next ? 'true' : 'false')} />
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider">Notes</label>

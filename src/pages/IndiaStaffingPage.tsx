@@ -9,6 +9,7 @@ import {
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { IndiaStaffingSplitView } from './india-staffing/IndiaStaffingSplitView';
+import { ShareToReferralsToggle, isInternalAccountName } from '../components/staffing/ShareToReferralsToggle';
 import { Rows3, Columns3 } from 'lucide-react';
 import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
 import { Sensitive } from '../components/Sensitive';
@@ -339,6 +340,7 @@ export default function IndiaStaffingPage() {
         velocity: analysis.velocity,
         clientSpoc: req.client_spoc || '',
         department: req.department || '',
+        shareToReferrals: !!req.share_to_referrals,
       };
     });
   }, [requisitions, statuses, accounts, candidates]);
@@ -402,6 +404,7 @@ export default function IndiaStaffingPage() {
       case 'stage': patch.stage = value; break;
       case 'anticipation': patch.anticipation = value; break;
       case 'account_id': patch.account_id = value; break;
+      case 'share_to_referrals': patch.share_to_referrals = value === 'true' || value === 1; break;
       case 'probability': {
         const num = Math.max(0, Math.min(100, Number(value) || 0));
         patch.probability = num;
@@ -551,7 +554,7 @@ export default function IndiaStaffingPage() {
       title: 'Requisition', account_id: 'Account', month: 'Month', new_positions: 'Positions',
       expected_closure: 'Expected Closure', start_date: 'Start Date', close_by_date: 'Close Date',
       status_field: 'Status', stage: 'TA Stage', anticipation: 'Anticipation',
-      client_spoc: 'Client SPOC', department: 'Department',
+      client_spoc: 'Client SPOC', department: 'Department', share_to_referrals: 'Share to referrals',
       probability: 'Prob (manual)', ai_probability: 'AI Prob',
     } as Record<string, string>)[f] || f;
 
@@ -594,6 +597,10 @@ export default function IndiaStaffingPage() {
           {/* Requisition */}
           <td className="p-2">
             <EditableCell value={r.requisition} onSave={(val) => handleCellSave(r.id, 'title', val)} />
+            {!opts.archived && (
+              <ShareToReferralsToggle compact checked={r.shareToReferrals} internal={isInternalAccountName(r.account)}
+                onChange={(next) => handleCellSave(r.id, 'share_to_referrals', next ? 'true' : 'false')} />
+            )}
           </td>
           {/* Month */}
           <td className="p-2">

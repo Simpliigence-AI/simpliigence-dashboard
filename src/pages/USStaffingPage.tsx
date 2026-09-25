@@ -17,6 +17,7 @@ import { US_STAGE_COLORS } from '../types/usStaffing';
 import { db } from '../lib/supabaseSync';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { USStaffingSplitView } from './us-staffing/USStaffingSplitView';
+import { ShareToReferralsToggle, isInternalAccountName } from '../components/staffing/ShareToReferralsToggle';
 import { Rows3, Columns3 } from 'lucide-react';
 import { AccountEditDrawer } from './us-staffing/AccountEditDrawer';
 import { chipStyle } from '../lib/chipStyle';
@@ -278,6 +279,7 @@ export default function USStaffingPage() {
   };
 
   const handleCellSave = useCallback((id: string, field: string, val: string | number) => {
+    if (field === 'share_to_referrals') { updateRequisition(id, { share_to_referrals: val === 'true' || val === 1 }); return; }
     updateRequisition(id, { [field]: val });
   }, [updateRequisition]);
 
@@ -492,6 +494,12 @@ export default function USStaffingPage() {
                               <span className="text-line text-[10px]">↳</span>
                               <EditableCell value={req.role} onSave={(v) => handleCellSave(req.id, 'role', v)} />
                             </div>
+                            {req.stage !== 'Cancelled' && (
+                              <div className="pl-4">
+                                <ShareToReferralsToggle compact checked={!!req.share_to_referrals} internal={isInternalAccountName(req._account_name)}
+                                  onChange={(next) => updateRequisition(req.id, { share_to_referrals: next })} />
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             <EditableCell value={req.initiation_date} onSave={(v) => handleCellSave(req.id, 'initiation_date', v)} />

@@ -58,6 +58,8 @@ export interface StaffingRequisition {
   job_description?: string | null;
   /** ISO timestamp when `job_description` was last set. */
   job_description_at?: string | null;
+  /** Post this req on the Hub referral page (internal accounts always post). */
+  share_to_referrals?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -230,6 +232,8 @@ export interface StaffingRow {
   velocity: number;
   clientSpoc: string;
   department: string;
+  /** Ticked "Share to referrals" in the Cockpit. */
+  shareToReferrals: boolean;
 }
 
 export const MONTHS = [

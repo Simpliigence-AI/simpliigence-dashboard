@@ -17,6 +17,7 @@ import { Building2, Trash2, ArrowRight, Filter } from 'lucide-react';
 import type { StaffingRow, StaffingStatus } from '../../types/staffing';
 import { Card } from '../../components/ui';
 import { chipStyle } from '../../lib/chipStyle';
+import { ShareToReferralsToggle, isInternalAccountName } from '../../components/staffing/ShareToReferralsToggle';
 
 const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed Won', 'Closed Lost', 'Cancelled'];
 
@@ -247,6 +248,10 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
               <div>
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider">Department</label>
                 <Input value={selected.department} onChange={(e) => onSave(selected.id, 'department', e.target.value)} className="mt-1" />
+              </div>
+              <div className="md:col-span-2">
+                <ShareToReferralsToggle checked={selected.shareToReferrals} internal={isInternalAccountName(selected.account)}
+                  onChange={(next) => onSave(selected.id, 'share_to_referrals', next ? 'true' : 'false')} />
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider">Anticipation / Notes</label>

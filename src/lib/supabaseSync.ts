@@ -2313,6 +2313,31 @@ export const db = {
     return { path, filename: file.name };
   },
 
+  /** Look for existing India candidates that are the same person — matched on
+   *  email, phone (last 10 digits) or LinkedIn slug. Runs as a SECURITY DEFINER
+   *  RPC so a TA is warned even about profiles owned by someone else. */
+  async findCandidateDuplicates(input: { email?: string; phone?: string; linkedinUrl?: string; excludeId?: string }): Promise<CandidateDuplicate[]> {
+    if (!input.email && !input.phone && !input.linkedinUrl) return [];
+    const { data, error } = await supabase.rpc('find_candidate_duplicates', {
+      p_email: input.email || null,
+      p_phone: input.phone || null,
+      p_linkedin: input.linkedinUrl || null,
+      p_exclude_id: input.excludeId || null,
+    });
+    if (error) {
+      console.warn('[supabase] duplicate check failed:', error);
+      return [];
+    }
+    return (data || []) as CandidateDuplicate[];
+  },
+
+  /** Direct field update on a candidate row (used when the row isn't in the
+   *  local store, e.g. a duplicate owned by another TA). */
+  async patchIndiaCandidate(id: string, patch: Record<string, unknown>): Promise<string | null> {
+    const { error } = await supabase.from('india_staffing_candidates').update(patch).eq('id', id);
+    return error ? error.message : null;
+  },
+
   /** Get a temporary download URL for a stored resume. */
   async signedResumeUrl(path: string, ttlSeconds = 300): Promise<string | null> {
     const { data, error } = await supabase.storage
@@ -3801,3 +3826,16 @@ export const leaveDb = {
     return { ok: rows.length, failed: 0 };
   },
 };
+
+export interface CandidateDuplicate {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  owning_ta_email: string | null;
+  stage: string | null;
+  requisition_id: string | null;
+  resume_filename: string | null;
+  created_at: string | null;
+  matched_on: string;
+}

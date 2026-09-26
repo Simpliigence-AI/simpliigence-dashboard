@@ -10,7 +10,7 @@
  * Persists via useStaffingStore.{addCandidate, updateCandidate, removeCandidate},
  * which already write to Supabase via db.upsertIndiaCandidate / deleteIndiaCandidate.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Zap } from 'lucide-react';
 import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee, PhoneOutgoing, PhoneCall } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
@@ -97,6 +97,9 @@ export default function CandidatesPage() {
   // table view + scroll-find-your-row dance.
   const [detailCandidateId, setDetailCandidateId] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  /** Set when the recruiter starts Add candidate from a resume file — opens the
+   *  import dialog with that one file, the form's req/source/owner, and runs. */
+  const [resumeStart, setResumeStart] = useState<{ file: File; requisitionId: string; source: string; owner: string } | null>(null);
   const [referralOpen, setReferralOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table' | 'map'>('cards');
   // Cap the number of rendered cards/rows so we don't blow up the main thread
@@ -310,6 +313,19 @@ export default function CandidatesPage() {
         />
       )}
 
+      {resumeStart && (
+        <BulkImportDialog
+          requisitions={requisitions}
+          accountName={accountName}
+          defaultOwner={resumeStart.owner || (currentUser?.email || '').toLowerCase()}
+          initialFiles={[resumeStart.file]}
+          initialRequisitionId={resumeStart.requisitionId}
+          initialSource={resumeStart.source}
+          autoStart
+          onClose={() => setResumeStart(null)}
+        />
+      )}
+
       {detailCandidateId && (() => {
         const c = candidates.find((x) => x.id === detailCandidateId);
         if (!c) return null;
@@ -427,6 +443,36 @@ export default function CandidatesPage() {
       {/* Add row */}
       {adding && (
         <Card className="mb-4">
+          {/* Fastest path: drop the resume and let the parser fill the fields. */}
+          <label
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              const f = Array.from(e.dataTransfer.files).find((x) => RESUME_EXT_RE.test(x.name));
+              if (!f) return;
+              setResumeStart({ file: f, requisitionId: draft.requisition_id, source: draft.source, owner: draft.owning_ta_email.trim().toLowerCase() });
+              setAdding(false);
+            }}
+            className="mb-4 flex items-center gap-3 border-2 border-dashed border-primary/40 bg-primary/5 rounded-lg px-4 py-3 cursor-pointer hover:bg-primary/10"
+          >
+            <UploadCloud size={22} className="text-primary flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-ink">Have the resume? Upload it — name, email, phone, LinkedIn, location and skills are filled in for you.</div>
+              <div className="text-[11px] text-muted">PDF, Word (.doc / .docx), RTF or .txt · drop here or click · checks for an existing profile first. Pick the requisition and source below first if you want them set.</div>
+            </div>
+            <input
+              type="file"
+              accept={RESUME_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                setResumeStart({ file: f, requisitionId: draft.requisition_id, source: draft.source, owner: draft.owning_ta_email.trim().toLowerCase() });
+                setAdding(false);
+              }}
+            />
+          </label>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted mb-2">Or enter details manually</div>
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <input placeholder="Name *" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                    className="border border-line rounded-md px-3 py-2 text-sm md:col-span-1" />
@@ -465,9 +511,6 @@ export default function CandidatesPage() {
               </button>
             </div>
           </div>
-          <p className="text-[11px] text-muted mt-2">
-            Tip: after adding, click <strong>▸</strong> on the row to upload the resume — it'll auto-extract skills + summary.
-          </p>
         </Card>
       )}
 
@@ -1325,17 +1368,23 @@ const isTransient = (msg: string) =>
   /(429|rate.?limit|overloaded|529|50[0234]|timeout|timed out|failed to fetch|network|edge function returned a non-2xx|claude api failed|fetch failed|ECONNRESET)/i.test(msg);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: {
+function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose, initialFiles, initialRequisitionId, initialSource, autoStart }: {
   requisitions: { id: string; title: string; account_id: string }[];
   accountName: (rid: string) => string;
   defaultOwner: string;
   onClose: () => void;
+  /** Single-resume "Add candidate" path: pre-load files and run immediately. */
+  initialFiles?: File[];
+  initialRequisitionId?: string;
+  initialSource?: string;
+  autoStart?: boolean;
 }) {
   const { addCandidate, updateCandidate, removeCandidate } = useStaffingStore();
-  const [requisitionId, setRequisitionId] = useState('');
+  const [requisitionId, setRequisitionId] = useState(initialRequisitionId || '');
   const [owner, setOwner] = useState(defaultOwner);
-  const [source, setSource] = useState('LinkedIn');
-  const [files, setFiles] = useState<File[]>([]);
+  const [source, setSource] = useState(initialSource || 'LinkedIn');
+  const [files, setFiles] = useState<File[]>(initialFiles || []);
+  const isSingle = !!autoStart && (initialFiles?.length ?? 0) === 1;
   const [results, setResults] = useState<BulkRow[]>([]);
   const [running, setRunning] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -1505,6 +1554,15 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
     setResults(initial);
     await runPool(initial.map((_, i) => i), initial);
   };
+  // Single-resume path: kick off as soon as the dialog mounts (once).
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStarted.current || files.length === 0) return;
+    autoStarted.current = true;
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const retryFailed = async () => {
     const idxs = results.map((r, i) => (r.status === 'failed' ? i : -1)).filter((i) => i >= 0);
@@ -1561,7 +1619,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
       <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-ink">Bulk import resumes</div>
+            <div className="text-sm font-semibold text-ink">{isSingle ? 'Add candidate from resume' : 'Bulk import resumes'}</div>
             <div className="text-[11px] text-muted mt-0.5">Drop resumes — PDF, Word (.doc / .docx), RTF or .txt. Each is parsed and checked for an existing profile before a candidate row is created.</div>
           </div>
           <button onClick={onClose} disabled={running} className="text-muted/70 hover:text-ink/80 text-xl leading-none disabled:opacity-40">×</button>

@@ -15,8 +15,9 @@
  *   sync  → read every mailbox now (any signed-in user with Project Plans access)
  *   cron  → same, from pg_cron (X-Cron-Secret)
  *
- * Secrets: SUPABASE_SERVICE_ROLE_KEY, GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET.
- * The Azure app needs Microsoft Graph *application* permission Calendars.Read with admin consent.
+ * Secrets: SUPABASE_SERVICE_ROLE_KEY, plus CALENDAR_CLIENT_ID / CALENDAR_CLIENT_SECRET (and optional
+ * CALENDAR_TENANT_ID) for an app registration that already has Microsoft Graph *application*
+ * permission Calendars.Read; falls back to GRAPH_TENANT_ID / GRAPH_CLIENT_ID / GRAPH_CLIENT_SECRET.
  */
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference lib="deno.ns" />
@@ -55,8 +56,13 @@ const NO_CALENDAR_ACCESS =
 let cached: { token: string; exp: number } | null = null;
 async function graphToken(): Promise<string> {
   if (cached && cached.exp > Date.now() + 60_000) return cached.token;
-  const t = env('GRAPH_TENANT_ID'), c = env('GRAPH_CLIENT_ID'), s = env('GRAPH_CLIENT_SECRET');
-  if (!t || !c || !s) throw new UserError('Microsoft Graph secrets (GRAPH_TENANT_ID / GRAPH_CLIENT_ID / GRAPH_CLIENT_SECRET) are not set.', 500);
+  // A separate app registration that already has calendar access can be used via CALENDAR_* secrets;
+  // otherwise the Dashboard's Graph app (GRAPH_*).
+  const own = !!env('CALENDAR_CLIENT_ID');
+  const t = (own && env('CALENDAR_TENANT_ID')) || env('GRAPH_TENANT_ID');
+  const c = own ? env('CALENDAR_CLIENT_ID') : env('GRAPH_CLIENT_ID');
+  const s = own ? env('CALENDAR_CLIENT_SECRET') : env('GRAPH_CLIENT_SECRET');
+  if (!t || !c || !s) throw new UserError('Microsoft Graph secrets (CALENDAR_CLIENT_ID / CALENDAR_CLIENT_SECRET, or GRAPH_*) are not set.', 500);
   const r = await fetch(`https://login.microsoftonline.com/${t}/oauth2/v2.0/token`, {
     method: 'POST',
     body: new URLSearchParams({ grant_type: 'client_credentials', client_id: c, client_secret: s, scope: 'https://graph.microsoft.com/.default' }),
@@ -212,8 +218,11 @@ Deno.serve(async (req: Request) => {
 
     switch (b.action) {
       case 'probe': {
-        const r = roles(await graphToken());
-        return reply({ ok: true, roles: r, canReadCalendars: canReadCalendars(r), help: canReadCalendars(r) ? null : NO_CALENDAR_ACCESS });
+        const tok = await graphToken();
+        const r = roles(tok);
+        let appName: string | null = null;
+        try { const p = tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); appName = JSON.parse(atob(p + '='.repeat((4 - (p.length % 4)) % 4))).app_displayname ?? null; } catch { /* ignore */ }
+        return reply({ ok: true, app: appName, usingCalendarSecrets: !!env('CALENDAR_CLIENT_ID'), roles: r, canReadCalendars: canReadCalendars(r), help: canReadCalendars(r) ? null : NO_CALENDAR_ACCESS });
       }
       case 'sync':
       case 'cron': {

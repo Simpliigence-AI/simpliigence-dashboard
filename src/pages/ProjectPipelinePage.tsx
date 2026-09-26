@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useForecastStore, usePipelineStore, useFinancialStore } from '../store';
+import { useForecastStore, usePipelineStore, useFinancialStore, useActualHoursStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
@@ -159,10 +159,23 @@ function InlineEdit({ value, onSave, type = 'text', prefix = '', placeholder = '
   );
 }
 
+/* ── Actuals ──────────────────────────────── */
+/** Hours logged against one project, from `unified_actual_hours`
+ *  (submitted + approved time entries). */
+interface ProjectActuals {
+  total: number;
+  thisMonth: number;
+  byPerson: Map<string, { name: string; hours: number; thisMonth: number }>;
+}
+
+const personKey = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
+const fmtHrs = (n: number) => (Math.round(n * 10) / 10).toLocaleString();
+
 /* ── Project card ──────────────────────────────── */
-function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, onUpdateProject, onArchive, onRestore }: {
+function ZohoProjectCard({ project, teamAllocation, actuals, loadedCost, cadToUsdRate, onUpdateProject, onArchive, onRestore }: {
   project: ZohoPipelineProject;
   teamAllocation: { name: string; role: string; totalHours: number; rateCard: number | null }[] | undefined;
+  actuals: ProjectActuals | undefined;
   loadedCost: number;
   cadToUsdRate: number;
   onUpdateProject: (id: string, updates: Partial<ZohoPipelineProject>) => void;
@@ -187,6 +200,22 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
   const revenueUsd = curr === 'CAD' ? revenue * cadToUsdRate : revenue;
   const margin = revenueUsd - loadedCost;
   const marginPct = revenueUsd > 0 ? Math.round((margin / revenueUsd) * 100) : 0;
+  const forecastHours = (teamAllocation ?? []).reduce((sum, e) => sum + e.totalHours, 0);
+
+  // Forecast and actual side by side: everyone allocated, plus anyone who
+  // logged time here without an allocation.
+  const teamRows = useMemo(() => {
+    const rows = (teamAllocation ?? []).map((e) => {
+      const a = actuals?.byPerson.get(personKey(e.name));
+      return { ...e, actual: a?.hours ?? 0, actualMonth: a?.thisMonth ?? 0, allocated: true };
+    });
+    const seen = new Set(rows.map((r) => personKey(r.name)));
+    for (const [k, a] of actuals?.byPerson ?? []) {
+      if (seen.has(k)) continue;
+      rows.push({ name: a.name, role: '', totalHours: 0, rateCard: null, actual: a.hours, actualMonth: a.thisMonth, allocated: false });
+    }
+    return rows;
+  }, [teamAllocation, actuals]);
 
   return (
     <Card>
@@ -244,6 +273,11 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
                 {curr === 'CAD' && <span className="font-normal text-muted/70 ml-1">(converted)</span>}
               </span>
             )}
+            <span className={`flex items-center gap-1 ${actuals?.total ? 'text-ink/80' : 'text-muted/70'}`}>
+              <Clock size={12} /> Actuals: <span className="font-semibold tabular-nums">{fmtHrs(actuals?.total ?? 0)}</span> hrs
+              {forecastHours > 0 && <span className="text-muted"> of {fmtHrs(forecastHours)} forecast</span>}
+              {(actuals?.thisMonth ?? 0) > 0 && <span className="text-muted"> · {fmtHrs(actuals!.thisMonth)} this month</span>}
+            </span>
           </div>
         </div>
 
@@ -350,25 +384,32 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
           )}
 
           {/* Team allocation from forecast store */}
-          {teamAllocation && teamAllocation.length > 0 && (
+          {teamRows.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-ink/80 mb-2">Team Allocation <span className="font-normal text-muted/70">(from Team tab)</span></h4>
+              <h4 className="text-sm font-semibold text-ink/80 mb-2">Team Allocation &amp; Actuals <span className="font-normal text-muted/70">(forecast from Team tab · actuals from submitted and approved time)</span></h4>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b border-line">
                     <th className="pb-2 font-semibold text-muted">Employee</th>
                     <th className="pb-2 font-semibold text-muted">Role</th>
                     <th className="pb-2 font-semibold text-muted">Rate</th>
-                    <th className="pb-2 font-semibold text-muted text-right">Total Hrs</th>
+                    <th className="pb-2 font-semibold text-muted text-right">Forecast Hrs</th>
+                    <th className="pb-2 font-semibold text-muted text-right">Actual Hrs</th>
+                    <th className="pb-2 font-semibold text-muted text-right">This Month</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {teamAllocation.map((e) => (
+                  {teamRows.map((e) => (
                     <tr key={e.name} className="border-b border-line/40">
-                      <td className="py-1.5 font-medium text-ink/80">{e.name}</td>
+                      <td className="py-1.5 font-medium text-ink/80">
+                        {e.name}
+                        {!e.allocated && <span className="ml-2 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">not allocated</span>}
+                      </td>
                       <td className="py-1.5 text-muted text-xs">{e.role || '—'}</td>
                       <td className="py-1.5 text-muted">{e.rateCard ? <Sensitive>{`$${e.rateCard}/hr`}</Sensitive> : '—'}</td>
-                      <td className="py-1.5 text-right font-semibold tabular-nums">{e.totalHours}</td>
+                      <td className="py-1.5 text-right tabular-nums">{e.allocated ? fmtHrs(e.totalHours) : '—'}</td>
+                      <td className={`py-1.5 text-right font-semibold tabular-nums ${e.allocated && e.totalHours > 0 && e.actual > e.totalHours * 1.1 ? 'text-red-600' : ''}`}>{fmtHrs(e.actual)}</td>
+                      <td className="py-1.5 text-right tabular-nums text-muted">{fmtHrs(e.actualMonth)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -447,7 +488,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             )}
           </div>
 
-          {(!teamAllocation || teamAllocation.length === 0) && phases.length === 0 && (
+          {teamRows.length === 0 && phases.length === 0 && (
             <p className="text-sm text-muted/70 italic">No phases or team allocations yet.</p>
           )}
         </div>
@@ -462,6 +503,32 @@ export default function ProjectPipelinePage() {
   const allProjects = usePipelineStore((s) => s.projects);
   const updateProject = usePipelineStore((s) => s.updateProject);
   const cadToUsdRate = useFinancialStore((s) => s.settings.cadToUsdRate) || 0.73;
+  const actualEntries = useActualHoursStore((s) => s.entries);
+
+  // Actual hours per project (by name, case-insensitive) and per person.
+  const actualsByProject = useMemo(() => {
+    const month = new Date().toISOString().slice(0, 7);
+    const map = new Map<string, ProjectActuals>();
+    for (const e of actualEntries) {
+      if (!e.project || !e.hours) continue;
+      const key = e.project.trim().toLowerCase();
+      let pa = map.get(key);
+      if (!pa) { pa = { total: 0, thisMonth: 0, byPerson: new Map() }; map.set(key, pa); }
+      const inMonth = e.workDate?.startsWith(month) ?? false;
+      pa.total += e.hours;
+      if (inMonth) pa.thisMonth += e.hours;
+      const name = e.employeeName || e.email || 'Unknown';
+      const pk = personKey(name);
+      const pp = pa.byPerson.get(pk) ?? { name, hours: 0, thisMonth: 0 };
+      pp.hours += e.hours;
+      if (inMonth) pp.thisMonth += e.hours;
+      pa.byPerson.set(pk, pp);
+    }
+    return map;
+  }, [actualEntries]);
+  const actualsFor = (p: ZohoPipelineProject) =>
+    actualsByProject.get(p.name.trim().toLowerCase()) ??
+    (p.forecastName ? actualsByProject.get(p.forecastName.trim().toLowerCase()) : undefined);
 
   // Current projects = Zoho-sourced only.
   //
@@ -533,6 +600,7 @@ export default function ProjectPipelinePage() {
               key={project.id}
               project={project}
               teamAllocation={ps?.employees}
+              actuals={actualsFor(project)}
               loadedCost={ps?.loadedCost ?? 0}
               cadToUsdRate={cadToUsdRate}
               onUpdateProject={updateProject}
@@ -573,6 +641,7 @@ export default function ProjectPipelinePage() {
                     <ZohoProjectCard
                       project={project}
                       teamAllocation={ps?.employees}
+                      actuals={actualsFor(project)}
                       loadedCost={ps?.loadedCost ?? 0}
                       cadToUsdRate={cadToUsdRate}
                       onUpdateProject={updateProject}

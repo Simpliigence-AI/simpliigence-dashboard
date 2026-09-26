@@ -11,7 +11,7 @@ import {
   ClipboardList, Globe, TrendingUp, Clock, Timer, CheckSquare, CalendarCheck,
   Contact, BarChart3, PieChart, Building2, Handshake, Target, Radar,
   ClipboardCheck, Home, FileEdit, UserCog, Activity, History, ShieldCheck,
-  PhoneCall, ListChecks, Briefcase, AppWindow,
+  PhoneCall, ListChecks, Briefcase, AppWindow, Gauge,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -68,6 +68,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/leave',         icon: CalendarCheck, label: 'Leave',      desc: 'Request and track your leave', keywords: 'pto vacation' },
       { to: '/my-team-time',  icon: CheckSquare,   label: 'Team Time',  desc: 'Approve time for your reports', roles: ['admin', 'manager'], keywords: 'approve timesheet' },
       { to: '/team-leave',    icon: CalendarCheck, label: 'Team Leave', desc: 'Approve and view team leave', roles: ['admin', 'manager'] },
+      { to: '/delivery-home', icon: Gauge,         label: 'Delivery Home', roles: ['manager', 'employee'], tabKey: 'project-plans', keywords: 'projects homepage meetings calendar' },
       { to: '/project-plans', icon: ListChecks,    label: 'Project Plans', roles: ['manager', 'employee'], tabKey: 'project-plans' },
       { to: '/concierge',     icon: Headset,       label: 'Concierge Tickets', roles: ['employee'] },
     ],
@@ -76,6 +77,7 @@ export const NAV_GROUPS: NavGroup[] = [
     key: 'delivery', label: 'Delivery', tagline: 'Active projects, utilization, and hours', accent: 'indigo', icon: Briefcase,
     roles: ['admin'],
     items: [
+      { to: '/delivery-home', icon: Gauge,        label: 'Delivery Home',        desc: 'Flags, pods, issues, breaches and upcoming meetings across projects', keywords: 'projects homepage meetings calendar' },
       { to: '/projects',      icon: FolderKanban, label: 'Current Projects',     desc: 'Delivery projects in flight' },
       { to: '/project-plans', icon: ListChecks,   label: 'Project Plans',        desc: 'Plans, milestones and tasks per project' },
       { to: '/team',          icon: Users,        label: 'Project Team',         desc: 'Team allocations by project' },

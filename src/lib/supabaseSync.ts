@@ -3364,6 +3364,25 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
   );
 
   // --- India Staffing (refetch all on any change) ---
+  // Each refetch pulls ~5k candidates over several pages. Two guards:
+  //  - debounce: a bulk import fires hundreds of change events; collapse a
+  //    burst into one refetch instead of hundreds of overlapping ones.
+  //  - sequence: only the most recently started refetch may write the store,
+  //    so a slow older snapshot can't land last and roll the list (and the
+  //    "All candidates" count) back.
+  let indiaRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+  let indiaRefetchSeq = 0;
+  const scheduleIndiaRefetch = () => {
+    if (indiaRefetchTimer) clearTimeout(indiaRefetchTimer);
+    indiaRefetchTimer = setTimeout(() => {
+      indiaRefetchTimer = null;
+      const seq = ++indiaRefetchSeq;
+      fetchIndiaStaffing().then((data) => {
+        if (!data || seq !== indiaRefetchSeq) return;
+        setters.setIndiaStaffing(data.accounts, data.requisitions, data.statuses, data.history, data.candidates);
+      });
+    }, 1500);
+  };
   for (const table of ['india_staffing_accounts', 'india_staffing_requisitions', 'india_staffing_statuses', 'india_staffing_history', 'india_staffing_candidates'] as const) {
     channel.on(
       'postgres_changes',
@@ -3372,9 +3391,7 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const row = (payload.new || payload.old) as any;
         if (row?.updated_by === CLIENT_ID) return;
-        fetchIndiaStaffing().then((data) => {
-          if (data) setters.setIndiaStaffing(data.accounts, data.requisitions, data.statuses, data.history, data.candidates);
-        });
+        scheduleIndiaRefetch();
       },
     );
   }

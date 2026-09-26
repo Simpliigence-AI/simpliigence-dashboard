@@ -80,6 +80,17 @@ export default function ProjectPlanDetailPage() {
               ))}
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          {canEdit && !project.pipelineProjectId && (
+            <button
+              type="button"
+              onClick={() => s.addToCurrentProjects(project.id).catch(alertError)}
+              title="Plan only today — add it to Current Projects so people can be allocated and log time against it"
+              className="text-sm font-semibold rounded-lg border border-line bg-surface px-3 py-2 hover:bg-surface-2"
+            >
+              + Add to Current Projects
+            </button>
+          )}
           <select
             value={project.status}
             disabled={!canEdit}
@@ -91,6 +102,7 @@ export default function ProjectPlanDetailPage() {
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          </div>
         </div>
       </div>
 

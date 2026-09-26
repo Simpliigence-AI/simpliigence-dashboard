@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Drawer, Button } from '../../components/ui';
-import { useDeliveryStore } from '../../store/useDeliveryStore';
+import { useDeliveryStore, NEW_CURRENT_PROJECT } from '../../store/useDeliveryStore';
 import { alertError } from '../../lib/planToast';
 import { Field, PeopleDatalist, inputClass } from './planUi';
 import type { PipelineOption } from '../../types/delivery';
@@ -17,7 +17,7 @@ export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: ()
   const navigate = useNavigate();
   const [options, setOptions] = useState<PipelineOption[] | null>(null);
   const [optError, setOptError] = useState<string | null>(null);
-  const [f, setF] = useState({ name: '', client: '', pipelineProjectId: '', startDate: '', plannedEnd: '', pm: '', deliveryLead: '', architect: '', sponsor: '' });
+  const [f, setF] = useState({ name: '', client: '', pipelineProjectId: NEW_CURRENT_PROJECT, startDate: '', plannedEnd: '', pm: '', deliveryLead: '', architect: '', sponsor: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -55,12 +55,13 @@ export function NewProjectDialog({ open, onClose }: { open: boolean; onClose: ()
           } catch (err) { alertError(err); } finally { setSaving(false); }
         }}
       >
-        <Field label="Link to Current Projects" hint="Phases, dates and completion then flow to Current Projects automatically. Leave blank for an internal or not-yet-sold project.">
+        <Field label="Current Projects" hint="Phases, dates and completion flow to Current Projects automatically, and the project becomes available for allocation on the Team tab and in My Time. Choose “Plan only” to keep it off Current Projects.">
           {options === null ? (
             <div className="flex items-center gap-2 text-sm text-muted"><Loader2 size={14} className="animate-spin" /> Loading…</div>
           ) : (
             <select value={f.pipelineProjectId} onChange={(e) => pickPipeline(e.target.value)} className={inputClass}>
-              <option value="">— Not linked —</option>
+              <option value={NEW_CURRENT_PROJECT}>+ Add as a new Current Project</option>
+              <option value="">Plan only — not in Current Projects</option>
               {free.map((o) => <option key={o.id} value={o.id}>{o.name}{o.status ? ` · ${o.status}` : ''}</option>)}
             </select>
           )}

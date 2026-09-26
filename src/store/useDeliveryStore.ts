@@ -34,6 +34,9 @@ import type {
 import { PLAN_TEMPLATES, addDays, type TemplatePhase } from '../lib/planTemplates';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/** Sentinel for NewProject.pipelineProjectId: create a new Current Projects entry. */
+export const NEW_CURRENT_PROJECT = '__new__';
+
 const toProject = (r: any): DeliveryProject => ({
   id: r.id,
   pipelineProjectId: r.pipeline_project_id ?? null,
@@ -317,6 +320,8 @@ interface State {
   loadPeople: () => Promise<Person[]>;
   loadPipelineOptions: () => Promise<PipelineOption[]>;
   createProject: (p: NewProject) => Promise<string>;
+  /** Create (or reuse by name) the Current Projects entry for a plan-only project and link it. */
+  addToCurrentProjects: (projectId: string) => Promise<string>;
   createChangeRequest: (projectId: string, d: CrDraft & { requestId?: string | null }) => Promise<void>;
   updateChangeRequest: (id: string, patch: Partial<CrDraft> & { approvers?: CrApprover[] }) => Promise<void>;
   /** Record one approver's decision; the database applies the CR when all approve. */
@@ -886,8 +891,9 @@ export const useDeliveryStore = create<State>((set, get) => ({
   createProject: async (n) => {
     if (!n.name.trim()) throw new Error('Give the project a name.');
     const id = nanoid(16);
+    const addToCurrent = n.pipelineProjectId === NEW_CURRENT_PROJECT;
     const { data, error } = await supabase.from('delivery_projects').insert({
-      id, name: n.name.trim(), client: orNull(n.client), pipeline_project_id: n.pipelineProjectId || null,
+      id, name: n.name.trim(), client: orNull(n.client), pipeline_project_id: addToCurrent ? null : (n.pipelineProjectId || null),
       status: 'active', start_date: n.startDate || null, planned_end: n.plannedEnd || null, current_end: n.plannedEnd || null,
       pm: orNull(n.pm), delivery_lead: orNull(n.deliveryLead), architect: orNull(n.architect), sponsor: orNull(n.sponsor),
       updated_by: me(),
@@ -897,7 +903,17 @@ export const useDeliveryStore = create<State>((set, get) => ({
       throw new Error(error?.message ?? 'Could not create the project — you may only have view access.');
     }
     set((st) => ({ projects: [...st.projects, toProject(data)].sort((a, b) => a.name.localeCompare(b.name)) }));
+    if (addToCurrent) await get().addToCurrentProjects(id);
     return id;
+  },
+
+  addToCurrentProjects: async (projectId) => {
+    const { data, error } = await supabase.rpc('delivery_add_to_current_projects', { p_project_id: projectId });
+    if (error) throw new Error(error.message.includes('does not exist')
+      ? 'Adding to Current Projects needs database update 039 — ask an admin to run it.' : error.message);
+    const pipelineId = data as string;
+    set((st) => ({ projects: st.projects.map((x) => (x.id === projectId ? { ...x, pipelineProjectId: pipelineId } : x)) }));
+    return pipelineId;
   },
 
   createChangeRequest: async (projectId, d) => {

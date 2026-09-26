@@ -18,7 +18,7 @@ import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useCallsStore } from '../store/useCallsStore';
-import { db } from '../lib/supabaseSync';
+import { db, type CandidateDuplicate } from '../lib/supabaseSync';
 import { ACTIVE_CALL_STATUSES } from '../types/candidateCalls';
 import type { CallTemplate, CandidateCall } from '../types/candidateCalls';
 import { TaIdentity } from '../components/TaIdentity';
@@ -35,6 +35,26 @@ import {
 } from '../types/staffing';
 
 const SOURCE_OPTIONS = ['LinkedIn', 'Naukri', 'Referral', 'Vendor', 'Internal DB', 'Other'];
+
+/** Resume formats the parse-resume function can read. Legacy .doc and .rtf
+ *  are extracted server-side; the function sniffs magic bytes, so a Naukri
+ *  ".doc" that is really HTML/RTF still parses. */
+const RESUME_ACCEPT = [
+  '.pdf', '.doc', '.docx', '.rtf', '.txt',
+  'application/pdf', 'application/msword', 'application/rtf', 'text/rtf', 'text/plain',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+].join(',');
+const RESUME_EXT_RE = /\.(pdf|docx?|rtf|txt)$/i;
+
+/** One-line description of an existing profile for duplicate alerts. */
+function describeDuplicate(d: CandidateDuplicate): string {
+  const bits = [
+    d.owning_ta_email ? `owner ${d.owning_ta_email}` : null,
+    d.stage || null,
+    d.created_at ? `added ${d.created_at.slice(0, 10)}` : null,
+  ].filter(Boolean);
+  return `${d.name || 'Unnamed'} (matched on ${d.matched_on}${bits.length ? ` · ${bits.join(' · ')}` : ''})`;
+}
 
 interface DraftCandidate {
   name: string;
@@ -207,6 +227,12 @@ export default function CandidatesPage() {
 
   const commitAdd = async () => {
     if (!draft.name.trim()) return;
+    const dups = await db.findCandidateDuplicates({
+      email: draft.email.trim(), phone: draft.phone.trim(), linkedinUrl: draft.linkedin_url.trim(),
+    });
+    if (dups.length > 0 && !window.confirm(
+      `This profile already exists:\n\n${dups.map(describeDuplicate).join('\n')}\n\nAdd it again anyway?`,
+    )) return;
     addCandidate({
       requisition_id: draft.requisition_id,
       name: draft.name.trim(),
@@ -810,10 +836,12 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
   const [uploading, setUploading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dupWarning, setDupWarning] = useState<string | null>(null);
 
   const handleUpload = async (file: File | null) => {
     if (!file) return;
     setError(null);
+    setDupWarning(null);
     setUploading(true);
     try {
       const res = await db.uploadCandidateResume(c.id, file);
@@ -834,13 +862,20 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
           parsed_at: parsed.parsedAt,
         };
         const blank = (v: string | undefined | null) => !v || !v.trim();
-        if (parsed.fullName && (blank(c.name) || /\.(pdf|txt|docx)$/i.test(c.name))) patch.name = parsed.fullName;
+        if (parsed.fullName && (blank(c.name) || RESUME_EXT_RE.test(c.name))) patch.name = parsed.fullName;
         if (parsed.email && blank(c.email)) patch.email = parsed.email;
         if (parsed.phone && blank(c.phone)) patch.phone = parsed.phone;
         if (parsed.linkedinUrl && blank(c.linkedin_url)) patch.linkedin_url = parsed.linkedinUrl;
         if (parsed.location && blank(c.location)) patch.location = parsed.location;
         if (parsed.currentTitle && blank(c.experience)) patch.experience = parsed.currentTitle;
         onChange(patch);
+        const dups = await db.findCandidateDuplicates({
+          email: parsed.email || c.email, phone: parsed.phone || c.phone,
+          linkedinUrl: parsed.linkedinUrl || c.linkedin_url, excludeId: c.id,
+        });
+        if (dups.length > 0) {
+          setDupWarning(`Duplicate profile — already in the database as ${dups.map(describeDuplicate).join('; ')}`);
+        }
       } else {
         setError(parsed.error);
       }
@@ -984,12 +1019,18 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                 {uploading ? 'Uploading…' : 'Upload CV'}
                 <input
                   type="file"
-                  accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  accept={RESUME_ACCEPT}
                   className="hidden"
                   onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
                   disabled={uploading || parsing}
                 />
               </label>
+            )}
+            {dupWarning && (
+              <span title={dupWarning}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                <AlertCircle size={11} /> Duplicate
+              </span>
             )}
             {c.linkedin_url ? (
               <a
@@ -1103,10 +1144,10 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                     <div className="flex items-center gap-2 flex-wrap">
                       <label className="inline-flex items-center gap-1 text-xs bg-surface border border-line rounded-md px-2.5 py-1.5 hover:bg-surface-2 cursor-pointer">
                         <Upload size={12} />
-                        {c.resume_url ? 'Replace' : 'Upload PDF / .txt'}
+                        {c.resume_url ? 'Replace' : 'Upload CV (PDF / Word)'}
                         <input
                           type="file"
-                          accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          accept={RESUME_ACCEPT}
                           className="hidden"
                           onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
                           disabled={uploading || parsing}
@@ -1134,6 +1175,11 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
                     {(uploading || parsing) && (
                       <div className="text-[11px] text-sky-600 mt-1 inline-flex items-center gap-1">
                         <Loader2 size={11} className="animate-spin" /> {uploading ? 'Uploading…' : 'Parsing…'}
+                      </div>
+                    )}
+                    {dupWarning && (
+                      <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1 inline-flex items-start gap-1">
+                        <AlertCircle size={12} className="mt-0.5 flex-shrink-0" /> {dupWarning}
                       </div>
                     )}
                     {error && (
@@ -1235,31 +1281,49 @@ function CandidateRow({ c, requisitions, accountName, expanded, onToggleExpand, 
   );
 }
 
-type BulkRowStatus = 'pending' | 'uploading' | 'parsing' | 'done' | 'failed';
+type BulkRowStatus = 'pending' | 'uploading' | 'parsing' | 'retrying' | 'done' | 'failed' | 'duplicate';
 interface BulkRow {
   filename: string;
   status: BulkRowStatus;
   name?: string;
   email?: string;
   error?: string;
+  /** Set once the file is in storage, so a retry re-parses without re-uploading. */
+  candidateId?: string;
+  resumePath?: string;
+  /** Duplicate handling — what we parsed and who it collides with. */
+  duplicates?: CandidateDuplicate[];
+  parsedPatch?: Partial<StaffingCandidate>;
+  resolution?: 'updated-existing' | 'added-anyway';
 }
 
 /* ── Bulk resume import dialog ──
  *
- * Drag-drop N PDFs/.txt files. Pick a requisition (FK) and owning TA. Each file:
+ * Drag-drop N resumes (PDF, Word .doc/.docx, RTF, .txt). Pick a requisition
+ * and owning TA. Each file:
  *   1. addCandidate({...}) creates a row with a placeholder name (the filename)
  *   2. uploadCandidateResume uploads the file to storage
  *   3. parseCandidateResume fires the edge function — Claude extracts identity
  *      + skills + summary and writes back into the row (only filling blanks).
- * Realtime broadcasts the update so the new candidate appears in the table.
+ *   4. The parsed email / phone / LinkedIn are checked against the database.
+ *      A match means the profile already exists: the new row is withdrawn and
+ *      the file is flagged Duplicate, with "Update existing" (attach this
+ *      resume to the existing profile) or "Add anyway".
+ *
+ * Large batches: transient failures (rate limits, 5xx, timeouts, network)
+ * retry with backoff; anything still failing can be retried from the footer
+ * without re-uploading. Closing the tab mid-run asks for confirmation.
  */
-/** How many resume parses can run concurrently. Anthropic rate limits + the
- *  edge-function cold-start budget put a soft ceiling around 6–8. */
-const BULK_CONCURRENCY = 6;
-/** Rough per-resume cost (USD) used for the live estimate. ~$3/MTok input on
- *  Sonnet 4.5 × ~5k tokens + ~700 output tokens. Prompt caching pulls actual
- *  cost down ~30–40% after the first call lands. */
+/** How many resume parses run concurrently. Kept below Anthropic's per-minute
+ *  ceiling so a several-hundred-file batch doesn't cascade into 429s. */
+const BULK_CONCURRENCY = 4;
+const BULK_MAX_ATTEMPTS = 4;
+/** Rough per-resume cost (USD) used for the live estimate. */
 const COST_PER_RESUME_USD = 0.025;
+
+const isTransient = (msg: string) =>
+  /(429|rate.?limit|overloaded|529|50[0234]|timeout|timed out|failed to fetch|network|edge function returned a non-2xx|claude api failed|fetch failed|ECONNRESET)/i.test(msg);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: {
   requisitions: { id: string; title: string; account_id: string }[];
@@ -1267,7 +1331,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
   defaultOwner: string;
   onClose: () => void;
 }) {
-  const { addCandidate, updateCandidate } = useStaffingStore();
+  const { addCandidate, updateCandidate, removeCandidate } = useStaffingStore();
   const [requisitionId, setRequisitionId] = useState('');
   const [owner, setOwner] = useState(defaultOwner);
   const [source, setSource] = useState('LinkedIn');
@@ -1275,58 +1339,103 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
   const [results, setResults] = useState<BulkRow[]>([]);
   const [running, setRunning] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  /** Tick once a second while running so the elapsed / ETA labels stay live.
-   *  We don't read `tick` directly — its only job is to force a re-render. */
+  const [skippedOnDrop, setSkippedOnDrop] = useState(0);
+  /** Tick once a second while running so the elapsed / ETA labels stay live. */
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!running) return;
     const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
+    // Leaving the page mid-run orphans half-processed rows — ask first.
+    const guard = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', guard);
+    return () => { clearInterval(id); window.removeEventListener('beforeunload', guard); };
   }, [running]);
 
   const canStart = files.length > 0 && !running;
 
   const handleDrop = (incoming: FileList | null) => {
     if (!incoming) return;
-    const arr = Array.from(incoming).filter((f) => /\.(pdf|txt)$/i.test(f.name));
+    const all = Array.from(incoming);
+    const arr = all.filter((f) => RESUME_EXT_RE.test(f.name));
+    setSkippedOnDrop((n) => n + (all.length - arr.length));
     if (arr.length === 0) return;
-    setFiles((prev) => [...prev, ...arr]);
+    // The same file dropped twice (same name + size) is only processed once.
+    setFiles((prev) => {
+      const seen = new Set(prev.map((f) => `${f.name}|${f.size}`));
+      return [...prev, ...arr.filter((f) => {
+        const k = `${f.name}|${f.size}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })];
+    });
   };
 
   const removeFile = (idx: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const processOne = async (idx: number, file: File, updateRow: (patch: Partial<BulkRow>) => void) => {
+  /** Parse with retry/backoff on transient errors. */
+  const parseWithRetry = async (candidateId: string, onRetry: () => void) => {
+    let last = '';
+    for (let attempt = 1; attempt <= BULK_MAX_ATTEMPTS; attempt++) {
+      // eslint-disable-next-line no-await-in-loop
+      const parsed = await db.parseCandidateResume(candidateId);
+      if (parsed.ok) return parsed;
+      last = parsed.error;
+      if (!isTransient(last) || attempt === BULK_MAX_ATTEMPTS) break;
+      onRetry();
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(2000 * 2 ** (attempt - 1) + Math.random() * 1000);
+    }
+    return { ok: false as const, error: last };
+  };
+
+  const processOne = async (file: File, row: BulkRow, updateRow: (patch: Partial<BulkRow>) => void) => {
     try {
-      updateRow({ status: 'uploading' });
-      const placeholder = file.name.replace(/\.(pdf|txt)$/i, '');
-      const created = addCandidate({
-        requisition_id: requisitionId || '',
-        name: placeholder,
-        experience: '',
-        stage: 'Submitted',
-        submit_date: new Date().toISOString().slice(0, 10),
-        feedback: '',
-        source,
-        email: '',
-        phone: '',
-        owning_ta_email: owner || undefined,
-      });
+      let candidateId = row.candidateId;
+      let resumePath = row.resumePath;
+      const placeholder = file.name.replace(RESUME_EXT_RE, '');
 
-      const up = await db.uploadCandidateResume(created.id, file);
-      if ('error' in up) {
-        updateRow({ status: 'failed', error: `Upload failed: ${up.error}` });
-        return;
+      if (!candidateId || !resumePath) {
+        updateRow({ status: 'uploading', error: undefined });
+        const created = addCandidate({
+          requisition_id: requisitionId || '',
+          name: placeholder,
+          experience: '',
+          stage: 'Submitted',
+          submit_date: new Date().toISOString().slice(0, 10),
+          feedback: '',
+          source,
+          email: '',
+          phone: '',
+          owning_ta_email: owner || undefined,
+        });
+        candidateId = created.id;
+        let up: Awaited<ReturnType<typeof db.uploadCandidateResume>> = { error: 'not attempted' };
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          // eslint-disable-next-line no-await-in-loop
+          up = await db.uploadCandidateResume(created.id, file);
+          if (!('error' in up)) break;
+          // eslint-disable-next-line no-await-in-loop
+          await sleep(1500 * attempt);
+        }
+        if ('error' in up) {
+          removeCandidate(created.id);
+          updateRow({ status: 'failed', error: `Upload failed: ${up.error}`, candidateId: undefined });
+          return;
+        }
+        resumePath = up.path;
+        updateCandidate(created.id, {
+          resume_url: up.path,
+          resume_filename: up.filename,
+          resume_uploaded_at: new Date().toISOString(),
+        });
+        updateRow({ candidateId, resumePath });
       }
-      updateCandidate(created.id, {
-        resume_url: up.path,
-        resume_filename: up.filename,
-        resume_uploaded_at: new Date().toISOString(),
-      });
 
-      updateRow({ status: 'parsing' });
-      const parsed = await db.parseCandidateResume(created.id);
+      updateRow({ status: 'parsing', error: undefined });
+      const parsed = await parseWithRetry(candidateId, () => updateRow({ status: 'retrying' }));
       if (!parsed.ok) {
         updateRow({ status: 'failed', error: parsed.error });
         return;
@@ -1340,49 +1449,111 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
       if (parsed.email) patch.email = parsed.email;
       if (parsed.phone) patch.phone = parsed.phone;
       if (parsed.linkedinUrl) patch.linkedin_url = parsed.linkedinUrl;
+      if (parsed.location) patch.location = parsed.location;
       if (parsed.currentTitle) patch.experience = parsed.currentTitle;
-      updateCandidate(created.id, patch);
 
+      // Duplicate check — does this person already exist?
+      const dups = await db.findCandidateDuplicates({
+        email: parsed.email, phone: parsed.phone, linkedinUrl: parsed.linkedinUrl, excludeId: candidateId,
+      });
+      if (dups.length > 0) {
+        // Withdraw the new row; keep the uploaded file so "Update existing" /
+        // "Add anyway" can use it without another parse.
+        removeCandidate(candidateId);
+        updateRow({
+          status: 'duplicate',
+          name: parsed.fullName || placeholder,
+          email: parsed.email,
+          duplicates: dups,
+          parsedPatch: { ...patch, resume_url: resumePath, resume_filename: file.name },
+          candidateId: undefined,
+        });
+        return;
+      }
+
+      updateCandidate(candidateId, patch);
       updateRow({ status: 'done', name: parsed.fullName || placeholder, email: parsed.email });
     } catch (e) {
       updateRow({ status: 'failed', error: (e as Error).message });
     }
-    void idx; // silence unused-var lint (idx used by closure caller)
+  };
+
+  const updateRowAt = (idx: number, patch: Partial<BulkRow>) => {
+    setResults((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+
+  /** Run the worker pool over the given row indexes. */
+  const runPool = async (indexes: number[], rows: BulkRow[]) => {
+    setRunning(true);
+    setStartedAt((t) => t ?? Date.now());
+    let next = 0;
+    const worker = async () => {
+      while (next < indexes.length) {
+        const idx = indexes[next];
+        next += 1;
+        // eslint-disable-next-line no-await-in-loop
+        await processOne(files[idx], rows[idx], (patch) => updateRowAt(idx, patch));
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(BULK_CONCURRENCY, indexes.length) }, () => worker()));
+    setRunning(false);
   };
 
   const start = async () => {
     if (!canStart) return;
-    setRunning(true);
-    setStartedAt(Date.now());
     const initial: BulkRow[] = files.map((f) => ({ filename: f.name, status: 'pending' }));
     setResults(initial);
+    await runPool(initial.map((_, i) => i), initial);
+  };
 
-    // Worker-pool pattern: BULK_CONCURRENCY parallel workers pull from a shared queue.
-    // Wall-clock ≈ ceil(N / concurrency) × per-resume time.
-    let next = 0;
-    const total = files.length;
-    const claim = () => {
-      const i = next;
-      next += 1;
-      return i < total ? i : -1;
-    };
-    const updateRow = (idx: number, patch: Partial<BulkRow>) => {
-      setResults((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-    };
+  const retryFailed = async () => {
+    const idxs = results.map((r, i) => (r.status === 'failed' ? i : -1)).filter((i) => i >= 0);
+    if (idxs.length === 0) return;
+    await runPool(idxs, results);
+  };
 
-    const worker = async () => {
-      while (true) {
-        const idx = claim();
-        if (idx < 0) return;
-        // eslint-disable-next-line no-await-in-loop
-        await processOne(idx, files[idx], (patch) => updateRow(idx, patch));
-      }
+  /** Duplicate → attach this resume (and fresh skills/summary) to the existing profile. */
+  const updateExisting = async (idx: number) => {
+    const r = results[idx];
+    const target = r.duplicates?.[0];
+    if (!target || !r.parsedPatch) return;
+    const patch = {
+      resume_url: r.parsedPatch.resume_url,
+      resume_filename: r.parsedPatch.resume_filename,
+      resume_uploaded_at: new Date().toISOString(),
+      skills: r.parsedPatch.skills,
+      profile_summary: r.parsedPatch.profile_summary,
+      parsed_at: r.parsedPatch.parsed_at,
     };
+    const inStore = useStaffingStore.getState().candidates.some((c) => c.id === target.id);
+    if (inStore) {
+      updateCandidate(target.id, patch);
+    } else {
+      const err = await db.patchIndiaCandidate(target.id, patch);
+      if (err) { updateRowAt(idx, { error: `Update failed: ${err}` }); return; }
+    }
+    updateRowAt(idx, { resolution: 'updated-existing', error: undefined });
+  };
 
-    await Promise.all(
-      Array.from({ length: Math.min(BULK_CONCURRENCY, total) }, () => worker()),
-    );
-    setRunning(false);
+  /** Duplicate → create a new profile regardless. */
+  const addAnyway = (idx: number) => {
+    const r = results[idx];
+    if (!r.parsedPatch) return;
+    addCandidate({
+      requisition_id: requisitionId || '',
+      name: r.name || r.filename.replace(RESUME_EXT_RE, ''),
+      experience: '',
+      stage: 'Submitted',
+      submit_date: new Date().toISOString().slice(0, 10),
+      feedback: '',
+      source,
+      email: '',
+      phone: '',
+      owning_ta_email: owner || undefined,
+      ...r.parsedPatch,
+      resume_uploaded_at: new Date().toISOString(),
+    });
+    updateRowAt(idx, { resolution: 'added-anyway' });
   };
 
   return (
@@ -1391,7 +1562,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
         <div className="px-5 py-4 border-b border-line/60 flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-ink">Bulk import resumes</div>
-            <div className="text-[11px] text-muted mt-0.5">Drop multiple PDFs or .txt files — each one is parsed and creates a candidate row.</div>
+            <div className="text-[11px] text-muted mt-0.5">Drop resumes — PDF, Word (.doc / .docx), RTF or .txt. Each is parsed and checked for an existing profile before a candidate row is created.</div>
           </div>
           <button onClick={onClose} disabled={running} className="text-muted/70 hover:text-ink/80 text-xl leading-none disabled:opacity-40">×</button>
         </div>
@@ -1444,12 +1615,15 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
               className="block border-2 border-dashed border-line rounded-lg p-6 text-center cursor-pointer hover:bg-surface-2/70 hover:border-primary/50"
             >
               <UploadCloud size={28} className="text-muted/70 mx-auto mb-2" />
-              <div className="text-sm text-ink/80 font-medium">Drop PDFs / .txt files here</div>
-              <div className="text-[11px] text-muted mt-1">or click to pick — you can add many at once</div>
+              <div className="text-sm text-ink/80 font-medium">Drop PDF / Word / RTF / .txt resumes here</div>
+              <div className="text-[11px] text-muted mt-1">or click to pick — you can add hundreds at once</div>
+              {skippedOnDrop > 0 && (
+                <div className="text-[11px] text-amber-700 mt-1">{skippedOnDrop} file{skippedOnDrop === 1 ? '' : 's'} skipped — not a resume format we read</div>
+              )}
               <input
                 type="file"
                 multiple
-                accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept={RESUME_ACCEPT}
                 className="hidden"
                 onChange={(e) => handleDrop(e.target.files)}
               />
@@ -1461,8 +1635,9 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
             const total = results.length;
             const done = results.filter((r) => r.status === 'done').length;
             const failed = results.filter((r) => r.status === 'failed').length;
-            const completed = done + failed;
-            const inFlight = results.filter((r) => r.status === 'uploading' || r.status === 'parsing').length;
+            const duplicate = results.filter((r) => r.status === 'duplicate').length;
+            const completed = done + failed + duplicate;
+            const inFlight = results.filter((r) => r.status === 'uploading' || r.status === 'parsing' || r.status === 'retrying').length;
             const pct = Math.round((completed / total) * 100);
             const elapsedMs = startedAt ? Date.now() - startedAt : 0;
             const fmt = (ms: number) => {
@@ -1477,7 +1652,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
             const etaMs = avgPerItemMs > 0 && remaining > 0
               ? Math.ceil(remaining / BULK_CONCURRENCY) * avgPerItemMs
               : 0;
-            const costSoFar = done * COST_PER_RESUME_USD;
+            const costSoFar = (done + duplicate) * COST_PER_RESUME_USD;
             const costRemaining = remaining * COST_PER_RESUME_USD;
             return (
               <div className="rounded-lg bg-surface-2/70 border border-line p-3 space-y-2">
@@ -1488,6 +1663,7 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
                     </span>
                     <span>·</span>
                     <span className="text-emerald-700">{done} parsed</span>
+                    {duplicate > 0 && <><span>·</span><span className="text-amber-700">{duplicate} already exist</span></>}
                     {failed > 0 && <><span>·</span><span className="text-red-700">{failed} failed</span></>}
                     {inFlight > 0 && <><span>·</span><span className="text-sky-700">{inFlight} in flight</span></>}
                   </div>
@@ -1536,6 +1712,30 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
                         {('error' in r && r.error) && (
                           <div className="text-[11px] text-red-700 italic truncate" title={r.error}>{r.error}</div>
                         )}
+                        {r.status === 'duplicate' && r.duplicates && (
+                          <div className="mt-1 rounded bg-amber-50 border border-amber-200 px-2 py-1 text-[11px] text-amber-900 whitespace-normal">
+                            <div className="font-semibold">Profile already exists</div>
+                            {r.duplicates.map((d) => (
+                              <div key={d.id}>→ {describeDuplicate(d)}</div>
+                            ))}
+                            {r.resolution ? (
+                              <div className="mt-1 text-emerald-700 font-medium">
+                                {r.resolution === 'updated-existing' ? '✓ Resume attached to the existing profile' : '✓ Added as a new profile'}
+                              </div>
+                            ) : (
+                              <div className="mt-1 flex gap-3">
+                                <button type="button" onClick={() => updateExisting(idx)} disabled={running}
+                                        className="font-semibold text-primary hover:underline disabled:opacity-40">
+                                  Update existing with this resume
+                                </button>
+                                <button type="button" onClick={() => addAnyway(idx)} disabled={running}
+                                        className="text-muted hover:text-ink hover:underline disabled:opacity-40">
+                                  Add anyway
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {results.length === 0 && (
@@ -1555,6 +1755,9 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
             {results.length > 0 && !running && (
               <>
                 <strong className="text-emerald-700">{results.filter((r) => r.status === 'done').length} created</strong>
+                {results.some((r) => r.status === 'duplicate') && (
+                  <span className="ml-2 text-amber-700">· {results.filter((r) => r.status === 'duplicate').length} duplicates held</span>
+                )}
                 {results.some((r) => r.status === 'failed') && (
                   <span className="ml-2 text-red-700">· {results.filter((r) => r.status === 'failed').length} failed</span>
                 )}
@@ -1569,6 +1772,14 @@ function BulkImportDialog({ requisitions, accountName, defaultOwner, onClose }: 
             >
               {results.length > 0 && !running ? 'Close' : 'Cancel'}
             </button>
+            {results.length > 0 && !running && results.some((r) => r.status === 'failed') && (
+              <button
+                onClick={retryFailed}
+                className="text-xs font-semibold border border-line bg-surface text-ink px-3 py-2 rounded-md hover:bg-surface-2"
+              >
+                Retry {results.filter((r) => r.status === 'failed').length} failed
+              </button>
+            )}
             {results.length === 0 ? (
               <button
                 onClick={start}
@@ -1906,11 +2117,13 @@ function CallHistoryPanel({ candidateId }: { candidateId: string }) {
 }
 
 
-function StatusIcon({ status }: { status: 'pending' | 'uploading' | 'parsing' | 'done' | 'failed' }) {
+function StatusIcon({ status }: { status: BulkRowStatus }) {
   if (status === 'pending')  return <FileText size={14} className="text-muted/70 flex-shrink-0" />;
   if (status === 'uploading') return <Loader2 size={14} className="text-sky-500 animate-spin flex-shrink-0" />;
   if (status === 'parsing')  return <Loader2 size={14} className="text-amber-500 animate-spin flex-shrink-0" />;
+  if (status === 'retrying') return <Loader2 size={14} className="text-orange-500 animate-spin flex-shrink-0" />;
   if (status === 'done')     return <CheckCircle size={14} className="text-emerald-600 flex-shrink-0" />;
+  if (status === 'duplicate') return <UsersIcon size={14} className="text-amber-600 flex-shrink-0" />;
   return <AlertCircle size={14} className="text-red-600 flex-shrink-0" />;
 }
 

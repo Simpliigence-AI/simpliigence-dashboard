@@ -32,7 +32,9 @@
  * empty — never overwrite a TA's hand-typed values. Skills + summary
  * always update (parser is the source of truth there).
  *
- * Supported file types: PDF (application/pdf), plain text (text/plain).
+ * Supported file types: PDF, Word .docx, legacy Word .doc (97–2003), RTF,
+ * HTML-saved .doc (Naukri exports), and plain text. Type is decided by the
+ * file's magic bytes, not just the extension.
  */
 
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
@@ -109,6 +111,238 @@ async function docxToText(buf: ArrayBuffer): Promise<string> {
   }
 }
 
+/* ── Legacy Word (.doc, Word 97–2003) and RTF text extraction ──────────────
+ * Naukri and older vendor CVs still arrive as .doc. A .doc is an OLE
+ * compound file; the text lives in the WordDocument stream and is located
+ * through the piece table (Clx) stored in the 0Table/1Table stream.
+ * If anything in that walk fails we fall back to scraping printable runs,
+ * which is noisy but good enough for Claude to pull identity + skills from.
+ * Some ".doc" files are really RTF, HTML or a renamed .docx — sniff()
+ * routes those by magic bytes instead of trusting the extension. */
+
+function cfbStreams(buf: ArrayBuffer): Map<string, Uint8Array> {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  const sig = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  if (!sig.every((b, i) => u8[i] === b)) throw new Error('not a compound file');
+  const secSize = 1 << dv.getUint16(0x1e, true);
+  const miniSize = 1 << dv.getUint16(0x20, true);
+  const nFat = dv.getUint32(0x2c, true);
+  const firstDir = dv.getUint32(0x30, true);
+  const cutoff = dv.getUint32(0x38, true);
+  const firstMiniFat = dv.getUint32(0x3c, true);
+  let difatSec = dv.getUint32(0x44, true);
+  const secOff = (s: number) => (s + 1) * secSize;
+
+  const fatSecs: number[] = [];
+  for (let i = 0; i < 109 && fatSecs.length < nFat; i++) fatSecs.push(dv.getUint32(0x4c + i * 4, true));
+  let guard = 0;
+  while (fatSecs.length < nFat && difatSec < 0xfffffffa && guard++ < 10000) {
+    const o = secOff(difatSec);
+    for (let i = 0; i < secSize / 4 - 1 && fatSecs.length < nFat; i++) fatSecs.push(dv.getUint32(o + i * 4, true));
+    difatSec = dv.getUint32(o + secSize - 4, true);
+  }
+  const fat: number[] = [];
+  for (const s of fatSecs) {
+    const o = secOff(s);
+    for (let i = 0; i < secSize / 4; i++) fat.push(o + i * 4 + 4 <= u8.length ? dv.getUint32(o + i * 4, true) : 0xfffffffe);
+  }
+  const chain = (start: number, table: number[]) => {
+    const out: number[] = [];
+    let s = start;
+    while (s < 0xfffffffa && out.length < table.length + 1) { out.push(s); s = table[s]; }
+    return out;
+  };
+  const readChain = (start: number) => {
+    const secs = chain(start, fat);
+    const out = new Uint8Array(secs.length * secSize);
+    secs.forEach((s, i) => out.set(u8.subarray(secOff(s), secOff(s) + secSize), i * secSize));
+    return out;
+  };
+
+  const dir = readChain(firstDir);
+  const ddv = new DataView(dir.buffer);
+  type Entry = { name: string; type: number; start: number; size: number };
+  const entries: Entry[] = [];
+  for (let o = 0; o + 128 <= dir.length; o += 128) {
+    const nameLen = ddv.getUint16(o + 0x40, true);
+    let name = '';
+    for (let i = 0; i < Math.max(0, nameLen / 2 - 1); i++) name += String.fromCharCode(ddv.getUint16(o + i * 2, true));
+    entries.push({ name, type: dir[o + 0x42], start: ddv.getUint32(o + 0x74, true), size: ddv.getUint32(o + 0x78, true) });
+  }
+  const root = entries.find((e) => e.type === 5);
+  const miniStream = root ? readChain(root.start) : new Uint8Array(0);
+  const miniFat: number[] = [];
+  if (firstMiniFat < 0xfffffffa) {
+    const mf = readChain(firstMiniFat);
+    const mdv = new DataView(mf.buffer);
+    for (let i = 0; i < mf.length / 4; i++) miniFat.push(mdv.getUint32(i * 4, true));
+  }
+
+  const streams = new Map<string, Uint8Array>();
+  for (const e of entries) {
+    if (e.type !== 2) continue;
+    if (e.size < cutoff) {
+      const secs = chain(e.start, miniFat);
+      const out = new Uint8Array(secs.length * miniSize);
+      secs.forEach((s, i) => out.set(miniStream.subarray(s * miniSize, s * miniSize + miniSize), i * miniSize));
+      streams.set(e.name, out.subarray(0, e.size));
+    } else {
+      streams.set(e.name, readChain(e.start).subarray(0, e.size));
+    }
+  }
+  return streams;
+}
+
+const CP1252: Record<number, string> = {
+  0x80: '€', 0x82: '‚', 0x83: 'ƒ', 0x84: '„', 0x85: '…', 0x86: '†', 0x87: '‡', 0x88: 'ˆ', 0x89: '‰',
+  0x8a: 'Š', 0x8b: '‹', 0x8c: 'Œ', 0x8e: 'Ž', 0x91: '‘', 0x92: '’', 0x93: '“', 0x94: '”', 0x95: '•',
+  0x96: '–', 0x97: '—', 0x98: '˜', 0x99: '™', 0x9a: 'š', 0x9b: '›', 0x9c: 'œ', 0x9e: 'ž', 0x9f: 'Ÿ',
+};
+
+function cleanWordText(s: string): string {
+  return s
+    // Field codes: \x13 instruction \x14 result \x15 — keep only the result.
+    .replace(/\x13[^\x13\x14\x15]*\x14/g, '')
+    .replace(/\x13[^\x13\x14\x15]*\x15/g, '')
+    .replace(/[\x14\x15]/g, '')
+    .replace(/\x07/g, '\t')
+    .replace(/[\r\x0b\x0c]/g, '\n')
+    .replace(/[\x00-\x08\x0e-\x1f]/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function docPieceTableText(buf: ArrayBuffer): string {
+  const streams = cfbStreams(buf);
+  const wd = streams.get('WordDocument');
+  if (!wd || wd.length < 0x1aa) throw new Error('no WordDocument stream');
+  const wdv = new DataView(wd.buffer, wd.byteOffset, wd.byteLength);
+  if (wdv.getUint16(0, true) !== 0xa5ec) throw new Error('bad FIB');
+  const flags = wdv.getUint16(0x0a, true);
+  if (flags & 0x0100) throw new Error('encrypted');
+  const table = streams.get(flags & 0x0200 ? '1Table' : '0Table');
+  if (!table) throw new Error('no table stream');
+  const fcClx = wdv.getUint32(0x1a2, true);
+  const lcbClx = wdv.getUint32(0x1a6, true);
+  const tdv = new DataView(table.buffer, table.byteOffset, table.byteLength);
+  let p = fcClx;
+  const end = fcClx + lcbClx;
+  while (p < end && table[p] === 0x01) p += 3 + tdv.getInt16(p + 1, true); // skip Prc
+  if (table[p] !== 0x02) throw new Error('no Pcdt');
+  const lcb = tdv.getUint32(p + 1, true);
+  const plc = p + 5;
+  const n = (lcb - 4) / 12;
+  let out = '';
+  for (let i = 0; i < n; i++) {
+    const cpStart = tdv.getUint32(plc + i * 4, true);
+    const cpEnd = tdv.getUint32(plc + (i + 1) * 4, true);
+    const pcd = plc + (n + 1) * 4 + i * 8;
+    const fcRaw = tdv.getUint32(pcd + 2, true);
+    const len = cpEnd - cpStart;
+    if (fcRaw & 0x40000000) {
+      const fc = (fcRaw & 0x3fffffff) / 2;
+      for (let j = 0; j < len && fc + j < wd.length; j++) {
+        const b = wd[fc + j];
+        out += CP1252[b] ?? String.fromCharCode(b);
+      }
+    } else {
+      for (let j = 0; j < len && fcRaw + j * 2 + 1 < wd.length; j++) out += String.fromCharCode(wdv.getUint16(fcRaw + j * 2, true));
+    }
+  }
+  return cleanWordText(out);
+}
+
+/** Last resort: printable ASCII / UTF-16LE runs of 4+ chars. */
+function scrapePrintable(u8: Uint8Array): string {
+  const runs: string[] = [];
+  let cur = '';
+  for (let i = 0; i < u8.length; i++) {
+    const b = u8[i];
+    if ((b >= 0x20 && b < 0x7f) || b === 0x09) cur += String.fromCharCode(b);
+    else { if (cur.length >= 4) runs.push(cur); cur = ''; }
+  }
+  if (cur.length >= 4) runs.push(cur);
+  cur = '';
+  for (let i = 0; i + 1 < u8.length; i += 2) {
+    const c = u8[i] | (u8[i + 1] << 8);
+    if (c >= 0x20 && c < 0xd800 && c !== 0xfffd) cur += String.fromCharCode(c);
+    else { if (cur.length >= 4) runs.push(cur); cur = ''; }
+  }
+  if (cur.length >= 4) runs.push(cur);
+  return runs.join('\n');
+}
+
+function rtfToText(rtf: string): string {
+  let s = rtf;
+  // Drop ignorable destinations ({\*\...}), font/colour/style tables, pictures.
+  const dropGroup = (re: RegExp) => {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s))) {
+      let depth = 0; let i = m.index;
+      for (; i < s.length; i++) {
+        if (s[i] === '\\') { i++; continue; }
+        if (s[i] === '{') depth++;
+        else if (s[i] === '}') { depth--; if (depth === 0) break; }
+      }
+      s = s.slice(0, m.index) + s.slice(i + 1);
+      re.lastIndex = m.index;
+    }
+  };
+  dropGroup(/\{\\\*/g);
+  dropGroup(/\{\\(fonttbl|colortbl|stylesheet|info|pict|listtable|listoverridetable)\b/g);
+  return s
+    // \uN is followed by a one-char ANSI fallback (\'hh or ?) — consume it.
+    .replace(/\\u(-?\d+) ?(?:\\'[0-9a-f]{2}|\?)?/gi, (_, n) => String.fromCharCode((Number(n) + 65536) % 65536))
+    .replace(/\\'([0-9a-f]{2})/gi, (_, h) => { const b = parseInt(h, 16); return CP1252[b] ?? String.fromCharCode(b); })
+    .replace(/\\(par|line|row)\b ?/g, '\n')
+    .replace(/\\(tab|cell)\b ?/g, '\t')
+    .replace(/\\[a-z]+-?\d* ?/gi, '')
+    .replace(/\\([{}\\])/g, '$1')
+    .replace(/[{}]/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h\d)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .trim();
+}
+
+type Sniffed = 'pdf' | 'zip' | 'ole' | 'rtf' | 'html' | 'text' | 'unknown';
+function sniff(u8: Uint8Array): Sniffed {
+  const head = new TextDecoder('latin1').decode(u8.subarray(0, 512)).trimStart().toLowerCase();
+  if (head.startsWith('%pdf')) return 'pdf';
+  if (u8[0] === 0x50 && u8[1] === 0x4b) return 'zip';
+  if (u8[0] === 0xd0 && u8[1] === 0xcf && u8[2] === 0x11 && u8[3] === 0xe0) return 'ole';
+  if (head.startsWith('{\\rtf')) return 'rtf';
+  if (head.startsWith('<') || head.includes('<html') || head.startsWith('mime-version')) return 'html';
+  const sample = u8.subarray(0, 2048);
+  let bad = 0;
+  for (const b of sample) if (b < 0x09 || (b > 0x0d && b < 0x20)) bad++;
+  return sample.length && bad / sample.length < 0.02 ? 'text' : 'unknown';
+}
+
+/** Legacy .doc → text. Piece table first, printable scrape as fallback. */
+function docToText(buf: ArrayBuffer): string {
+  try {
+    const t = docPieceTableText(buf);
+    if (t.length >= 30) return t;
+  } catch (e) {
+    console.warn('[parse-resume] .doc piece-table read failed, scraping:', (e as Error).message);
+  }
+  return scrapePrintable(new Uint8Array(buf)).slice(0, 60000);
+}
+
 function toBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let binary = '';
@@ -120,7 +354,7 @@ function toBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
-const SYSTEM_PROMPT = `You are a recruitment resume parser. The user message contains a candidate's resume (either as a PDF document or plain text).
+const SYSTEM_PROMPT = `You are a recruitment resume parser. The user message contains a candidate's resume (either as a PDF document or as text extracted from a Word/RTF/text file — extracted text may contain some formatting noise; ignore it).
 
 # Output contract
 
@@ -264,43 +498,45 @@ Deno.serve(async (req: Request) => {
     }
 
     const fileName = (cand.resume_filename || cand.resume_url).toLowerCase();
-    const isPdf  = file.type === 'application/pdf' || fileName.endsWith('.pdf');
-    const isText = file.type.startsWith('text/') || fileName.endsWith('.txt');
-    const isDocx =
-      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      || fileName.endsWith('.docx');
-    const isOldDoc = file.type === 'application/msword' || fileName.endsWith('.doc');
+    const buf = await file.arrayBuffer();
+    const u8 = new Uint8Array(buf);
+    const kind = sniff(u8);
+    const asText = (label: string, text: string) => [
+      { type: 'text', text: `Resume text follows (extracted from ${label}). Parse per the instructions and return the JSON.\n\n---\n${text.slice(0, 60000)}` },
+    ];
+    const tooShort = (t: string) => !t || t.trim().length < 30;
+    const unreadable = (what: string) => new Response(JSON.stringify({
+      error: `Could not read text from this ${what} — it may be scanned, password-protected or corrupt. Re-save as PDF and re-upload.`,
+    }), { status: 400, headers: corsHeaders });
 
     // 3. Build Claude message
     let userContent: unknown;
-    if (isPdf) {
-      const b64 = toBase64(await file.arrayBuffer());
+    if (kind === 'pdf' || (kind === 'unknown' && (file.type === 'application/pdf' || fileName.endsWith('.pdf')))) {
       userContent = [
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: toBase64(buf) } },
         { type: 'text', text: 'Parse this resume per the instructions and return the JSON.' },
       ];
-    } else if (isDocx) {
-      const text = await docxToText(await file.arrayBuffer());
-      if (!text || text.length < 30) {
-        return new Response(JSON.stringify({
-          error: 'Could not read text from this .docx — please re-export as PDF and re-upload.',
-        }), { status: 400, headers: corsHeaders });
-      }
-      userContent = [
-        { type: 'text', text: `Resume text follows (extracted from .docx). Parse per the instructions and return the JSON.\n\n---\n${text}` },
-      ];
-    } else if (isText) {
-      const text = await file.text();
-      userContent = [
-        { type: 'text', text: `Resume text follows. Parse per the instructions and return the JSON.\n\n---\n${text}` },
-      ];
-    } else if (isOldDoc) {
-      return new Response(JSON.stringify({
-        error: 'Legacy .doc files are not supported — please re-export as PDF or .docx and re-upload.',
-      }), { status: 400, headers: corsHeaders });
+    } else if (kind === 'zip') {
+      const text = await docxToText(buf);
+      if (tooShort(text)) return unreadable('.docx');
+      userContent = asText('.docx', text);
+    } else if (kind === 'ole') {
+      const text = docToText(buf);
+      if (tooShort(text)) return unreadable('.doc');
+      userContent = asText('legacy Word .doc', text);
+    } else if (kind === 'rtf') {
+      const text = rtfToText(new TextDecoder('latin1').decode(u8));
+      if (tooShort(text)) return unreadable('.rtf');
+      userContent = asText('RTF', text);
+    } else if (kind === 'html') {
+      const text = htmlToText(new TextDecoder('utf-8').decode(u8));
+      if (tooShort(text)) return unreadable('file');
+      userContent = asText('an HTML-format Word file', text);
+    } else if (kind === 'text') {
+      userContent = asText('plain text', new TextDecoder('utf-8').decode(u8));
     } else {
       return new Response(JSON.stringify({
-        error: `Unsupported file type "${file.type || 'unknown'}". Please upload PDF, .docx, or .txt.`,
+        error: `Unsupported file type "${file.type || fileName}". Upload PDF, Word (.doc/.docx), RTF or .txt.`,
       }), { status: 400, headers: corsHeaders });
     }
 
@@ -381,7 +617,7 @@ Deno.serve(async (req: Request) => {
       const n = (cand.name || '').trim();
       if (!n) return true;
       const nl = n.toLowerCase();
-      if (nl.endsWith('.pdf') || nl.endsWith('.txt') || nl.endsWith('.docx') || nl.endsWith('.rtf')) return true;
+      if (nl.endsWith('.pdf') || nl.endsWith('.txt') || nl.endsWith('.doc') || nl.endsWith('.docx') || nl.endsWith('.rtf')) return true;
       if (nl.startsWith('imported resume') || nl.startsWith('candidate ') || nl === 'unnamed') return true;
       // Bulk-import seeds name = filename-without-ext. Detect that by comparing
       // against the resume_filename root (separators normalised). If they

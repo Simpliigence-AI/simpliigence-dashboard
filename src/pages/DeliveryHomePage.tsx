@@ -26,7 +26,7 @@ import { MeetingCalendar } from '../components/delivery/MeetingCalendar';
 import { useTabPermission } from '../hooks/useTabPermission';
 import { fmtDate } from '../lib/deliveryPlan';
 import {
-  loadHomeProjects, loadPodUtil, loadOpenIssues, loadEvents, loadMailboxes, syncCalendars, fmtAgo, fmtIn,
+  loadHomeProjects, loadPodUtil, setProjectTm, loadOpenIssues, loadEvents, loadMailboxes, syncCalendars, fmtAgo, fmtIn,
   AZURE_APP_PERMISSIONS_URL, type HomeProject, type PodMonth, type OpenIssue, type CalendarEvent, type Mailbox,
 } from '../lib/deliveryHome';
 
@@ -64,16 +64,28 @@ export default function DeliveryHomePage() {
   const projectNames = useMemo(() => Object.fromEntries(projects.filter((p) => p.planId).map((p) => [p.planId!, p.name])), [projects]);
   const byPlan = useMemo(() => new Map(projects.filter((p) => p.planId).map((p) => [p.planId!, p])), [projects]);
 
-  const unallocated = shown.filter((p) => p.allocState !== 'ok');
+  // Deviance checks apply to fixed-price projects only; T&M engagements are listed and skipped.
+  const fixed = shown.filter((p) => !p.isTm);
+  const tmCount = shown.length - fixed.length;
+  const fixedPlanIds = new Set(fixed.map((p) => p.planId).filter(Boolean) as string[]);
+  const unallocated = fixed.filter((p) => p.allocState !== 'ok');
   const lowPods = useMemo(() => {
     const m = new Map<string, PodMonth[]>();
     for (const r of pods) { if (!m.has(r.pod)) m.set(r.pod, []); m.get(r.pod)!.push(r); }
     return [...m.entries()].filter(([, rows]) => rows.some((r) => r.pct < POD_LOW));
   }, [pods]);
-  const docGaps = shown.filter((p) => p.docGap);
-  const cadence = shown.filter((p) => p.cadenceGap);
-  const followUps = issues.filter((i) => planIds.has(i.projectId) && (!i.dueDate || i.dueDate < todayIso() || !i.owner?.trim() || i.criticality === 'critical' || i.criticality === 'high'));
-  const breaches = shown.filter((p) => p.breachReasons.length > 0);
+  const docGaps = fixed.filter((p) => p.docGap);
+  const cadence = fixed.filter((p) => p.cadenceGap);
+  const followUps = issues.filter((i) => fixedPlanIds.has(i.projectId) && (!i.dueDate || i.dueDate < todayIso() || !i.owner?.trim() || i.criticality === 'critical' || i.criticality === 'high'));
+  const breaches = fixed.filter((p) => p.breachReasons.length > 0);
+  const [tmBusy, setTmBusy] = useState<string | null>(null);
+  const toggleTm = async (p: HomeProject, v: boolean) => {
+    setTmBusy(p.pipelineId);
+    setProjects((all) => all.map((x) => (x.pipelineId === p.pipelineId ? { ...x, isTm: v } : x)));
+    try { await setProjectTm(p.pipelineId, v); }
+    catch (e) { setProjects((all) => all.map((x) => (x.pipelineId === p.pipelineId ? { ...x, isTm: !v } : x))); alert((e as Error).message); }
+    finally { setTmBusy(null); }
+  };
   const tagged = useMemo(() => events.filter((e) => e.projectId && planIds.has(e.projectId)), [events, planIds]);
   const untaggedAll = useMemo(() => events.filter((e) => !e.projectId && e.isExternal && e.matchSource !== 'ignored'), [events]);
   const calEvents = showUntagged ? [...tagged, ...untaggedAll] : tagged;
@@ -118,7 +130,7 @@ export default function DeliveryHomePage() {
       {error && <div className="rounded-lg border border-rose/30 bg-rose/5 px-4 py-3 text-sm text-rose">{error}</div>}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
-        <Tile icon={<FolderKanban size={16} />} label="Current projects" value={shown.length} onClick={() => go('projects')} />
+        <Tile icon={<FolderKanban size={16} />} label={tmCount ? `Projects · ${tmCount} T&M` : 'Current projects'} value={shown.length} onClick={() => go('projects')} />
         <Tile icon={<UserX size={16} />} label="Not allocated" value={unallocated.length} bad={unallocated.length > 0} onClick={() => go('alloc')} />
         <Tile icon={<Gauge size={16} />} label="Pods < 50%" value={lowPods.length} bad={lowPods.length > 0} onClick={() => go('pods')} />
         <Tile icon={<FileWarning size={16} />} label="Docs missing" value={docGaps.length} bad={docGaps.length > 0} onClick={() => go('docs')} />
@@ -129,25 +141,31 @@ export default function DeliveryHomePage() {
       </div>
 
       {/* Current projects */}
-      <Section id="projects" title="Current projects" count={shown.length}>
+      <Section id="projects" title="Current projects" count={shown.length}
+        note={`Green = fixed price, checked for every deviance below. Amber = time & materials (tick T&M) — no requirements, detailed plan or user stories expected, so it's left out of the checks.${tmCount ? ` ${tmCount} T&M, ${fixed.length} fixed price.` : ''}`}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wide text-muted border-b border-line/60">
-                <th className="px-5 py-2 font-semibold">Project</th><th className="px-3 py-2 font-semibold">Owner</th>
+                <th className="px-5 py-2 font-semibold">Project</th><th className="px-3 py-2 font-semibold text-center">T&amp;M</th><th className="px-3 py-2 font-semibold">Owner</th>
                 <th className="px-3 py-2 font-semibold">Window</th><th className="px-3 py-2 font-semibold text-right">Team</th>
                 <th className="px-3 py-2 font-semibold">Next meeting</th><th className="px-3 py-2 font-semibold">Flags</th><th />
               </tr>
             </thead>
             <tbody>
               {shown.map((p) => (
-                <tr key={p.pipelineId} className="border-b border-line/30 last:border-0 hover:bg-surface-2/40">
-                  <td className="px-5 py-2.5"><ProjectLink p={p} /><div className="text-xs text-muted">{p.status}</div></td>
+                <tr key={p.pipelineId} className={`border-b border-line/30 last:border-b-0 border-l-4 ${p.isTm ? 'border-l-amber-400 bg-amber-500/[0.07] hover:bg-amber-500/[0.12]' : 'border-l-emerald-500 bg-emerald-500/[0.05] hover:bg-emerald-500/[0.10]'}`}>
+                  <td className="px-5 py-2.5"><ProjectLink p={p} /><div className="text-xs text-muted">{p.status} · <span className={p.isTm ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-600'}>{p.isTm ? 'Time & materials' : 'Fixed price'}</span></div></td>
+                  <td className="px-3 py-2.5 text-center">
+                    <input type="checkbox" aria-label={`${p.name} is time and materials`} checked={p.isTm} disabled={!perm.canEdit || tmBusy === p.pipelineId}
+                      onChange={(e) => toggleTm(p, e.target.checked)} className="h-4 w-4 accent-amber-500 cursor-pointer disabled:cursor-default" />
+                  </td>
                   <td className="px-3 py-2.5 text-ink/80">{normOwner(p.owner) || '—'}</td>
                   <td className="px-3 py-2.5 text-xs text-ink/80 whitespace-nowrap">{fmtDate(p.startDate)} → {fmtDate(p.endDate)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{p.teamSize}</td>
                   <td className="px-3 py-2.5 text-xs whitespace-nowrap">{p.nextMeetingAt ? fmtIn(p.nextMeetingAt) : <span className="text-muted">none booked</span>}</td>
                   <td className="px-3 py-2.5"><div className="flex flex-wrap gap-1">
+                    {p.isTm ? <Badge variant="warning">T&amp;M · not checked</Badge> : <>
                     {p.allocState === 'none' && <Badge variant="danger">Not allocated</Badge>}
                     {p.allocState === 'gaps' && <Badge variant="warning">Unstaffed {p.unstaffedMonths.length} mo</Badge>}
                     {p.docGap && <Badge variant="warning">Docs missing</Badge>}
@@ -155,6 +173,7 @@ export default function DeliveryHomePage() {
                     {p.openIssues > 0 && <Badge variant={p.overdueIssues || p.severeIssues ? 'danger' : 'neutral'}>{p.openIssues} issue{p.openIssues > 1 ? 's' : ''}</Badge>}
                     {p.breachReasons.length > 0 && <Badge variant="danger">Timeline</Badge>}
                     {!(p.allocState !== 'ok' || p.docGap || p.cadenceGap || p.openIssues || p.breachReasons.length) && <Badge variant="success">On track</Badge>}
+                    </>}
                   </div></td>
                   <td className="pr-4"><ProjectLink p={p} icon /></td>
                 </tr>
@@ -164,6 +183,9 @@ export default function DeliveryHomePage() {
         </div>
       </Section>
 
+      <p className="text-xs font-semibold text-muted">
+        Checks below cover the {fixed.length} fixed-price project{fixed.length === 1 ? '' : 's'}{tmCount ? ` — ${tmCount} time & materials project${tmCount === 1 ? ' is' : 's are'} excluded` : ''}.
+      </p>
       <div className="grid gap-6 xl:grid-cols-2">
         {/* Allocation */}
         <Section id="alloc" title="Projects not allocated for their full duration" count={unallocated.length}

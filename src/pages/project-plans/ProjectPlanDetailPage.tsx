@@ -26,6 +26,7 @@ import { RequestsTab } from './RequestsTab';
 import { ChangeRequestsTab } from './ChangeRequestsTab';
 import { HistoryTab } from './HistoryTab';
 import { MeetingsTab } from './MeetingsTab';
+import { loadPlanTm, setProjectTm } from '../../lib/deliveryHome';
 import { PlanSetupCard, SowImportDialog, TemplateDialog } from './PlanSetup';
 import { ProjectSummary } from './ProjectSummary';
 import { PersonCell } from './planUi';
@@ -42,6 +43,13 @@ export default function ProjectPlanDetailPage() {
   const [tab, setTab] = useState<Tab>(initialTab && TABS.includes(initialTab) ? initialTab : 'plan');
 
   useEffect(() => { if (perm.canView && id) void s.loadDetail(id); }, [perm.canView, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [tm, setTm] = useState<{ pipelineId: string; isTm: boolean } | null>(null);
+  useEffect(() => { if (perm.canView && id) loadPlanTm(id).then(setTm).catch(() => setTm(null)); }, [perm.canView, id]);
+  const toggleTm = async (v: boolean) => {
+    if (!tm) return;
+    setTm({ ...tm, isTm: v });
+    try { await setProjectTm(tm.pipelineId, v); } catch (e) { setTm({ ...tm, isTm: !v }); alertError(e); }
+  };
 
   const project = s.projects.find((p) => p.id === id);
   const tasks = s.detailId === id ? s.tasks : [];
@@ -85,6 +93,13 @@ export default function ProjectPlanDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+          {tm && (
+            <label title="Time & materials engagements skip the requirements, plan, user-story and cadence checks on Delivery Home"
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${tm.isTm ? 'border-amber-400/70 bg-amber-500/15 text-ink' : 'border-emerald-500/60 bg-emerald-500/15 text-ink'}`}>
+              <input type="checkbox" checked={tm.isTm} disabled={!canEdit} onChange={(e) => toggleTm(e.target.checked)} className="h-4 w-4 accent-amber-500" />
+              {tm.isTm ? 'Time & materials' : 'Fixed price'}
+            </label>
+          )}
           {canEdit && !project.pipelineProjectId && (
             <button
               type="button"

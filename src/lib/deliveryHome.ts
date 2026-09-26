@@ -49,6 +49,8 @@ export interface HomeProject {
   lateTasks: number;
   slipDays: number;
   breachReasons: string[];
+  /** Time & materials — Delivery Home skips the deviance checks for these. */
+  isTm: boolean;
 }
 
 export interface PodMonth {
@@ -106,6 +108,7 @@ const toProject = (r: any): HomeProject => ({
   cadenceGap: !!r.cadence_gap,
   openIssues: num(r.open_issues), overdueIssues: num(r.overdue_issues), unownedIssues: num(r.unowned_issues), severeIssues: num(r.severe_issues),
   latePhases: num(r.late_phases), lateTasks: num(r.late_tasks), slipDays: num(r.slip_days), breachReasons: r.breach_reasons ?? [],
+  isTm: !!r.is_tm,
 });
 
 export const toEvent = (r: any): CalendarEvent => ({
@@ -124,6 +127,19 @@ function check<T>(res: { data: T | null; error: { message: string } | null }): T
 export async function loadHomeProjects(): Promise<HomeProject[]> {
   const rows = check(await supabase.from('v_delivery_home_projects').select('*').order('name'));
   return (rows as any[]).map(toProject);
+}
+
+/** Mark a Current Project as time & materials (or back to fixed price). */
+export async function setProjectTm(pipelineId: string, isTm: boolean): Promise<void> {
+  const { error } = await supabase.rpc('delivery_set_project_tm', { p_pipeline_id: pipelineId, p_is_tm: isTm });
+  if (error) throw new Error(error.message);
+}
+
+/** T&M flag for one plan (read through the home view — pipeline_projects is gated on another tab). */
+export async function loadPlanTm(planId: string): Promise<{ pipelineId: string; isTm: boolean } | null> {
+  const { data, error } = await supabase.from('v_delivery_home_projects').select('pipeline_id, is_tm').eq('plan_id', planId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? { pipelineId: (data as any).pipeline_id, isTm: !!(data as any).is_tm } : null;
 }
 
 export async function loadPodUtil(): Promise<PodMonth[]> {

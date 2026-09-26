@@ -41,6 +41,7 @@ import AccessMatrixPage from '../pages/admin/AccessMatrixPage';
 import CheckinAdminPage from '../pages/admin/CheckinAdminPage';
 import ProjectPlansPage from '../pages/ProjectPlansPage';
 import ProjectPlanDetailPage from '../pages/project-plans/ProjectPlanDetailPage';
+import DeliveryHomePage from '../pages/DeliveryHomePage';
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
@@ -77,6 +78,8 @@ export const router = createBrowserRouter(
         { path: 'pipeline', element: <RoleOnly allow={['admin']}><PipelinePage /></RoleOnly> },
         // Gated by the 'project-plans' tab (role + per-user grants), not by role alone —
         // BAs and project leads with role='employee' own plans too. Pages redirect if denied.
+        // Delivery Home — gated by the 'project-plans' tab like the plans themselves.
+        { path: 'delivery-home', element: <DeliveryHomePage /> },
         { path: 'project-plans', element: <ProjectPlansPage /> },
         { path: 'project-plans/:id', element: <ProjectPlanDetailPage /> },
         { path: 'forecasting', element: <RoleOnly allow={['admin']}><ForecastingPage /></RoleOnly> },

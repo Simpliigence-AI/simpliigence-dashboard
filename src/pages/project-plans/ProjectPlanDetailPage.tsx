@@ -7,9 +7,9 @@
  * on the 'project-plans' tab get the same page with the controls disabled.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen, FileSignature, CalendarClock, FileSearch, LayoutTemplate,
+  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen, FileSignature, CalendarClock, FileSearch, LayoutTemplate, CalendarDays,
 } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
@@ -25,17 +25,21 @@ import { DocumentsTab } from './DocumentsTab';
 import { RequestsTab } from './RequestsTab';
 import { ChangeRequestsTab } from './ChangeRequestsTab';
 import { HistoryTab } from './HistoryTab';
+import { MeetingsTab } from './MeetingsTab';
 import { PlanSetupCard, SowImportDialog, TemplateDialog } from './PlanSetup';
 import { ProjectSummary } from './ProjectSummary';
 import { PersonCell } from './planUi';
 
-type Tab = 'plan' | 'issues' | 'requests' | 'changes' | 'heatmap' | 'checkins' | 'documents' | 'history';
+type Tab = 'plan' | 'issues' | 'requests' | 'changes' | 'heatmap' | 'checkins' | 'meetings' | 'documents' | 'history';
+const TABS: Tab[] = ['plan', 'issues', 'requests', 'changes', 'heatmap', 'checkins', 'meetings', 'documents', 'history'];
 
 export default function ProjectPlanDetailPage() {
   const { id = '' } = useParams();
   const perm = useTabPermission('project-plans');
   const s = useDeliveryStore();
-  const [tab, setTab] = useState<Tab>('plan');
+  const [params] = useSearchParams();
+  const initialTab = params.get('tab') as Tab | null;
+  const [tab, setTab] = useState<Tab>(initialTab && TABS.includes(initialTab) ? initialTab : 'plan');
 
   useEffect(() => { if (perm.canView && id) void s.loadDetail(id); }, [perm.canView, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -128,7 +132,7 @@ export default function ProjectPlanDetailPage() {
       <ProjectSummary project={project} canEdit={canEdit} />
 
       <div className="flex gap-1 border-b border-line overflow-x-auto">
-        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['changes', 'Change requests', FileSignature, s.changeRequests.filter((c) => c.projectId === project.id && c.state === 'pending').length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
+        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['changes', 'Change requests', FileSignature, s.changeRequests.filter((c) => c.projectId === project.id && c.state === 'pending').length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['meetings', 'Meetings', CalendarDays, s.documents.filter((d) => d.projectId === project.id && d.docType === 'Meeting').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -147,6 +151,7 @@ export default function ProjectPlanDetailPage() {
       {tab === 'changes' && <ChangeRequestsTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'heatmap' && <HeatmapTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'checkins' && <CheckinsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
+      {tab === 'meetings' && <MeetingsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
       {tab === 'documents' && <DocumentsTab projectId={project.id} canEdit={canEdit} />}
       {tab === 'history' && <HistoryTab projectId={project.id} />}
     </div>

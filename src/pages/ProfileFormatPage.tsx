@@ -1,19 +1,22 @@
 /**
- * Profile Format — upload a candidate resume (PDF / Word / RTF / .txt) OR paste raw
- * text, optionally upload a target-format sample (so Claude matches the
- * layout you want), add refinement instructions, and let Claude rewrite
- * it into the Simpliigence house format.
+ * Profile Format — upload a candidate resume (PDF / Word / RTF / .txt) OR
+ * paste raw text, optionally upload a client-specific target-format sample,
+ * add refinement instructions, and let Claude rewrite it into the
+ * Simpliigence standard profile template (lib/profileTemplate.ts — modelled
+ * on Vikas Rathod's profile: centered name / title / contact header, blue
+ * section headings, Core Expertise bullets, "Category:" skill lines, and a
+ * "Name | Title" footer on every page).
  *
- * Output renders as styled HTML matching the Simpliigence house look
- * (Arial Black headings + #268066 green accent + italic-blockquote
- * Professional Summary) and can be saved as a real PDF via the browser's
- * Print dialog (window.print + dedicated @media print stylesheet).
+ * Output: Word (.docx via lib/profileDocx.ts) or PDF (browser print with the
+ * same styles and footer), plus Markdown copy/download.
  */
 import { useMemo, useState } from 'react';
 import { Upload, Sparkles, FileText, Copy, Download, RotateCcw, Loader2, AlertCircle, Check, FileEdit, Printer, Target } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { db } from '../lib/supabaseSync';
+import { parseProfile, profileToHtml, PROFILE_CSS } from '../lib/profileTemplate';
+import { buildProfileDocx } from '../lib/profileDocx';
 
 type SourceMode = 'file' | 'text' | 'none';
 
@@ -45,7 +48,8 @@ const QUICK_INSTRUCTIONS = [
   'Emphasize Salesforce platform expertise',
   'Drop personal details (DOB, marital status, photo)',
   'Add quantified achievements where missing',
-  'Tighten to 1 page (concise bullets)',
+  'Drop phone and email (keep location only)',
+  'Tighten to 2 pages (concise bullets)',
   'Rewrite for a senior IC / staff-level role',
 ];
 
@@ -202,6 +206,31 @@ export default function ProfileFormatPage() {
     URL.revokeObjectURL(url);
   };
 
+  const [wordBusy, setWordBusy] = useState(false);
+  const downloadWord = async () => {
+    if (!draft) return;
+    setWordBusy(true);
+    try {
+      const { blob, filename } = await buildProfileDocx(draft);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(`Word export failed: ${(e as Error).message}`);
+    } finally {
+      setWordBusy(false);
+    }
+  };
+
+  const parsed = useMemo(() => parseProfile(draft), [draft]);
+  const printHtml = useMemo(() => profileToHtml(parsed), [parsed]);
+  const footerCss = parsed.footer.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
   /** Trigger the browser print dialog — user picks "Save as PDF" to get a real PDF.
    *  Print-only CSS hides everything except the formatted output. */
   const savePdf = () => {
@@ -217,7 +246,7 @@ export default function ProfileFormatPage() {
       <div className="profile-format-chrome">
         <PageHeader
           title="Profile Format"
-          subtitle="Upload a candidate resume, describe how you want it tweaked, and Claude rewrites it into the Simpliigence house format. Save as PDF when you're happy."
+          subtitle="Upload a candidate resume, describe any tweaks, and Claude rewrites it into the Simpliigence standard profile template. Download as Word or PDF."
           action={
             (sourceReady || draft) ? (
               <button
@@ -297,9 +326,9 @@ export default function ProfileFormatPage() {
             </Card>
 
             {/* Target format — OPTIONAL */}
-            <Card title="2 · Target format (optional)">
+            <Card title="2 · Client-specific format (optional)">
               <p className="text-[11px] text-muted mb-3">
-                By default Claude uses the Simpliigence house format. If you have a different format you want — e.g. a client-specific resume template — upload a sample (PDF, Word or RTF) here and Claude will match its layout instead. PDF or .docx carry the most layout detail.
+                Every profile uses the Simpliigence standard template by default — name, title and contact header; Professional Profile; Core Expertise; Simpliigence projects; Professional Experience; Technology &amp; Architecture; Education &amp; Certifications; and a name | title footer on every page. Only upload a sample (PDF, Word or RTF) if a client insists on its own section order.
               </p>
               {targetB64 ? (
                 <div className="flex items-center justify-between p-3 bg-violet-50 border border-violet-200 rounded-lg">
@@ -386,11 +415,20 @@ export default function ProfileFormatPage() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
+                    onClick={downloadWord}
+                    disabled={wordBusy}
+                    className="text-[11px] font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 px-2.5 py-1 rounded inline-flex items-center gap-1"
+                    title="Download as a Word document in the Simpliigence template"
+                  >
+                    {wordBusy ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />} Word
+                  </button>
+                  <button
+                    type="button"
                     onClick={savePdf}
-                    className="text-[11px] font-semibold text-white bg-primary hover:bg-primary/90 px-2.5 py-1 rounded inline-flex items-center gap-1"
+                    className="text-[11px] font-semibold text-primary border border-primary/40 hover:bg-primary/10 px-2.5 py-1 rounded inline-flex items-center gap-1"
                     title="Open the browser print dialog — choose 'Save as PDF'"
                   >
-                    <Printer size={11} /> Save as PDF
+                    <Printer size={11} /> PDF
                   </button>
                   <button
                     type="button"
@@ -469,91 +507,28 @@ export default function ProfileFormatPage() {
 
       {/* Print-only area — only the rendered profile shows when saving as PDF. */}
       <div className="profile-format-print-only">
-        <div className="simpliigence-profile" dangerouslySetInnerHTML={{ __html: renderMarkdownLite(draft) }} />
+        <div className="simpliigence-profile" dangerouslySetInnerHTML={{ __html: printHtml }} />
       </div>
 
-      {/* Styles — house format (always applied) + print-only overrides */}
+      {/* Styles — Simpliigence standard template (lib/profileTemplate.ts) + print-only overrides */}
       <style>{`
-        /* Simpliigence house format — applied both on screen preview AND print */
-        .simpliigence-profile {
-          font-family: Arial, "Helvetica Neue", sans-serif;
-          color: #1e293b;
-          line-height: 1.55;
-          font-size: 11pt;
-        }
-        .simpliigence-profile h1 {
-          font-family: "Arial Black", "Helvetica Neue", sans-serif;
-          font-size: 22pt;
-          font-weight: 900;
-          letter-spacing: 0.04em;
-          color: #1e293b;
-          text-transform: uppercase;
-          margin: 0 0 16px;
-          padding-bottom: 8px;
-          border-bottom: 2px solid #268066;
-        }
-        .simpliigence-profile h2 {
-          font-family: "Arial Black", "Helvetica Neue", sans-serif;
-          font-size: 13pt;
-          font-weight: 900;
-          color: #268066;
-          text-transform: uppercase;
-          margin: 18px 0 6px;
-          letter-spacing: 0.02em;
-        }
-        .simpliigence-profile h3 {
-          font-size: 11pt;
-          font-weight: 700;
-          color: #1e293b;
-          margin: 12px 0 4px;
-        }
-        .simpliigence-profile p {
-          margin: 4px 0;
-        }
-        .simpliigence-profile blockquote {
-          font-style: italic;
-          border-left: 3px solid #268066;
-          padding: 4px 0 4px 12px;
-          margin: 6px 0 10px;
-          color: #475569;
-        }
-        .simpliigence-profile ul {
-          list-style: none;
-          padding-left: 0;
-          margin: 4px 0 8px;
-        }
-        .simpliigence-profile li {
-          position: relative;
-          padding-left: 18px;
-          margin: 3px 0;
-        }
-        .simpliigence-profile li::before {
-          content: "▸";
-          color: #268066;
-          position: absolute;
-          left: 0;
-          top: 0;
-          font-weight: 900;
-        }
-        .simpliigence-profile strong {
-          color: #1e293b;
-          font-weight: 700;
-        }
-        .simpliigence-profile em {
-          color: #475569;
-        }
+        ${PROFILE_CSS}
+        .profile-format-page { background: #fff; color: #000; border: 1px solid #e5e7eb; border-radius: 6px; padding: 28px 34px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 
         /* Hide the print-only area when on screen */
         .profile-format-print-only { display: none; }
 
         @media print {
-          /* Hide everything except the printable profile */
           .profile-format-chrome { display: none !important; }
           .profile-format-print-only { display: block !important; }
-
-          /* Force light background and tight page margins */
-          @page { size: letter; margin: 0.6in 0.5in; }
+          .profile-format-print-only .sp-footer { display: none; }
+          @page {
+            size: letter;
+            margin: 0.55in 0.7in;
+            @bottom-center { content: "${footerCss}"; font-family: Aptos, Calibri, Arial, sans-serif; font-size: 8pt; color: #000; }
+          }
           body { background: white !important; }
+          html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
     </div>
@@ -565,7 +540,7 @@ export default function ProfileFormatPage() {
 function FormattedPreview({ markdown, onEdit }: { markdown: string; onEdit: (next: string) => void }) {
   const [editing, setEditing] = useState(false);
 
-  const html = useMemo(() => renderMarkdownLite(markdown), [markdown]);
+  const html = useMemo(() => profileToHtml(parseProfile(markdown)), [markdown]);
 
   if (editing) {
     return (
@@ -596,62 +571,12 @@ function FormattedPreview({ markdown, onEdit }: { markdown: string; onEdit: (nex
       >
         <FileEdit size={11} /> Edit
       </button>
-      <div
-        className="simpliigence-profile"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="profile-format-page clear-both mt-6">
+        <div
+          className="simpliigence-profile"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     </div>
   );
-}
-
-/** Minimal markdown-to-HTML — handles the subset Claude produces for the
- *  Simpliigence format: # / ## / ### / blockquote `>` / **bold** / *italic*
- *  / `code` / `-` bullets / blank-line paragraphs. */
-function renderMarkdownLite(md: string): string {
-  const escape = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const lines = md.split('\n');
-  const out: string[] = [];
-  let inList = false;
-  let inQuote = false;
-  const flushList = () => { if (inList) { out.push('</ul>'); inList = false; } };
-  const flushQuote = () => { if (inQuote) { out.push('</blockquote>'); inQuote = false; } };
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    if (!line.trim()) { flushList(); flushQuote(); continue; }
-
-    let m: RegExpMatchArray | null;
-    if ((m = line.match(/^# (.+)/))) { flushList(); flushQuote(); out.push(`<h1>${inline(m[1])}</h1>`); continue; }
-    if ((m = line.match(/^## (.+)/))) { flushList(); flushQuote(); out.push(`<h2>${inline(m[1])}</h2>`); continue; }
-    if ((m = line.match(/^### (.+)/))) { flushList(); flushQuote(); out.push(`<h3>${inline(m[1])}</h3>`); continue; }
-    if ((m = line.match(/^>\s*(.*)/))) {
-      flushList();
-      if (!inQuote) { out.push('<blockquote>'); inQuote = true; }
-      out.push(`<p>${inline(m[1])}</p>`);
-      continue;
-    }
-    if ((m = line.match(/^[-*]\s+(.+)/))) {
-      flushQuote();
-      if (!inList) { out.push('<ul>'); inList = true; }
-      out.push(`<li>${inline(m[1])}</li>`);
-      continue;
-    }
-    flushList();
-    flushQuote();
-    out.push(`<p>${inline(line)}</p>`);
-  }
-  flushList();
-  flushQuote();
-
-  function inline(s: string): string {
-    let t = escape(s);
-    t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    t = t.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
-    t = t.replace(/`([^`]+?)`/g, '<code>$1</code>');
-    return t;
-  }
-
-  return out.join('\n');
 }

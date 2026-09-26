@@ -1,5 +1,5 @@
 /**
- * Profile Format — upload a candidate resume (PDF / .txt) OR paste raw
+ * Profile Format — upload a candidate resume (PDF / Word / RTF / .txt) OR paste raw
  * text, optionally upload a target-format sample (so Claude matches the
  * layout you want), add refinement instructions, and let Claude rewrite
  * it into the Simpliigence house format.
@@ -15,7 +15,7 @@ import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { db } from '../lib/supabaseSync';
 
-type SourceMode = 'pdf' | 'text' | 'none';
+type SourceMode = 'file' | 'text' | 'none';
 
 function toBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -27,6 +27,20 @@ function toBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
+/** Accepted upload types. The edge function sniffs magic bytes, so a
+ *  mislabelled file (e.g. a .docx renamed .doc) still reads correctly. */
+const DOC_EXT = /\.(pdf|docx|doc|rtf)$/i;
+const DOC_MIME = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/rtf',
+  'text/rtf',
+]);
+const isDocFile = (f: File) => DOC_EXT.test(f.name) || DOC_MIME.has(f.type);
+const DOC_ACCEPT = '.pdf,.docx,.doc,.rtf,' + [...DOC_MIME].join(',');
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 const QUICK_INSTRUCTIONS = [
   'Emphasize Salesforce platform expertise',
   'Drop personal details (DOB, marital status, photo)',
@@ -37,13 +51,13 @@ const QUICK_INSTRUCTIONS = [
 
 export default function ProfileFormatPage() {
   const [sourceMode, setSourceMode] = useState<SourceMode>('none');
-  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
-  const [pdfFilename, setPdfFilename] = useState<string>('');
+  const [fileB64, setFileB64] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>('');
   const [resumeText, setResumeText] = useState<string>('');
   const [instructions, setInstructions] = useState<string>('');
 
   // Target-format sample (optional)
-  const [targetPdfBase64, setTargetPdfBase64] = useState<string | null>(null);
+  const [targetB64, setTargetB64] = useState<string | null>(null);
   const [targetFilename, setTargetFilename] = useState<string>('');
 
   const [draft, setDraft] = useState<string>('');
@@ -55,43 +69,44 @@ export default function ProfileFormatPage() {
   const handleFile = async (file: File | null) => {
     if (!file) return;
     setError(null);
-    const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
-    const isText = /\.(txt|md)$/i.test(file.name) || file.type.startsWith('text/');
-    if (isPdf) {
-      try {
-        const b64 = toBase64(await file.arrayBuffer());
-        setPdfBase64(b64);
-        setPdfFilename(file.name);
-        setSourceMode('pdf');
-        setResumeText('');
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    } else if (isText) {
+    const isText = /\.(txt|md)$/i.test(file.name) || file.type === 'text/plain' || file.type === 'text/markdown';
+    if (isText) {
       try {
         const txt = await file.text();
         setResumeText(txt);
         setSourceMode('text');
-        setPdfBase64(null);
-        setPdfFilename('');
+        setFileB64(null);
+        setFileName('');
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    } else if (isDocFile(file)) {
+      if (file.size > MAX_FILE_BYTES) { setError(`${file.name} is over 10 MB.`); return; }
+      try {
+        const b64 = toBase64(await file.arrayBuffer());
+        setFileB64(b64);
+        setFileName(file.name);
+        setSourceMode('file');
+        setResumeText('');
       } catch (e) {
         setError((e as Error).message);
       }
     } else {
-      setError(`Unsupported file type "${file.type || 'unknown'}". Please upload PDF or .txt.`);
+      setError(`Unsupported file type "${file.name}". Please upload PDF, Word (.docx/.doc), RTF or .txt.`);
     }
   };
 
   const handleTargetFile = async (file: File | null) => {
     if (!file) return;
     setError(null);
-    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-      setError('Target format must be a PDF.');
+    if (!isDocFile(file)) {
+      setError('Target format must be a PDF, Word (.docx/.doc) or RTF file.');
       return;
     }
+    if (file.size > MAX_FILE_BYTES) { setError(`${file.name} is over 10 MB.`); return; }
     try {
       const b64 = toBase64(await file.arrayBuffer());
-      setTargetPdfBase64(b64);
+      setTargetB64(b64);
       setTargetFilename(file.name);
     } catch (e) {
       setError((e as Error).message);
@@ -100,18 +115,18 @@ export default function ProfileFormatPage() {
 
   const reset = () => {
     setSourceMode('none');
-    setPdfBase64(null);
-    setPdfFilename('');
+    setFileB64(null);
+    setFileName('');
     setResumeText('');
     setInstructions('');
-    setTargetPdfBase64(null);
+    setTargetB64(null);
     setTargetFilename('');
     setDraft('');
     setHistory([]);
     setError(null);
   };
 
-  const canFormat = !running && (sourceMode === 'pdf' || (sourceMode === 'text' && resumeText.trim().length > 50) || draft.length > 0);
+  const canFormat = !running && (sourceMode === 'file' || (sourceMode === 'text' && resumeText.trim().length > 50) || draft.length > 0);
 
   const handleFormat = async (mode: 'first' | 'refine') => {
     setError(null);
@@ -119,16 +134,18 @@ export default function ProfileFormatPage() {
     try {
       const params: Parameters<typeof db.formatResume>[0] = {
         instructions: instructions.trim() || undefined,
-        targetFormatPdfBase64: targetPdfBase64 ?? undefined,
+        targetFormatFileBase64: targetB64 ?? undefined,
+        targetFormatFileName: targetFilename || undefined,
       };
       if (mode === 'refine' && draft) {
         params.priorDraft = draft;
-      } else if (sourceMode === 'pdf' && pdfBase64) {
-        params.pdfBase64 = pdfBase64;
+      } else if (sourceMode === 'file' && fileB64) {
+        params.fileBase64 = fileB64;
+        params.fileName = fileName;
       } else if (sourceMode === 'text' && resumeText.trim()) {
         params.resumeText = resumeText.trim();
       } else {
-        setError('Upload a PDF, paste resume text, or run an initial format first.');
+        setError('Upload a resume file, paste resume text, or run an initial format first.');
         setRunning(false);
         return;
       }
@@ -219,15 +236,15 @@ export default function ProfileFormatPage() {
           <div className="space-y-4">
             {/* Source picker */}
             <Card title="1 · Source resume">
-              {sourceMode === 'pdf' ? (
+              {sourceMode === 'file' ? (
                 <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
                   <div className="flex items-center gap-2 text-sm text-emerald-900 min-w-0">
                     <FileText size={16} className="flex-shrink-0" />
-                    <span className="font-medium truncate">{pdfFilename}</span>
+                    <span className="font-medium truncate">{fileName}</span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setPdfBase64(null); setPdfFilename(''); setSourceMode('none'); }}
+                    onClick={() => { setFileB64(null); setFileName(''); setSourceMode('none'); }}
                     className="text-xs text-emerald-700 hover:text-emerald-900 hover:underline whitespace-nowrap ml-3"
                   >
                     Replace
@@ -258,11 +275,11 @@ export default function ProfileFormatPage() {
                     className="block border-2 border-dashed border-line rounded-lg p-6 text-center cursor-pointer hover:bg-surface-2/70 hover:border-primary/50"
                   >
                     <Upload size={28} className="text-muted/70 mx-auto mb-2" />
-                    <div className="text-sm font-medium text-ink/80">Drop a PDF or .txt resume here</div>
-                    <div className="text-[11px] text-muted mt-1">or click to pick a file</div>
+                    <div className="text-sm font-medium text-ink/80">Drop a resume here — PDF, Word or RTF</div>
+                    <div className="text-[11px] text-muted mt-1">.pdf · .docx · .doc · .rtf · .txt — or click to pick a file</div>
                     <input
                       type="file"
-                      accept=".pdf,.txt,application/pdf,text/plain"
+                      accept={`${DOC_ACCEPT},.txt,text/plain`}
                       className="hidden"
                       onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
                     />
@@ -282,9 +299,9 @@ export default function ProfileFormatPage() {
             {/* Target format — OPTIONAL */}
             <Card title="2 · Target format (optional)">
               <p className="text-[11px] text-muted mb-3">
-                By default Claude uses the Simpliigence house format. If you have a different format you want — e.g. a client-specific resume template — upload a sample PDF here and Claude will match its layout instead.
+                By default Claude uses the Simpliigence house format. If you have a different format you want — e.g. a client-specific resume template — upload a sample (PDF, Word or RTF) here and Claude will match its layout instead. PDF or .docx carry the most layout detail.
               </p>
-              {targetPdfBase64 ? (
+              {targetB64 ? (
                 <div className="flex items-center justify-between p-3 bg-violet-50 border border-violet-200 rounded-lg">
                   <div className="flex items-center gap-2 text-sm text-violet-900 min-w-0">
                     <Target size={16} className="flex-shrink-0" />
@@ -292,7 +309,7 @@ export default function ProfileFormatPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setTargetPdfBase64(null); setTargetFilename(''); }}
+                    onClick={() => { setTargetB64(null); setTargetFilename(''); }}
                     className="text-xs text-violet-700 hover:text-violet-900 hover:underline whitespace-nowrap ml-3"
                   >
                     Remove
@@ -305,11 +322,11 @@ export default function ProfileFormatPage() {
                   className="block border-2 border-dashed border-line rounded-lg p-4 text-center cursor-pointer hover:bg-surface-2/70 hover:border-violet-300"
                 >
                   <Target size={20} className="text-muted/70 mx-auto mb-1" />
-                  <div className="text-[12px] font-medium text-ink/80">Drop a sample-format PDF here</div>
+                  <div className="text-[12px] font-medium text-ink/80">Drop a sample-format file here</div>
                   <div className="text-[10px] text-muted mt-0.5">Or click — Claude will mimic its layout</div>
                   <input
                     type="file"
-                    accept=".pdf,application/pdf"
+                    accept={DOC_ACCEPT}
                     className="hidden"
                     onChange={(e) => handleTargetFile(e.target.files?.[0] ?? null)}
                   />

@@ -479,12 +479,25 @@ function useSupabaseInit() {
             usePipelineStore.setState({ projects });
           },
           setIndiaStaffing: (accounts, requisitions, statuses, history, candidates) => {
+            // A refetch that started before this browser's own insert landed
+            // would otherwise drop the new candidate (and the count) until the
+            // next reload. Keep local rows created in the last 3 minutes that
+            // the snapshot doesn't have yet.
+            let merged = candidates;
+            if (candidates) {
+              const incoming = new Set(candidates.map((c) => c.id));
+              const cutoff = Date.now() - 3 * 60 * 1000;
+              const pending = useStaffingStore.getState().candidates.filter(
+                (c) => !incoming.has(c.id) && Date.parse(c.created_at) > cutoff,
+              );
+              if (pending.length) merged = [...candidates, ...pending];
+            }
             useStaffingStore.setState({
               accounts,
               requisitions,
               statuses,
               ...(history ? { history } : {}),
-              ...(candidates ? { candidates } : {}),
+              ...(merged ? { candidates: merged } : {}),
             });
           },
           setUSStaffing: (accounts, requisitions, contacts) => {

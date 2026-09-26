@@ -2278,13 +2278,16 @@ export const db = {
 
   // --- Profile Format (format-resume edge function) ---
   /** Invoke format-resume. Pass exactly one of pdfBase64 / resumeText / priorDraft.
-   *  Optionally attach `targetFormatPdfBase64` to make Claude match that layout
+   *  Optionally attach `targetFormatFileBase64` (PDF/Word/RTF) to make Claude match that layout
    *  instead of the default Simpliigence template. */
   async formatResume(input: {
-    pdfBase64?: string;
+    /** Resume file — PDF, .docx, .doc or .rtf (type sniffed server-side). */
+    fileBase64?: string;
+    fileName?: string;
     resumeText?: string;
     priorDraft?: string;
-    targetFormatPdfBase64?: string;
+    targetFormatFileBase64?: string;
+    targetFormatFileName?: string;
     instructions?: string;
   }): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
     const { data, error } = await supabase.functions.invoke<{

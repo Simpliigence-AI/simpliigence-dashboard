@@ -47,6 +47,7 @@ export default function DeliveryHomePage() {
   const [owner, setOwner] = useState('all');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [showUntagged, setShowUntagged] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -73,9 +74,12 @@ export default function DeliveryHomePage() {
   const cadence = shown.filter((p) => p.cadenceGap);
   const followUps = issues.filter((i) => planIds.has(i.projectId) && (!i.dueDate || i.dueDate < todayIso() || !i.owner?.trim() || i.criticality === 'critical' || i.criticality === 'high'));
   const breaches = shown.filter((p) => p.breachReasons.length > 0);
-  const calEvents = useMemo(() => events.filter((e) => owner === 'all' ? (e.projectId || e.isExternal) : (e.projectId && planIds.has(e.projectId))), [events, owner, planIds]);
-  const upcoming = calEvents.filter((e) => e.startAt >= new Date().toISOString() && !e.isCancelled && e.matchSource !== 'ignored');
-  const untagged = upcoming.filter((e) => !e.projectId);
+  const tagged = useMemo(() => events.filter((e) => e.projectId && planIds.has(e.projectId)), [events, planIds]);
+  const untaggedAll = useMemo(() => events.filter((e) => !e.projectId && e.isExternal && e.matchSource !== 'ignored'), [events]);
+  const calEvents = showUntagged ? [...tagged, ...untaggedAll] : tagged;
+  const nowIso = new Date().toISOString();
+  const upcoming = tagged.filter((e) => e.startAt >= nowIso && !e.isCancelled && e.matchSource !== 'ignored');
+  const untagged = untaggedAll.filter((e) => e.startAt >= nowIso && !e.isCancelled);
 
   const calendarBlocked = mailboxes.find((m) => m.lastError && /can.t read calendars/i.test(m.lastError))?.lastError
     ?? (syncMsg && /can.t read calendars/i.test(syncMsg) ? syncMsg : null);
@@ -275,7 +279,7 @@ export default function DeliveryHomePage() {
 
       {/* Calendar */}
       <Section id="calendar" title="Upcoming meetings across projects" count={upcoming.length}
-        note={`Read from ${mailboxes.filter((m) => m.active).length} Outlook calendars (Sujatha, Anupama and allocated team members) · last sync ${lastSync ? fmtAgo(lastSync) : 'never'}${untagged.length ? ` · ${untagged.length} client meeting${untagged.length > 1 ? 's' : ''} not matched to a project — tag them below` : ''}`}>
+        note={`Read from ${mailboxes.filter((m) => m.active).length} Outlook calendars (Sujatha, Anupama and allocated team members) · last sync ${lastSync ? fmtAgo(lastSync) : 'never'}`}>
         <div className="p-5 space-y-4">
           {calendarBlocked && (
             <div className="flex gap-3 rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-sm">
@@ -288,6 +292,12 @@ export default function DeliveryHomePage() {
             </div>
           )}
           {syncMsg && !calendarBlocked && <div className="text-xs text-muted">{syncMsg}</div>}
+          {untagged.length > 0 && (
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/80">
+              <input type="checkbox" checked={showUntagged} onChange={(e) => setShowUntagged(e.target.checked)} />
+              Show {untagged.length} untagged client meeting{untagged.length > 1 ? 's' : ''} so they can be tagged to a project or hidden
+            </label>
+          )}
           <MeetingCalendar events={calEvents} projectNames={projectNames} canEdit={perm.canEdit} onChanged={load}
             emptyText={calendarBlocked ? 'No calendars read yet.' : 'No upcoming project meetings.'} />
         </div>

@@ -897,7 +897,7 @@ export default function USStaffingPage() {
           requisitionSource="us"
           requisitionOptions={requisitions.map((r) => ({
             id: r.id,
-            title: `${r.title}${r.stage ? ` · ${r.stage}` : ''}`,
+            title: `${r.role}${r.stage ? ` · ${r.stage}` : ''}`,
             accountName: accounts.find((a) => a.id === r.account_id)?.name,
             jd: r.job_description ?? null,
           }))}

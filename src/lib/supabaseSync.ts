@@ -1054,6 +1054,13 @@ export async function fetchCallTemplates(): Promise<CallTemplate[] | null> {
 }
 
 export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
+  return (await fetchTimeEntriesResult()).entries;
+}
+
+/** Same as fetchTimeEntries, but also hands back the PostgREST error when a
+ *  page fails, so a page like Team Time can say WHY it is showing cached data
+ *  instead of silently rendering whatever localStorage last held. */
+export async function fetchTimeEntriesResult(): Promise<{ entries: TimeEntry[] | null; error: PostgrestError | null }> {
   // RLS already restricts to (own + reports + admin/manager). But PostgREST
   // caps each response at 1000 rows regardless of Range header, so a manager's
   // team-wide scope (>1000 rows) silently drops the oldest entries. Paginate
@@ -1076,7 +1083,7 @@ export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
     const { data, error } = await q;
     if (error) {
       console.warn('[supabase] fetch time_entries failed:', error, '— have', all.length, 'rows so far');
-      return null;
+      return { entries: null, error };
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = (data || []) as any[];
@@ -1086,9 +1093,12 @@ export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
     lastId = rows[rows.length - 1].id as string;
     if (all.length >= 100_000) { console.warn('[supabase] time_entries hit 100k safety cap'); break; }
   }
-  return all
-    .map(rowToTimeEntry)
-    .sort((a, b) => b.workDate.localeCompare(a.workDate));
+  return {
+    entries: all
+      .map(rowToTimeEntry)
+      .sort((a, b) => b.workDate.localeCompare(a.workDate)),
+    error: null,
+  };
 }
 
 export async function fetchTaDailyLog(): Promise<TADailyLogEntry[] | null> {

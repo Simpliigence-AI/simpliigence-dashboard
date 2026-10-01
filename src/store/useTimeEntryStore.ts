@@ -43,10 +43,12 @@ interface TimeEntryState {
     fields: Partial<Pick<TimeEntry, 'hours' | 'billable' | 'projectId' | 'projectName' | 'notes'>>,
   ) => Promise<void>;
 
-  /** Approve a submitted entry (manager/admin only — RLS enforces). */
+  /** Approve a submitted entry (manager/admin only — RLS enforces).
+   *  Throws (and rolls back) on a rejected write. */
   approveEntry: (id: string, approverEmail: string) => Promise<void>;
 
-  /** Reject a submitted entry with a reason. */
+  /** Reject a submitted entry with a reason. Throws (and rolls back) on a
+   *  rejected write. */
   rejectEntry: (id: string, approverEmail: string, reason: string) => Promise<void>;
 
   /** Delete an entry. */
@@ -154,7 +156,13 @@ export const useTimeEntryStore = create<TimeEntryState>()(
           updatedAt: now,
         };
         set({ entries: get().entries.map((e) => (e.id === id ? merged : e)) });
-        await db.upsertTimeEntry(merged);
+        const { error } = await db.upsertTimeEntry(merged);
+        if (error) {
+          // Roll back: a refused approval/rejection used to stay "done" on the
+          // manager's screen and silently revert on the next reload.
+          set({ entries: get().entries.map((e) => (e.id === id ? current : e)) });
+          throw error;
+        }
       },
 
       rejectEntry: async (id, approverEmail, reason) => {
@@ -170,7 +178,13 @@ export const useTimeEntryStore = create<TimeEntryState>()(
           updatedAt: now,
         };
         set({ entries: get().entries.map((e) => (e.id === id ? merged : e)) });
-        await db.upsertTimeEntry(merged);
+        const { error } = await db.upsertTimeEntry(merged);
+        if (error) {
+          // Roll back: a refused approval/rejection used to stay "done" on the
+          // manager's screen and silently revert on the next reload.
+          set({ entries: get().entries.map((e) => (e.id === id ? current : e)) });
+          throw error;
+        }
       },
 
       deleteEntry: async (id) => {

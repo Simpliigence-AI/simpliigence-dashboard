@@ -28,6 +28,7 @@ import { ConciergeAskAI } from './concierge/ConciergeAskAI';
 import { IgnoredSendersModal } from './concierge/IgnoredSendersModal';
 import { EomHoursReport } from './concierge/EomHoursReport';
 import { ConciergeHomeTab } from './concierge/ConciergeHomeTab';
+import { CaseStudyScorecard } from './concierge/CaseStudyScorecard';
 import { NewTicketModal } from './concierge/NewTicketModal';
 import { TicketDrawer } from './concierge/TicketDrawer';
 import type {
@@ -85,6 +86,7 @@ import {
   RefreshCw,
   Mail,
   ShieldOff,
+  BookOpen,
 } from 'lucide-react';
 
 /** Human-readable "last synced" chip. Handles null (never synced) + shows
@@ -205,9 +207,9 @@ function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl:
   );
 }
 
-type Tab = 'home' | 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog';
+type Tab = 'home' | 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog' | 'cases';
 
-const TAB_KEYS: readonly Tab[] = ['home', 'overview', 'tickets', 'backlog', 'billing', 'catalog'];
+const TAB_KEYS: readonly Tab[] = ['home', 'overview', 'tickets', 'backlog', 'billing', 'catalog', 'cases'];
 const DEFAULT_TAB: Tab = 'home';
 function isTab(v: unknown): v is Tab {
   return typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v);
@@ -1512,6 +1514,7 @@ export default function ConciergePage() {
           { key: 'backlog',  label: 'Feature Coverage', icon: <Package size={14} /> },
           { key: 'billing',  label: 'Billing',  icon: <Receipt size={14} /> },
           { key: 'catalog',  label: 'Feature Catalog', icon: <Sparkles size={14} /> },
+          { key: 'cases',    label: 'Case Studies', icon: <BookOpen size={14} /> },
         ] as Array<{ key: Tab; label: string; icon: JSX.Element }>)
           .filter((t) => !employeeMode || t.key === 'tickets')
         ).map((t) => (
@@ -1815,6 +1818,9 @@ export default function ConciergePage() {
 
       {/* ── FEATURE CATALOG ──────────────────────── */}
       {tab === 'catalog' && <FeatureCatalogTab />}
+
+      {/* ── CASE STUDIES (AI · Concierge · Implementations) ── */}
+      {tab === 'cases' && <CaseStudyScorecard />}
 
       {/* Drawers */}
       {openAccount && (

@@ -76,6 +76,12 @@ function useSupabaseInit() {
     let cleanup: (() => void) | undefined;
 
     async function init() {
+      // Kept as its own promise so a slow load is still applied when it lands.
+      // A manager/admin's time_entries scope is many sequential 1000-row pages
+      // (fetchTimeEntries), which can outlast the 10 s init timeout below; the
+      // old code then dropped the result and Team Time rendered the stale
+      // localStorage copy with no sign anything was wrong.
+      const timeEntriesPromise = fetchTimeEntries();
       try {
         const [
           forecastRes,
@@ -120,7 +126,7 @@ function useSupabaseInit() {
           withTimeout(fetchActualHours()),
           withTimeout(fetchTaDailyLog()),
           withTimeout(fetchTeamMembers()),
-          withTimeout(fetchTimeEntries()),
+          withTimeout(timeEntriesPromise),
           withTimeout(fetchAccountManagement()),
           withTimeout(fetchVendors()),
           withTimeout(fetchTnmAccounts()),
@@ -341,7 +347,13 @@ function useSupabaseInit() {
             console.log('[supabase] Loaded time entries:', te.length);
           }
         } else {
-          console.warn('[supabase] Time entries fetch timed out — using localStorage');
+          console.warn('[supabase] Time entries fetch still running after 10 s — showing localStorage until it finishes');
+          void timeEntriesPromise.then((te) => {
+            if (te) {
+              useTimeEntryStore.setState({ entries: te });
+              console.log('[supabase] Loaded time entries (late):', te.length);
+            }
+          }).catch((err) => console.warn('[supabase] Late time entries fetch failed:', err));
         }
 
         // --- Account Management ---

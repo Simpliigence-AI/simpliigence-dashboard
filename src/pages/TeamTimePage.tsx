@@ -7,21 +7,26 @@
  *   - Manager sees only their direct reports (authorized_users.manager_email
  *     pointing at them).
  *
- * Default tab = Pending (status='submitted'). Other tabs: Approved (last 30d),
- * Rejected (last 30d), All (last 30d).
+ * Default tab = Pending (status='submitted'). Other tabs: Approved, Rejected,
+ * All. A period picker scopes every tab: "Last 30 days" (default; Pending is
+ * never date-limited under it), a single calendar month, or all time.
+ *
+ * The page re-reads time_entries from Supabase on mount (and on Refresh) and
+ * says when it is showing the browser's cached copy instead, so a failed or
+ * slow load can no longer pass for "nobody entered time".
  *
  * Inline Approve / Reject buttons. Reject opens a small reason prompt. Bulk
  * approve checkbox column at the left for blasting through a backlog.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Check, X, Filter, CheckCheck, Download, Pencil, Paperclip, History, Loader2, Upload, Search } from 'lucide-react';
+import { Check, X, Filter, CheckCheck, Download, Pencil, Paperclip, History, Loader2, Upload, Search, RefreshCw } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { DocumentsPanel } from '../components/timesheet/DocumentsPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTimeEntryStore } from '../store/useTimeEntryStore';
-import { db, formatDbError } from '../lib/supabaseSync';
+import { db, fetchTimeEntriesResult, formatDbError } from '../lib/supabaseSync';
 import { TaIdentity } from '../components/TaIdentity';
 import type { TimeEntry, TimeEntryAudit } from '../types/timeEntry';
 import { useTimeProjectOptions } from '../lib/useTimeProjectOptions';
@@ -74,6 +79,19 @@ function formatAuditValue(v: unknown): string {
 }
 
 type TabKey = 'pending' | 'approved' | 'rejected' | 'all';
+/** 'last30' | 'all' | a calendar month as 'YYYY-MM'. */
+type PeriodKey = string;
+
+/** "2026-09" -> "September 2026". */
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'ok'; at: Date; count: number }
+  | { kind: 'error'; message: string };
 
 type EditState = { id: string; hours: string; billable: boolean; projectName: string; notes: string };
 type DocsTarget = { employeeEmail: string; periodStart: string; periodEnd: string };
@@ -101,6 +119,10 @@ export default function TeamTimePage() {
   const { entries, approveEntry, rejectEntry, updateEntryFields } = useTimeEntryStore();
 
   const [tab, setTab] = useState<TabKey>('pending');
+  const [period, setPeriod] = useState<PeriodKey>('last30');
+  const [load, setLoad] = useState<LoadState>({ kind: 'loading' });
+  const [reloadTick, setReloadTick] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [filterEmployee, setFilterEmployee] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -135,25 +157,59 @@ export default function TeamTimePage() {
     return () => { cancelled = true; };
   }, [historyTarget]);
 
-  if (loading) {
-    return <div className="py-12 text-center text-sm text-muted/70">Checking permissions…</div>;
-  }
-  if (role !== 'admin' && role !== 'manager') {
-    return <Navigate to="/" replace />;
-  }
+  // Re-read time_entries on mount / Refresh. The store is otherwise filled
+  // once at app start (10 s budget, then the localStorage copy) and by
+  // realtime refetches; neither told the reviewer when the server read failed.
+  const canReview = role === 'admin' || role === 'manager';
+  useEffect(() => {
+    if (!canReview) return;
+    let cancelled = false;
+    setLoad({ kind: 'loading' });
+    fetchTimeEntriesResult()
+      .then(({ entries: fresh, error }) => {
+        if (cancelled) return;
+        if (fresh) {
+          useTimeEntryStore.setState({ entries: fresh });
+          setLoad({ kind: 'ok', at: new Date(), count: fresh.length });
+        } else {
+          setLoad({ kind: 'error', message: formatDbError(error) || 'no error detail available' });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setLoad({ kind: 'error', message: formatDbError(err) || String(err) });
+      });
+    return () => { cancelled = true; };
+  }, [reloadTick, canReview]);
 
   const myEmail = (currentUser?.email || '').toLowerCase();
   const isAdmin = role === 'admin';
 
-  // 30-day window for non-pending tabs
+  // 30-day window for the default period on non-pending tabs
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
-  const cutoffIso = cutoff.toISOString().slice(0, 10);
+  const cutoffIso = toIsoDate(cutoff);
+
+  // Months that have entries, newest first, for the period picker. The current
+  // and previous month are always offered so month-end review works even
+  // before anything has loaded.
+  const monthOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of entries) if (e.workDate) set.add(e.workDate.slice(0, 7));
+    const now = new Date();
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    set.add(toIsoDate(now).slice(0, 7));
+    set.add(toIsoDate(prev).slice(0, 7));
+    return [...set].sort().reverse();
+  }, [entries]);
 
   const visibleEntries = useMemo(() => {
     const tabConf = TAB_LABELS.find((t) => t.key === tab)!;
     return entries.filter((e) => {
       if (!tabConf.statuses.includes(e.status)) return false;
-      if (tab !== 'pending' && e.workDate < cutoffIso) return false;
+      if (period === 'last30') {
+        if (tab !== 'pending' && e.workDate < cutoffIso) return false;
+      } else if (period !== 'all') {
+        if (!e.workDate.startsWith(`${period}-`)) return false;
+      }
       if (filterEmployee && !e.employeeEmail.toLowerCase().includes(filterEmployee.toLowerCase())) return false;
       // Managers (non-admin) see only their direct reports.
       // We can't check manager_email here without re-fetching authorized_users —
@@ -165,12 +221,19 @@ export default function TeamTimePage() {
       if (a.workDate !== b.workDate) return a.workDate < b.workDate ? 1 : -1;
       return a.employeeEmail.localeCompare(b.employeeEmail);
     });
-  }, [entries, tab, filterEmployee, cutoffIso, isAdmin, myEmail]);
+  }, [entries, tab, period, filterEmployee, cutoffIso, isAdmin, myEmail]);
 
   const pendingCount = useMemo(() =>
     entries.filter((e) => e.status === 'submitted' && (isAdmin || e.employeeEmail.toLowerCase() !== myEmail)).length,
     [entries, isAdmin, myEmail],
   );
+
+  if (loading) {
+    return <div className="py-12 text-center text-sm text-muted/70">Checking permissions…</div>;
+  }
+  if (role !== 'admin' && role !== 'manager') {
+    return <Navigate to="/" replace />;
+  }
 
   // Full resource directory (all authorized_users, loaded at app start and
   // readable by managers + admins via RLS). Includes contractors with zero
@@ -198,11 +261,21 @@ export default function TeamTimePage() {
 
   const handleBulkApprove = async () => {
     setBulkBusy(true);
+    setActionError(null);
     try {
       const ids = visibleEntries.filter((e) => selected.has(e.id) && e.status === 'submitted').map((e) => e.id);
+      let failed = 0;
+      let firstError: string | null = null;
       for (const id of ids) {
-        // eslint-disable-next-line no-await-in-loop
-        await approveEntry(id, myEmail);
+        try {
+          await approveEntry(id, myEmail);
+        } catch (err) {
+          failed++;
+          firstError = firstError ?? (formatDbError(err) || 'no error detail available');
+        }
+      }
+      if (failed > 0) {
+        setActionError(`Approved ${ids.length - failed} of ${ids.length}; ${failed} could not be saved — ${firstError}`);
       }
       setSelected(new Set());
     } finally {
@@ -210,11 +283,25 @@ export default function TeamTimePage() {
     }
   };
 
-  const handleReject = async (id: string) => {
-    if (!rejectReason.trim()) return;
-    await rejectEntry(id, myEmail, rejectReason.trim());
-    setRejecting(null);
-    setRejectReason('');
+  const handleApprove = async (id: string) => {
+    setActionError(null);
+    try {
+      await approveEntry(id, myEmail);
+    } catch (err) {
+      setActionError(`Approve failed — ${formatDbError(err) || 'no error detail available'}`);
+    }
+  };
+
+  const handleReject = async (id: string, reason = rejectReason.trim()) => {
+    if (!reason) return;
+    setActionError(null);
+    try {
+      await rejectEntry(id, myEmail, reason);
+      setRejecting(null);
+      setRejectReason('');
+    } catch (err) {
+      setActionError(`Reject failed — ${formatDbError(err) || 'no error detail available'}`);
+    }
   };
 
   const openEdit = (e: TimeEntry) => {
@@ -310,6 +397,52 @@ export default function TeamTimePage() {
           </div>
         }
       />
+
+      {/* Load status + period */}
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          {load.kind === 'loading' && (
+            <span className="inline-flex items-center gap-1.5 text-muted"><Loader2 size={12} className="animate-spin" /> Loading the latest entries…</span>
+          )}
+          {load.kind === 'ok' && (
+            <span className="text-muted">
+              {load.count} entries loaded at {load.at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          {load.kind === 'error' && (
+            <span className="text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
+              Couldn't load entries from the server — showing the copy cached in this browser, which may be out of date. {load.message}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setReloadTick((n) => n + 1)}
+            disabled={load.kind === 'loading'}
+            className="inline-flex items-center gap-1 font-semibold text-ink/80 border border-line rounded-md px-2 py-1 hover:bg-surface-2/70 disabled:opacity-40"
+          >
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+        <label className="inline-flex items-center gap-1.5 text-muted">
+          Period
+          <select
+            value={period}
+            onChange={(ev) => { setPeriod(ev.target.value); setSelected(new Set()); }}
+            className="border border-line rounded-md px-2 py-1 text-xs bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <option value="last30">Last 30 days</option>
+            {monthOptions.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+            <option value="all">All time</option>
+          </select>
+        </label>
+      </div>
+
+      {actionError && (
+        <div className="mb-3 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 flex items-start justify-between gap-2">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="text-red-700/70 hover:text-red-800"><X size={12} /></button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-4 border-b border-line">
@@ -438,7 +571,7 @@ export default function TeamTimePage() {
                           ) : (
                             <>
                               <button type="button"
-                                      onClick={() => approveEntry(e.id, myEmail)}
+                                      onClick={() => void handleApprove(e.id)}
                                       className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700 inline-flex items-center gap-1"
                                       title="Approve">
                                 <Check size={12} /> Approve
@@ -453,7 +586,7 @@ export default function TeamTimePage() {
                           )
                         ) : e.status === 'approved' && isAdmin ? (
                           <button type="button"
-                                  onClick={() => rejectEntry(e.id, myEmail, 'Unapproved by admin')}
+                                  onClick={() => void handleReject(e.id, 'Unapproved by admin')}
                                   className="text-[11px] text-muted/70 hover:text-red-700">
                             Unapprove
                           </button>

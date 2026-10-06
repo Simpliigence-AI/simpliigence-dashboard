@@ -1808,15 +1808,21 @@ export const db = {
     const { error } = await supabase.from('india_staffing_candidates').delete().eq('id', id);
     if (error) console.warn('[supabase] delete india candidate failed:', error);
   },
-  async replaceAllIndiaStaffing(accounts: IndiaAccount[], requisitions: IndiaRequisition[], statuses: DailyStatus[]) {
-    await Promise.all([
-      supabase.from('india_staffing_statuses').delete().neq('id', ''),
-      supabase.from('india_staffing_requisitions').delete().neq('id', ''),
-      supabase.from('india_staffing_accounts').delete().neq('id', ''),
-    ]);
-    if (accounts.length) await supabase.from('india_staffing_accounts').insert(accounts.map(indiaAccountToRow));
-    if (requisitions.length) await supabase.from('india_staffing_requisitions').insert(requisitions.map(indiaReqToRow));
-    if (statuses.length) await supabase.from('india_staffing_statuses').insert(statuses.map(dailyStatusToRow));
+  // Additive only - never deletes. Replaces replaceAllIndiaStaffing, which wiped
+  // every India account/req/status on each CSV import (4 Sep, 5 Oct 2026).
+  async upsertIndiaStaffingBatch(accounts: IndiaAccount[], requisitions: IndiaRequisition[], statuses: DailyStatus[]) {
+    if (accounts.length) {
+      const { error } = await supabase.from('india_staffing_accounts').upsert(accounts.map(indiaAccountToRow), { onConflict: 'id' });
+      if (error) console.warn('[supabase] import accounts failed:', error);
+    }
+    if (requisitions.length) {
+      const { error } = await supabase.from('india_staffing_requisitions').upsert(requisitions.map(indiaReqToRow), { onConflict: 'id' });
+      if (error) console.warn('[supabase] import requisitions failed:', error);
+    }
+    if (statuses.length) {
+      const { error } = await supabase.from('india_staffing_statuses').upsert(statuses.map(dailyStatusToRow), { onConflict: 'id' });
+      if (error) console.warn('[supabase] import statuses failed:', error);
+    }
   },
 
   // --- US Staffing ---

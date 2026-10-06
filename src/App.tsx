@@ -117,7 +117,9 @@ function useSupabaseInit() {
           withTimeout(fetchHiringForecastConfig()),
           withTimeout(fetchStaffingRequests()),
           withTimeout(fetchPipelineProjects()),
-          withTimeout(fetchIndiaStaffing()),
+          // Candidates alone are ~9 MB over 6 pages (~9 s on a good line); the shared
+      // 10 s budget dropped the whole India payload, so TAs saw 0 candidates.
+      withTimeout(fetchIndiaStaffing(), 60000),
           withTimeout(fetchUSStaffing()),
           withTimeout(fetchOpenBench()),
           withTimeout(fetchIndiaRoster()),

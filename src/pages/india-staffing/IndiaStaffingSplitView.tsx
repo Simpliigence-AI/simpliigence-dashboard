@@ -86,7 +86,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
   return (
     <div className="grid grid-cols-12 gap-4">
       {/* LEFT RAIL */}
-      <Card className="col-span-12 lg:col-span-5 xl:col-span-4 p-0 overflow-hidden">
+      <Card className="col-span-12 lg:col-span-5 p-0 overflow-hidden">
         <div className="p-3 border-b border-line/60 flex items-center gap-2">
           <div className="relative flex-1">
             <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70" />
@@ -113,7 +113,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
             <div key={account} className="border-b border-line/60 last:border-0">
               <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border-b border-blue-100 px-3 py-1.5 flex items-center gap-2">
                 <Building2 size={12} className="text-primary flex-shrink-0" />
-                <span className="text-xs font-bold text-ink flex-1 truncate">{account}</span>
+                <span className="text-xs font-bold text-ink flex-1 min-w-0 break-words line-clamp-2" title={account}>{account}</span>
                 <span className="text-[9px] text-muted font-semibold">{acctRows.length} · {acctRows.reduce((s, r) => s + r.openPositions, 0)} open</span>
               </div>
               {acctRows.map((r) => {
@@ -127,8 +127,11 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                       active ? 'bg-primary/10 border-l-[3px] border-l-primary' : 'hover:bg-surface-2/70'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="flex-1 min-w-0 truncate text-xs font-semibold text-ink">
+                    <div className="flex items-start gap-2">
+                      <span
+                        className="flex-1 min-w-0 break-words line-clamp-2 text-xs font-semibold text-ink"
+                        title={r.requisition || undefined}
+                      >
                         {r.requisition || <span className="italic text-muted/70">Untitled req</span>}
                       </span>
                       <span
@@ -172,7 +175,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
       </Card>
 
       {/* RIGHT PANE */}
-      <Card className="col-span-12 lg:col-span-7 xl:col-span-8">
+      <Card className="col-span-12 lg:col-span-7">
         {!selected ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <ArrowRight size={28} className="text-line -rotate-180 mb-3" />

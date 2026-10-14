@@ -6,6 +6,7 @@ import { DemoBanner } from '../components/DemoBanner';
 import { RouteTracker } from '../components/RouteTracker';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTimeMode } from '../hooks/useTimeMode';
+import { useSidebarWidth } from '../hooks/useSidebarWidth';
 
 /** Paths that role='employee' is allowed to visit. Anything else redirects
  *  them to /my-time. Keeps the URL-typing escape hatch closed without having
@@ -16,9 +17,10 @@ const SIDEBAR_KEY = 'sidebar-collapsed';
 
 /**
  * Responsive shell.
- *  - Desktop (md+): fixed sidebar at left, 288px wide (collapsible to 76px);
- *    main has
- *    a matching left margin so nothing slides under it.
+ *  - Desktop (md+): fixed sidebar at left, 320px wide by default and
+ *    drag-to-resize from its right edge (see useSidebarWidth; collapsible to
+ *    76px). Main has a matching left margin (via --sidebar-w) so nothing
+ *    slides under it.
  *  - Mobile (<md):  sidebar is off-canvas by default; a hamburger button
  *    over the content opens it as a drawer with a tap-to-dismiss backdrop.
  *    Main content has no left margin and uses the full viewport width.
@@ -33,6 +35,7 @@ export default function AppLayout() {
     try { return localStorage.getItem(SIDEBAR_KEY) === 'true'; } catch { return false; }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const sidebarWidth = useSidebarWidth();
   const location = useLocation();
   const role = useAuthStore((s) => s.currentUser?.role);
   const authLoading = useAuthStore((s) => s.loading);
@@ -60,7 +63,7 @@ export default function AppLayout() {
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" style={{ '--sidebar-w': `${sidebarWidth.width}px` } as React.CSSProperties}>
       <RouteTracker />
 
       {/* Mobile backdrop */}
@@ -77,9 +80,10 @@ export default function AppLayout() {
         onToggle={() => setCollapsed(!collapsed)}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        resize={sidebarWidth}
       />
 
-      <main className={`flex-1 min-w-0 ml-0 ${collapsed ? 'md:ml-[76px]' : 'md:ml-72'} transition-[margin] duration-300 ease-in-out`}>
+      <main className={`flex-1 min-w-0 ml-0 ${collapsed ? 'md:ml-[76px]' : 'md:ml-[var(--sidebar-w)]'} ${sidebarWidth.resizing ? '' : 'transition-[margin] duration-300 ease-in-out'}`}>
         <DemoBanner />
 
         {/* Mobile hamburger — overlays the content area, only visible on <md */}

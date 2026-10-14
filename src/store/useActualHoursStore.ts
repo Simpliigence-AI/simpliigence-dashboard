@@ -37,7 +37,7 @@ export const useActualHoursStore = create<ActualHoursState>()(
     {
       name: 'simpliigence-actual-hours',
       version: 2,
-      partialize: (s) => ({ entries: s.entries, lastHydratedAt: s.lastHydratedAt }),
+      partialize: (s) => ({ lastHydratedAt: s.lastHydratedAt }) as Partial<ActualHoursState>,
       // On upgrade from v1 the state shape lost `lastZohoSync`; drop it.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       migrate: (persistedState: any, fromVersion) => {

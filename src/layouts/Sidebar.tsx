@@ -11,6 +11,9 @@
  *     matching the Home page cards.
  *   - ⌘K / Ctrl+K (or the Search button) opens the page finder.
  *   - Collapsed rail: icons only, grouped by thin dividers, with tooltips.
+ *   - Expanded on desktop: drag the right edge to resize (width remembered),
+ *     double-click it to reset. Long labels keep their ellipsis but show the
+ *     full text on hover.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -27,6 +30,7 @@ import { useCanRevealFinancials } from '../hooks/usePageAccess';
 import { useNavSections } from '../hooks/useNavSections';
 import { NAV_ACCENT, navMatches, type NavGroup, type NavItem } from '../lib/navConfig';
 import { CommandPalette } from '../components/CommandPalette';
+import type { SidebarWidth } from '../hooks/useSidebarWidth';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -35,9 +39,11 @@ interface SidebarProps {
   mobileOpen?: boolean;
   /** Mobile-only: dismiss the drawer. */
   onMobileClose?: () => void;
+  /** Desktop width + resize controls (from useSidebarWidth). Without it the handle is hidden. */
+  resize?: SidebarWidth;
 }
 
-export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose, resize }: SidebarProps) {
   const [email, setEmail] = useState<string | null>(null);
   /** "Effectively collapsed" — icon rail on desktop only; the mobile drawer is always full. */
   const eff = collapsed && !mobileOpen;
@@ -91,8 +97,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     <aside
       className={`
         bg-sidebar border-r border-sidebar-line h-screen flex flex-col fixed left-0 top-0 z-40
-        transition-all duration-300 ease-in-out
-        ${collapsed ? 'md:w-[76px]' : 'md:w-72'}
+        ${resize?.resizing ? '' : 'transition-all duration-300 ease-in-out'}
+        ${collapsed ? 'md:w-[76px]' : resize ? 'md:w-[var(--sidebar-w)]' : 'md:w-72'}
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
         w-72
@@ -225,6 +231,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         </div>
       </div>
 
+      {resize && !collapsed && <ResizeHandle resize={resize} />}
+
       {/* Portalled to <body>: the aside's translate makes it the containing
           block for fixed children, which would trap the palette inside it. */}
       {paletteOpen && createPortal(<CommandPalette groups={groups} onClose={() => setPaletteOpen(false)} />, document.body)}
@@ -249,7 +257,7 @@ function AccordionGroup({
         }`}
       >
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${a.dot} ${open || containsActive ? '' : 'opacity-70'}`} />
-        <span className="flex-1 text-left truncate">{group.label}</span>
+        <span className="flex-1 text-left truncate" title={group.label}>{group.label}</span>
         {!open && (
           <span className="text-[10px] font-medium tracking-normal normal-case text-sidebar-dim tabular-nums">
             {group.items.length}
@@ -308,7 +316,7 @@ function ItemLink({
     <NavLink
       to={to}
       end={to === '/'}
-      title={iconOnly ? title : undefined}
+      title={iconOnly ? title : item.label}
       className={({ isActive }) =>
         `${base} ${
           isActive
@@ -325,6 +333,61 @@ function ItemLink({
         </>
       )}
     </NavLink>
+  );
+}
+
+/**
+ * Drag handle on the sidebar's right edge (desktop only). Pointer drag sets the
+ * width live; arrow keys nudge it; double-click resets to the default.
+ */
+function ResizeHandle({ resize }: { resize: SidebarWidth }) {
+  const { width, min, max, setWidth, setResizing, reset } = resize;
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setResizing(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    // The sidebar is pinned at left: 0, so the pointer's x is the new width.
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) setWidth(e.clientX);
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    setResizing(false);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  };
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 64 : 16;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); setWidth(width - step); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + step); }
+    else if (e.key === 'Home' || e.key === 'Enter') { e.preventDefault(); reset(); }
+  };
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      aria-valuenow={width}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      tabIndex={0}
+      title="Drag to resize · double-click to reset"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onDoubleClick={reset}
+      onKeyDown={onKeyDown}
+      className="hidden md:block absolute top-0 -right-1 z-10 h-full w-2 cursor-col-resize group/resize focus:outline-none"
+    >
+      <span className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[3px] rounded-full bg-primary/0 transition-colors group-hover/resize:bg-primary/60 group-focus-visible/resize:bg-primary/60 group-active/resize:bg-primary" />
+    </div>
   );
 }
 

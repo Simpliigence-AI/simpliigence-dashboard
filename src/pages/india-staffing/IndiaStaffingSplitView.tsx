@@ -13,9 +13,9 @@
  */
 import { useMemo, useState } from 'react';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
-import { Building2, Trash2, ArrowRight, Filter } from 'lucide-react';
-import type { StaffingRow, StaffingStatus } from '../../types/staffing';
-import { WORK_MODES, workModeNeedsLocation } from '../../types/staffing';
+import { Building2, Trash2, ArrowRight, Filter, AlertTriangle } from 'lucide-react';
+import type { StaffingRow, StaffingStatus, ReqBillingField } from '../../types/staffing';
+import { WORK_MODES, workModeNeedsLocation, missingReqBillingFields, REQ_BILLING_FIELD_LABELS, ARCHIVED_STATUSES } from '../../types/staffing';
 import { Card } from '../../components/ui';
 import { chipStyle } from '../../lib/chipStyle';
 import { ShareToReferralsToggle, isInternalAccountName } from '../../components/staffing/ShareToReferralsToggle';
@@ -23,6 +23,9 @@ import { ShareToReferralsToggle, isInternalAccountName } from '../../components/
 const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed Won', 'Closed Lost', 'Cancelled'];
 
 const INPUT_CLS = 'w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
+/** Red ring on a required field that is still blank. */
+const MISSING_CLS = 'border-rose-400 ring-2 ring-rose-200 bg-rose-50/40';
+
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
   <input className={`${INPUT_CLS} ${className}`} {...p} />;
 const Select = ({ className = '', children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) =>
@@ -84,6 +87,10 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
 
   const selected = rows.find((r) => r.id === selectedId) || null;
 
+  const selMissing = selected && !ARCHIVED_STATUSES.includes(selected.statusField) ? missingReqBillingFields(selected) : [];
+
+  const miss = (f: ReqBillingField) => (selMissing.includes(f) ? MISSING_CLS : '');
+
   return (
     <div className="grid grid-cols-12 gap-4">
       {/* LEFT RAIL */}
@@ -119,6 +126,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
               </div>
               {acctRows.map((r) => {
                 const active = r.id === selectedId;
+                const incomplete = !ARCHIVED_STATUSES.includes(r.statusField) && missingReqBillingFields(r).length > 0;
                 return (
                   <button
                     key={r.id}
@@ -166,6 +174,12 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                           <span>{r.month}</span>
                         </>
                       )}
+                      {incomplete && (
+                        <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5"
+                          title={`Missing: ${missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')}`}>
+                          <AlertTriangle size={9} /> Incomplete
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -211,6 +225,16 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                 <Trash2 size={14} />
               </button>
             </header>
+            {selMissing.length > 0 && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="font-semibold">Required fields missing:</span>{' '}
+                  {selMissing.map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')}.
+                  <span className="text-rose-700/80"> Fill these in below.</span>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
@@ -254,20 +278,20 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                 <Input value={selected.department} onChange={(e) => onSave(selected.id, 'department', e.target.value)} className="mt-1" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Bill Start Date</label>
-                <Input type="date" value={selected.billStartDate || ''} onChange={(e) => onSave(selected.id, 'bill_start_date', e.target.value)} className="mt-1" />
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Bill Start Date <span className="text-rose-600">*</span></label>
+                <Input type="date" value={selected.billStartDate || ''} onChange={(e) => onSave(selected.id, 'bill_start_date', e.target.value)} className={`mt-1 ${miss('bill_start_date')}`} />
               </div>
               <div>
-                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Budget / hr (USD)</label>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Budget / hr (USD) <span className="text-rose-600">*</span></label>
                 <div className="relative mt-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none">$</span>
                   <Input key={`bud-${selected.id}`} type="number" min={0.01} step="0.01" defaultValue={selected.budgetPerHourUsd ?? ''}
-                    onBlur={(e) => onSave(selected.id, 'budget_per_hour_usd', e.target.value)} className="pl-7" />
+                    onBlur={(e) => onSave(selected.id, 'budget_per_hour_usd', e.target.value)} className={`pl-7 ${miss('budget_per_hour_usd')}`} />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Work Mode</label>
-                <Select value={selected.workMode || ''} onChange={(e) => onSave(selected.id, 'work_mode', e.target.value)} className="mt-1">
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Work Mode <span className="text-rose-600">*</span></label>
+                <Select value={selected.workMode || ''} onChange={(e) => onSave(selected.id, 'work_mode', e.target.value)} className={`mt-1 ${miss('work_mode')}`}>
                   <option value="">—</option>
                   {WORK_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </Select>
@@ -278,7 +302,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                 </label>
                 <Input key={`loc-${selected.id}`} defaultValue={selected.location || ''}
                   onBlur={(e) => onSave(selected.id, 'location', e.target.value)}
-                  placeholder={workModeNeedsLocation(selected.workMode) ? 'Required for Hybrid / WFO' : 'Optional for Remote'} className="mt-1" />
+                  placeholder={workModeNeedsLocation(selected.workMode) ? 'Required for Hybrid / WFO' : 'Optional for Remote'} className={`mt-1 ${miss('location')}`} />
               </div>
               <div className="md:col-span-2">
                 <ShareToReferralsToggle checked={selected.shareToReferrals} internal={isInternalAccountName(selected.account)}

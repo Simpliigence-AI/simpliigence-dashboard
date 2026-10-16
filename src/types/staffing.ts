@@ -60,8 +60,37 @@ export interface StaffingRequisition {
   job_description_at?: string | null;
   /** Post this req on the Hub referral page (internal accounts always post). */
   share_to_referrals?: boolean;
+  /** ISO date (YYYY-MM-DD) billing starts. Required on new requisitions. */
+  bill_start_date?: string;
+  /** Client budget per hour, always USD. Required on new requisitions. */
+  budget_per_hour_usd?: number | null;
+  /** Remote / Hybrid / WFO. Required on new requisitions. */
+  work_mode?: WorkMode | '';
+  /** Work location — required when work_mode is Hybrid or WFO. */
+  location?: string;
   created_at: string;
   updated_at: string;
+}
+
+export type WorkMode = 'Remote' | 'Hybrid' | 'WFO';
+export const WORK_MODES: { value: WorkMode; label: string }[] = [
+  { value: 'Remote', label: 'Remote' },
+  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'WFO', label: 'Work from office (WFO)' },
+];
+export const workModeNeedsLocation = (m: string | null | undefined) => m === 'Hybrid' || m === 'WFO';
+
+/** Billing fields every new India requisition must carry. Returns the first
+ *  missing field's message, or null when all are valid. */
+export function validateReqBillingFields(f: {
+  billStartDate: string; budgetPerHour: string | number; workMode: string; location: string;
+}): string | null {
+  if (!f.billStartDate) return 'Bill start date is required';
+  const b = Number(f.budgetPerHour);
+  if (f.budgetPerHour === '' || !Number.isFinite(b) || b <= 0) return 'Budget per hour (USD) is required';
+  if (!f.workMode) return 'Work mode is required';
+  if (workModeNeedsLocation(f.workMode) && !f.location.trim()) return 'Location is required for Hybrid / WFO';
+  return null;
 }
 
 export interface DailyStatus {
@@ -234,6 +263,10 @@ export interface StaffingRow {
   department: string;
   /** Ticked "Share to referrals" in the Cockpit. */
   shareToReferrals: boolean;
+  billStartDate: string;
+  budgetPerHourUsd: number | null;
+  workMode: WorkMode | '';
+  location: string;
 }
 
 export const MONTHS = [

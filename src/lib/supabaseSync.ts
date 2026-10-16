@@ -261,6 +261,10 @@ function indiaReqToRow(r: IndiaRequisition) {
     ai_probability: r.ai_probability ?? 0,
     onboarding_date: r.onboarding_date ?? null,
     share_to_referrals: r.share_to_referrals ?? false,
+    bill_start_date: r.bill_start_date ?? '',
+    budget_per_hour_usd: r.budget_per_hour_usd ?? null,
+    work_mode: r.work_mode ?? '',
+    location: r.location ?? '',
     created_at: r.created_at, updated_at: r.updated_at, updated_by: CLIENT_ID,
   };
 }
@@ -277,6 +281,10 @@ function rowToIndiaReq(row: any): IndiaRequisition {
     ai_probability: row.ai_probability ?? 0,
     onboarding_date: row.onboarding_date ?? null,
     share_to_referrals: !!row.share_to_referrals,
+    bill_start_date: row.bill_start_date ?? '',
+    budget_per_hour_usd: row.budget_per_hour_usd == null ? null : Number(row.budget_per_hour_usd),
+    work_mode: row.work_mode ?? '',
+    location: row.location ?? '',
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }

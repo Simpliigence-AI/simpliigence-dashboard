@@ -93,6 +93,28 @@ export function validateReqBillingFields(f: {
   return null;
 }
 
+export type ReqBillingField = 'bill_start_date' | 'budget_per_hour_usd' | 'work_mode' | 'location';
+export const REQ_BILLING_FIELD_LABELS: Record<ReqBillingField, string> = {
+  bill_start_date: 'Bill start date',
+  budget_per_hour_usd: 'Budget / hr (USD)',
+  work_mode: 'Work mode',
+  location: 'Location',
+};
+
+/** Required billing fields still blank on an existing requisition. Reqs created
+ *  from a forwarded India-demand email skip the create-time check, so these
+ *  are flagged on the row until someone fills them in. */
+export function missingReqBillingFields(r: {
+  billStartDate?: string; budgetPerHourUsd?: number | null; workMode?: string; location?: string;
+}): ReqBillingField[] {
+  const out: ReqBillingField[] = [];
+  if (!r.billStartDate) out.push('bill_start_date');
+  if (r.budgetPerHourUsd == null || !(r.budgetPerHourUsd > 0)) out.push('budget_per_hour_usd');
+  if (!r.workMode) out.push('work_mode');
+  if (workModeNeedsLocation(r.workMode) && !(r.location || '').trim()) out.push('location');
+  return out;
+}
+
 export interface DailyStatus {
   id: string;
   requisition_id: string;

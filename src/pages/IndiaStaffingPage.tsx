@@ -32,7 +32,7 @@ import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { StaffingRow, RiskLevel, PipelineStage, StaffingStatus } from '../types/staffing';
 import { forecastRealisticClosures } from '../lib/aiForecastCloseRate';
 import type { ForecastEntry, MonthBucket } from '../lib/aiForecastCloseRate';
-import { STAGE_COLORS, ARCHIVED_STATUSES, CLOSED_WON_STATUSES, LOST_OR_CANCELLED_STATUSES, WORK_MODES, workModeNeedsLocation, validateReqBillingFields } from '../types/staffing';
+import { STAGE_COLORS, ARCHIVED_STATUSES, CLOSED_WON_STATUSES, LOST_OR_CANCELLED_STATUSES, WORK_MODES, workModeNeedsLocation, validateReqBillingFields, missingReqBillingFields, REQ_BILLING_FIELD_LABELS } from '../types/staffing';
 import type { WorkMode } from '../types/staffing';
 import confetti from 'canvas-confetti';
 import { chipStyle } from '../lib/chipStyle';
@@ -618,6 +618,12 @@ export default function IndiaStaffingPage() {
           {/* Requisition */}
           <td className="p-2">
             <EditableCell value={r.requisition} onSave={(val) => handleCellSave(r.id, 'title', val)} />
+            {!opts.archived && missingReqBillingFields(r).length > 0 && (
+              <span className="mt-1 inline-flex items-center text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5"
+                title={`Required fields missing: ${missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')} — open the requisition to fill them in`}>
+                Missing: {missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')}
+              </span>
+            )}
             {!opts.archived && (
               <ShareToReferralsToggle compact checked={r.shareToReferrals} internal={isInternalAccountName(r.account)}
                 onChange={(next) => handleCellSave(r.id, 'share_to_referrals', next ? 'true' : 'false')} />

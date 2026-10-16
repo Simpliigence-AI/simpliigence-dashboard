@@ -1,7 +1,8 @@
 /**
  * Quick-add speed-dial — floating "+" button bottom-right of India Demand
  * that opens a tiny menu with two actions:
- *   - Quick requisition  (3 fields: account, title, month)
+ *   - Quick requisition  (account, title, month + mandatory bill start date,
+ *     budget/hr USD, work mode, and location when Hybrid/WFO)
  *   - Quick account      (1 field: name)
  *
  * Designed for the morning "we got a new req from QBurst today" workflow —
@@ -10,14 +11,20 @@
  */
 import { useState, useRef, useEffect } from 'react';
 import { Plus, X, Briefcase, Building2 } from 'lucide-react';
-import type { StaffingAccount } from '../../types/staffing';
+import type { StaffingAccount, WorkMode } from '../../types/staffing';
+import { WORK_MODES, workModeNeedsLocation, validateReqBillingFields } from '../../types/staffing';
+
+export interface QuickReqInput {
+  accountId: string; title: string; month: string;
+  billStartDate: string; budgetPerHourUsd: number; workMode: WorkMode; location: string;
+}
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'] as const;
 
 interface Props {
   accounts: StaffingAccount[];
   onAddAccount: (name: string) => Promise<StaffingAccount> | StaffingAccount;
-  onAddRequisition: (p: { accountId: string; title: string; month: string }) => Promise<void> | void;
+  onAddRequisition: (p: QuickReqInput) => Promise<void> | void;
 }
 
 export function QuickAddSpeedDial({ accounts, onAddAccount, onAddRequisition }: Props) {
@@ -95,7 +102,7 @@ function QuickReqModal({
 }: {
   accounts: StaffingAccount[];
   onAddAccount: (name: string) => Promise<StaffingAccount> | StaffingAccount;
-  onAdd: (p: { accountId: string; title: string; month: string }) => Promise<void> | void;
+  onAdd: (p: QuickReqInput) => Promise<void> | void;
   onClose: () => void;
 }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id || '');
@@ -103,6 +110,10 @@ function QuickReqModal({
   const [title, setTitle] = useState('');
   const monthIdx = new Date().getMonth();
   const [month, setMonth] = useState<string>(MONTHS[monthIdx]);
+  const [billStartDate, setBillStartDate] = useState('');
+  const [budgetPerHour, setBudgetPerHour] = useState('');
+  const [workMode, setWorkMode] = useState<WorkMode | ''>('');
+  const [location, setLocation] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -111,6 +122,8 @@ function QuickReqModal({
 
   const submit = async () => {
     if (!title.trim()) { setError('Title is required'); return; }
+    const billingError = validateReqBillingFields({ billStartDate, budgetPerHour, workMode, location });
+    if (billingError) { setError(billingError); return; }
     setSaving(true); setError(null);
     try {
       let finalAccountId = accountId;
@@ -120,7 +133,13 @@ function QuickReqModal({
         finalAccountId = a.id;
       }
       if (!finalAccountId) { setError('Pick an account'); setSaving(false); return; }
-      await onAdd({ accountId: finalAccountId, title: title.trim(), month });
+      await onAdd({
+        accountId: finalAccountId, title: title.trim(), month,
+        billStartDate,
+        budgetPerHourUsd: Math.round(Number(budgetPerHour) * 100) / 100,
+        workMode: workMode as WorkMode,
+        location: workModeNeedsLocation(workMode) ? location.trim() : '',
+      });
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save');
@@ -130,7 +149,7 @@ function QuickReqModal({
   };
 
   return (
-    <Modal title="Quick requisition" subtitle="Just the basics — fill the rest inline on the row." onClose={onClose}>
+    <Modal title="Quick requisition" subtitle="The essentials — fill the rest inline on the row." onClose={onClose}>
       <div className="space-y-3">
         <Field label="Account">
           <select value={accountId}
@@ -163,6 +182,32 @@ function QuickReqModal({
             {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Bill start date *">
+            <input type="date" value={billStartDate} onChange={(e) => setBillStartDate(e.target.value)}
+                   className="w-full h-9 px-3 text-sm border border-line rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+          </Field>
+          <Field label="Budget / hr (USD) *">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none">$</span>
+              <input type="number" min={0.01} step="0.01" inputMode="decimal" value={budgetPerHour}
+                     onChange={(e) => setBudgetPerHour(e.target.value)} placeholder="e.g. 25"
+                     className="w-full h-9 px-3 text-sm border border-line rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200 pl-7" />
+            </div>
+          </Field>
+          <Field label="Work mode *">
+            <select value={workMode} onChange={(e) => setWorkMode(e.target.value as WorkMode | '')}
+                    className="w-full h-9 px-3 text-sm border border-line rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200 bg-surface">
+              <option value="">Select…</option>
+              {WORK_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </Field>
+          <Field label={workModeNeedsLocation(workMode) ? 'Location *' : 'Location'}>
+            <input value={location} onChange={(e) => setLocation(e.target.value)}
+                   placeholder={workModeNeedsLocation(workMode) ? 'e.g. Bangalore' : 'Optional for Remote'}
+                   className="w-full h-9 px-3 text-sm border border-line rounded-md focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+          </Field>
+        </div>
         {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</div>}
         <div className="flex items-center justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="text-xs text-muted hover:text-ink px-3 py-1.5">Cancel</button>

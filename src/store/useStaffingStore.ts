@@ -98,6 +98,7 @@ const AUDITED_FIELDS: (keyof StaffingRequisition)[] = [
   'title', 'account_id', 'month', 'new_positions', 'expected_closure',
   'start_date', 'close_by_date', 'status_field', 'stage', 'anticipation',
   'client_spoc', 'department', 'probability', 'ai_probability',
+  'bill_start_date', 'budget_per_hour_usd', 'work_mode', 'location',
 ];
 
 /** Re-compute AI probability from linked statuses. */

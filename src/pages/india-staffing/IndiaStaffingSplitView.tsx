@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { Building2, Trash2, ArrowRight, Filter } from 'lucide-react';
 import type { StaffingRow, StaffingStatus } from '../../types/staffing';
+import { WORK_MODES, workModeNeedsLocation } from '../../types/staffing';
 import { Card } from '../../components/ui';
 import { chipStyle } from '../../lib/chipStyle';
 import { ShareToReferralsToggle, isInternalAccountName } from '../../components/staffing/ShareToReferralsToggle';
@@ -251,6 +252,33 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
               <div>
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider">Department</label>
                 <Input value={selected.department} onChange={(e) => onSave(selected.id, 'department', e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Bill Start Date</label>
+                <Input type="date" value={selected.billStartDate || ''} onChange={(e) => onSave(selected.id, 'bill_start_date', e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Budget / hr (USD)</label>
+                <div className="relative mt-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none">$</span>
+                  <Input key={`bud-${selected.id}`} type="number" min={0.01} step="0.01" defaultValue={selected.budgetPerHourUsd ?? ''}
+                    onBlur={(e) => onSave(selected.id, 'budget_per_hour_usd', e.target.value)} className="pl-7" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Work Mode</label>
+                <Select value={selected.workMode || ''} onChange={(e) => onSave(selected.id, 'work_mode', e.target.value)} className="mt-1">
+                  <option value="">—</option>
+                  {WORK_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                  Location{workModeNeedsLocation(selected.workMode) && <span className="text-rose-600"> *</span>}
+                </label>
+                <Input key={`loc-${selected.id}`} defaultValue={selected.location || ''}
+                  onBlur={(e) => onSave(selected.id, 'location', e.target.value)}
+                  placeholder={workModeNeedsLocation(selected.workMode) ? 'Required for Hybrid / WFO' : 'Optional for Remote'} className="mt-1" />
               </div>
               <div className="md:col-span-2">
                 <ShareToReferralsToggle checked={selected.shareToReferrals} internal={isInternalAccountName(selected.account)}

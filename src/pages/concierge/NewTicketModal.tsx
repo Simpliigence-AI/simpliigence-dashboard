@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Textarea } from '../../components/ui/Input';
-import { MAX_ATTACHMENT_MB, useConciergeStore } from '../../store/useConciergeStore';
+import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_MB, useConciergeStore } from '../../store/useConciergeStore';
 import { resolveTicketAccount, useTicketAccountOptions } from '../../lib/ticketAccountOptions';
 
 interface Props {
@@ -54,6 +54,10 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
     setTicketCreated(false);
     onClose();
   };
+
+  /* Caught at pick time rather than after the ticket exists, so an oversized
+   * file never leaves a ticket half-attached. */
+  const oversized = files.filter((f) => f.size > MAX_ATTACHMENT_BYTES);
 
   const submit = async () => {
     if (!subject.trim()) { setError('Subject required'); return; }
@@ -137,6 +141,11 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
           />
           <p className="mt-1 text-xs text-muted">Uploaded once the ticket is created. Up to {MAX_ATTACHMENT_MB} MB per file.</p>
+          {oversized.length > 0 && (
+            <p className="mt-1 text-xs text-red-600">
+              Over the {MAX_ATTACHMENT_MB} MB limit: {oversized.map((f) => `${f.name} (${(f.size / 1024 / 1024).toFixed(1)} MB)`).join(', ')}. Pick smaller files to continue.
+            </p>
+          )}
         </div>
         {error && <div className="text-sm text-red-600">{error}</div>}
         <div className="flex justify-end gap-2 pt-2">
@@ -145,7 +154,7 @@ export function NewTicketModal({ open, onClose, defaultAccountId }: Props) {
           ) : (
             <>
               <Button variant="secondary" onClick={dismiss}>Cancel</Button>
-              <Button onClick={submit} disabled={submitting}>
+              <Button onClick={submit} disabled={submitting || oversized.length > 0}>
                 {!submitting ? 'Create ticket' : files.length > 0 ? 'Creating & uploading…' : 'Creating…'}
               </Button>
             </>

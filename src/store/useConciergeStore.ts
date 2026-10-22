@@ -19,6 +19,7 @@ import { isTicketClosed } from '../lib/ticketStatus';
  *  timesheet-document uploader, which stops at 15 MB. */
 const MB = 1024 * 1024;
 export const MAX_ATTACHMENT_MB = 25;
+export const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * MB;
 
 const nanoid = (len = 21): string => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -140,7 +141,7 @@ interface ConciergeState {
   attachmentSignedUrls: (storagePaths: string[]) => Promise<Record<string, string>>;
   /** Attach one file to an existing ticket: bytes into the private
    *  ticket-attachments bucket, then a `ticket_attachments` row. The ticket
-   *  must already exist (the row's FK points at it). Needs migration 031 for
+   *  must already exist (the row's FK points at it). Needs migration 045 for
    *  the bucket's INSERT policy, without which every upload 403s. */
   uploadAttachment: (ticketId: string, file: File) => Promise<{ ok: boolean; message?: string }>;
   checkGraphSubscription: () => Promise<{ ok: boolean; configured: boolean; message?: string }>;
@@ -389,7 +390,7 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
   },
 
   uploadAttachment: async (ticketId, file) => {
-    if (file.size > MAX_ATTACHMENT_MB * MB) {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
       return { ok: false, message: `${file.name} is ${(file.size / MB).toFixed(1)} MB (limit ${MAX_ATTACHMENT_MB} MB).` };
     }
     const attId = nanoid();
@@ -417,7 +418,7 @@ export const useConciergeStore = create<ConciergeState>((set, get) => ({
     });
     if (rowErr) {
       /* Don't leave bytes nothing points at. Best effort only: the bucket has
-       * no DELETE policy for authenticated users (see migration 031), so this
+       * no DELETE policy for authenticated users (see migration 045), so this
        * may well fail — the insert error is what the caller has to surface. */
       const { error: rmErr } = await supabase.storage.from('ticket-attachments').remove([storagePath]);
       if (rmErr) console.warn('[concierge] uploadAttachment orphan cleanup:', rmErr.message);

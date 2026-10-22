@@ -76,6 +76,12 @@ function useSupabaseInit() {
     let cleanup: (() => void) | undefined;
 
     async function init() {
+      // Kept as its own promise so a slow load is still applied when it lands.
+      // A manager/admin's time_entries scope is many sequential 1000-row pages
+      // (fetchTimeEntries), which can outlast the 10 s init timeout below; the
+      // old code then dropped the result and Team Time rendered the stale
+      // localStorage copy with no sign anything was wrong.
+      const timeEntriesPromise = fetchTimeEntries();
       try {
         const [
           forecastRes,
@@ -111,7 +117,9 @@ function useSupabaseInit() {
           withTimeout(fetchHiringForecastConfig()),
           withTimeout(fetchStaffingRequests()),
           withTimeout(fetchPipelineProjects()),
-          withTimeout(fetchIndiaStaffing()),
+          // Candidates alone are ~9 MB over 6 pages (~9 s on a good line); the shared
+      // 10 s budget dropped the whole India payload, so TAs saw 0 candidates.
+      withTimeout(fetchIndiaStaffing(), 60000),
           withTimeout(fetchUSStaffing()),
           withTimeout(fetchOpenBench()),
           withTimeout(fetchIndiaRoster()),
@@ -120,7 +128,7 @@ function useSupabaseInit() {
           withTimeout(fetchActualHours()),
           withTimeout(fetchTaDailyLog()),
           withTimeout(fetchTeamMembers()),
-          withTimeout(fetchTimeEntries()),
+          withTimeout(timeEntriesPromise),
           withTimeout(fetchAccountManagement()),
           withTimeout(fetchVendors()),
           withTimeout(fetchTnmAccounts()),
@@ -341,7 +349,13 @@ function useSupabaseInit() {
             console.log('[supabase] Loaded time entries:', te.length);
           }
         } else {
-          console.warn('[supabase] Time entries fetch timed out — using localStorage');
+          console.warn('[supabase] Time entries fetch still running after 10 s — showing localStorage until it finishes');
+          void timeEntriesPromise.then((te) => {
+            if (te) {
+              useTimeEntryStore.setState({ entries: te });
+              console.log('[supabase] Loaded time entries (late):', te.length);
+            }
+          }).catch((err) => console.warn('[supabase] Late time entries fetch failed:', err));
         }
 
         // --- Account Management ---
@@ -479,12 +493,25 @@ function useSupabaseInit() {
             usePipelineStore.setState({ projects });
           },
           setIndiaStaffing: (accounts, requisitions, statuses, history, candidates) => {
+            // A refetch that started before this browser's own insert landed
+            // would otherwise drop the new candidate (and the count) until the
+            // next reload. Keep local rows created in the last 3 minutes that
+            // the snapshot doesn't have yet.
+            let merged = candidates;
+            if (candidates) {
+              const incoming = new Set(candidates.map((c) => c.id));
+              const cutoff = Date.now() - 3 * 60 * 1000;
+              const pending = useStaffingStore.getState().candidates.filter(
+                (c) => !incoming.has(c.id) && Date.parse(c.created_at) > cutoff,
+              );
+              if (pending.length) merged = [...candidates, ...pending];
+            }
             useStaffingStore.setState({
               accounts,
               requisitions,
               statuses,
               ...(history ? { history } : {}),
-              ...(candidates ? { candidates } : {}),
+              ...(merged ? { candidates: merged } : {}),
             });
           },
           setUSStaffing: (accounts, requisitions, contacts) => {

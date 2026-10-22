@@ -98,6 +98,7 @@ const AUDITED_FIELDS: (keyof StaffingRequisition)[] = [
   'title', 'account_id', 'month', 'new_positions', 'expected_closure',
   'start_date', 'close_by_date', 'status_field', 'stage', 'anticipation',
   'client_spoc', 'department', 'probability', 'ai_probability',
+  'bill_start_date', 'budget_per_hour_usd', 'work_mode', 'location',
 ];
 
 /** Re-compute AI probability from linked statuses. */
@@ -348,6 +349,8 @@ export const useStaffingStore = create<StaffingState>()(
         const newAccounts = [...state.accounts];
         const newReqs = [...state.requisitions];
         const newStatuses = [...state.statuses];
+        const touchedAcctIds = new Set<string>();
+        const touchedReqIds = new Set<string>();
 
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
@@ -360,6 +363,7 @@ export const useStaffingStore = create<StaffingState>()(
             if (!acct) {
               acct = { id: nanoid(), name: row.account, tier: 2, created_at: new Date().toISOString() };
               newAccounts.push(acct);
+              touchedAcctIds.add(acct.id);
             }
             let req = newReqs.find(
               (r) => r.account_id === acct!.id && r.title === row.requisition && r.month === row.month,
@@ -374,6 +378,7 @@ export const useStaffingStore = create<StaffingState>()(
                   r.status_field !== 'Closed Lost',
               );
               if (req) {
+                touchedReqIds.add(req.id);
                 req.month = row.month;
                 req.updated_at = new Date().toISOString();
                 if (row.new_positions) req.new_positions = row.new_positions;
@@ -398,6 +403,7 @@ export const useStaffingStore = create<StaffingState>()(
                 created_at: now, updated_at: now,
               };
               newReqs.push(req);
+              touchedReqIds.add(req.id);
             }
             if (row.status_text) {
               newStatuses.push({
@@ -414,7 +420,11 @@ export const useStaffingStore = create<StaffingState>()(
         }
 
         set({ accounts: newAccounts, requisitions: newReqs, statuses: newStatuses });
-        db.replaceAllIndiaStaffing(newAccounts, newReqs, newStatuses);
+        db.upsertIndiaStaffingBatch(
+          newAccounts.filter((a) => touchedAcctIds.has(a.id)),
+          newReqs.filter((r) => touchedReqIds.has(r.id)),
+          newStatuses.slice(state.statuses.length),
+        );
         return { imported, errors };
       },
 

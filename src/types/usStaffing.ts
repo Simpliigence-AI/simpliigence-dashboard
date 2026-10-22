@@ -50,6 +50,8 @@ export interface USStaffingRequisition {
   stage: USStaffingStage;
   closure_date: string;
   notes: string;
+  /** Post this req on the Hub referral page (the Simpliigence account always posts). */
+  share_to_referrals?: boolean;
   created_at: string;
   updated_at: string;
 }

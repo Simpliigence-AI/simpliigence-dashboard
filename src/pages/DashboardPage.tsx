@@ -17,6 +17,7 @@ import { STALE_CONNECT_DAYS } from '../types/accountMgmt';
 import { StatCard, Card } from '../components/ui';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Sensitive } from '../components/Sensitive';
+import { useShowFinancials } from '../hooks/usePageAccess';
 import { deriveEmployeeSummaries, deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import { runQuery, SUGGESTED_QUERIES } from '../lib/queryEngine';
 import type { QueryResult } from '../lib/queryEngine';
@@ -201,6 +202,7 @@ function SmartQueryPanel({
 }
 
 export default function DashboardPage() {
+  const showFinancials = useShowFinancials();
   const assignments = useForecastStore((s) => s.assignments);
   const staffingRequests = useHiringForecastStore((s) => s.staffingRequests);
   const scenarioSettings = useHiringForecastStore((s) => s.scenarioSettings);
@@ -469,7 +471,6 @@ export default function DashboardPage() {
         { to: '/projects',       label: 'Current Projects' },
         { to: '/pipeline',       label: 'Pipeline Projects' },
         { to: '/forecasting',    label: 'Utilization Forecast' },
-        { to: '/hiring-forecast',label: 'Hiring Forecast' },
         { to: '/financials',     label: 'Financials' },
       ],
     },
@@ -624,7 +625,7 @@ export default function DashboardPage() {
 
                 {/* Quick-link rail */}
                 <div className="flex flex-wrap gap-1 pt-3 border-t border-line/60">
-                  {sec.links.map((l) => (
+                  {sec.links.filter((l) => showFinancials || l.to !== '/financials').map((l) => (
                     <Link
                       key={l.to}
                       to={l.to}

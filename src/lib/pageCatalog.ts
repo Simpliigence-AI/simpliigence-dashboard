@@ -28,6 +28,7 @@ export const PAGES: PageDef[] = [
   { key: 'actual-hours',    label: 'Actual Hours',        section: 'Projects' },
   { key: 'projects',        label: 'Current Projects',    section: 'Projects' },
   { key: 'pipeline',        label: 'Pipeline Projects',   section: 'Projects' },
+  { key: 'project-plans',   label: 'Project Plans',       section: 'Projects' },
   { key: 'forecasting',     label: 'Utilization Forecast',section: 'Projects' },
   { key: 'hiring-forecast', label: 'Hiring Forecast',     section: 'Projects' },
   { key: 'financials',      label: 'Financials',          section: 'Projects' },

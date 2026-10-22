@@ -26,6 +26,7 @@ import {
   calcMarginPercent, calcMarginAbsolute,
   type IndiaRosterStatus,
 } from '../types/indiaRoster';
+import { chipStyle } from '../lib/chipStyle';
 
 /* —— Editable Cell —— */
 function EditableCell({ value, onSave, type = 'text', options, className = '', displayContent, prefix }: {
@@ -707,7 +708,7 @@ function renderMemberRow(
         <EditableCell value={m.status} type="select" options={INDIA_ROSTER_STATUSES}
           onSave={(v) => handleCellSave(m.id, 'status', v)}
           displayContent={
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: INDIA_ROSTER_STATUS_COLORS[m.status] || '#94a3b8' }}>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(INDIA_ROSTER_STATUS_COLORS[m.status] || '#94a3b8')}>
               {m.status}
             </span>
           }

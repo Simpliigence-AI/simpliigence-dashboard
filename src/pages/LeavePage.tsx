@@ -30,6 +30,7 @@ import {
   LEAVE_STATUS_META, computeBalances, countDaysInclusive, isTypeVisibleTo,
   type LeaveRequest,
 } from '../types/leave';
+import { chipStyle } from '../lib/chipStyle';
 
 /* Tight native form controls — the shared Input/Select wrappers add labels
  * and margins that don't fit the dense dialog rows here. */
@@ -207,7 +208,7 @@ export default function LeavePage() {
                         <td className="py-2 pr-3">
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-white"
-                            style={{ background: t?.color || '#64748b' }}
+                            style={chipStyle(t?.color || '#64748b')}
                           >
                             {t?.name || '—'}
                           </span>
@@ -284,7 +285,7 @@ export default function LeavePage() {
                         <td className="py-2 pr-3">
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-white"
-                            style={{ background: t?.color || '#64748b' }}
+                            style={chipStyle(t?.color || '#64748b')}
                           >
                             {t?.name || '—'}
                           </span>

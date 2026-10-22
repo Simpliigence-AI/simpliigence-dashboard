@@ -58,8 +58,61 @@ export interface StaffingRequisition {
   job_description?: string | null;
   /** ISO timestamp when `job_description` was last set. */
   job_description_at?: string | null;
+  /** Post this req on the Hub referral page (internal accounts always post). */
+  share_to_referrals?: boolean;
+  /** ISO date (YYYY-MM-DD) billing starts. Required on new requisitions. */
+  bill_start_date?: string;
+  /** Client budget per hour, always USD. Required on new requisitions. */
+  budget_per_hour_usd?: number | null;
+  /** Remote / Hybrid / WFO. Required on new requisitions. */
+  work_mode?: WorkMode | '';
+  /** Work location — required when work_mode is Hybrid or WFO. */
+  location?: string;
   created_at: string;
   updated_at: string;
+}
+
+export type WorkMode = 'Remote' | 'Hybrid' | 'WFO';
+export const WORK_MODES: { value: WorkMode; label: string }[] = [
+  { value: 'Remote', label: 'Remote' },
+  { value: 'Hybrid', label: 'Hybrid' },
+  { value: 'WFO', label: 'Work from office (WFO)' },
+];
+export const workModeNeedsLocation = (m: string | null | undefined) => m === 'Hybrid' || m === 'WFO';
+
+/** Billing fields every new India requisition must carry. Returns the first
+ *  missing field's message, or null when all are valid. */
+export function validateReqBillingFields(f: {
+  billStartDate: string; budgetPerHour: string | number; workMode: string; location: string;
+}): string | null {
+  if (!f.billStartDate) return 'Bill start date is required';
+  const b = Number(f.budgetPerHour);
+  if (f.budgetPerHour === '' || !Number.isFinite(b) || b <= 0) return 'Budget per hour (USD) is required';
+  if (!f.workMode) return 'Work mode is required';
+  if (workModeNeedsLocation(f.workMode) && !f.location.trim()) return 'Location is required for Hybrid / WFO';
+  return null;
+}
+
+export type ReqBillingField = 'bill_start_date' | 'budget_per_hour_usd' | 'work_mode' | 'location';
+export const REQ_BILLING_FIELD_LABELS: Record<ReqBillingField, string> = {
+  bill_start_date: 'Bill start date',
+  budget_per_hour_usd: 'Budget / hr (USD)',
+  work_mode: 'Work mode',
+  location: 'Location',
+};
+
+/** Required billing fields still blank on an existing requisition. Reqs created
+ *  from a forwarded India-demand email skip the create-time check, so these
+ *  are flagged on the row until someone fills them in. */
+export function missingReqBillingFields(r: {
+  billStartDate?: string; budgetPerHourUsd?: number | null; workMode?: string; location?: string;
+}): ReqBillingField[] {
+  const out: ReqBillingField[] = [];
+  if (!r.billStartDate) out.push('bill_start_date');
+  if (r.budgetPerHourUsd == null || !(r.budgetPerHourUsd > 0)) out.push('budget_per_hour_usd');
+  if (!r.workMode) out.push('work_mode');
+  if (workModeNeedsLocation(r.workMode) && !(r.location || '').trim()) out.push('location');
+  return out;
 }
 
 export interface DailyStatus {
@@ -230,6 +283,12 @@ export interface StaffingRow {
   velocity: number;
   clientSpoc: string;
   department: string;
+  /** Ticked "Share to referrals" in the Cockpit. */
+  shareToReferrals: boolean;
+  billStartDate: string;
+  budgetPerHourUsd: number | null;
+  workMode: WorkMode | '';
+  location: string;
 }
 
 export const MONTHS = [

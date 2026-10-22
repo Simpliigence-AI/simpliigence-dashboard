@@ -17,8 +17,10 @@ import { US_STAGE_COLORS } from '../types/usStaffing';
 import { db } from '../lib/supabaseSync';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { USStaffingSplitView } from './us-staffing/USStaffingSplitView';
+import { ShareToReferralsToggle, isInternalAccountName } from '../components/staffing/ShareToReferralsToggle';
 import { Rows3, Columns3 } from 'lucide-react';
 import { AccountEditDrawer } from './us-staffing/AccountEditDrawer';
+import { chipStyle } from '../lib/chipStyle';
 
 // Sales-plan urgency thresholds, mirrored from IndiaStaffingPage.
 const URGENT_UNSECURED = 250_000;
@@ -277,6 +279,7 @@ export default function USStaffingPage() {
   };
 
   const handleCellSave = useCallback((id: string, field: string, val: string | number) => {
+    if (field === 'share_to_referrals') { updateRequisition(id, { share_to_referrals: val === 'true' || val === 1 }); return; }
     updateRequisition(id, { [field]: val });
   }, [updateRequisition]);
 
@@ -491,6 +494,12 @@ export default function USStaffingPage() {
                               <span className="text-line text-[10px]">↳</span>
                               <EditableCell value={req.role} onSave={(v) => handleCellSave(req.id, 'role', v)} />
                             </div>
+                            {req.stage !== 'Cancelled' && (
+                              <div className="pl-4">
+                                <ShareToReferralsToggle compact checked={!!req.share_to_referrals} internal={isInternalAccountName(req._account_name)}
+                                  onChange={(next) => updateRequisition(req.id, { share_to_referrals: next })} />
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             <EditableCell value={req.initiation_date} onSave={(v) => handleCellSave(req.id, 'initiation_date', v)} />
@@ -500,7 +509,7 @@ export default function USStaffingPage() {
                               value={req.stage} type="select" options={ALL_STAGES}
                               onSave={(v) => handleCellSave(req.id, 'stage', v)}
                               displayContent={
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8' }}>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8')}>
                                   {req.stage}
                                 </span>
                               }
@@ -888,7 +897,7 @@ export default function USStaffingPage() {
           requisitionSource="us"
           requisitionOptions={requisitions.map((r) => ({
             id: r.id,
-            title: `${r.title}${r.stage ? ` · ${r.stage}` : ''}`,
+            title: `${r.role}${r.stage ? ` · ${r.stage}` : ''}`,
             accountName: accounts.find((a) => a.id === r.account_id)?.name,
             jd: r.job_description ?? null,
           }))}
@@ -999,7 +1008,7 @@ export default function USStaffingPage() {
                         <td className="p-2 font-bold">{req.account_name}</td>
                         <td className="p-2">{req.role}</td>
                         <td className="p-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8' }}>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(US_STAGE_COLORS[req.stage as USStaffingStage] || '#94a3b8')}>
                             {req.stage}
                           </span>
                         </td>

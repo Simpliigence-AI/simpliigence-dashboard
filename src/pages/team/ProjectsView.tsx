@@ -132,8 +132,20 @@ export default function ProjectsView() {
         primaryPod: primaryPodFor(list, podByEmployee),
       });
     }
+    // A Current Project nobody is allocated to yet still needs a card —
+    // otherwise there is no "Assign" button to allocate the first person.
+    const have = new Set(out.map((c) => c.name.toLowerCase()));
+    for (const o of projectOptions) {
+      if (o.source !== 'current' || have.has(o.value.toLowerCase())) continue;
+      const pp = pipelineProjects.find((p) => (p.forecastName || p.name) === o.value);
+      if (pp && ['completed', 'archived'].includes(pp.status.toLowerCase())) continue;
+      out.push({
+        name: o.value, source: 'current', assignments: [], totalHours: 0,
+        completed: false, lastActiveMonth: null, primaryPod: null,
+      });
+    }
     return out.sort((a, b) => b.totalHours - a.totalHours);
-  }, [assignments, sourceByValue, podByEmployee]);
+  }, [assignments, sourceByValue, podByEmployee, projectOptions, pipelineProjects]);
 
   const allPeople = useMemo(() => groupAssignments(assignments), [assignments]);
 

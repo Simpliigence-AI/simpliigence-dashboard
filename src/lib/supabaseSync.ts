@@ -260,6 +260,11 @@ function indiaReqToRow(r: IndiaRequisition) {
     probability: r.probability ?? 0,
     ai_probability: r.ai_probability ?? 0,
     onboarding_date: r.onboarding_date ?? null,
+    share_to_referrals: r.share_to_referrals ?? false,
+    bill_start_date: r.bill_start_date ?? '',
+    budget_per_hour_usd: r.budget_per_hour_usd ?? null,
+    work_mode: r.work_mode ?? '',
+    location: r.location ?? '',
     created_at: r.created_at, updated_at: r.updated_at, updated_by: CLIENT_ID,
   };
 }
@@ -275,6 +280,11 @@ function rowToIndiaReq(row: any): IndiaRequisition {
     probability: row.probability ?? 0,
     ai_probability: row.ai_probability ?? 0,
     onboarding_date: row.onboarding_date ?? null,
+    share_to_referrals: !!row.share_to_referrals,
+    bill_start_date: row.bill_start_date ?? '',
+    budget_per_hour_usd: row.budget_per_hour_usd == null ? null : Number(row.budget_per_hour_usd),
+    work_mode: row.work_mode ?? '',
+    location: row.location ?? '',
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }
@@ -642,6 +652,7 @@ function usReqToRow(r: USStaffingRequisition) {
     id: r.id, account_id: r.account_id, role: r.role,
     initiation_date: r.initiation_date, stage: r.stage,
     closure_date: r.closure_date, notes: r.notes,
+    share_to_referrals: r.share_to_referrals ?? false,
     created_at: r.created_at, updated_at: r.updated_at, updated_by: CLIENT_ID,
   };
 }
@@ -651,6 +662,7 @@ function rowToUSReq(row: any): USStaffingRequisition {
     id: row.id, account_id: row.account_id, role: row.role,
     initiation_date: row.initiation_date ?? '', stage: row.stage ?? 'New',
     closure_date: row.closure_date ?? '', notes: row.notes ?? '',
+    share_to_referrals: !!row.share_to_referrals,
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }
@@ -1050,6 +1062,13 @@ export async function fetchCallTemplates(): Promise<CallTemplate[] | null> {
 }
 
 export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
+  return (await fetchTimeEntriesResult()).entries;
+}
+
+/** Same as fetchTimeEntries, but also hands back the PostgREST error when a
+ *  page fails, so a page like Team Time can say WHY it is showing cached data
+ *  instead of silently rendering whatever localStorage last held. */
+export async function fetchTimeEntriesResult(): Promise<{ entries: TimeEntry[] | null; error: PostgrestError | null }> {
   // RLS already restricts to (own + reports + admin/manager). But PostgREST
   // caps each response at 1000 rows regardless of Range header, so a manager's
   // team-wide scope (>1000 rows) silently drops the oldest entries. Paginate
@@ -1072,7 +1091,7 @@ export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
     const { data, error } = await q;
     if (error) {
       console.warn('[supabase] fetch time_entries failed:', error, '— have', all.length, 'rows so far');
-      return null;
+      return { entries: null, error };
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = (data || []) as any[];
@@ -1082,9 +1101,12 @@ export async function fetchTimeEntries(): Promise<TimeEntry[] | null> {
     lastId = rows[rows.length - 1].id as string;
     if (all.length >= 100_000) { console.warn('[supabase] time_entries hit 100k safety cap'); break; }
   }
-  return all
-    .map(rowToTimeEntry)
-    .sort((a, b) => b.workDate.localeCompare(a.workDate));
+  return {
+    entries: all
+      .map(rowToTimeEntry)
+      .sort((a, b) => b.workDate.localeCompare(a.workDate)),
+    error: null,
+  };
 }
 
 export async function fetchTaDailyLog(): Promise<TADailyLogEntry[] | null> {
@@ -1794,15 +1816,21 @@ export const db = {
     const { error } = await supabase.from('india_staffing_candidates').delete().eq('id', id);
     if (error) console.warn('[supabase] delete india candidate failed:', error);
   },
-  async replaceAllIndiaStaffing(accounts: IndiaAccount[], requisitions: IndiaRequisition[], statuses: DailyStatus[]) {
-    await Promise.all([
-      supabase.from('india_staffing_statuses').delete().neq('id', ''),
-      supabase.from('india_staffing_requisitions').delete().neq('id', ''),
-      supabase.from('india_staffing_accounts').delete().neq('id', ''),
-    ]);
-    if (accounts.length) await supabase.from('india_staffing_accounts').insert(accounts.map(indiaAccountToRow));
-    if (requisitions.length) await supabase.from('india_staffing_requisitions').insert(requisitions.map(indiaReqToRow));
-    if (statuses.length) await supabase.from('india_staffing_statuses').insert(statuses.map(dailyStatusToRow));
+  // Additive only - never deletes. Replaces replaceAllIndiaStaffing, which wiped
+  // every India account/req/status on each CSV import (4 Sep, 5 Oct 2026).
+  async upsertIndiaStaffingBatch(accounts: IndiaAccount[], requisitions: IndiaRequisition[], statuses: DailyStatus[]) {
+    if (accounts.length) {
+      const { error } = await supabase.from('india_staffing_accounts').upsert(accounts.map(indiaAccountToRow), { onConflict: 'id' });
+      if (error) console.warn('[supabase] import accounts failed:', error);
+    }
+    if (requisitions.length) {
+      const { error } = await supabase.from('india_staffing_requisitions').upsert(requisitions.map(indiaReqToRow), { onConflict: 'id' });
+      if (error) console.warn('[supabase] import requisitions failed:', error);
+    }
+    if (statuses.length) {
+      const { error } = await supabase.from('india_staffing_statuses').upsert(statuses.map(dailyStatusToRow), { onConflict: 'id' });
+      if (error) console.warn('[supabase] import statuses failed:', error);
+    }
   },
 
   // --- US Staffing ---
@@ -2274,13 +2302,16 @@ export const db = {
 
   // --- Profile Format (format-resume edge function) ---
   /** Invoke format-resume. Pass exactly one of pdfBase64 / resumeText / priorDraft.
-   *  Optionally attach `targetFormatPdfBase64` to make Claude match that layout
+   *  Optionally attach `targetFormatFileBase64` (PDF/Word/RTF) to make Claude match that layout
    *  instead of the default Simpliigence template. */
   async formatResume(input: {
-    pdfBase64?: string;
+    /** Resume file — PDF, .docx, .doc or .rtf (type sniffed server-side). */
+    fileBase64?: string;
+    fileName?: string;
     resumeText?: string;
     priorDraft?: string;
-    targetFormatPdfBase64?: string;
+    targetFormatFileBase64?: string;
+    targetFormatFileName?: string;
     instructions?: string;
   }): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
     const { data, error } = await supabase.functions.invoke<{
@@ -2307,6 +2338,31 @@ export const db = {
       return { error: error.message };
     }
     return { path, filename: file.name };
+  },
+
+  /** Look for existing India candidates that are the same person — matched on
+   *  email, phone (last 10 digits) or LinkedIn slug. Runs as a SECURITY DEFINER
+   *  RPC so a TA is warned even about profiles owned by someone else. */
+  async findCandidateDuplicates(input: { email?: string; phone?: string; linkedinUrl?: string; excludeId?: string }): Promise<CandidateDuplicate[]> {
+    if (!input.email && !input.phone && !input.linkedinUrl) return [];
+    const { data, error } = await supabase.rpc('find_candidate_duplicates', {
+      p_email: input.email || null,
+      p_phone: input.phone || null,
+      p_linkedin: input.linkedinUrl || null,
+      p_exclude_id: input.excludeId || null,
+    });
+    if (error) {
+      console.warn('[supabase] duplicate check failed:', error);
+      return [];
+    }
+    return (data || []) as CandidateDuplicate[];
+  },
+
+  /** Direct field update on a candidate row (used when the row isn't in the
+   *  local store, e.g. a duplicate owned by another TA). */
+  async patchIndiaCandidate(id: string, patch: Record<string, unknown>): Promise<string | null> {
+    const { error } = await supabase.from('india_staffing_candidates').update(patch).eq('id', id);
+    return error ? error.message : null;
   },
 
   /** Get a temporary download URL for a stored resume. */
@@ -3335,6 +3391,25 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
   );
 
   // --- India Staffing (refetch all on any change) ---
+  // Each refetch pulls ~5k candidates over several pages. Two guards:
+  //  - debounce: a bulk import fires hundreds of change events; collapse a
+  //    burst into one refetch instead of hundreds of overlapping ones.
+  //  - sequence: only the most recently started refetch may write the store,
+  //    so a slow older snapshot can't land last and roll the list (and the
+  //    "All candidates" count) back.
+  let indiaRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+  let indiaRefetchSeq = 0;
+  const scheduleIndiaRefetch = () => {
+    if (indiaRefetchTimer) clearTimeout(indiaRefetchTimer);
+    indiaRefetchTimer = setTimeout(() => {
+      indiaRefetchTimer = null;
+      const seq = ++indiaRefetchSeq;
+      fetchIndiaStaffing().then((data) => {
+        if (!data || seq !== indiaRefetchSeq) return;
+        setters.setIndiaStaffing(data.accounts, data.requisitions, data.statuses, data.history, data.candidates);
+      });
+    }, 1500);
+  };
   for (const table of ['india_staffing_accounts', 'india_staffing_requisitions', 'india_staffing_statuses', 'india_staffing_history', 'india_staffing_candidates'] as const) {
     channel.on(
       'postgres_changes',
@@ -3343,9 +3418,7 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const row = (payload.new || payload.old) as any;
         if (row?.updated_by === CLIENT_ID) return;
-        fetchIndiaStaffing().then((data) => {
-          if (data) setters.setIndiaStaffing(data.accounts, data.requisitions, data.statuses, data.history, data.candidates);
-        });
+        scheduleIndiaRefetch();
       },
     );
   }
@@ -3797,3 +3870,16 @@ export const leaveDb = {
     return { ok: rows.length, failed: 0 };
   },
 };
+
+export interface CandidateDuplicate {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  owning_ta_email: string | null;
+  stage: string | null;
+  requisition_id: string | null;
+  resume_filename: string | null;
+  created_at: string | null;
+  matched_on: string;
+}

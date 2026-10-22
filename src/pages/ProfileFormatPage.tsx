@@ -1,21 +1,24 @@
 /**
- * Profile Format — upload a candidate resume (PDF / .txt) OR paste raw
- * text, optionally upload a target-format sample (so Claude matches the
- * layout you want), add refinement instructions, and let Claude rewrite
- * it into the Simpliigence house format.
+ * Profile Format — upload a candidate resume (PDF / Word / RTF / .txt) OR
+ * paste raw text, optionally upload a client-specific target-format sample,
+ * add refinement instructions, and let Claude rewrite it into the
+ * Simpliigence standard profile template (lib/profileTemplate.ts — modelled
+ * on Vikas Rathod's profile: centered name / title / contact header, blue
+ * section headings, Core Expertise bullets, "Category:" skill lines, and a
+ * "Name | Title" footer on every page).
  *
- * Output renders as styled HTML matching the Simpliigence house look
- * (Arial Black headings + #268066 green accent + italic-blockquote
- * Professional Summary) and can be saved as a real PDF via the browser's
- * Print dialog (window.print + dedicated @media print stylesheet).
+ * Output: Word (.docx via lib/profileDocx.ts) or PDF (browser print with the
+ * same styles and footer), plus Markdown copy/download.
  */
 import { useMemo, useState } from 'react';
 import { Upload, Sparkles, FileText, Copy, Download, RotateCcw, Loader2, AlertCircle, Check, FileEdit, Printer, Target } from 'lucide-react';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card } from '../components/ui';
 import { db } from '../lib/supabaseSync';
+import { parseProfile, profileToHtml, PROFILE_CSS } from '../lib/profileTemplate';
+import { buildProfileDocx } from '../lib/profileDocx';
 
-type SourceMode = 'pdf' | 'text' | 'none';
+type SourceMode = 'file' | 'text' | 'none';
 
 function toBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -27,23 +30,38 @@ function toBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
+/** Accepted upload types. The edge function sniffs magic bytes, so a
+ *  mislabelled file (e.g. a .docx renamed .doc) still reads correctly. */
+const DOC_EXT = /\.(pdf|docx|doc|rtf)$/i;
+const DOC_MIME = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/rtf',
+  'text/rtf',
+]);
+const isDocFile = (f: File) => DOC_EXT.test(f.name) || DOC_MIME.has(f.type);
+const DOC_ACCEPT = '.pdf,.docx,.doc,.rtf,' + [...DOC_MIME].join(',');
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 const QUICK_INSTRUCTIONS = [
   'Emphasize Salesforce platform expertise',
   'Drop personal details (DOB, marital status, photo)',
   'Add quantified achievements where missing',
-  'Tighten to 1 page (concise bullets)',
+  'Drop phone and email (keep location only)',
+  'Tighten to 2 pages (concise bullets)',
   'Rewrite for a senior IC / staff-level role',
 ];
 
 export default function ProfileFormatPage() {
   const [sourceMode, setSourceMode] = useState<SourceMode>('none');
-  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
-  const [pdfFilename, setPdfFilename] = useState<string>('');
+  const [fileB64, setFileB64] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>('');
   const [resumeText, setResumeText] = useState<string>('');
   const [instructions, setInstructions] = useState<string>('');
 
   // Target-format sample (optional)
-  const [targetPdfBase64, setTargetPdfBase64] = useState<string | null>(null);
+  const [targetB64, setTargetB64] = useState<string | null>(null);
   const [targetFilename, setTargetFilename] = useState<string>('');
 
   const [draft, setDraft] = useState<string>('');
@@ -55,43 +73,44 @@ export default function ProfileFormatPage() {
   const handleFile = async (file: File | null) => {
     if (!file) return;
     setError(null);
-    const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
-    const isText = /\.(txt|md)$/i.test(file.name) || file.type.startsWith('text/');
-    if (isPdf) {
-      try {
-        const b64 = toBase64(await file.arrayBuffer());
-        setPdfBase64(b64);
-        setPdfFilename(file.name);
-        setSourceMode('pdf');
-        setResumeText('');
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    } else if (isText) {
+    const isText = /\.(txt|md)$/i.test(file.name) || file.type === 'text/plain' || file.type === 'text/markdown';
+    if (isText) {
       try {
         const txt = await file.text();
         setResumeText(txt);
         setSourceMode('text');
-        setPdfBase64(null);
-        setPdfFilename('');
+        setFileB64(null);
+        setFileName('');
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    } else if (isDocFile(file)) {
+      if (file.size > MAX_FILE_BYTES) { setError(`${file.name} is over 10 MB.`); return; }
+      try {
+        const b64 = toBase64(await file.arrayBuffer());
+        setFileB64(b64);
+        setFileName(file.name);
+        setSourceMode('file');
+        setResumeText('');
       } catch (e) {
         setError((e as Error).message);
       }
     } else {
-      setError(`Unsupported file type "${file.type || 'unknown'}". Please upload PDF or .txt.`);
+      setError(`Unsupported file type "${file.name}". Please upload PDF, Word (.docx/.doc), RTF or .txt.`);
     }
   };
 
   const handleTargetFile = async (file: File | null) => {
     if (!file) return;
     setError(null);
-    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-      setError('Target format must be a PDF.');
+    if (!isDocFile(file)) {
+      setError('Target format must be a PDF, Word (.docx/.doc) or RTF file.');
       return;
     }
+    if (file.size > MAX_FILE_BYTES) { setError(`${file.name} is over 10 MB.`); return; }
     try {
       const b64 = toBase64(await file.arrayBuffer());
-      setTargetPdfBase64(b64);
+      setTargetB64(b64);
       setTargetFilename(file.name);
     } catch (e) {
       setError((e as Error).message);
@@ -100,18 +119,18 @@ export default function ProfileFormatPage() {
 
   const reset = () => {
     setSourceMode('none');
-    setPdfBase64(null);
-    setPdfFilename('');
+    setFileB64(null);
+    setFileName('');
     setResumeText('');
     setInstructions('');
-    setTargetPdfBase64(null);
+    setTargetB64(null);
     setTargetFilename('');
     setDraft('');
     setHistory([]);
     setError(null);
   };
 
-  const canFormat = !running && (sourceMode === 'pdf' || (sourceMode === 'text' && resumeText.trim().length > 50) || draft.length > 0);
+  const canFormat = !running && (sourceMode === 'file' || (sourceMode === 'text' && resumeText.trim().length > 50) || draft.length > 0);
 
   const handleFormat = async (mode: 'first' | 'refine') => {
     setError(null);
@@ -119,16 +138,18 @@ export default function ProfileFormatPage() {
     try {
       const params: Parameters<typeof db.formatResume>[0] = {
         instructions: instructions.trim() || undefined,
-        targetFormatPdfBase64: targetPdfBase64 ?? undefined,
+        targetFormatFileBase64: targetB64 ?? undefined,
+        targetFormatFileName: targetFilename || undefined,
       };
       if (mode === 'refine' && draft) {
         params.priorDraft = draft;
-      } else if (sourceMode === 'pdf' && pdfBase64) {
-        params.pdfBase64 = pdfBase64;
+      } else if (sourceMode === 'file' && fileB64) {
+        params.fileBase64 = fileB64;
+        params.fileName = fileName;
       } else if (sourceMode === 'text' && resumeText.trim()) {
         params.resumeText = resumeText.trim();
       } else {
-        setError('Upload a PDF, paste resume text, or run an initial format first.');
+        setError('Upload a resume file, paste resume text, or run an initial format first.');
         setRunning(false);
         return;
       }
@@ -185,6 +206,31 @@ export default function ProfileFormatPage() {
     URL.revokeObjectURL(url);
   };
 
+  const [wordBusy, setWordBusy] = useState(false);
+  const downloadWord = async () => {
+    if (!draft) return;
+    setWordBusy(true);
+    try {
+      const { blob, filename } = await buildProfileDocx(draft);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(`Word export failed: ${(e as Error).message}`);
+    } finally {
+      setWordBusy(false);
+    }
+  };
+
+  const parsed = useMemo(() => parseProfile(draft), [draft]);
+  const printHtml = useMemo(() => profileToHtml(parsed), [parsed]);
+  const footerCss = parsed.footer.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
   /** Trigger the browser print dialog — user picks "Save as PDF" to get a real PDF.
    *  Print-only CSS hides everything except the formatted output. */
   const savePdf = () => {
@@ -200,7 +246,7 @@ export default function ProfileFormatPage() {
       <div className="profile-format-chrome">
         <PageHeader
           title="Profile Format"
-          subtitle="Upload a candidate resume, describe how you want it tweaked, and Claude rewrites it into the Simpliigence house format. Save as PDF when you're happy."
+          subtitle="Upload a candidate resume, describe any tweaks, and Claude rewrites it into the Simpliigence standard profile template. Download as Word or PDF."
           action={
             (sourceReady || draft) ? (
               <button
@@ -219,15 +265,15 @@ export default function ProfileFormatPage() {
           <div className="space-y-4">
             {/* Source picker */}
             <Card title="1 · Source resume">
-              {sourceMode === 'pdf' ? (
+              {sourceMode === 'file' ? (
                 <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
                   <div className="flex items-center gap-2 text-sm text-emerald-900 min-w-0">
                     <FileText size={16} className="flex-shrink-0" />
-                    <span className="font-medium truncate">{pdfFilename}</span>
+                    <span className="font-medium truncate">{fileName}</span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setPdfBase64(null); setPdfFilename(''); setSourceMode('none'); }}
+                    onClick={() => { setFileB64(null); setFileName(''); setSourceMode('none'); }}
                     className="text-xs text-emerald-700 hover:text-emerald-900 hover:underline whitespace-nowrap ml-3"
                   >
                     Replace
@@ -258,11 +304,11 @@ export default function ProfileFormatPage() {
                     className="block border-2 border-dashed border-line rounded-lg p-6 text-center cursor-pointer hover:bg-surface-2/70 hover:border-primary/50"
                   >
                     <Upload size={28} className="text-muted/70 mx-auto mb-2" />
-                    <div className="text-sm font-medium text-ink/80">Drop a PDF or .txt resume here</div>
-                    <div className="text-[11px] text-muted mt-1">or click to pick a file</div>
+                    <div className="text-sm font-medium text-ink/80">Drop a resume here — PDF, Word or RTF</div>
+                    <div className="text-[11px] text-muted mt-1">.pdf · .docx · .doc · .rtf · .txt — or click to pick a file</div>
                     <input
                       type="file"
-                      accept=".pdf,.txt,application/pdf,text/plain"
+                      accept={`${DOC_ACCEPT},.txt,text/plain`}
                       className="hidden"
                       onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
                     />
@@ -280,11 +326,11 @@ export default function ProfileFormatPage() {
             </Card>
 
             {/* Target format — OPTIONAL */}
-            <Card title="2 · Target format (optional)">
+            <Card title="2 · Client-specific format (optional)">
               <p className="text-[11px] text-muted mb-3">
-                By default Claude uses the Simpliigence house format. If you have a different format you want — e.g. a client-specific resume template — upload a sample PDF here and Claude will match its layout instead.
+                Every profile uses the Simpliigence standard template by default — name, title and contact header; Professional Profile; Core Expertise; Simpliigence projects; Professional Experience; Technology &amp; Architecture; Education &amp; Certifications; and a name | title footer on every page. Only upload a sample (PDF, Word or RTF) if a client insists on its own section order.
               </p>
-              {targetPdfBase64 ? (
+              {targetB64 ? (
                 <div className="flex items-center justify-between p-3 bg-violet-50 border border-violet-200 rounded-lg">
                   <div className="flex items-center gap-2 text-sm text-violet-900 min-w-0">
                     <Target size={16} className="flex-shrink-0" />
@@ -292,7 +338,7 @@ export default function ProfileFormatPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setTargetPdfBase64(null); setTargetFilename(''); }}
+                    onClick={() => { setTargetB64(null); setTargetFilename(''); }}
                     className="text-xs text-violet-700 hover:text-violet-900 hover:underline whitespace-nowrap ml-3"
                   >
                     Remove
@@ -305,11 +351,11 @@ export default function ProfileFormatPage() {
                   className="block border-2 border-dashed border-line rounded-lg p-4 text-center cursor-pointer hover:bg-surface-2/70 hover:border-violet-300"
                 >
                   <Target size={20} className="text-muted/70 mx-auto mb-1" />
-                  <div className="text-[12px] font-medium text-ink/80">Drop a sample-format PDF here</div>
+                  <div className="text-[12px] font-medium text-ink/80">Drop a sample-format file here</div>
                   <div className="text-[10px] text-muted mt-0.5">Or click — Claude will mimic its layout</div>
                   <input
                     type="file"
-                    accept=".pdf,application/pdf"
+                    accept={DOC_ACCEPT}
                     className="hidden"
                     onChange={(e) => handleTargetFile(e.target.files?.[0] ?? null)}
                   />
@@ -369,11 +415,20 @@ export default function ProfileFormatPage() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
+                    onClick={downloadWord}
+                    disabled={wordBusy}
+                    className="text-[11px] font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 px-2.5 py-1 rounded inline-flex items-center gap-1"
+                    title="Download as a Word document in the Simpliigence template"
+                  >
+                    {wordBusy ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />} Word
+                  </button>
+                  <button
+                    type="button"
                     onClick={savePdf}
-                    className="text-[11px] font-semibold text-white bg-primary hover:bg-primary/90 px-2.5 py-1 rounded inline-flex items-center gap-1"
+                    className="text-[11px] font-semibold text-primary border border-primary/40 hover:bg-primary/10 px-2.5 py-1 rounded inline-flex items-center gap-1"
                     title="Open the browser print dialog — choose 'Save as PDF'"
                   >
-                    <Printer size={11} /> Save as PDF
+                    <Printer size={11} /> PDF
                   </button>
                   <button
                     type="button"
@@ -452,91 +507,28 @@ export default function ProfileFormatPage() {
 
       {/* Print-only area — only the rendered profile shows when saving as PDF. */}
       <div className="profile-format-print-only">
-        <div className="simpliigence-profile" dangerouslySetInnerHTML={{ __html: renderMarkdownLite(draft) }} />
+        <div className="simpliigence-profile" dangerouslySetInnerHTML={{ __html: printHtml }} />
       </div>
 
-      {/* Styles — house format (always applied) + print-only overrides */}
+      {/* Styles — Simpliigence standard template (lib/profileTemplate.ts) + print-only overrides */}
       <style>{`
-        /* Simpliigence house format — applied both on screen preview AND print */
-        .simpliigence-profile {
-          font-family: Arial, "Helvetica Neue", sans-serif;
-          color: #1e293b;
-          line-height: 1.55;
-          font-size: 11pt;
-        }
-        .simpliigence-profile h1 {
-          font-family: "Arial Black", "Helvetica Neue", sans-serif;
-          font-size: 22pt;
-          font-weight: 900;
-          letter-spacing: 0.04em;
-          color: #1e293b;
-          text-transform: uppercase;
-          margin: 0 0 16px;
-          padding-bottom: 8px;
-          border-bottom: 2px solid #268066;
-        }
-        .simpliigence-profile h2 {
-          font-family: "Arial Black", "Helvetica Neue", sans-serif;
-          font-size: 13pt;
-          font-weight: 900;
-          color: #268066;
-          text-transform: uppercase;
-          margin: 18px 0 6px;
-          letter-spacing: 0.02em;
-        }
-        .simpliigence-profile h3 {
-          font-size: 11pt;
-          font-weight: 700;
-          color: #1e293b;
-          margin: 12px 0 4px;
-        }
-        .simpliigence-profile p {
-          margin: 4px 0;
-        }
-        .simpliigence-profile blockquote {
-          font-style: italic;
-          border-left: 3px solid #268066;
-          padding: 4px 0 4px 12px;
-          margin: 6px 0 10px;
-          color: #475569;
-        }
-        .simpliigence-profile ul {
-          list-style: none;
-          padding-left: 0;
-          margin: 4px 0 8px;
-        }
-        .simpliigence-profile li {
-          position: relative;
-          padding-left: 18px;
-          margin: 3px 0;
-        }
-        .simpliigence-profile li::before {
-          content: "▸";
-          color: #268066;
-          position: absolute;
-          left: 0;
-          top: 0;
-          font-weight: 900;
-        }
-        .simpliigence-profile strong {
-          color: #1e293b;
-          font-weight: 700;
-        }
-        .simpliigence-profile em {
-          color: #475569;
-        }
+        ${PROFILE_CSS}
+        .profile-format-page { background: #fff; color: #000; border: 1px solid #e5e7eb; border-radius: 6px; padding: 28px 34px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 
         /* Hide the print-only area when on screen */
         .profile-format-print-only { display: none; }
 
         @media print {
-          /* Hide everything except the printable profile */
           .profile-format-chrome { display: none !important; }
           .profile-format-print-only { display: block !important; }
-
-          /* Force light background and tight page margins */
-          @page { size: letter; margin: 0.6in 0.5in; }
+          .profile-format-print-only .sp-footer { display: none; }
+          @page {
+            size: letter;
+            margin: 0.55in 0.7in;
+            @bottom-center { content: "${footerCss}"; font-family: Aptos, Calibri, Arial, sans-serif; font-size: 8pt; color: #000; }
+          }
           body { background: white !important; }
+          html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
     </div>
@@ -548,7 +540,7 @@ export default function ProfileFormatPage() {
 function FormattedPreview({ markdown, onEdit }: { markdown: string; onEdit: (next: string) => void }) {
   const [editing, setEditing] = useState(false);
 
-  const html = useMemo(() => renderMarkdownLite(markdown), [markdown]);
+  const html = useMemo(() => profileToHtml(parseProfile(markdown)), [markdown]);
 
   if (editing) {
     return (
@@ -579,62 +571,12 @@ function FormattedPreview({ markdown, onEdit }: { markdown: string; onEdit: (nex
       >
         <FileEdit size={11} /> Edit
       </button>
-      <div
-        className="simpliigence-profile"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="profile-format-page clear-both mt-6">
+        <div
+          className="simpliigence-profile"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     </div>
   );
-}
-
-/** Minimal markdown-to-HTML — handles the subset Claude produces for the
- *  Simpliigence format: # / ## / ### / blockquote `>` / **bold** / *italic*
- *  / `code` / `-` bullets / blank-line paragraphs. */
-function renderMarkdownLite(md: string): string {
-  const escape = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const lines = md.split('\n');
-  const out: string[] = [];
-  let inList = false;
-  let inQuote = false;
-  const flushList = () => { if (inList) { out.push('</ul>'); inList = false; } };
-  const flushQuote = () => { if (inQuote) { out.push('</blockquote>'); inQuote = false; } };
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    if (!line.trim()) { flushList(); flushQuote(); continue; }
-
-    let m: RegExpMatchArray | null;
-    if ((m = line.match(/^# (.+)/))) { flushList(); flushQuote(); out.push(`<h1>${inline(m[1])}</h1>`); continue; }
-    if ((m = line.match(/^## (.+)/))) { flushList(); flushQuote(); out.push(`<h2>${inline(m[1])}</h2>`); continue; }
-    if ((m = line.match(/^### (.+)/))) { flushList(); flushQuote(); out.push(`<h3>${inline(m[1])}</h3>`); continue; }
-    if ((m = line.match(/^>\s*(.*)/))) {
-      flushList();
-      if (!inQuote) { out.push('<blockquote>'); inQuote = true; }
-      out.push(`<p>${inline(m[1])}</p>`);
-      continue;
-    }
-    if ((m = line.match(/^[-*]\s+(.+)/))) {
-      flushQuote();
-      if (!inList) { out.push('<ul>'); inList = true; }
-      out.push(`<li>${inline(m[1])}</li>`);
-      continue;
-    }
-    flushList();
-    flushQuote();
-    out.push(`<p>${inline(line)}</p>`);
-  }
-  flushList();
-  flushQuote();
-
-  function inline(s: string): string {
-    let t = escape(s);
-    t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    t = t.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
-    t = t.replace(/`([^`]+?)`/g, '<code>$1</code>');
-    return t;
-  }
-
-  return out.join('\n');
 }

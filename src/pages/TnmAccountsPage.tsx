@@ -464,8 +464,8 @@ function StatusChip({
   onClick: () => void;
 }) {
   const activeTone =
-    tone === 'active' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
-    tone === 'prospect' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' :
+    tone === 'active' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' :
+    tone === 'prospect' ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-sm' :
     'bg-slate-500 text-white border-slate-500 shadow-sm';
   const offTone = 'bg-surface text-muted border-line hover:border-primary hover:text-primary';
   return (

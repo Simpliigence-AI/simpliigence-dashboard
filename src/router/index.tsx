@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
 import DashboardPage from '../pages/DashboardPage';
 import TeamRosterPage from '../pages/TeamRosterPage';
@@ -8,7 +8,6 @@ import PipelinePage from '../pages/PipelinePage';
 import ForecastingPage from '../pages/ForecastingPage';
 import FinancialsPage from '../pages/FinancialsPage';
 import SettingsPage from '../pages/SettingsPage';
-import HiringForecastPage from '../pages/HiringForecastPage';
 import ConciergePage from '../pages/ConciergePage';
 import IndiaStaffingPage from '../pages/IndiaStaffingPage';
 import USStaffingPage from '../pages/USStaffingPage';
@@ -40,6 +39,9 @@ import AuditLogPage from '../pages/admin/AuditLogPage';
 import LeaveAdminPage from '../pages/admin/LeaveAdminPage';
 import AccessMatrixPage from '../pages/admin/AccessMatrixPage';
 import CheckinAdminPage from '../pages/admin/CheckinAdminPage';
+import ProjectPlansPage from '../pages/ProjectPlansPage';
+import ProjectPlanDetailPage from '../pages/project-plans/ProjectPlanDetailPage';
+import DeliveryHomePage from '../pages/DeliveryHomePage';
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
@@ -74,8 +76,14 @@ export const router = createBrowserRouter(
         { path: 'actual-hours', element: <RoleOnly allow={['admin']}><ActualHoursPage /></RoleOnly> },
         { path: 'projects', element: <RoleOnly allow={['admin']}><ProjectPipelinePage /></RoleOnly> },
         { path: 'pipeline', element: <RoleOnly allow={['admin']}><PipelinePage /></RoleOnly> },
+        // Gated by the 'project-plans' tab (role + per-user grants), not by role alone —
+        // BAs and project leads with role='employee' own plans too. Pages redirect if denied.
+        // Delivery Home — gated by the 'project-plans' tab like the plans themselves.
+        { path: 'delivery-home', element: <DeliveryHomePage /> },
+        { path: 'project-plans', element: <ProjectPlansPage /> },
+        { path: 'project-plans/:id', element: <ProjectPlanDetailPage /> },
         { path: 'forecasting', element: <RoleOnly allow={['admin']}><ForecastingPage /></RoleOnly> },
-        { path: 'hiring-forecast', element: <RoleOnly allow={['admin']}><HiringForecastPage /></RoleOnly> },
+        { path: 'hiring-forecast', element: <Navigate to="/home" replace /> }, // retired — India Hiring Forecast remains
         { path: 'financials', element: <RoleOnly allow={['admin']}><FinancialsPage /></RoleOnly> },
 
         // India T&M section

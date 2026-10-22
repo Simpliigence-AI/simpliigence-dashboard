@@ -13,6 +13,7 @@
 import { useAuthStore } from '../store/useAuthStore';
 import { useAccessStore } from '../store/useAccessStore';
 import { useIsOwner } from '../components/OwnerOnly';
+import { useFinancialsRevealStore } from '../store/useFinancialsRevealStore';
 import type { AccessLevel } from '../types/access';
 
 export function usePageAccess(pageKey: string): AccessLevel {
@@ -31,6 +32,14 @@ export function usePageAccess(pageKey: string): AccessLevel {
  * and see financial values. Non-permitted users still see masked (•••)
  * regardless of what the reveal store says.
  */
+/** True only when the viewer may reveal financials AND has toggled them on.
+ *  While false, the Financials page is removed from the nav and Home. */
+export function useShowFinancials(): boolean {
+  const canReveal = useCanRevealFinancials();
+  const revealed = useFinancialsRevealStore((s) => s.revealed);
+  return canReveal && revealed;
+}
+
 export function useCanRevealFinancials(): boolean {
   const isOwner = useIsOwner();
   const canView = useAuthStore((s) => !!s.currentUser?.canViewFinancials);

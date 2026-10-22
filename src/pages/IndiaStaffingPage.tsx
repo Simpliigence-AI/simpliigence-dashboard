@@ -9,6 +9,7 @@ import {
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { IndiaStaffingSplitView } from './india-staffing/IndiaStaffingSplitView';
+import { ShareToReferralsToggle, isInternalAccountName } from '../components/staffing/ShareToReferralsToggle';
 import { Rows3, Columns3 } from 'lucide-react';
 import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
 import { Sensitive } from '../components/Sensitive';
@@ -31,8 +32,10 @@ import { Card, StatCard, StatusBadge } from '../components/ui';
 import type { StaffingRow, RiskLevel, PipelineStage, StaffingStatus } from '../types/staffing';
 import { forecastRealisticClosures } from '../lib/aiForecastCloseRate';
 import type { ForecastEntry, MonthBucket } from '../lib/aiForecastCloseRate';
-import { STAGE_COLORS, ARCHIVED_STATUSES, CLOSED_WON_STATUSES, LOST_OR_CANCELLED_STATUSES } from '../types/staffing';
+import { STAGE_COLORS, ARCHIVED_STATUSES, CLOSED_WON_STATUSES, LOST_OR_CANCELLED_STATUSES, WORK_MODES, workModeNeedsLocation, validateReqBillingFields, missingReqBillingFields, REQ_BILLING_FIELD_LABELS } from '../types/staffing';
+import type { WorkMode } from '../types/staffing';
 import confetti from 'canvas-confetti';
+import { chipStyle } from '../lib/chipStyle';
 
 /* -- Constants -- */
 const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed Won', 'Closed Lost', 'Cancelled'];
@@ -164,7 +167,9 @@ export default function IndiaStaffingPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [screeningOpen, setScreeningOpen] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [newReq, setNewReq] = useState({ accountId: '', newAccountName: '', title: '', month: 'April', positions: 1, expectedClosure: '', anticipation: '', clientSpoc: '', department: '', startDate: todayStr, closeByDate: '' });
+  const emptyBilling = { billStartDate: '', budgetPerHour: '', workMode: '' as WorkMode | '', location: '' };
+  const [newReq, setNewReq] = useState({ accountId: '', newAccountName: '', title: '', month: 'April', positions: 1, expectedClosure: '', anticipation: '', clientSpoc: '', department: '', startDate: todayStr, closeByDate: '', ...emptyBilling });
+  const newReqBillingError = validateReqBillingFields(newReq);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Bulk selection state — keyed by requisition id. Only applies to the active
@@ -338,6 +343,11 @@ export default function IndiaStaffingPage() {
         velocity: analysis.velocity,
         clientSpoc: req.client_spoc || '',
         department: req.department || '',
+        shareToReferrals: !!req.share_to_referrals,
+        billStartDate: req.bill_start_date || '',
+        budgetPerHourUsd: req.budget_per_hour_usd ?? null,
+        workMode: req.work_mode || '',
+        location: req.location || '',
       };
     });
   }, [requisitions, statuses, accounts, candidates]);
@@ -401,6 +411,15 @@ export default function IndiaStaffingPage() {
       case 'stage': patch.stage = value; break;
       case 'anticipation': patch.anticipation = value; break;
       case 'account_id': patch.account_id = value; break;
+      case 'share_to_referrals': patch.share_to_referrals = value === 'true' || value === 1; break;
+      case 'bill_start_date': patch.bill_start_date = value; break;
+      case 'budget_per_hour_usd': {
+        const n = Number(value);
+        patch.budget_per_hour_usd = value === '' || !Number.isFinite(n) || n <= 0 ? null : Math.round(n * 100) / 100;
+        break;
+      }
+      case 'work_mode': patch.work_mode = value; break;
+      case 'location': patch.location = value; break;
       case 'probability': {
         const num = Math.max(0, Math.min(100, Number(value) || 0));
         patch.probability = num;
@@ -481,10 +500,10 @@ export default function IndiaStaffingPage() {
 
   /* -- CSV export -- */
   const handleExport = () => {
-    let csv = 'Month,Account,Requisition,Positions,Client SPOC,Department,Start Date,Close Date,Ageing (days),Stage,Status,Risk,Prob,AI Prob,Anticipation,Latest Status\n';
+    let csv = 'Month,Account,Requisition,Positions,Client SPOC,Department,Start Date,Close Date,Bill Start Date,Budget/hr (USD),Work Mode,Location,Ageing (days),Stage,Status,Risk,Prob,AI Prob,Anticipation,Latest Status\n';
     const allExport = [...filtered, ...archivedRows];
     allExport.forEach((r) => {
-      csv += `${r.month},"${r.account}","${r.requisition}",${r.newPositions},"${r.clientSpoc}","${r.department}","${r.startDate}","${r.closeByDate}",${r.ageing},${r.stage},${r.statusField},${r.risk},${r.probability}%,${r.aiProbability}%,"${r.anticipation}","${(r.status || '').split('\n')[0]}"\n`;
+      csv += `${r.month},"${r.account}","${r.requisition}",${r.newPositions},"${r.clientSpoc}","${r.department}","${r.startDate}","${r.closeByDate}","${r.billStartDate}",${r.budgetPerHourUsd ?? ''},"${r.workMode}","${r.location}",${r.ageing},${r.stage},${r.statusField},${r.risk},${r.probability}%,${r.aiProbability}%,"${r.anticipation}","${(r.status || '').split('\n')[0]}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -500,6 +519,7 @@ export default function IndiaStaffingPage() {
       accountId = acct.id;
     }
     if (!accountId || accountId === '__new__' || !newReq.title.trim()) return;
+    if (validateReqBillingFields(newReq)) return;
 
     addRequisition({
       account_id: accountId,
@@ -514,10 +534,14 @@ export default function IndiaStaffingPage() {
       anticipation: newReq.anticipation,
       client_spoc: newReq.clientSpoc,
       department: newReq.department,
+      bill_start_date: newReq.billStartDate,
+      budget_per_hour_usd: Math.round(Number(newReq.budgetPerHour) * 100) / 100,
+      work_mode: newReq.workMode,
+      location: workModeNeedsLocation(newReq.workMode) ? newReq.location.trim() : '',
       probability: 0,
       ai_probability: 0,
     });
-    setNewReq({ accountId: '', newAccountName: '', title: '', month: newReq.month, positions: 1, expectedClosure: '', anticipation: '', clientSpoc: '', department: '', startDate: todayStr, closeByDate: '' });
+    setNewReq({ accountId: '', newAccountName: '', title: '', month: newReq.month, positions: 1, expectedClosure: '', anticipation: '', clientSpoc: '', department: '', startDate: todayStr, closeByDate: '', ...emptyBilling });
     setShowAddForm(false);
   };
 
@@ -550,7 +574,8 @@ export default function IndiaStaffingPage() {
       title: 'Requisition', account_id: 'Account', month: 'Month', new_positions: 'Positions',
       expected_closure: 'Expected Closure', start_date: 'Start Date', close_by_date: 'Close Date',
       status_field: 'Status', stage: 'TA Stage', anticipation: 'Anticipation',
-      client_spoc: 'Client SPOC', department: 'Department',
+      client_spoc: 'Client SPOC', department: 'Department', share_to_referrals: 'Share to referrals',
+      bill_start_date: 'Bill Start Date', budget_per_hour_usd: 'Budget / hr (USD)', work_mode: 'Work Mode', location: 'Location',
       probability: 'Prob (manual)', ai_probability: 'AI Prob',
     } as Record<string, string>)[f] || f;
 
@@ -593,6 +618,16 @@ export default function IndiaStaffingPage() {
           {/* Requisition */}
           <td className="p-2">
             <EditableCell value={r.requisition} onSave={(val) => handleCellSave(r.id, 'title', val)} />
+            {!opts.archived && missingReqBillingFields(r).length > 0 && (
+              <span className="mt-1 inline-flex items-center text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5"
+                title={`Required fields missing: ${missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')} — open the requisition to fill them in`}>
+                Missing: {missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')}
+              </span>
+            )}
+            {!opts.archived && (
+              <ShareToReferralsToggle compact checked={r.shareToReferrals} internal={isInternalAccountName(r.account)}
+                onChange={(next) => handleCellSave(r.id, 'share_to_referrals', next ? 'true' : 'false')} />
+            )}
           </td>
           {/* Month */}
           <td className="p-2">
@@ -671,7 +706,7 @@ export default function IndiaStaffingPage() {
           <td className="p-2">
             <EditableCell value={r.statusField} type="select" options={STATUS_OPTIONS}
               onSave={(val) => handleCellSave(r.id, 'status_field', val)}
-              displayContent={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STATUS_COLORS[r.statusField] || '#94a3b8' }}>{r.statusField}</span>} />
+              displayContent={<span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(STATUS_COLORS[r.statusField] || '#94a3b8')}>{r.statusField}</span>} />
           </td>
           {/* Risk */}
           <td className="p-2">
@@ -1256,14 +1291,65 @@ export default function IndiaStaffingPage() {
                 className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Bill Start Date <span className="text-rose-600">*</span></label>
+              <input
+                type="date"
+                required
+                value={newReq.billStartDate}
+                onChange={(e) => setNewReq({ ...newReq, billStartDate: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Budget / hr (USD) <span className="text-rose-600">*</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none">$</span>
+                <input
+                  type="number" min={0.01} step="0.01" inputMode="decimal"
+                  required
+                  value={newReq.budgetPerHour}
+                  onChange={(e) => setNewReq({ ...newReq, budgetPerHour: e.target.value })}
+                  placeholder="e.g. 25"
+                  className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 pl-7"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Work Mode <span className="text-rose-600">*</span></label>
+              <select
+                required
+                value={newReq.workMode}
+                onChange={(e) => setNewReq({ ...newReq, workMode: e.target.value as WorkMode | '' })}
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
+              >
+                <option value="">Select work mode...</option>
+                {WORK_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">
+                Location {workModeNeedsLocation(newReq.workMode) && <span className="text-rose-600">*</span>}
+              </label>
+              <input
+                value={newReq.location}
+                required={workModeNeedsLocation(newReq.workMode)}
+                onChange={(e) => setNewReq({ ...newReq, location: e.target.value })}
+                placeholder={workModeNeedsLocation(newReq.workMode) ? 'e.g. Bangalore, Pune...' : 'Optional for Remote'}
+                className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
           </div>
+          {newReqBillingError && (newReq.title.trim() || newReq.accountId) && (
+            <p className="text-[11px] text-rose-600 mt-3">{newReqBillingError}</p>
+          )}
           <div className="flex justify-end gap-3 mt-4">
             <button onClick={() => setShowAddForm(false)} className="px-4 py-2 rounded-lg border border-line text-sm font-medium text-muted hover:bg-surface-2/70">
               Cancel
             </button>
             <button
               onClick={handleAddRequisition}
-              disabled={(!newReq.accountId || (newReq.accountId === '__new__' && !newReq.newAccountName.trim())) || !newReq.title.trim()}
+              disabled={(!newReq.accountId || (newReq.accountId === '__new__' && !newReq.newAccountName.trim())) || !newReq.title.trim() || !!newReqBillingError}
               className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="flex items-center gap-2"><Plus size={14} /> Add Requisition</span>
@@ -2012,7 +2098,7 @@ export default function IndiaStaffingPage() {
                               {r.filledPositions > 0 ? <><span className={r.openPositions === 0 ? 'text-emerald-600' : ''}>{r.openPositions}</span><span className="text-muted/70">/{r.newPositions}</span></> : r.newPositions}
                             </td>
                             <td className="p-2 text-center">{r.startDate ? `${r.ageing}d` : '—'}</td>
-                            <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: STAGE_COLORS[r.stage] }}>{r.stage}</span></td>
+                            <td className="p-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={chipStyle(STAGE_COLORS[r.stage])}>{r.stage}</span></td>
                             <td className="p-2"><StatusBadge status={r.risk === 'high' ? 'at-risk' : r.risk === 'medium' ? 'caution' : 'on-track'} label={r.risk} /></td>
                             <td className="p-2 font-bold">{r.probability > 0 ? `${r.probability}%` : '—'}</td>
                             <td className="p-2 font-bold">{r.aiProbability}%</td>
@@ -2236,6 +2322,10 @@ export default function IndiaStaffingPage() {
                   anticipation: `Split from parent req — ${closedCount} closed as ${target}, ${remainder} still open.`,
                   client_spoc: parent.client_spoc,
                   department: parent.department,
+                  bill_start_date: parent.bill_start_date ?? '',
+                  budget_per_hour_usd: parent.budget_per_hour_usd ?? null,
+                  work_mode: parent.work_mode ?? '',
+                  location: parent.location ?? '',
                   probability: parent.probability,
                 });
                 if (target === 'Closed Won') celebrateWin();
@@ -2345,7 +2435,7 @@ export default function IndiaStaffingPage() {
           // Reuse the same addAccount path used by the legacy Add Req form.
           return addAccount(name);
         }}
-        onAddRequisition={async ({ accountId, title, month }) => {
+        onAddRequisition={async ({ accountId, title, month, billStartDate, budgetPerHourUsd, workMode, location }) => {
           await addRequisition({
             account_id: accountId,
             title,
@@ -2356,7 +2446,10 @@ export default function IndiaStaffingPage() {
             anticipation: '',
             client_spoc: '',
             department: '',
-            location: '',
+            bill_start_date: billStartDate,
+            budget_per_hour_usd: budgetPerHourUsd,
+            work_mode: workMode,
+            location,
             expected_closure: '',
             close_by_date: '',
             start_date: new Date().toISOString().slice(0, 10),

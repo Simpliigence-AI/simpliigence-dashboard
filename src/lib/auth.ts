@@ -44,7 +44,9 @@ export async function signInWithMicrosoft(): Promise<{ ok: boolean; error?: stri
 
 /** Sign the user out, clearing the local session. */
 export async function signOut(): Promise<void> {
-  await supabase.auth.signOut();
+  // 'local' ends only this browser's session. The default ('global') revoked
+  // every session the user had, logging them out of other tabs and devices.
+  await supabase.auth.signOut({ scope: 'local' });
 }
 
 /** Read the current session synchronously from the in-memory client cache. */

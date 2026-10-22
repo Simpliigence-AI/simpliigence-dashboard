@@ -30,6 +30,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, Button, Badge } from '../../components/ui';
 import { isTypeVisibleTo } from '../../types/leave';
 import type { LeaveType, LeaveAllocation, LeaveAuditEntry, AllocationSource } from '../../types/leave';
+import { chipStyle } from '../../lib/chipStyle';
 
 const INPUT_CLS = 'w-full px-2 py-1 rounded border border-line text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:border-primary';
 const Input = ({ className = '', ...p }: InputHTMLAttributes<HTMLInputElement>) =>
@@ -528,7 +529,7 @@ raghu.seetharam@simpliigence.com,CL,12,3`;
                     <td className="p-2">{r.employeeEmail}</td>
                     <td className="p-2">
                       {type ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white" style={{ background: type.color }}>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white" style={chipStyle(type.color)}>
                           {type.code}
                         </span>
                       ) : r.leaveTypeCode}

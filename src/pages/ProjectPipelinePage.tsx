@@ -1,13 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useForecastStore, usePipelineStore, useFinancialStore } from '../store';
+import { Link } from 'react-router-dom';
+import { useForecastStore, usePipelineStore, useFinancialStore, useActualHoursStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
-import { GovernanceSyncModal } from './projects/GovernanceSyncModal';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
-import { supabase } from '../lib/supabase';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore, Link2, Upload, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore, Link2, ListChecks } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -160,10 +159,23 @@ function InlineEdit({ value, onSave, type = 'text', prefix = '', placeholder = '
   );
 }
 
+/* ── Actuals ──────────────────────────────── */
+/** Hours logged against one project, from `unified_actual_hours`
+ *  (submitted + approved time entries). */
+interface ProjectActuals {
+  total: number;
+  thisMonth: number;
+  byPerson: Map<string, { name: string; hours: number; thisMonth: number }>;
+}
+
+const personKey = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
+const fmtHrs = (n: number) => (Math.round(n * 10) / 10).toLocaleString();
+
 /* ── Project card ──────────────────────────────── */
-function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, onUpdateProject, onArchive, onRestore }: {
+function ZohoProjectCard({ project, teamAllocation, actuals, loadedCost, cadToUsdRate, onUpdateProject, onArchive, onRestore }: {
   project: ZohoPipelineProject;
   teamAllocation: { name: string; role: string; totalHours: number; rateCard: number | null }[] | undefined;
+  actuals: ProjectActuals | undefined;
   loadedCost: number;
   cadToUsdRate: number;
   onUpdateProject: (id: string, updates: Partial<ZohoPipelineProject>) => void;
@@ -188,6 +200,22 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
   const revenueUsd = curr === 'CAD' ? revenue * cadToUsdRate : revenue;
   const margin = revenueUsd - loadedCost;
   const marginPct = revenueUsd > 0 ? Math.round((margin / revenueUsd) * 100) : 0;
+  const forecastHours = (teamAllocation ?? []).reduce((sum, e) => sum + e.totalHours, 0);
+
+  // Forecast and actual side by side: everyone allocated, plus anyone who
+  // logged time here without an allocation.
+  const teamRows = useMemo(() => {
+    const rows = (teamAllocation ?? []).map((e) => {
+      const a = actuals?.byPerson.get(personKey(e.name));
+      return { ...e, actual: a?.hours ?? 0, actualMonth: a?.thisMonth ?? 0, allocated: true };
+    });
+    const seen = new Set(rows.map((r) => personKey(r.name)));
+    for (const [k, a] of actuals?.byPerson ?? []) {
+      if (seen.has(k)) continue;
+      rows.push({ name: a.name, role: '', totalHours: 0, rateCard: null, actual: a.hours, actualMonth: a.thisMonth, allocated: false });
+    }
+    return rows;
+  }, [teamAllocation, actuals]);
 
   return (
     <Card>
@@ -245,6 +273,11 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
                 {curr === 'CAD' && <span className="font-normal text-muted/70 ml-1">(converted)</span>}
               </span>
             )}
+            <span className={`flex items-center gap-1 ${actuals?.total ? 'text-ink/80' : 'text-muted/70'}`}>
+              <Clock size={12} /> Actuals: <span className="font-semibold tabular-nums">{fmtHrs(actuals?.total ?? 0)}</span> hrs
+              {forecastHours > 0 && <span className="text-muted"> of {fmtHrs(forecastHours)} forecast</span>}
+              {(actuals?.thisMonth ?? 0) > 0 && <span className="text-muted"> · {fmtHrs(actuals!.thisMonth)} this month</span>}
+            </span>
           </div>
         </div>
 
@@ -301,6 +334,17 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
 
       {expanded && (
         <div className="mt-4 border-t border-line/60 pt-4 space-y-4">
+          {/* Plan now lives in the Dashboard (migration 033). Migrated plans keep
+              their Governance id, so the existing link is the plan's id. */}
+          {project.governanceProjectId && (
+            <Link
+              to={`/project-plans/${project.governanceProjectId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+            >
+              <ListChecks size={13} /> Open project plan
+            </Link>
+          )}
           {/* Phase timeline */}
           {phases.length > 0 && project.startDate && project.endDate && (
             <PhaseTimeline phases={phases} projectStart={project.startDate} projectEnd={project.endDate} />
@@ -340,25 +384,32 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
           )}
 
           {/* Team allocation from forecast store */}
-          {teamAllocation && teamAllocation.length > 0 && (
+          {teamRows.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-ink/80 mb-2">Team Allocation <span className="font-normal text-muted/70">(from Team tab)</span></h4>
+              <h4 className="text-sm font-semibold text-ink/80 mb-2">Team Allocation &amp; Actuals <span className="font-normal text-muted/70">(forecast from Team tab · actuals from submitted and approved time)</span></h4>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b border-line">
                     <th className="pb-2 font-semibold text-muted">Employee</th>
                     <th className="pb-2 font-semibold text-muted">Role</th>
                     <th className="pb-2 font-semibold text-muted">Rate</th>
-                    <th className="pb-2 font-semibold text-muted text-right">Total Hrs</th>
+                    <th className="pb-2 font-semibold text-muted text-right">Forecast Hrs</th>
+                    <th className="pb-2 font-semibold text-muted text-right">Actual Hrs</th>
+                    <th className="pb-2 font-semibold text-muted text-right">This Month</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {teamAllocation.map((e) => (
+                  {teamRows.map((e) => (
                     <tr key={e.name} className="border-b border-line/40">
-                      <td className="py-1.5 font-medium text-ink/80">{e.name}</td>
+                      <td className="py-1.5 font-medium text-ink/80">
+                        {e.name}
+                        {!e.allocated && <span className="ml-2 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">not allocated</span>}
+                      </td>
                       <td className="py-1.5 text-muted text-xs">{e.role || '—'}</td>
                       <td className="py-1.5 text-muted">{e.rateCard ? <Sensitive>{`$${e.rateCard}/hr`}</Sensitive> : '—'}</td>
-                      <td className="py-1.5 text-right font-semibold tabular-nums">{e.totalHours}</td>
+                      <td className="py-1.5 text-right tabular-nums">{e.allocated ? fmtHrs(e.totalHours) : '—'}</td>
+                      <td className={`py-1.5 text-right font-semibold tabular-nums ${e.allocated && e.totalHours > 0 && e.actual > e.totalHours * 1.1 ? 'text-red-600' : ''}`}>{fmtHrs(e.actual)}</td>
+                      <td className="py-1.5 text-right tabular-nums text-muted">{fmtHrs(e.actualMonth)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -437,7 +488,7 @@ function ZohoProjectCard({ project, teamAllocation, loadedCost, cadToUsdRate, on
             )}
           </div>
 
-          {(!teamAllocation || teamAllocation.length === 0) && phases.length === 0 && (
+          {teamRows.length === 0 && phases.length === 0 && (
             <p className="text-sm text-muted/70 italic">No phases or team allocations yet.</p>
           )}
         </div>
@@ -451,8 +502,33 @@ export default function ProjectPipelinePage() {
   const assignments = useForecastStore((s) => s.assignments);
   const allProjects = usePipelineStore((s) => s.projects);
   const updateProject = usePipelineStore((s) => s.updateProject);
-  const addProject = usePipelineStore((s) => s.addProject);
   const cadToUsdRate = useFinancialStore((s) => s.settings.cadToUsdRate) || 0.73;
+  const actualEntries = useActualHoursStore((s) => s.entries);
+
+  // Actual hours per project (by name, case-insensitive) and per person.
+  const actualsByProject = useMemo(() => {
+    const month = new Date().toISOString().slice(0, 7);
+    const map = new Map<string, ProjectActuals>();
+    for (const e of actualEntries) {
+      if (!e.project || !e.hours) continue;
+      const key = e.project.trim().toLowerCase();
+      let pa = map.get(key);
+      if (!pa) { pa = { total: 0, thisMonth: 0, byPerson: new Map() }; map.set(key, pa); }
+      const inMonth = e.workDate?.startsWith(month) ?? false;
+      pa.total += e.hours;
+      if (inMonth) pa.thisMonth += e.hours;
+      const name = e.employeeName || e.email || 'Unknown';
+      const pk = personKey(name);
+      const pp = pa.byPerson.get(pk) ?? { name, hours: 0, thisMonth: 0 };
+      pp.hours += e.hours;
+      if (inMonth) pp.thisMonth += e.hours;
+      pa.byPerson.set(pk, pp);
+    }
+    return map;
+  }, [actualEntries]);
+  const actualsFor = (p: ZohoPipelineProject) =>
+    actualsByProject.get(p.name.trim().toLowerCase()) ??
+    (p.forecastName ? actualsByProject.get(p.forecastName.trim().toLowerCase()) : undefined);
 
   // Current projects = Zoho-sourced only.
   //
@@ -465,106 +541,6 @@ export default function ProjectPipelinePage() {
   const zohoProjects = useMemo(() => allProjects.filter((p) => p.source === 'zoho'), [allProjects]);
   const currentProjects = useMemo(() => zohoProjects.filter((p) => p.status !== 'Archived'), [zohoProjects]);
   const archivedProjects = useMemo(() => zohoProjects.filter((p) => p.status === 'Archived'), [zohoProjects]);
-
-  const [govSyncOpen, setGovSyncOpen] = useState(false);
-  /** Most recent Governance pull across all projects, for the button subtitle. */
-  const lastGovSync = useMemo(() => {
-    const stamps = zohoProjects.map((p) => p.governanceSyncedAt).filter((v): v is string => !!v).sort();
-    return stamps[stamps.length - 1] ?? null;
-  }, [zohoProjects]);
-
-  // Push team + phase + financials data to Delivery Governance. This
-  // is the OTHER direction from the sync modal above — that one PULLS
-  // the plan; this PUSHES what only the dashboard knows (rate cards,
-  // allocated hours, revenue). Governance renders it on the Overview
-  // page via /api/cockpit/sync.
-  const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle');
-  const [pushMsg, setPushMsg] = useState<string>('');
-
-  async function pushToGovernance() {
-    setPushState('pushing');
-    setPushMsg('');
-    // Build one payload row per active project the dashboard tracks.
-    // Governance matches by name (case-insensitive) — external_id is
-    // sent as the dashboard's own id so subsequent syncs stay pinned
-    // even if the name is edited on either side.
-    const rows = currentProjects.map((p) => {
-      const ps = teamByProject.get((p.forecastName ?? p.name).toLowerCase())
-             ?? teamByProject.get(p.name.toLowerCase());
-      const team = (ps?.employees ?? []).map((e) => ({
-        employee_name: e.name,
-        role: e.role,
-        rate_per_hr: e.rateCard,
-        currency: 'USD',
-        total_hrs: Math.round(e.totalHours),
-      }));
-      const phases = (p.phases ?? []).map((ph) => ({
-        name: ph.name,
-        start: ph.startDate,
-        end: ph.endDate,
-        status: ph.isClosed ? 'Completed' : (ph.status || 'Upcoming'),
-      }));
-      const rev = p.revenue ?? 0;
-      const ccy = p.revenueCurrency ?? 'USD';
-      // Governance renders margin colour-coded — send USD as the
-      // canonical since it applies its own comparison thresholds.
-      const revUsd = ccy === 'CAD' ? rev * cadToUsdRate : rev;
-      const loaded = ps?.loadedCost ?? 0;
-      const margin = revUsd - loaded;
-      const marginPct = revUsd > 0 ? Math.round((margin / revUsd) * 100) : 0;
-      return {
-        external_id: p.id,
-        name: p.name,
-        status_label: p.status,
-        owner: p.owner ?? '',
-        current_phase: (p.phases ?? []).find((ph) => !ph.isClosed)?.name ?? '',
-        phases_done: (p.phases ?? []).filter((ph) => ph.isClosed).length,
-        phases_total: (p.phases ?? []).length,
-        go_live: getGoLiveDate(p) ?? null,
-        financials: {
-          currency: ccy,
-          revenue: rev,
-          expected_cost: Math.round(loaded),
-          expected_margin: Math.round(margin),
-          expected_margin_pct: marginPct,
-        },
-        phases,
-        team_allocation: team,
-      };
-    });
-    try {
-      const { data, error } = await supabase.functions.invoke<
-        { updated?: string[]; unmatched?: { name: string }[]; error?: string }
-      >('governance-sync', {
-        body: {
-          action: 'push',
-          payload: { synced_at: new Date().toISOString(), projects: rows },
-        },
-      });
-      if (error) {
-        setPushState('error');
-        setPushMsg(error.message || 'Push failed');
-        return;
-      }
-      if (data?.error) {
-        setPushState('error');
-        setPushMsg(data.error);
-        return;
-      }
-      const updated = data?.updated?.length ?? 0;
-      const unmatched = data?.unmatched ?? [];
-      setPushState('done');
-      setPushMsg(
-        `Pushed ${updated} project${updated === 1 ? '' : 's'}` +
-        (unmatched.length
-          ? ` · ${unmatched.length} unmatched (${unmatched.slice(0, 3).map((u) => u.name).join(', ')}${unmatched.length > 3 ? '…' : ''})`
-          : ''),
-      );
-    } catch (e) {
-      setPushState('error');
-      setPushMsg((e as Error).message || 'Push failed');
-    }
-  }
 
   const archive = (id: string) => updateProject(id, { status: 'Archived' });
   // 'In Progress' is the neutral re-entry status — the real one would have to
@@ -591,58 +567,12 @@ export default function ProjectPipelinePage() {
         title="Current Projects"
         subtitle={`${currentProjects.length} current projects`}
         action={
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={pushToGovernance}
-                disabled={pushState === 'pushing'}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-blue-600 text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-60"
-                title="Push this dashboard's team allocation, phases, and financials to the Governance Overview page"
-              >
-                {pushState === 'pushing' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                Push team &amp; $ to Governance
-              </button>
-              <button
-                type="button"
-                onClick={() => setGovSyncOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-              >
-                <Link2 size={14} />
-                Sync with Delivery Governance
-              </button>
-            </div>
-            {pushMsg && (
-              <span className={`text-[10px] ${pushState === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>
-                {pushMsg}
-              </span>
-            )}
-            {lastGovSync && !pushMsg && (
-              <span className="text-[10px] text-muted/70">
-                Last synced {new Date(lastGovSync).toLocaleString(undefined, {
-                  day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
-                })}
-              </span>
-            )}
-          </div>
+          <Link to="/project-plans" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-line text-ink hover:bg-surface-2">
+            <Link2 size={14} /> Plans, scope and change requests are in Project Plans
+          </Link>
         }
       />
 
-      {govSyncOpen && (
-        <GovernanceSyncModal
-          projects={currentProjects}
-          allProjects={allProjects}
-          onClose={() => setGovSyncOpen(false)}
-          onApply={async (updates) => {
-            const errors = await Promise.all(updates.map((u) => updateProject(u.id, u.patch)));
-            return errors.find((e) => e !== null) ?? null;
-          }}
-          onCreate={async (created) => {
-            const errors = await Promise.all(created.map((p) => addProject(p)));
-            return errors.find((e) => e !== null) ?? null;
-          }}
-        />
-      )}
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -670,6 +600,7 @@ export default function ProjectPipelinePage() {
               key={project.id}
               project={project}
               teamAllocation={ps?.employees}
+              actuals={actualsFor(project)}
               loadedCost={ps?.loadedCost ?? 0}
               cadToUsdRate={cadToUsdRate}
               onUpdateProject={updateProject}
@@ -710,6 +641,7 @@ export default function ProjectPipelinePage() {
                     <ZohoProjectCard
                       project={project}
                       teamAllocation={ps?.employees}
+                      actuals={actualsFor(project)}
                       loadedCost={ps?.loadedCost ?? 0}
                       cadToUsdRate={cadToUsdRate}
                       onUpdateProject={updateProject}

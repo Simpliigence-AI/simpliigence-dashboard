@@ -36,6 +36,10 @@ export interface UserProfile {
   email: string;
   fullName: string | null;
   role: UserRole;
+  /** Current manager (authorized_users.manager_email) — used by the Leave
+   *  page to surface a manager's CURRENT reportees' requests even when the
+   *  request's routing snapshot is stale or NULL. */
+  managerEmail: string | null;
   avatarUrl: string | null;
   gender: string | null;
 }
@@ -126,19 +130,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('authorized_users')
-        .select('email, full_name, role, avatar_url, gender');
+        .select('email, full_name, role, manager_email, avatar_url, gender');
       if (error) {
         console.warn('[auth] loadDirectory failed:', error.message);
         return;
       }
       const dir: Record<string, UserProfile> = {};
-      for (const row of (data ?? []) as Array<{ email: string; full_name: string | null; role: string | null; avatar_url: string | null; gender: string | null }>) {
+      for (const row of (data ?? []) as Array<{ email: string; full_name: string | null; role: string | null; manager_email: string | null; avatar_url: string | null; gender: string | null }>) {
         const e = (row.email || '').toLowerCase();
         if (!e) continue;
         dir[e] = {
           email: e,
           fullName: row.full_name ?? null,
           role: ((row.role as UserRole | undefined) ?? 'employee'),
+          managerEmail: row.manager_email ? row.manager_email.toLowerCase() : null,
           avatarUrl: row.avatar_url ?? null,
           gender: row.gender ?? null,
         };
@@ -156,6 +161,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       email: k,
       fullName: patch.fullName ?? cur?.fullName ?? null,
       role: (patch.role ?? cur?.role ?? 'employee') as UserRole,
+      managerEmail: patch.managerEmail ?? cur?.managerEmail ?? null,
       avatarUrl: patch.avatarUrl ?? cur?.avatarUrl ?? null,
       gender: patch.gender ?? cur?.gender ?? null,
     };
@@ -175,6 +181,7 @@ export function lookupProfile(email: string | null | undefined, directory: Recor
     email: e,
     fullName: e ? prettyFromEmail(e) : null,
     role: 'employee',
+    managerEmail: null,
     avatarUrl: null,
     gender: null,
   };

@@ -47,6 +47,35 @@ import type { CallTemplate, CandidateCall, ExtractedAnswers, TemplateQuestion } 
  * those users — otherwise the masked value round-trips and overwrites the
  * real cost. See permissions-framework.md.
  */
+/**
+ * supabase-js's FunctionsHttpError only says "Edge Function returned a non-2xx
+ * status code"; the function's real JSON {error, detail} sits on
+ * `error.context` (a Response). Read it so the UI can show the actual reason.
+ * Falls back to the HTTP status when the body is empty (e.g. a platform
+ * timeout, which returns no JSON).
+ */
+async function edgeFunctionErrorMessage(error: { message: string }): Promise<string> {
+  const ctx = (error as unknown as { context?: Response }).context;
+  if (!ctx || typeof ctx.text !== 'function') return error.message;
+  const status = typeof ctx.status === 'number' ? ctx.status : undefined;
+  try {
+    const raw = await ctx.text();
+    try {
+      const parsed = JSON.parse(raw) as { error?: string; detail?: string };
+      if (parsed.error) return parsed.detail ? `${parsed.error} — ${parsed.detail}` : parsed.error;
+    } catch {
+      // not JSON — fall through to raw text
+    }
+    if (raw.trim()) return `${status ? `HTTP ${status}: ` : ''}${raw.slice(0, 500)}`;
+  } catch {
+    // body already consumed — fall back below
+  }
+  if (status === 504 || status === 546) {
+    return `The resume parser timed out (HTTP ${status}). Please try again; if it keeps failing, try the PDF version.`;
+  }
+  return status ? `${error.message} (HTTP ${status})` : error.message;
+}
+
 function canSeeMoney(): boolean {
   return !!useAuthStore.getState().currentUser?.canViewFinancials;
 }
@@ -2413,7 +2442,7 @@ export const db = {
       error?: string;
       detail?: string;
     }>('parse-resume', { body: { candidateId } });
-    if (error) return { ok: false, error: error.message };
+    if (error) return { ok: false, error: await edgeFunctionErrorMessage(error) };
     if (data?.error) return { ok: false, error: `${data.error}${data.detail ? ` — ${data.detail}` : ''}` };
     return {
       ok: true,

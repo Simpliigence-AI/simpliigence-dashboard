@@ -271,7 +271,8 @@ function indiaReqToRow(r: IndiaRequisition) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToIndiaReq(row: any): IndiaRequisition {
   return {
-    id: row.id, account_id: row.account_id, title: row.title, month: row.month,
+    // job_code is read-only here: the database mints it, so indiaReqToRow never sends it.
+    id: row.id, job_code: row.job_code ?? undefined, account_id: row.account_id, title: row.title, month: row.month,
     new_positions: row.new_positions ?? 0, expected_closure: row.expected_closure ?? '',
     start_date: row.start_date ?? '',
     close_by_date: row.close_by_date ?? '', status_field: row.status_field ?? 'Open',

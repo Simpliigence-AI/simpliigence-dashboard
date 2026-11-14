@@ -9,6 +9,8 @@ import {
 import { useStaffingStore } from '../store/useStaffingStore';
 import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { IndiaStaffingSplitView } from './india-staffing/IndiaStaffingSplitView';
+import { JobCodeChip } from '../components/staffing/JobCodeChip';
+import { approvedCostInrPerMonth } from '../lib/margin';
 import { ShareToReferralsToggle, isInternalAccountName } from '../components/staffing/ShareToReferralsToggle';
 import { Rows3, Columns3 } from 'lucide-react';
 import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
@@ -326,6 +328,7 @@ export default function IndiaStaffingPage() {
       return {
         id: req.id, month: req.month, account: acct?.name || 'Unknown', account_id: req.account_id,
         requisition: req.title,
+        jobCode: req.job_code || '',
         newPositions: req.new_positions,
         filledPositions,
         openPositions,
@@ -500,10 +503,10 @@ export default function IndiaStaffingPage() {
 
   /* -- CSV export -- */
   const handleExport = () => {
-    let csv = 'Month,Account,Requisition,Positions,Client SPOC,Department,Start Date,Close Date,Bill Start Date,Budget/hr (USD),Work Mode,Location,Ageing (days),Stage,Status,Risk,Prob,AI Prob,Anticipation,Latest Status\n';
+    let csv = 'Job ID,Month,Account,Requisition,Positions,Client SPOC,Department,Start Date,Close Date,Bill Start Date,Budget/hr (USD),Approved Cost/month (INR),Work Mode,Location,Ageing (days),Stage,Status,Risk,Prob,AI Prob,Anticipation,Latest Status\n';
     const allExport = [...filtered, ...archivedRows];
     allExport.forEach((r) => {
-      csv += `${r.month},"${r.account}","${r.requisition}",${r.newPositions},"${r.clientSpoc}","${r.department}","${r.startDate}","${r.closeByDate}","${r.billStartDate}",${r.budgetPerHourUsd ?? ''},"${r.workMode}","${r.location}",${r.ageing},${r.stage},${r.statusField},${r.risk},${r.probability}%,${r.aiProbability}%,"${r.anticipation}","${(r.status || '').split('\n')[0]}"\n`;
+      csv += `${r.jobCode},${r.month},"${r.account}","${r.requisition}",${r.newPositions},"${r.clientSpoc}","${r.department}","${r.startDate}","${r.closeByDate}","${r.billStartDate}",${r.budgetPerHourUsd ?? ''},${approvedCostInrPerMonth(r.budgetPerHourUsd) ?? ''},"${r.workMode}","${r.location}",${r.ageing},${r.stage},${r.statusField},${r.risk},${r.probability}%,${r.aiProbability}%,"${r.anticipation}","${(r.status || '').split('\n')[0]}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -618,6 +621,7 @@ export default function IndiaStaffingPage() {
           {/* Requisition */}
           <td className="p-2">
             <EditableCell value={r.requisition} onSave={(val) => handleCellSave(r.id, 'title', val)} />
+            {r.jobCode && <JobCodeChip code={r.jobCode} />}
             {!opts.archived && missingReqBillingFields(r).length > 0 && (
               <span className="mt-1 inline-flex items-center text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5"
                 title={`Required fields missing: ${missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')} — open the requisition to fill them in`}>

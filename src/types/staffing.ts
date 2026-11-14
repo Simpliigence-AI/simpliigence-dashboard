@@ -30,6 +30,10 @@ export const LOST_OR_CANCELLED_STATUSES: StaffingStatus[] = ['Closed Lost', 'Can
 
 export interface StaffingRequisition {
   id: string;
+  /** Human-readable job ID (REQ-1042). Minted by the database on insert, never by the
+   *  client; undefined for a moment on a brand-new requisition until the first refetch.
+   *  Vendors and TAs quote it in an email subject to file resumes against this role. */
+  job_code?: string;
   account_id: string;
   account_name?: string;
   title: string;
@@ -258,6 +262,8 @@ export interface StaffingRow {
   account: string;
   account_id: string;
   requisition: string;
+  /** Job ID (REQ-1042), '' until the database has minted one. */
+  jobCode: string;
   /** Total positions requested on the requisition (e.g. 6). */
   newPositions: number;
   /** Candidates linked to this req in 'filled' stages (Offer Accepted, Joined). */

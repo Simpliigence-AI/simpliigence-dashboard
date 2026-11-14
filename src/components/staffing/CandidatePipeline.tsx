@@ -22,6 +22,7 @@ import {
 } from '../../types/staffing';
 import { useStaffingStore } from '../../store/useStaffingStore';
 import { chipStyle } from '../../lib/chipStyle';
+import { SuggestedProfiles } from './SuggestedProfiles';
 
 interface Props {
   requisitionId: string;
@@ -320,6 +321,10 @@ export function CandidatePipeline({ requisitionId, candidates, onUpdate }: Props
           </div>
         );
       })()}
+
+      <div className="mt-3">
+        <SuggestedProfiles requisitionId={requisitionId} defaultOpen={false} />
+      </div>
     </div>
   );
 }

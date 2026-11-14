@@ -402,8 +402,8 @@ export default function IndiaStaffingPage() {
 
   /** Positions closed this month / this year, external and internal apart. */
   const closureCard = useMemo(
-    () => buildClosureScorecard(accounts, requisitions, history, new Map(rows.map((r) => [r.id, r.openPositions]))),
-    [accounts, requisitions, history, rows],
+    () => buildClosureScorecard(accounts, requisitions, history, candidates, new Map(rows.map((r) => [r.id, r.openPositions]))),
+    [accounts, requisitions, history, candidates, rows],
   );
 
   /** Archived rows (Closed / Lost / Cancelled) — also respects filters */

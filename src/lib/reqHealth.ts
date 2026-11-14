@@ -15,11 +15,11 @@
  * The signal for "fast close" is the CANDIDATES on the role, never the role's own
  * `stage`: in practice every live role sits at "Sourcing" regardless of progress.
  *
- * Closures follow the Demand Analytics rules: outcome from `status_field`, credited
- * to the month the status flipped (see indiaDemandAnalytics.closedMonth). A closure
- * counts the role's positions. Internal accounts are always reported separately.
+ * Closures count positions, not requisitions: a position closes when a candidate
+ * accepts the offer. See buildClosureScorecard. Internal accounts are always reported
+ * separately.
  */
-import type { StaffingAccount, StaffingRequisition, StaffingHistoryEntry, StaffingStatus } from '../types/staffing';
+import type { StaffingAccount, StaffingRequisition, StaffingHistoryEntry, StaffingStatus, StaffingCandidate } from '../types/staffing';
 import { ARCHIVED_STATUSES } from '../types/staffing';
 import { closedMonth, monthKey } from './indiaDemandAnalytics';
 
@@ -124,8 +124,23 @@ export interface ClosureScorecard {
   externalByMonth: { month: string; closed: number }[];
 }
 
+/** Candidate stages that lock a position in. A position counts as closed from this point. */
+const FILLED_STAGES = new Set<string>(['Offer Accepted', 'Joined']);
+
 /**
- * Positions closed (Closed Won) this month and this year, external and internal apart.
+ * Positions closed this month and this year, external and internal apart.
+ *
+ * A position is closed when a candidate accepts the offer (or joins), which is what
+ * the team means by "closed" — not when the requisition's status is later switched to
+ * Closed Won. A four-position role that has filled one seat shows one closure now,
+ * while the role itself stays In Progress.
+ *
+ *  1. Each candidate at Offer Accepted / Joined is one closed position, in the month
+ *     of `filled_at` (stamped by the database when the stage is first reached).
+ *  2. A Closed Won requisition also counts any positions NOT covered by such
+ *     candidates (many closed roles have no candidate rows at all), in the month the
+ *     status flipped. So nothing is counted twice and nothing closed is missed.
+ *
  * `openPositionsByReq` is the page's own open-position count per live requisition
  * (requested minus filled), so the scorecard agrees with the rows beneath it.
  */
@@ -133,6 +148,7 @@ export function buildClosureScorecard(
   accounts: StaffingAccount[],
   requisitions: StaffingRequisition[],
   history: StaffingHistoryEntry[],
+  candidates: Pick<StaffingCandidate, 'requisition_id' | 'stage' | 'filled_at' | 'updated_at'>[],
   openPositionsByReq: Map<string, number>,
   today: Date = new Date(),
 ): ClosureScorecard {
@@ -144,6 +160,15 @@ export function buildClosureScorecard(
     if (h.field !== 'status_field') continue;
     const list = historyByReq.get(h.requisition_id);
     if (list) list.push(h); else historyByReq.set(h.requisition_id, [h]);
+  }
+  // Months in which each requisition's filled candidates locked in.
+  const filledMonthsByReq = new Map<string, string[]>();
+  for (const c of candidates) {
+    if (!c.requisition_id || !FILLED_STAGES.has(c.stage)) continue;
+    // filled_at is missing for a moment after a local stage change, until the next sync.
+    const m = monthKey(c.filled_at || c.updated_at);
+    const list = filledMonthsByReq.get(c.requisition_id);
+    if (list) list.push(m); else filledMonthsByReq.set(c.requisition_id, [m]);
   }
 
   const byMonth = new Map<string, number>();
@@ -158,14 +183,23 @@ export function buildClosureScorecard(
   for (const r of requisitions) {
     const internal = internalById.get(r.account_id) === true;
     const side = internal ? out.internal : out.external;
-    if (r.status_field === 'Closed Won') {
-      const m = closedMonth(r, historyByReq);
-      const positions = Math.max(1, r.new_positions || 0);
-      if (monthKey(m).startsWith(String(year))) {
+    const credit = (m: string, positions: number) => {
+      if (positions <= 0 || !m) return;
+      if (m.startsWith(String(year))) {
         side.closedThisYear += positions;
         if (!internal && byMonth.has(m)) byMonth.set(m, (byMonth.get(m) || 0) + positions);
       }
       if (m === month) side.closedThisMonth += positions;
+    };
+
+    // A cancelled or lost role closes nothing, even if a candidate row was left at a filled stage.
+    const dead = r.status_field === 'Cancelled' || r.status_field === 'Closed Lost';
+    const filledMonths = dead ? [] : (filledMonthsByReq.get(r.id) ?? []);
+    for (const m of filledMonths) credit(m, 1);
+
+    if (r.status_field === 'Closed Won') {
+      const remainder = Math.max(1, r.new_positions || 0) - filledMonths.length;
+      credit(closedMonth(r, historyByReq), remainder);
     } else if (!ARCHIVED_STATUSES.includes(r.status_field) && r.status_field !== 'On Hold') {
       side.openPositions += openPositionsByReq.get(r.id) ?? Math.max(0, r.new_positions || 0);
     }

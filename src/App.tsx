@@ -26,6 +26,7 @@ import {
   fetchStaffingRequests,
   fetchPipelineProjects,
   fetchIndiaStaffing,
+  fetchIndiaCandidates,
   fetchUSStaffing,
   fetchOpenBench,
   fetchIndiaRoster,
@@ -82,6 +83,16 @@ function useSupabaseInit() {
       // old code then dropped the result and Team Time rendered the stale
       // localStorage copy with no sign anything was wrong.
       const timeEntriesPromise = fetchTimeEntries();
+      // Candidates: background only. Keep anything added locally while it was in flight.
+      void fetchIndiaCandidates().then((rows) => {
+        if (!rows) { useStaffingStore.setState({ candidatesLoaded: true }); return; }
+        const have = new Set(rows.map((c) => c.id));
+        const local = useStaffingStore.getState().candidates.filter((c) => !have.has(c.id));
+        useStaffingStore.setState({ candidates: [...rows, ...local], candidatesLoaded: true });
+      }).catch((err) => {
+        console.warn('[supabase] Candidate load failed:', err);
+        useStaffingStore.setState({ candidatesLoaded: true });
+      });
       try {
         const [
           forecastRes,
@@ -117,9 +128,8 @@ function useSupabaseInit() {
           withTimeout(fetchHiringForecastConfig()),
           withTimeout(fetchStaffingRequests()),
           withTimeout(fetchPipelineProjects()),
-          // Candidates alone are ~9 MB over 6 pages (~9 s on a good line); the shared
-      // 10 s budget dropped the whole India payload, so TAs saw 0 candidates.
-      withTimeout(fetchIndiaStaffing(), 60000),
+          // Candidates (~9 MB) load in the background below — never on this gate.
+          withTimeout(fetchIndiaStaffing({ skipCandidates: true })),
           withTimeout(fetchUSStaffing()),
           withTimeout(fetchOpenBench()),
           withTimeout(fetchIndiaRoster()),
@@ -128,7 +138,8 @@ function useSupabaseInit() {
           withTimeout(fetchActualHours()),
           withTimeout(fetchTaDailyLog()),
           withTimeout(fetchTeamMembers()),
-          withTimeout(timeEntriesPromise),
+          // Time entries are many 1000-row pages; give them 2.5 s, then finish in the background.
+          withTimeout(timeEntriesPromise, 2500),
           withTimeout(fetchAccountManagement()),
           withTimeout(fetchVendors()),
           withTimeout(fetchTnmAccounts()),
@@ -226,9 +237,8 @@ function useSupabaseInit() {
               requisitions: id.requisitions,
               statuses: id.statuses,
               history: id.history || [],
-              candidates: id.candidates || [],
             });
-            console.log('[supabase] Loaded india staffing:', id.accounts.length, 'accounts,', id.requisitions.length, 'reqs,', (id.history || []).length, 'history entries,', (id.candidates || []).length, 'candidates');
+            console.log('[supabase] Loaded india staffing:', id.accounts.length, 'accounts,', id.requisitions.length, 'reqs,', (id.history || []).length, 'history entries');
           } else {
             console.warn('[supabase] India staffing empty in Supabase — not auto-seeding');
           }
@@ -349,7 +359,7 @@ function useSupabaseInit() {
             console.log('[supabase] Loaded time entries:', te.length);
           }
         } else {
-          console.warn('[supabase] Time entries fetch still running after 10 s — showing localStorage until it finishes');
+          console.warn('[supabase] Time entries fetch still running — showing localStorage until it finishes');
           void timeEntriesPromise.then((te) => {
             if (te) {
               useTimeEntryStore.setState({ entries: te });
@@ -513,6 +523,14 @@ function useSupabaseInit() {
               ...(history ? { history } : {}),
               ...(merged ? { candidates: merged } : {}),
             });
+          },
+          patchIndiaCandidates: (upserts, deletedIds) => {
+            const gone = new Set(deletedIds);
+            const incoming = new Map(upserts.map((c) => [c.id, c]));
+            const kept = useStaffingStore.getState().candidates
+              .filter((c) => !gone.has(c.id))
+              .map((c) => { const n = incoming.get(c.id); if (n) incoming.delete(c.id); return n ?? c; });
+            useStaffingStore.setState({ candidates: [...kept, ...incoming.values()] });
           },
           setUSStaffing: (accounts, requisitions, contacts) => {
             useUSStaffingStore.setState({

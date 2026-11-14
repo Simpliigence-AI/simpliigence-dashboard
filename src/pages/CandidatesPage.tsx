@@ -10,8 +10,8 @@
  * Persists via useStaffingStore.{addCandidate, updateCandidate, removeCandidate},
  * which already write to Supabase via db.upsertIndiaCandidate / deleteIndiaCandidate.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Zap } from 'lucide-react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { Users as UsersIcon, LayoutGrid, Table as TableIcon, MapPin, Search, Clock } from 'lucide-react';
 import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee, PhoneOutgoing, PhoneCall } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../components/shared/PageHeader';
@@ -82,14 +82,37 @@ const emptyDraft: DraftCandidate = {
   location: '',
 };
 
+/** When this profile last "arrived": latest resume upload, else when it was added. */
+function recencyOf(c: StaffingCandidate): number {
+  const t = Date.parse(c.resume_uploaded_at || c.created_at || c.submit_date || '');
+  return Number.isNaN(t) ? 0 : t;
+}
+function agoShort(iso: string, now: number): string {
+  const mins = Math.max(0, Math.round((now - Date.parse(iso)) / 60000));
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+  if (mins < 43200) return `${Math.round(mins / 1440)}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export default function CandidatesPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const { accounts, requisitions, candidates, addCandidate, updateCandidate, removeCandidate } = useStaffingStore();
+  const { accounts, requisitions, candidates: rawCandidates, candidatesLoaded, addCandidate, updateCandidate, removeCandidate } = useStaffingStore();
+  const [sortBy, setSortBy] = useState<'recent' | 'name'>('recent');
+  // Newest first by default: the latest resume upload (or the day the profile was added).
+  const candidates = useMemo(() => {
+    const list = [...rawCandidates];
+    if (sortBy === 'name') return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const key = new Map(list.map((c) => [c.id, recencyOf(c)]));
+    return list.sort((a, b) => key.get(b.id)! - key.get(a.id)!);
+  }, [rawCandidates, sortBy]);
 
   // ?q= and ?pool= let other pages link straight to a search or a skill pool
   // (Suggested profiles on a requisition does). Read once, on mount.
   const [searchParams] = useSearchParams();
   const [q, setQ] = useState(() => searchParams.get('q') || '');
+  // Typing stays instant; the 6k-row filter runs on the deferred value.
+  const dq = useDeferredValue(q);
   const [filterPool, setFilterPool] = useState(() => {
     const p = searchParams.get('pool') || '';
     return SKILL_POOLS.some((x) => x.id === p) ? p : '';
@@ -210,11 +233,23 @@ export default function CandidatesPage() {
   // at the top of the (newly-narrowed) list instead of a phantom offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [q, filterReq, filterStage, filterLocation, filterOwner, filterPool, aiMatchSet]);
+  }, [dq, filterReq, filterStage, filterLocation, filterOwner, filterPool, aiMatchSet, sortBy]);
+
+  /** Search text per profile, built once per data load instead of once per keystroke. */
+  const haystacks = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of candidates) {
+      const req = c.requisition_id ? reqById.get(c.requisition_id) : undefined;
+      const reqStr = req ? `${req.title} ${accountById.get(req.account_id) ?? ''}` : '';
+      m.set(c.id, `${c.name} ${c.email} ${c.phone} ${c.source} ${reqStr} ${(c.skills || []).join(' ')} ${c.profile_summary || ''} ${c.location || ''}`.toLowerCase());
+    }
+    return m;
+  }, [candidates, reqById, accountById]);
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = dq.trim().toLowerCase();
     const hasSearch = needle.length > 0;
+    const words = needle.split(/\s+/).filter(Boolean);
     return candidates.filter((c) => {
       // When an AI search is active, restrict to its match set first.
       if (aiMatchSet && !aiMatchSet.has(c.id)) return false;
@@ -233,30 +268,38 @@ export default function CandidatesPage() {
         const have = (c.location || '').toLowerCase();
         if (!have.includes(want)) return false;
       }
-      // Skip the (relatively expensive) haystack build when there is no
-      // search query — saves ~5k string concatenations on initial mount.
+      // Every word must appear somewhere on the profile (name, skills, summary, location, requisition…).
       if (hasSearch) {
-        const req = c.requisition_id ? reqById.get(c.requisition_id) : undefined;
-        const reqStr = req ? `${req.title} ${accountById.get(req.account_id) ?? ''}` : '';
-        const hay = `${c.name} ${c.email} ${c.phone} ${c.source} ${reqStr} ${(c.skills || []).join(' ')} ${c.profile_summary || ''} ${c.location || ''}`.toLowerCase();
-        if (!hay.includes(needle)) return false;
+        const hay = haystacks.get(c.id) || '';
+        for (const w of words) if (!hay.includes(w)) return false;
       }
       return true;
     });
-  }, [candidates, q, filterReq, filterOwner, filterStage, filterLocation, filterPool, poolsById, reqById, accountById, aiMatchSet]);
+  }, [candidates, dq, filterReq, filterOwner, filterStage, filterLocation, filterPool, poolsById, haystacks, aiMatchSet]);
 
-  // KPI strip stats (across ALL candidates, not filtered — gives a true at-a-glance view)
+  // Headline numbers + what the dashboard shows before anyone types (across ALL profiles).
+  const [nowMs] = useState(() => Date.now());
   const kpis = useMemo(() => {
-    const total = candidates.length;
-    const active = candidates.filter((c) => ACTIVE_CANDIDATE_STAGES.includes(c.stage)).length;
-    const parsed = candidates.filter((c) => c.parsed_at).length;
-    const sevenDaysAgo = Date.now() - 7 * 86400 * 1000;
-    const recent = candidates.filter((c) => {
-      const t = c.submit_date ? Date.parse(c.submit_date) : NaN;
-      return !Number.isNaN(t) && t >= sevenDaysAgo;
-    }).length;
-    return { total, active, parsed, recent };
-  }, [candidates]);
+    const weekAgo = nowMs - 7 * 86400 * 1000;
+    let active = 0, withResume = 0, recent = 0;
+    const newByPool = new Map<string, number>();
+    for (const c of candidates) {
+      if (ACTIVE_CANDIDATE_STAGES.includes(c.stage)) active++;
+      if (c.resume_url) withResume++;
+      if (recencyOf(c) >= weekAgo) {
+        recent++;
+        for (const p of poolsById.get(c.id) || []) newByPool.set(p, (newByPool.get(p) || 0) + 1);
+      }
+    }
+    return { total: candidates.length, active, withResume, recent, newByPool };
+  }, [candidates, poolsById, nowMs]);
+  /** Latest resume uploads — the "what just came in" list. */
+  const recentUploads = useMemo(
+    () => rawCandidates.filter((c) => c.resume_uploaded_at).sort((a, b) => Date.parse(b.resume_uploaded_at!) - Date.parse(a.resume_uploaded_at!)).slice(0, 8),
+    [rawCandidates],
+  );
+  const filtersOn = !!(q || filterReq || filterOwner || filterStage || filterLocation || filterPool || aiMatchSet);
+  const clearAll = () => { setQ(''); setFilterReq(''); setFilterOwner(''); setFilterStage(''); setFilterLocation(''); setFilterPool(''); clearAiSearch(); };
 
   const commitAdd = async () => {
     if (!draft.name.trim()) return;
@@ -371,16 +414,54 @@ export default function CandidatesPage() {
         );
       })()}
 
-      {/* KPI strip — colorful at-a-glance counters */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <KpiTile color="indigo" icon={<UsersIcon size={18} />} label="All candidates" value={kpis.total} />
-        <KpiTile color="emerald" icon={<Zap size={18} />} label="Active" value={kpis.active} subtitle="in funnel" />
-        <KpiTile color="amber" icon={<FileCheck2 size={18} />} label="Resume parsed" value={kpis.parsed} subtitle={`${kpis.total ? Math.round((kpis.parsed / kpis.total) * 100) : 0}% of total`} />
-        <KpiTile color="sky" icon={<CalendarRange size={18} />} label="Added · last 7d" value={kpis.recent} />
-      </div>
+      {/* Find — one big search, AI search and the narrow-down filters in a single panel */}
+      <Card className="mb-4">
+        <div className="relative">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+          <input
+            autoFocus
+            placeholder="Search every profile — name, skill, location, requisition…"
+            aria-label="Search candidates"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-full rounded-xl border border-line bg-surface py-3 pl-11 pr-28 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted tabular-nums">
+            {!candidatesLoaded ? <span className="inline-flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> loading</span> : `${filtered.length.toLocaleString()} match${filtered.length === 1 ? '' : 'es'}`}
+          </span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+          <span><b className="text-ink tabular-nums">{kpis.total.toLocaleString()}</b> profiles</span>
+          <span><b className="text-ink tabular-nums">{kpis.withResume.toLocaleString()}</b> with a resume</span>
+          <span><b className="text-ink tabular-nums">{kpis.active.toLocaleString()}</b> active in a funnel</span>
+          <span><b className="text-green tabular-nums">+{kpis.recent.toLocaleString()}</b> in the last 7 days</span>
+        </div>
 
-      {/* AI search bar — gradient pop */}
-      <div className="mb-4 rounded-xl bg-gradient-to-r from-amber-100/70 via-orange-50 to-rose-50 border border-amber-200/70 shadow-sm p-3">
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-2">
+          <select value={filterReq} onChange={(e) => setFilterReq(e.target.value)} aria-label="Requisition" className="border border-line rounded-md px-3 py-2 text-sm bg-surface">
+            <option value="">All requisitions</option>
+            <option value="__unassigned__">— Unassigned —</option>
+            {requisitions.map((r) => <option key={r.id} value={r.id}>{r.job_code ? `${r.job_code} · ${r.title}` : r.title}</option>)}
+          </select>
+          <select value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} aria-label="Owner" className="border border-line rounded-md px-3 py-2 text-sm bg-surface">
+            <option value="">All owners</option>
+            {owners.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} aria-label="Stage" className="border border-line rounded-md px-3 py-2 text-sm bg-surface">
+            <option value="">All stages</option>
+            {CANDIDATE_STAGES.map((st) => <option key={st} value={st}>{st}</option>)}
+          </select>
+          <input list="candidate-location-options" placeholder="Location (e.g. Bangalore)" aria-label="Location" value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)}
+            className="border border-line rounded-md px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/40" />
+          <datalist id="candidate-location-options">{locations.map((l) => <option key={l} value={l} />)}</datalist>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'recent' | 'name')} aria-label="Sort" className="border border-line rounded-md px-3 py-2 text-sm bg-surface">
+            <option value="recent">Newest first</option>
+            <option value="name">Name A–Z</option>
+          </select>
+        </div>
+
+        <div className="mt-3 border-t border-line/60 pt-3">
+          <div>
         <div className="flex items-center gap-2 flex-wrap">
           <Sparkles size={16} className="text-amber-500 flex-shrink-0" />
           <input
@@ -388,7 +469,7 @@ export default function CandidatesPage() {
             onChange={(e) => setAiQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') runAiSearch(); }}
             placeholder='Ask Claude: e.g. "all servicemax candidates" or "salesforce architects in bangalore"'
-            className="flex-1 min-w-[200px] bg-surface/90 border border-amber-200 rounded-lg px-3 py-2 text-sm placeholder:text-amber-700/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+            className="flex-1 min-w-[200px] bg-surface border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60"
           />
           <button
             type="button"
@@ -422,87 +503,73 @@ export default function CandidatesPage() {
         )}
       </div>
 
-      {/* Filters */}
-      <Card className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <input
-            placeholder="Search name / email / skill / location…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
-          <select
-            value={filterReq}
-            onChange={(e) => setFilterReq(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
-          >
-            <option value="">All requisitions</option>
-            <option value="__unassigned__">— Unassigned —</option>
-            {requisitions.map((r) => <option key={r.id} value={r.id}>{r.job_code ? `${r.job_code} · ${r.title}` : r.title}</option>)}
-          </select>
-          <select
-            value={filterOwner}
-            onChange={(e) => setFilterOwner(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
-          >
-            <option value="">All owners</option>
-            {owners.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-          <select
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm bg-surface"
-          >
-            <option value="">All stages</option>
-            {CANDIDATE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <input
-            list="candidate-location-options"
-            placeholder="Location (e.g. Bangalore)"
-            value={filterLocation}
-            onChange={(e) => setFilterLocation(e.target.value)}
-            className="border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            title="Substring match — type 'Bangalore' to find candidates whose location contains it"
-          />
-          <datalist id="candidate-location-options">
-            {locations.map((l) => <option key={l} value={l} />)}
-          </datalist>
-        </div>
-
-        {/* Skill pools: standing views of the database by skill family. Each chip
-            shows how many profiles are in the pool; the tooltip adds how many are unassigned. */}
-        <div className="mt-3 pt-3 border-t border-line/60">
-          <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Skill pools">
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider mr-1">Skill pools</span>
-            {SKILL_POOLS.filter((p) => (poolCounts.all.get(p.id) || 0) > 0).map((p) => {
-              const on = filterPool === p.id;
-              const free = poolCounts.unassigned.get(p.id) || 0;
-              return (
-                <button key={p.id} type="button" aria-pressed={on} onClick={() => setFilterPool(on ? '' : p.id)}
-                  title={`${poolCounts.all.get(p.id)} profiles, ${free} unassigned`}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                    on ? 'bg-primary text-white border-primary' : 'bg-surface text-ink/80 border-line hover:bg-surface-2'}`}>
-                  {p.label}
-                  <span className={`tabular-nums text-[10px] ${on ? 'text-white/85' : 'text-muted'}`}>{poolCounts.all.get(p.id)}</span>
-                </button>
-              );
-            })}
-            {filterPool && (
-              <>
-                <button type="button" onClick={() => setFilterReq(filterReq === '__unassigned__' ? '' : '__unassigned__')}
-                  aria-pressed={filterReq === '__unassigned__'}
-                  className={`ml-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                    filterReq === '__unassigned__' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink/80 border-line hover:bg-surface-2'}`}>
-                  Unassigned only ({poolCounts.unassigned.get(filterPool) || 0})
-                </button>
-                <button type="button" onClick={() => setFilterPool('')} className="text-xs font-semibold text-muted hover:text-ink underline">
-                  Clear pool
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </Card>
+
+      {/* Roles + latest uploads */}
+      <div className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card flush>
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-line/60">
+            <h3 className="text-[0.9375rem] font-bold text-ink tracking-[-0.015em]">Browse by role</h3>
+            {filterPool && (
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setFilterReq(filterReq === '__unassigned__' ? '' : '__unassigned__')} aria-pressed={filterReq === '__unassigned__'}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${filterReq === '__unassigned__' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink/80 border-line hover:bg-surface-2'}`}>
+                  Unassigned only ({poolCounts.unassigned.get(filterPool) || 0})
+                </button>
+                <button type="button" onClick={() => setFilterPool('')} className="text-xs font-semibold text-muted hover:text-ink underline">Clear role</button>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-4" role="group" aria-label="Roles">
+            {(() => {
+              const pools = SKILL_POOLS.filter((p) => (poolCounts.all.get(p.id) || 0) > 0).sort((a, b) => (poolCounts.all.get(b.id) || 0) - (poolCounts.all.get(a.id) || 0));
+              const max = Math.max(1, ...pools.map((p) => poolCounts.all.get(p.id) || 0));
+              if (pools.length === 0) return <p className="col-span-full py-6 text-center text-sm text-muted">{candidatesLoaded ? 'No profiles yet.' : 'Loading profiles…'}</p>;
+              return pools.map((p) => {
+                const on = filterPool === p.id;
+                const n = poolCounts.all.get(p.id) || 0;
+                const fresh = kpis.newByPool.get(p.id) || 0;
+                return (
+                  <button key={p.id} type="button" aria-pressed={on} onClick={() => setFilterPool(on ? '' : p.id)}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${on ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-line/70 bg-surface hover:bg-surface-2/60'}`}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-xs font-semibold text-ink/80">{p.label}</span>
+                      {fresh > 0 && <span className="shrink-0 text-[10px] font-bold text-green tabular-nums">+{fresh}</span>}
+                    </div>
+                    <div className="mt-0.5 text-xl font-bold leading-tight text-ink tabular-nums">{n.toLocaleString()}</div>
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-violet" style={{ width: `${Math.max(4, (n / max) * 100)}%` }} /></div>
+                    <div className="mt-1 text-[10px] text-muted tabular-nums">{(poolCounts.unassigned.get(p.id) || 0).toLocaleString()} unassigned</div>
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </Card>
+
+        <Card flush>
+          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-line/60">
+            <Clock size={15} className="text-muted" />
+            <h3 className="text-[0.9375rem] font-bold text-ink tracking-[-0.015em]">Latest resumes uploaded</h3>
+          </div>
+          {recentUploads.length === 0 ? <p className="px-5 py-6 text-sm text-muted">{candidatesLoaded ? 'No resumes uploaded yet.' : 'Loading…'}</p> : (
+            <ul className="divide-y divide-line/30">
+              {recentUploads.map((c) => (
+                <li key={c.id}>
+                  <button type="button" onClick={() => setDetailCandidateId(c.id)} className="flex w-full items-center gap-3 px-5 py-2 text-left hover:bg-surface-2/50">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet/12 text-[11px] font-bold text-violet">{candidateInitials(c.name)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-ink">{c.name || 'Unnamed'}</span>
+                      <span className="block truncate text-xs text-muted">{(poolsById.get(c.id) || []).map((id) => SKILL_POOLS.find((x) => x.id === id)?.label).filter(Boolean).slice(0, 2).join(' · ') || c.experience || 'Role not classified'}</span>
+                    </span>
+                    <span className="shrink-0 text-[11px] text-muted tabular-nums">{agoShort(c.resume_uploaded_at!, nowMs)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
 
       {/* Add row */}
       {adding && (
@@ -585,6 +652,8 @@ export default function CandidatesPage() {
           {filtered.length !== candidates.length && (
             <span className="ml-1 text-muted/70 font-normal">of {candidates.length}</span>
           )}
+          <span className="ml-2 text-xs font-normal text-muted">· {sortBy === 'recent' ? 'newest first' : 'by name'}</span>
+          {filtersOn && <button type="button" onClick={clearAll} className="ml-3 text-xs font-semibold text-primary hover:underline">Clear all filters</button>}
         </div>
         <div className="inline-flex rounded-lg border border-line bg-surface p-1 text-xs font-semibold">
           <button
@@ -750,37 +819,6 @@ function LoadMoreFooter({ shown, total, onMore }: { shown: number; total: number
               className="px-4 py-1.5 rounded-md bg-surface border border-line text-ink/80 hover:bg-surface-2/70 font-semibold">
         Load more
       </button>
-    </div>
-  );
-}
-
-/* ── KPI tile — colored top-of-page stat ── */
-function KpiTile({ color, icon, label, value, subtitle }: {
-  color: 'indigo' | 'emerald' | 'amber' | 'sky';
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  subtitle?: string;
-}) {
-  const palette: Record<typeof color, { bg: string; iconBg: string; iconColor: string; ring: string }> = {
-    indigo:  { bg: 'from-indigo-50 to-violet-50',  iconBg: 'bg-indigo-100',  iconColor: 'text-indigo-600',  ring: 'border-indigo-100' },
-    emerald: { bg: 'from-emerald-50 to-teal-50',    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', ring: 'border-emerald-100' },
-    amber:   { bg: 'from-amber-50 to-orange-50',    iconBg: 'bg-amber-100',   iconColor: 'text-amber-600',   ring: 'border-amber-100' },
-    sky:     { bg: 'from-sky-50 to-cyan-50',        iconBg: 'bg-sky-100',     iconColor: 'text-sky-600',     ring: 'border-sky-100' },
-  };
-  const p = palette[color];
-  return (
-    <div className={`rounded-xl bg-gradient-to-br ${p.bg} border ${p.ring} px-4 py-3 shadow-sm hover:shadow transition-shadow`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted">{label}</div>
-          <div className="text-2xl font-extrabold text-ink mt-0.5 tabular-nums">{value}</div>
-          {subtitle && <div className="text-[10px] text-muted mt-0.5">{subtitle}</div>}
-        </div>
-        <div className={`w-9 h-9 rounded-lg ${p.iconBg} ${p.iconColor} flex items-center justify-center flex-shrink-0`}>
-          {icon}
-        </div>
-      </div>
     </div>
   );
 }

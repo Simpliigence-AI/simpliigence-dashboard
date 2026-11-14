@@ -1,48 +1,46 @@
+import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
-import DashboardPage from '../pages/DashboardPage';
-import TeamRosterPage from '../pages/TeamRosterPage';
-import ActualHoursPage from '../pages/ActualHoursPage';
-import ProjectPipelinePage from '../pages/ProjectPipelinePage';
-import PipelinePage from '../pages/PipelinePage';
-import ForecastingPage from '../pages/ForecastingPage';
-import FinancialsPage from '../pages/FinancialsPage';
-import SettingsPage from '../pages/SettingsPage';
-import ConciergePage from '../pages/ConciergePage';
-import IndiaStaffingPage from '../pages/IndiaStaffingPage';
-import USStaffingPage from '../pages/USStaffingPage';
-import OpenBenchPage from '../pages/OpenBenchPage';
-import IndiaRosterPage from '../pages/IndiaRosterPage';
-import IndiaHiringForecastPage from '../pages/IndiaHiringForecastPage';
-import USRosterPage from '../pages/USRosterPage';
-import TnmAccountsPage from '../pages/TnmAccountsPage';
-import TADailyLogPage from '../pages/TADailyLogPage';
-import CandidatesPage from '../pages/CandidatesPage';
-import TAMetricsPage from '../pages/TAMetricsPage';
-import IndiaDemandAnalyticsPage from '../pages/IndiaDemandAnalyticsPage';
-import MarginCalculatorPage from '../pages/MarginCalculatorPage';
-import ProfileFormatPage from '../pages/ProfileFormatPage';
-import AccountsPage from '../pages/AccountsPage';
-import VendorsPage from '../pages/VendorsPage';
-import GtmListPage from '../pages/GtmListPage';
-import HiringRadarPage from '../pages/HiringRadarPage';
-import ScreeningsPage from '../pages/ScreeningsPage';
-import DialerPage from '../pages/DialerPage';
-import HomePage from '../pages/HomePage';
-import CheckinsPage from '../pages/CheckinsPage';
-import MyTimePage from '../pages/MyTimePage';
-import TeamTimePage from '../pages/TeamTimePage';
-import TeamLeavePage from '../pages/TeamLeavePage';
-import LeavePage from '../pages/LeavePage';
-import UsersPage from '../pages/admin/UsersPage';
-import ActivityPage from '../pages/admin/ActivityPage';
-import AuditLogPage from '../pages/admin/AuditLogPage';
-import LeaveAdminPage from '../pages/admin/LeaveAdminPage';
-import AccessMatrixPage from '../pages/admin/AccessMatrixPage';
-import CheckinAdminPage from '../pages/admin/CheckinAdminPage';
-import ProjectPlansPage from '../pages/ProjectPlansPage';
-import ProjectPlanDetailPage from '../pages/project-plans/ProjectPlanDetailPage';
-import DeliveryHomePage from '../pages/DeliveryHomePage';
+const DashboardPage = lazy(() => import('../pages/DashboardPage'));
+const TeamRosterPage = lazy(() => import('../pages/TeamRosterPage'));
+const ActualHoursPage = lazy(() => import('../pages/ActualHoursPage'));
+const ProjectPipelinePage = lazy(() => import('../pages/ProjectPipelinePage'));
+const ForecastingPage = lazy(() => import('../pages/ForecastingPage'));
+const FinancialsPage = lazy(() => import('../pages/FinancialsPage'));
+const SettingsPage = lazy(() => import('../pages/SettingsPage'));
+const ConciergePage = lazy(() => import('../pages/ConciergePage'));
+const IndiaStaffingPage = lazy(() => import('../pages/IndiaStaffingPage'));
+const USStaffingPage = lazy(() => import('../pages/USStaffingPage'));
+const OpenBenchPage = lazy(() => import('../pages/OpenBenchPage'));
+const IndiaRosterPage = lazy(() => import('../pages/IndiaRosterPage'));
+const IndiaHiringForecastPage = lazy(() => import('../pages/IndiaHiringForecastPage'));
+const USRosterPage = lazy(() => import('../pages/USRosterPage'));
+const TnmAccountsPage = lazy(() => import('../pages/TnmAccountsPage'));
+const TADailyLogPage = lazy(() => import('../pages/TADailyLogPage'));
+const CandidatesPage = lazy(() => import('../pages/CandidatesPage'));
+const TAMetricsPage = lazy(() => import('../pages/TAMetricsPage'));
+const IndiaDemandAnalyticsPage = lazy(() => import('../pages/IndiaDemandAnalyticsPage'));
+const MarginCalculatorPage = lazy(() => import('../pages/MarginCalculatorPage'));
+const ProfileFormatPage = lazy(() => import('../pages/ProfileFormatPage'));
+const VendorsPage = lazy(() => import('../pages/VendorsPage'));
+const HiringRadarPage = lazy(() => import('../pages/HiringRadarPage'));
+const ScreeningsPage = lazy(() => import('../pages/ScreeningsPage'));
+const DialerPage = lazy(() => import('../pages/DialerPage'));
+const HomePage = lazy(() => import('../pages/HomePage'));
+const CheckinsPage = lazy(() => import('../pages/CheckinsPage'));
+const MyTimePage = lazy(() => import('../pages/MyTimePage'));
+const TeamTimePage = lazy(() => import('../pages/TeamTimePage'));
+const TeamLeavePage = lazy(() => import('../pages/TeamLeavePage'));
+const LeavePage = lazy(() => import('../pages/LeavePage'));
+const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
+const ActivityPage = lazy(() => import('../pages/admin/ActivityPage'));
+const AuditLogPage = lazy(() => import('../pages/admin/AuditLogPage'));
+const LeaveAdminPage = lazy(() => import('../pages/admin/LeaveAdminPage'));
+const AccessMatrixPage = lazy(() => import('../pages/admin/AccessMatrixPage'));
+const CheckinAdminPage = lazy(() => import('../pages/admin/CheckinAdminPage'));
+const ProjectPlansPage = lazy(() => import('../pages/ProjectPlansPage'));
+const ProjectPlanDetailPage = lazy(() => import('../pages/project-plans/ProjectPlanDetailPage'));
+const DeliveryHomePage = lazy(() => import('../pages/DeliveryHomePage'));
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
@@ -76,7 +74,7 @@ export const router = createBrowserRouter(
         { path: 'team', element: <RoleOnly allow={['admin']}><TeamRosterPage /></RoleOnly> },
         { path: 'actual-hours', element: <RoleOnly allow={['admin']}><ActualHoursPage /></RoleOnly> },
         { path: 'projects', element: <RoleOnly allow={['admin']}><ProjectPipelinePage /></RoleOnly> },
-        { path: 'pipeline', element: <RoleOnly allow={['admin']}><PipelinePage /></RoleOnly> },
+        { path: 'pipeline', element: <Navigate to="/projects" replace /> }, // retired Nov 2026
         // Gated by the 'project-plans' tab (role + per-user grants), not by role alone —
         // BAs and project leads with role='employee' own plans too. Pages redirect if denied.
         // Delivery Home — gated by the 'project-plans' tab like the plans themselves.
@@ -113,9 +111,9 @@ export const router = createBrowserRouter(
         { path: 'admin/checkins', element: <AdminOnly><CheckinAdminPage /></AdminOnly> },
 
         // Account Management
-        { path: 'accounts', element: <AccountsPage /> },
+        { path: 'accounts', element: <Navigate to="/home" replace /> }, // Sales & Accounts retired Nov 2026
         { path: 'vendors',  element: <VendorsPage /> },
-        { path: 'gtm-list', element: <GtmListPage /> },
+        { path: 'gtm-list', element: <Navigate to="/home" replace /> },  // Sales & Accounts retired Nov 2026
         { path: 'hiring-radar', element: <HiringRadarPage /> },
         { path: 'screenings', element: <ScreeningsPage /> },
         { path: 'dialer',   element: <DialerPage /> },   // Twilio softphone + AI call notes

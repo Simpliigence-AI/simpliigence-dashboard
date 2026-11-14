@@ -7,9 +7,9 @@
  * `useNavSections()` — this file is pure data.
  */
 import {
-  LayoutDashboard, Users, FolderKanban, Layers, DollarSign, UserPlus, Headset,
+  LayoutDashboard, Users, FolderKanban, DollarSign, UserPlus, Headset,
   ClipboardList, Globe, TrendingUp, Clock, Timer, CheckSquare, CalendarCheck,
-  Contact, BarChart3, PieChart, Building2, Handshake, Target, Radar,
+  Contact, BarChart3, PieChart, Building2, Handshake, Radar,
   ClipboardCheck, Home, FileEdit, UserCog, Activity, History, ShieldCheck,
   PhoneCall, ListChecks, Briefcase, AppWindow, Gauge, Calculator,
   type LucideIcon,
@@ -82,7 +82,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/project-plans', icon: ListChecks,   label: 'Project Plans',        desc: 'Plans, milestones and tasks per project' },
       { to: '/team',          icon: Users,        label: 'Project Team',         desc: 'Team allocations by project' },
       { to: '/actual-hours',  icon: Clock,        label: 'Actual Hours',         desc: 'Recorded billable hours by person + project' },
-      { to: '/pipeline',      icon: Layers,       label: 'Pipeline Projects',    desc: 'Pre-sales / pipeline projects in flight' },
       { to: '/forecasting',   icon: TrendingUp,   label: 'Utilization Forecast', desc: 'Bench + billable forecast across the roster' },
       { to: '/financials',    icon: DollarSign,   label: 'Financials',           desc: 'Revenue, margin, and P&L rollups', financial: true, keywords: 'p&l revenue margin' },
     ],
@@ -121,19 +120,11 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    key: 'sales', label: 'Sales & Accounts', tagline: 'Accounts, partnerships, and go-to-market', accent: 'emerald', icon: Target,
-    roles: ['admin', 'manager'],
-    items: [
-      { to: '/accounts', icon: Building2, label: 'Accounts', desc: 'Client accounts, connects, forecast vs secured' },
-      { to: '/gtm-list', icon: Target,    label: 'GTM List', desc: 'Strategic partnership targets and action items' },
-      { to: '/dialer',   icon: PhoneCall, label: 'Dialer',   desc: 'Outbound calling' },
-    ],
-  },
-  {
-    key: 'concierge', label: 'Concierge', tagline: 'Managed-services accounts + AI account planning', accent: 'rose', icon: Headset,
+    key: 'concierge', label: 'Concierge', tagline: 'Managed-services accounts, AI account planning and the dialer', accent: 'rose', icon: Headset,
     roles: ['admin', 'manager'],
     items: [
       { to: '/concierge', icon: Headset, label: 'Concierge', desc: 'Accounts, tickets, feature coverage, AI profile + opportunities' },
+      { to: '/dialer',    icon: PhoneCall, label: 'Dialer',  desc: 'Outbound calling with AI call notes', keywords: 'phone call softphone' },
     ],
   },
   {

@@ -118,6 +118,8 @@ interface StaffingState {
   statuses: DailyStatus[];
   history: StaffingHistoryEntry[];
   candidates: StaffingCandidate[];
+  /** False until the background candidate load has landed (never persisted). */
+  candidatesLoaded: boolean;
 
   addAccount: (name: string, tier?: 1 | 2) => StaffingAccount;
   removeAccount: (id: string) => void;
@@ -163,6 +165,7 @@ export const useStaffingStore = create<StaffingState>()(
       statuses: SEED_STATUSES,
       history: [],
       candidates: [],
+      candidatesLoaded: false,
 
       addAccount: (name, tier = 2) => {
         const acct: StaffingAccount = { id: nanoid(), name, tier, created_at: new Date().toISOString() };

@@ -2,11 +2,11 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useForecastStore, usePipelineStore, useFinancialStore, useActualHoursStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
-import { Card, Badge } from '../components/ui';
+import { Card, Badge, StatCard } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Calendar, Clock, Rocket, DollarSign, TrendingUp, Archive, ArchiveRestore, Link2, ListChecks } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, Clock, Rocket, Archive, ArchiveRestore, Link2, ListChecks, FolderKanban, AlertTriangle, Search } from 'lucide-react';
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -57,19 +57,6 @@ function daysUntilGoLive(goLiveDate: string): number {
   today.setHours(0, 0, 0, 0);
   const target = new Date(goLiveDate + 'T00:00:00');
   return Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
-}
-
-/** Go-Live urgency badge */
-function GoLiveBadge({ date }: { date: string }) {
-  const days = daysUntilGoLive(date);
-  let variant: 'danger' | 'warning' | 'info' | 'success' | 'neutral' = 'info';
-  let label = '';
-  if (days < 0) { variant = 'neutral'; label = `${Math.abs(days)}d ago`; }
-  else if (days === 0) { variant = 'danger'; label = 'TODAY'; }
-  else if (days <= 7) { variant = 'danger'; label = `${days}d away`; }
-  else if (days <= 30) { variant = 'warning'; label = `${days}d away`; }
-  else { variant = 'info'; label = `${days}d away`; }
-  return <Badge variant={variant}>{label}</Badge>;
 }
 
 /* ── Phase timeline bar ──────────────────────────────── */
@@ -171,7 +158,10 @@ interface ProjectActuals {
 const personKey = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
 const fmtHrs = (n: number) => (Math.round(n * 10) / 10).toLocaleString();
 
-/* ── Project card ──────────────────────────────── */
+/** Column template shared by the list header and every project row. */
+const ROW_GRID = 'grid-cols-[minmax(220px,1.6fr)_minmax(150px,1.2fr)_90px_minmax(130px,1fr)_100px_84px]';
+
+/* ── Project row ──────────────────────────────── */
 function ZohoProjectCard({ project, teamAllocation, actuals, loadedCost, cadToUsdRate, onUpdateProject, onArchive, onRestore }: {
   project: ZohoPipelineProject;
   teamAllocation: { name: string; role: string; totalHours: number; rateCard: number | null }[] | undefined;
@@ -217,123 +207,101 @@ function ZohoProjectCard({ project, teamAllocation, actuals, loadedCost, cadToUs
     return rows;
   }, [teamAllocation, actuals]);
 
+  const hoursPct = forecastHours > 0 ? Math.round(((actuals?.total ?? 0) / forecastHours) * 100) : null;
+  const glDays = goLiveDate ? daysUntilGoLive(goLiveDate) : null;
+
   return (
-    <Card>
+    <div className={`border-t border-line/40 first:border-t-0 ${expanded ? 'bg-surface-2/30' : ''}`}>
       <div
-        className="flex items-start justify-between cursor-pointer gap-4"
+        className={`grid ${ROW_GRID} items-center gap-4 px-5 py-3 cursor-pointer hover:bg-surface-2/50`}
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {expanded ? <ChevronDown size={16} className="text-muted/70 shrink-0" /> : <ChevronRight size={16} className="text-muted/70 shrink-0" />}
-            <h3 className="font-semibold text-ink text-base">{project.name}</h3>
-            <Badge variant={projectStatusVariant(project.status)}>{project.status}</Badge>
-          </div>
-          <div className="flex items-center gap-4 mt-1 ml-6 text-xs text-muted flex-wrap">
-            <span className="flex items-center gap-1"><Users size={12} /> {project.owner}</span>
-            <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(project.startDate)} – {formatDate(project.endDate)}</span>
-            {phases.length > 0 && (
-              <span className="flex items-center gap-1"><Clock size={12} /> {completedPhases}/{phases.length} phases done</span>
-            )}
-            {currentPhase && (
-              <span className="text-blue-600 font-medium">Current: {currentPhase.name}</span>
-            )}
-          </div>
-
-          {/* Go-Live date - prominent */}
-          {goLiveDate && (
-            <div className="flex items-center gap-2 mt-2 ml-6">
-              <span className="flex items-center gap-1.5 text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1">
-                <Rocket size={14} />
-                Go-Live: {formatDate(goLiveDate)}
-              </span>
-              <GoLiveBadge date={goLiveDate} />
+        {/* Project */}
+        <div className="flex min-w-0 items-start gap-2">
+          {expanded ? <ChevronDown size={16} className="mt-0.5 text-muted/70 shrink-0" /> : <ChevronRight size={16} className="mt-0.5 text-muted/70 shrink-0" />}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate font-semibold text-ink">{project.name}</h3>
+              <Badge variant={projectStatusVariant(project.status)}>{project.status}</Badge>
             </div>
-          )}
-
-          {/* Revenue, Expected Cost & Expected Margin — always visible */}
-          <div className="flex items-center gap-4 mt-2 ml-6 text-xs flex-wrap">
-            {revenue > 0 ? (
-              <span className="flex items-center gap-1 text-emerald-700">
-                <DollarSign size={12} /> Revenue: <Sensitive>{`${currSymbol}${revenue.toLocaleString()} ${curr}`}</Sensitive>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-muted/70"><DollarSign size={12} /> Revenue: <em>not set</em></span>
-            )}
-            {loadedCost > 0 ? (
-              <span className="flex items-center gap-1 text-muted">
-                <TrendingUp size={12} /> Expected Cost: <Sensitive>{`$${Math.round(loadedCost).toLocaleString()} USD`}</Sensitive>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-muted/70"><TrendingUp size={12} /> Expected Cost: <em>no rate cards</em></span>
-            )}
-            {revenue > 0 && loadedCost > 0 && (
-              <span className={`font-semibold ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                Expected Margin: <Sensitive>{`$${Math.round(margin).toLocaleString()} (${marginPct}%)`}</Sensitive>
-                {curr === 'CAD' && <span className="font-normal text-muted/70 ml-1">(converted)</span>}
-              </span>
-            )}
-            <span className={`flex items-center gap-1 ${actuals?.total ? 'text-ink/80' : 'text-muted/70'}`}>
-              <Clock size={12} /> Actuals: <span className="font-semibold tabular-nums">{fmtHrs(actuals?.total ?? 0)}</span> hrs
-              {forecastHours > 0 && <span className="text-muted"> of {fmtHrs(forecastHours)} forecast</span>}
-              {(actuals?.thisMonth ?? 0) > 0 && <span className="text-muted"> · {fmtHrs(actuals!.thisMonth)} this month</span>}
-            </span>
+            <div className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted"><Users size={11} /> {project.owner || 'No owner'} · {formatDate(project.startDate)} – {formatDate(project.endDate)}</div>
           </div>
+        </div>
+
+        {/* Phases — one segment per phase */}
+        <div className="min-w-0">
+          {phases.length > 0 ? (
+            <>
+              <div className="flex h-2 gap-0.5" title={phases.map((ph) => `${ph.isClosed ? '✓' : ph.id === currentPhase?.id ? '▶' : '·'} ${ph.name}`).join('\n')}>
+                {phases.map((ph) => (
+                  <span key={ph.id} className={`flex-1 rounded-full ${ph.isClosed ? 'bg-green' : ph.id === currentPhase?.id ? 'bg-brand' : 'bg-line'}`} />
+                ))}
+              </div>
+              <div className="mt-1 truncate text-xs text-muted">
+                <span className="font-semibold text-ink tabular-nums">{completedPhases}/{phases.length}</span>
+                {currentPhase ? <> · now <span className="font-medium text-brand-dark">{currentPhase.name}</span></> : ' · all phases done'}
+              </div>
+            </>
+          ) : <span className="text-xs text-muted/70">No phases yet</span>}
+        </div>
+
+        {/* Go-live */}
+        <div className="min-w-0">
+          {goLiveDate && glDays != null ? (
+            <>
+              <div className={`flex items-center gap-1.5 text-sm font-semibold ${glDays < 0 ? 'text-muted' : glDays <= 7 ? 'text-rose' : glDays <= 30 ? 'text-gold' : 'text-ink'}`}>
+                <Rocket size={13} /> {glDays < 0 ? 'Live' : glDays === 0 ? 'Today' : `${glDays}d`}
+              </div>
+              <div className="text-xs text-muted">{formatDate(goLiveDate)}</div>
+            </>
+          ) : <span className="text-xs text-muted/70">No go-live set</span>}
+        </div>
+
+        {/* Hours — actual against forecast */}
+        <div className="min-w-0">
+          <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+            {hoursPct != null && <div className={`h-full rounded-full ${hoursPct > 110 ? 'bg-rose' : hoursPct > 90 ? 'bg-gold' : 'bg-teal'}`} style={{ width: `${Math.min(100, hoursPct)}%` }} />}
+          </div>
+          <div className="mt-1 truncate text-xs text-muted">
+            <span className="font-semibold text-ink tabular-nums">{fmtHrs(actuals?.total ?? 0)}</span>
+            {forecastHours > 0 ? <> of {fmtHrs(forecastHours)} h{hoursPct != null && hoursPct > 110 && <span className="font-semibold text-rose"> · over</span>}</> : ' h logged · no forecast'}
+          </div>
+        </div>
+
+        {/* Margin */}
+        <div className="min-w-0 text-right">
+          {revenue > 0 && loadedCost > 0 ? (
+            <Sensitive placeholder={<span className="text-sm text-muted/70">•••</span>}>
+              <div className={`text-sm font-bold tabular-nums ${marginPct >= 30 ? 'text-green' : marginPct >= 0 ? 'text-gold' : 'text-rose'}`}>{marginPct}%</div>
+              <div className="text-xs text-muted tabular-nums">${Math.round(margin / 1000).toLocaleString()}k margin</div>
+            </Sensitive>
+          ) : <span className="text-xs text-muted/70">{revenue > 0 ? 'No rate cards' : 'Revenue not set'}</span>}
         </div>
 
         {/* Archive / restore — stopPropagation so the row doesn't expand under the click */}
-        <div className="shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {project.governanceProjectId && (
+            <Link to={`/project-plans/${project.governanceProjectId}`} title="Open project plan" aria-label={`Open the plan for ${project.name}`}
+              className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-primary"><ListChecks size={15} /></Link>
+          )}
           {onRestore && (
-            <button
-              onClick={() => onRestore(project.id)}
-              title="Restore to the active project list"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ink/80 bg-surface border border-line rounded-lg hover:bg-surface-2/70 transition-colors"
-            >
-              <ArchiveRestore size={14} />
-              Restore
-            </button>
+            <button onClick={() => onRestore(project.id)} title="Restore to the active project list" aria-label={`Restore ${project.name}`}
+              className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink"><ArchiveRestore size={15} /></button>
           )}
           {onArchive && (!confirmArchive ? (
-            <button
-              onClick={() => setConfirmArchive(true)}
-              title="Move to Archive — project stops appearing in the active project list"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
-            >
-              <Archive size={14} />
-              Archive
-            </button>
+            <button onClick={() => setConfirmArchive(true)} title="Move to Archive — project stops appearing in the active project list" aria-label={`Archive ${project.name}`}
+              className="rounded-lg p-1.5 text-muted hover:bg-gold/12 hover:text-gold"><Archive size={15} /></button>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="text-xs text-muted">Archive?</span>
-              <button
-                onClick={() => { onArchive(project.id); setConfirmArchive(false); }}
-                className="px-2 py-1 text-xs text-white bg-amber-700 rounded hover:bg-amber-800"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => setConfirmArchive(false)}
-                className="px-2 py-1 text-xs text-muted bg-surface-2 rounded hover:bg-line/60"
-              >
-                No
-              </button>
+              <button onClick={() => { onArchive(project.id); setConfirmArchive(false); }} className="px-2 py-1 text-xs font-semibold text-white bg-gold rounded">Archive</button>
+              <button onClick={() => setConfirmArchive(false)} className="px-2 py-1 text-xs text-muted bg-surface-2 rounded">No</button>
             </div>
           ))}
         </div>
-
-        {/* mini progress */}
-        {phases.length > 0 && (
-          <div className="shrink-0 w-24">
-            <div className="text-[10px] text-muted/70 text-right mb-0.5">{Math.round((completedPhases / phases.length) * 100)}%</div>
-            <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(completedPhases / phases.length) * 100}%` }} />
-            </div>
-          </div>
-        )}
       </div>
 
       {expanded && (
-        <div className="mt-4 border-t border-line/60 pt-4 space-y-4">
+        <div className="border-t border-line/40 px-5 py-4 pl-11 space-y-4">
           {/* Plan now lives in the Dashboard (migration 033). Migrated plans keep
               their Governance id, so the existing link is the plan's id. */}
           {project.governanceProjectId && (
@@ -493,7 +461,7 @@ function ZohoProjectCard({ project, teamAllocation, actuals, loadedCost, cadToUs
           )}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -555,9 +523,50 @@ export default function ProjectPipelinePage() {
     return map;
   }, [projectSummaries]);
 
+  // Filters + sort
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sort, setSort] = useState<'golive' | 'name' | 'progress'>('golive');
+  const statusCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of currentProjects) m.set(p.status, (m.get(p.status) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [currentProjects]);
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const progress = (p: ZohoPipelineProject) => { const ph = p.phases ?? []; return ph.length ? ph.filter((x) => x.isClosed).length / ph.length : 0; };
+    const gl = (p: ZohoPipelineProject) => { const d = getGoLiveDate(p); if (!d) return Number.MAX_SAFE_INTEGER; const n = daysUntilGoLive(d); return n < 0 ? Number.MAX_SAFE_INTEGER - 1 : n; };
+    return currentProjects
+      .filter((p) => statusFilter === 'all' || p.status === statusFilter)
+      .filter((p) => !needle || `${p.name} ${p.owner ?? ''}`.toLowerCase().includes(needle))
+      .sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'progress' ? progress(b) - progress(a) : gl(a) - gl(b) || a.name.localeCompare(b.name));
+  }, [currentProjects, query, statusFilter, sort]);
+
   // Stats
-  const activeProjects = currentProjects.filter((p) => !['Completed', 'On Hold'].includes(p.status)).length;
-  const totalPhases = currentProjects.reduce((sum, p) => sum + (p.phases?.length ?? 0), 0);
+  const delayed = currentProjects.filter((p) => p.status.toLowerCase() === 'delayed').length;
+  const goLiveSoon = currentProjects.filter((p) => { const d = getGoLiveDate(p); if (!d) return false; const n = daysUntilGoLive(d); return n >= 0 && n <= 30; }).length;
+  const hoursThisMonth = currentProjects.reduce((sum, p) => sum + (actualsFor(p)?.thisMonth ?? 0), 0);
+
+  const renderRow = (project: ZohoPipelineProject, archived: boolean) => {
+    const ps = teamByProject.get((project.forecastName ?? project.name).toLowerCase()) ?? teamByProject.get(project.name.toLowerCase());
+    return (
+      <ZohoProjectCard
+        key={project.id}
+        project={project}
+        teamAllocation={ps?.employees}
+        actuals={actualsFor(project)}
+        loadedCost={ps?.loadedCost ?? 0}
+        cadToUsdRate={cadToUsdRate}
+        onUpdateProject={updateProject}
+        {...(archived ? { onRestore: restore } : { onArchive: archive })}
+      />
+    );
+  };
+  const listHeader = (
+    <div className={`grid ${ROW_GRID} gap-4 px-5 py-2.5 border-b border-line/60 bg-surface-2/50 text-[10px] font-semibold uppercase tracking-wide text-muted`}>
+      <div className="pl-6">Project</div><div>Phases</div><div>Go-live</div><div>Hours</div><div className="text-right">Margin</div><div />
+    </div>
+  );
 
   return (
     <>
@@ -565,50 +574,57 @@ export default function ProjectPipelinePage() {
         eyebrow="Delivery"
         tone="brand"
         title="Current Projects"
-        subtitle={`${currentProjects.length} current projects`}
+        subtitle="Phase progress, go-live, hours and margin for every project in flight. Click a row for phases, team and actuals."
         action={
           <Link to="/project-plans" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-line text-ink hover:bg-surface-2">
-            <Link2 size={14} /> Plans, scope and change requests are in Project Plans
+            <Link2 size={14} /> Project Plans
           </Link>
         }
       />
 
+      {/* Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+        <StatCard label="Current projects" value={currentProjects.length} icon={<FolderKanban size={20} />} tone="blue" />
+        <StatCard label="Go-live in 30 days" value={goLiveSoon} icon={<Rocket size={20} />} tone={goLiveSoon > 0 ? 'gold' : 'green'} />
+        <StatCard label="Delayed" value={delayed} icon={<AlertTriangle size={20} />} tone={delayed > 0 ? 'rose' : 'green'} />
+        <StatCard label="Hours this month" value={fmtHrs(hoursThisMonth)} icon={<Clock size={20} />} tone="teal" />
+      </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-surface rounded-lg border border-line p-4">
-          <div className="text-2xl font-bold text-ink">{currentProjects.length}</div>
-          <div className="text-xs text-muted">Current Projects</div>
+      {/* Filters */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by status">
+          {[['all', currentProjects.length] as [string, number], ...statusCounts].map(([st, n]) => (
+            <button key={st} type="button" aria-pressed={statusFilter === st} onClick={() => setStatusFilter(st)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${statusFilter === st ? 'border-primary bg-primary text-white' : 'border-line bg-surface text-ink/80 hover:bg-surface-2'}`}>
+              {st === 'all' ? 'All' : st}<span className={`tabular-nums text-[10px] ${statusFilter === st ? 'text-white/85' : 'text-muted'}`}>{n}</span>
+            </button>
+          ))}
         </div>
-        <div className="bg-surface rounded-lg border border-line p-4">
-          <div className="text-2xl font-bold text-blue-600">{activeProjects}</div>
-          <div className="text-xs text-muted">Active / In Progress</div>
-        </div>
-        <div className="bg-surface rounded-lg border border-line p-4">
-          <div className="text-2xl font-bold text-emerald-600">{totalPhases}</div>
-          <div className="text-xs text-muted">Total Phases</div>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a project or owner" aria-label="Find a project or owner"
+              className="w-56 rounded-lg border border-line bg-surface py-1.5 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+          </div>
+          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort projects" className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm">
+            <option value="golive">Go-live soonest</option>
+            <option value="progress">Most progressed</option>
+            <option value="name">Name</option>
+          </select>
         </div>
       </div>
 
-      {/* Current projects */}
-      <h2 className="text-lg font-semibold text-ink mb-3">Current Projects</h2>
-      <div className="grid grid-cols-1 gap-3 mb-8">
-        {currentProjects.map((project) => {
-          const ps = teamByProject.get((project.forecastName ?? project.name).toLowerCase()) ?? teamByProject.get(project.name.toLowerCase());
-          return (
-            <ZohoProjectCard
-              key={project.id}
-              project={project}
-              teamAllocation={ps?.employees}
-              actuals={actualsFor(project)}
-              loadedCost={ps?.loadedCost ?? 0}
-              cadToUsdRate={cadToUsdRate}
-              onUpdateProject={updateProject}
-              onArchive={archive}
-            />
-          );
-        })}
-      </div>
+      {/* Current projects — one list, not a stack of cards */}
+      <Card flush className="mb-8 overflow-hidden">
+        <div className="overflow-x-auto">
+          <div className="min-w-[900px]">
+            {listHeader}
+            {visible.length === 0
+              ? <p className="px-5 py-10 text-center text-sm text-muted">No projects match.</p>
+              : visible.map((p) => renderRow(p, false))}
+          </div>
+        </div>
+      </Card>
 
       {/* Archived — collapsed by default; reference, not daily work */}
       {archivedProjects.length > 0 && (
@@ -633,24 +649,12 @@ export default function ProjectPipelinePage() {
           </button>
 
           {showArchived && (
-            <div className="grid grid-cols-1 gap-3 mt-2">
-              {archivedProjects.map((project) => {
-                const ps = teamByProject.get((project.forecastName ?? project.name).toLowerCase()) ?? teamByProject.get(project.name.toLowerCase());
-                return (
-                  <div key={project.id} className="opacity-75 hover:opacity-100 transition-opacity">
-                    <ZohoProjectCard
-                      project={project}
-                      teamAllocation={ps?.employees}
-                      actuals={actualsFor(project)}
-                      loadedCost={ps?.loadedCost ?? 0}
-                      cadToUsdRate={cadToUsdRate}
-                      onUpdateProject={updateProject}
-                      onRestore={restore}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            <Card flush className="mt-2 overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
+              <div className="overflow-x-auto"><div className="min-w-[900px]">
+                {listHeader}
+                {archivedProjects.map((p) => renderRow(p, true))}
+              </div></div>
+            </Card>
           )}
         </div>
       )}

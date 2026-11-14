@@ -27,7 +27,6 @@ export const PAGES: PageDef[] = [
   { key: 'team',            label: 'Project Team',        section: 'Projects' },
   { key: 'actual-hours',    label: 'Actual Hours',        section: 'Projects' },
   { key: 'projects',        label: 'Current Projects',    section: 'Projects' },
-  { key: 'pipeline',        label: 'Pipeline Projects',   section: 'Projects' },
   { key: 'project-plans',   label: 'Project Plans',       section: 'Projects' },
   { key: 'forecasting',     label: 'Utilization Forecast',section: 'Projects' },
   { key: 'hiring-forecast', label: 'Hiring Forecast',     section: 'Projects' },
@@ -51,9 +50,7 @@ export const PAGES: PageDef[] = [
   { key: 'tnm-accounts',  label: 'TNM Accounts',  section: 'Global T&M' },
 
   // Account Management
-  { key: 'accounts', label: 'Accounts', section: 'Account Management' },
   { key: 'vendors',  label: 'Vendors',  section: 'Account Management' },
-  { key: 'gtm-list', label: 'GTM List', section: 'Account Management' },
   { key: 'dialer',   label: 'Dialer',   section: 'Account Management' },
 
   // Other

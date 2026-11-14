@@ -11,6 +11,10 @@ import { useCollapsedGroups } from '../lib/useCollapsedGroups';
 import { IndiaStaffingSplitView } from './india-staffing/IndiaStaffingSplitView';
 import { JobCodeChip } from '../components/staffing/JobCodeChip';
 import { approvedCostInrPerMonth } from '../lib/margin';
+import { computeReqHealth, buildClosureScorecard } from '../lib/reqHealth';
+import { ReqHealthBadge } from '../components/staffing/ReqHealthBadge';
+import { healthRowClass, HEALTH_META } from '../lib/reqHealthStyle';
+import { DemandScorecards, ClosureTicker } from '../components/staffing/DemandScorecard';
 import { ShareToReferralsToggle, isInternalAccountName } from '../components/staffing/ShareToReferralsToggle';
 import { Rows3, Columns3 } from 'lucide-react';
 import { useSalesPlanStore, type AccountInsight } from '../store/useSalesPlanStore';
@@ -144,6 +148,8 @@ export default function IndiaStaffingPage() {
   const [monthFilter, setMonthFilter] = useState('all');
   const [accountFilter, setAccountFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState<string>('all');
+  // Overdue / needs a push / fast closing chip above the list. 'all' = no filter.
+  const [healthFilter, setHealthFilter] = useState<'all' | 'overdue' | 'push' | 'fast'>('all');
   const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'accounts' | 'forecast'>('overview');
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -329,7 +335,15 @@ export default function IndiaStaffingPage() {
         candidates.filter((c) => c.requisition_id === req.id && FILLED_STAGES.has(c.stage)).length,
       );
       const openPositions = Math.max(0, (req.new_positions || 0) - filledPositions);
+      const health = computeReqHealth({
+        statusField: req.status_field || 'Open',
+        closeByDate: req.close_by_date || '',
+        ageing: calcAgeing(req.start_date || ''),
+        candidateStages: candidates.filter((c) => c.requisition_id === req.id).map((c) => c.stage),
+        lastStatusDate: reqStatuses[0]?.status_date || '',
+      });
       return {
+        health,
         id: req.id, month: req.month, account: acct?.name || 'Unknown', account_id: req.account_id,
         requisition: req.title,
         jobCode: req.job_code || '',
@@ -368,9 +382,29 @@ export default function IndiaStaffingPage() {
       if (monthFilter !== 'all' && r.month !== monthFilter) return false;
       if (accountFilter !== 'all' && r.account !== accountFilter) return false;
       if (riskFilter !== 'all' && r.risk !== riskFilter) return false;
+      if (healthFilter !== 'all' && r.health.health !== healthFilter) return false;
       return true;
     });
+  }, [rows, monthFilter, accountFilter, riskFilter, healthFilter]);
+
+  /** Active rows per health state, ignoring the health chip itself, for the chip counts. */
+  const healthCounts = useMemo(() => {
+    const c = { overdue: 0, push: 0, fast: 0 };
+    for (const r of rows) {
+      if (isArchived(r.statusField)) continue;
+      if (monthFilter !== 'all' && r.month !== monthFilter) continue;
+      if (accountFilter !== 'all' && r.account !== accountFilter) continue;
+      if (riskFilter !== 'all' && r.risk !== riskFilter) continue;
+      if (r.health.health !== 'ok') c[r.health.health] += 1;
+    }
+    return c;
   }, [rows, monthFilter, accountFilter, riskFilter]);
+
+  /** Positions closed this month / this year, external and internal apart. */
+  const closureCard = useMemo(
+    () => buildClosureScorecard(accounts, requisitions, history, new Map(rows.map((r) => [r.id, r.openPositions]))),
+    [accounts, requisitions, history, rows],
+  );
 
   /** Archived rows (Closed / Lost / Cancelled) — also respects filters */
   const archivedRows = useMemo(() => {
@@ -588,7 +622,7 @@ export default function IndiaStaffingPage() {
 
     return (
       <React.Fragment key={r.id}>
-        <tr className={`border-b border-line/40 hover:bg-surface-2/50 [&>td]:align-middle ${opts.archived ? 'opacity-75' : ''} ${isChecked ? 'bg-blue-50/40' : ''}`}>
+        <tr className={`border-b border-line/40 hover:bg-surface-2/50 [&>td]:align-middle ${opts.archived ? 'opacity-75' : healthRowClass(r.health)} ${isChecked ? 'bg-blue-50/40' : ''}`}>
           {opts.selectable && (
             <td className="p-2 text-center">
               <input
@@ -626,6 +660,7 @@ export default function IndiaStaffingPage() {
           <td className="p-2">
             <EditableCell value={r.requisition} onSave={(val) => handleCellSave(r.id, 'title', val)} />
             {r.jobCode && <JobCodeChip code={r.jobCode} />}
+            {!opts.archived && <ReqHealthBadge info={r.health} className="mt-1 ml-1" />}
             {!opts.archived && missingReqBillingFields(r).length > 0 && (
               <span className="mt-1 inline-flex items-center text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5"
                 title={`Required fields missing: ${missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')} — open the requisition to fill them in`}>
@@ -977,7 +1012,7 @@ export default function IndiaStaffingPage() {
           <p className="text-xs text-muted/70 italic py-4 text-center">{emptyMsg}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-[13px]">
               {TableHeader({ selectable: true })}
               <tbody>
                 {(() => {
@@ -1045,16 +1080,20 @@ export default function IndiaStaffingPage() {
         eyebrow="India T&M" tone="gold" title="India Demand"
         subtitle="Real-time staffing tracker with AI-powered closure forecasting"
         action={
-          <button
-            type="button"
-            onClick={() => setScreeningOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-br from-purple-600 to-sky-600 hover:opacity-90"
-            title="AI-assisted candidate screening — generate questions + score the transcript"
-          >
-            <Sparkles size={14} /> Screening
-          </button>
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={() => setScreeningOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-br from-purple-600 to-sky-600 hover:opacity-90"
+              title="AI-assisted candidate screening — generate questions + score the transcript"
+            >
+              <Sparkles size={14} /> Screening
+            </button>
+            <DemandScorecards card={closureCard} />
+          </div>
         }
       />
+      <ClosureTicker card={closureCard} />
       {screeningOpen && (
         <ScreeningModal
           requisitionSource="india"
@@ -1437,6 +1476,24 @@ export default function IndiaStaffingPage() {
               </div>
             )}
           </Card>
+
+          {/* Health chips: jump straight to the roles that need attention. Works in both views. */}
+          <div className="flex items-center gap-2 flex-wrap mb-3" role="group" aria-label="Filter roles by urgency">
+            {(['overdue', 'push', 'fast'] as const).map((k) => {
+              const m = HEALTH_META[k];
+              const on = healthFilter === k;
+              return (
+                <button key={k} type="button" aria-pressed={on} onClick={() => setHealthFilter(on ? 'all' : k)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${on ? m.chipOn : m.badge}`}>
+                  <m.icon size={14} aria-hidden="true" /> {m.name}
+                  <span className="tabular-nums">{healthCounts[k]}</span>
+                </button>
+              );
+            })}
+            {healthFilter !== 'all' && (
+              <button type="button" onClick={() => setHealthFilter('all')} className="text-xs font-semibold text-muted hover:text-ink underline">Show all</button>
+            )}
+          </div>
 
           {/* View mode toggle */}
           <div className="flex gap-1 bg-surface-2 rounded-xl p-1 w-fit mb-3" title="Switch between the wide inline-edit table and the compact split view">

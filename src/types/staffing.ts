@@ -264,6 +264,8 @@ export interface StaffingRow {
   requisition: string;
   /** Job ID (REQ-1042), '' until the database has minted one. */
   jobCode: string;
+  /** Overdue / needs a push / fast closing, with the label and reason shown on the row. */
+  health: import('../lib/reqHealth').ReqHealthInfo;
   /** Total positions requested on the requisition (e.g. 6). */
   newPositions: number;
   /** Candidates linked to this req in 'filled' stages (Offer Accepted, Joined). */

@@ -21,6 +21,8 @@ import { Card } from '../../components/ui';
 import { chipStyle } from '../../lib/chipStyle';
 import { ShareToReferralsToggle, isInternalAccountName } from '../../components/staffing/ShareToReferralsToggle';
 import { JobCodeChip } from '../../components/staffing/JobCodeChip';
+import { ReqHealthBadge } from '../../components/staffing/ReqHealthBadge';
+import { healthRowClass } from '../../lib/reqHealthStyle';
 import { SuggestedProfiles } from '../../components/staffing/SuggestedProfiles';
 import { approvedCostInrPerMonth, approvedCost, formatRate, STANDARD_MARGIN_PCT } from '../../lib/margin';
 
@@ -106,14 +108,14 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
             <Input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter title, account, SPOC…"
-              className="pl-8 py-1.5 text-xs"
+              placeholder="Filter title, job ID, account, SPOC…"
+              className="pl-8 py-1.5 text-sm"
             />
           </div>
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'All' | StaffingStatus)}
-            className="py-1.5 text-xs w-32"
+            className="py-1.5 text-sm !w-40 flex-shrink-0"
           >
             <option value="All">All statuses</option>
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -126,8 +128,8 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
             <div key={account} className="border-b border-line/60 last:border-0">
               <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border-b border-blue-100 px-3 py-1.5 flex items-center gap-2">
                 <Building2 size={12} className="text-primary flex-shrink-0" />
-                <span className="text-xs font-bold text-ink flex-1 min-w-0 break-words line-clamp-2" title={account}>{account}</span>
-                <span className="text-[9px] text-muted font-semibold">{acctRows.length} · {acctRows.reduce((s, r) => s + r.openPositions, 0)} open</span>
+                <span className="text-sm font-bold text-ink flex-1 min-w-0 break-words line-clamp-2" title={account}>{account}</span>
+                <span className="text-[11px] text-muted font-semibold">{acctRows.length} · {acctRows.reduce((s, r) => s + r.openPositions, 0)} open</span>
               </div>
               {acctRows.map((r) => {
                 const active = r.id === selectedId;
@@ -137,25 +139,28 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                     key={r.id}
                     type="button"
                     onClick={() => setSelectedId(r.id)}
-                    className={`w-full text-left px-3 py-2 border-b border-line/40 last:border-0 transition-colors ${
-                      active ? 'bg-primary/10 border-l-[3px] border-l-primary' : 'hover:bg-surface-2/70'
+                    aria-current={active ? 'true' : undefined}
+                    className={`w-full text-left px-3 py-2.5 border-b border-line/40 last:border-0 transition-colors ${healthRowClass(r.health)} ${
+                      active ? 'ring-2 ring-inset ring-primary' : 'hover:brightness-[0.97]'
                     }`}
                   >
                     <div className="flex items-start gap-2">
                       <span
-                        className="flex-1 min-w-0 break-words line-clamp-2 text-xs font-semibold text-ink"
+                        className="flex-1 min-w-0 break-words line-clamp-2 text-sm font-semibold text-ink"
                         title={r.requisition || undefined}
                       >
                         {r.requisition || <span className="italic text-muted/70">Untitled req</span>}
                       </span>
                       <span
-                        className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                        className="text-[11px] font-bold text-white px-2 py-0.5 rounded-full whitespace-nowrap"
                         style={chipStyle(STATUS_COLORS[r.statusField] || '#94a3b8')}
                       >
                         {r.statusField}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-muted">
+                    <ReqHealthBadge info={r.health} className="mt-1.5" />
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted">
+                      {r.jobCode && (<><span className="font-mono font-semibold text-ink/70">{r.jobCode}</span><span className="text-line">·</span></>)}
                       <span>{r.openPositions} open</span>
                       {r.ageing > 0 && (
                         <>
@@ -180,7 +185,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                         </>
                       )}
                       {incomplete && (
-                        <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5"
+                        <span className="ml-auto inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5"
                           title={`Missing: ${missingReqBillingFields(r).map((f) => REQ_BILLING_FIELD_LABELS[f]).join(', ')}`}>
                           <AlertTriangle size={9} /> Incomplete
                         </span>

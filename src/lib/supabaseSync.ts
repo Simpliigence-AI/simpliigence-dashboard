@@ -1241,66 +1241,63 @@ export async function fetchActualHours(): Promise<ActualHoursFeed | null> {
 
 // ─── India Staffing fetchers ──────────────────────────────────────
 
-export async function fetchIndiaStaffing(): Promise<{
+/** Candidate columns — DELIBERATELY excludes `zoho_raw` (~2KB/row). One line
+ *  so PostgREST sees a clean comma-separated list. */
+const CAND_COLS = 'id,requisition_id,name,experience,years_of_experience,stage,submit_date,feedback,source,email,phone,owning_ta_email,linkedin_url,location,resume_url,resume_filename,resume_uploaded_at,skills,profile_summary,parsed_at,zoho_candidate_id,created_at,updated_at,referrer_email,referrer_name,referred_at,availability,expected_salary,current_employer,current_ctc_inr,expected_ctc_inr,notice_period_days,willing_to_relocate,latest_call_summary,latest_call_at';
+
+/** Every candidate, keyset-paginated. ~9 MB — never await this on the startup
+ *  path; App loads it in the background after the shell has rendered. */
+export async function fetchIndiaCandidates(): Promise<StaffingCandidate[] | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
+  const pageSize = 1000;
+  let lastId: string | null = null;
+  while (true) {
+    let q = supabase.from('india_staffing_candidates').select(CAND_COLS).order('id', { ascending: true }).limit(pageSize);
+    if (lastId) q = q.gt('id', lastId);
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await q;
+    if (error) {
+      console.warn('[candidates] page failed:', error.message, '— have', all.length, 'rows so far');
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []) as any[];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    lastId = rows[rows.length - 1].id as string;
+    if (all.length >= 50_000) { console.warn('[candidates] hit 50k safety cap'); break; }
+  }
+  console.log(`[candidates] fetched ${all.length} total`);
+  return all.map(rowToCandidate);
+}
+
+/** Just these candidates — used by realtime so one edit doesn't refetch all ~9 MB. */
+export async function fetchIndiaCandidatesByIds(ids: string[]): Promise<StaffingCandidate[] | null> {
+  const out: StaffingCandidate[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await supabase.from('india_staffing_candidates').select(CAND_COLS).in('id', ids.slice(i, i + 200));
+    if (error) { console.warn('[candidates] fetch by id failed:', error.message); return null; }
+    out.push(...(data || []).map(rowToCandidate));
+  }
+  return out;
+}
+
+export async function fetchIndiaStaffing(opts: { skipCandidates?: boolean } = {}): Promise<{
   accounts: IndiaAccount[];
   requisitions: IndiaRequisition[];
   statuses: DailyStatus[];
   history: StaffingHistoryEntry[];
-  candidates: StaffingCandidate[];
+  /** Undefined when skipped (or the fetch failed) — callers must not treat that as "no candidates". */
+  candidates?: StaffingCandidate[];
 } | null> {
-  // Candidate column list — DELIBERATELY excludes `zoho_raw` (~2KB/row of
-  // raw Zoho payload) to keep response size under PostgREST's limits.
-  // One line so PostgREST sees a clean comma-separated list (template-literal
-  // whitespace + newlines can confuse the query parser in some setups).
-  const CAND_COLS = 'id,requisition_id,name,experience,years_of_experience,stage,submit_date,feedback,source,email,phone,owning_ta_email,linkedin_url,location,resume_url,resume_filename,resume_uploaded_at,skills,profile_summary,parsed_at,zoho_candidate_id,created_at,updated_at,referrer_email,referrer_name,referred_at,availability,expected_salary,current_employer,current_ctc_inr,expected_ctc_inr,notice_period_days,willing_to_relocate,latest_call_summary,latest_call_at';
-
-  /** Supabase's PostgREST caps each response at 1000 rows regardless of
-   *  Range header. With ~5000 candidates synced from Zoho, we paginate
-   *  client-side. Logs per-page progress so the console makes the source
-   *  of any truncation obvious. */
-  async function fetchAllCandidates(): Promise<{ data: unknown[]; error: { message: string } | null }> {
-    // Keyset pagination over `id` (TEXT PK, always unique). The earlier
-    // offset+order('created_at') approach overlapped/skipped rows because
-    // many sync'd rows share an identical created_at — postgres tie-broke
-    // non-deterministically, so each range request returned slightly
-    // different "first 1000" rows. Keyset on the primary key dodges that.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const all: any[] = [];
-    const pageSize = 1000;
-    let lastId: string | null = null;
-    let page = 0;
-    while (true) {
-      page++;
-      let q = supabase
-        .from('india_staffing_candidates')
-        .select(CAND_COLS)
-        .order('id', { ascending: true })
-        .limit(pageSize);
-      if (lastId) q = q.gt('id', lastId);
-      // eslint-disable-next-line no-await-in-loop
-      const { data, error } = await q;
-      if (error) {
-        console.warn('[candidates] page', page, 'failed:', error.message, '— have', all.length, 'rows so far');
-        return { data: all, error };
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = (data || []) as any[];
-      console.log(`[candidates] page ${page}: ${rows.length} rows (after id=${lastId ?? 'START'}) — total so far ${all.length + rows.length}`);
-      all.push(...rows);
-      if (rows.length < pageSize) break;
-      lastId = rows[rows.length - 1].id as string;
-      if (all.length >= 50_000) { console.warn('[candidates] hit 50k safety cap'); break; }
-    }
-    console.log(`[candidates] fetched ${all.length} total across ${page} page(s)`);
-    return { data: all, error: null };
-  }
-
   const [acctRes, reqRes, statusRes, histRes, candRes] = await Promise.all([
     supabase.from('india_staffing_accounts').select('*'),
     supabase.from('india_staffing_requisitions').select('*'),
     supabase.from('india_staffing_statuses').select('*'),
     supabase.from('india_staffing_history').select('*'),
-    fetchAllCandidates(),
+    opts.skipCandidates ? Promise.resolve(null) : fetchIndiaCandidates(),
   ]);
   if (acctRes.error || reqRes.error || statusRes.error) {
     console.warn('[supabase] fetch india staffing failed:', acctRes.error?.message, reqRes.error?.message, statusRes.error?.message);
@@ -1309,15 +1306,12 @@ export async function fetchIndiaStaffing(): Promise<{
   if (histRes.error) {
     console.warn('[supabase] fetch india history failed (table may be missing):', histRes.error.message);
   }
-  if (candRes.error) {
-    console.warn('[supabase] fetch india candidates failed (table may be missing):', candRes.error.message);
-  }
   return {
     accounts: (acctRes.data || []).map(rowToIndiaAccount),
     requisitions: (reqRes.data || []).map(rowToIndiaReq),
     statuses: (statusRes.data || []).map(rowToDailyStatus),
     history: (histRes.data || []).map(rowToHistory),
-    candidates: (candRes.data || []).map(rowToCandidate),
+    ...(candRes ? { candidates: candRes } : {}),
   };
 }
 
@@ -3255,6 +3249,8 @@ type StoreSetters = {
   setHiringConfig: (concierge: ConciergeConfig, scenario: ScenarioSettings, requests: StaffingRequest[]) => void;
   setPipelineProjects: (p: ZohoPipelineProject[]) => void;
   setIndiaStaffing: (accounts: IndiaAccount[], requisitions: IndiaRequisition[], statuses: DailyStatus[], history?: StaffingHistoryEntry[], candidates?: StaffingCandidate[]) => void;
+  /** Apply a small realtime delta to the candidate list (upserts + deletes). */
+  patchIndiaCandidates: (upserts: StaffingCandidate[], deletedIds: string[]) => void;
   setUSStaffing: (
     accounts: USStaffingAccount[],
     requisitions: USStaffingRequisition[],
@@ -3429,15 +3425,32 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
   //    "All candidates" count) back.
   let indiaRefetchTimer: ReturnType<typeof setTimeout> | null = null;
   let indiaRefetchSeq = 0;
+  // Candidates are ~9 MB in full, so a candidate change only pulls the rows
+  // that changed; the small tables (accounts/reqs/statuses/history) refetch whole.
+  let indiaCoreDirty = false;
+  const candChanged = new Set<string>();
+  const candDeleted = new Set<string>();
   const scheduleIndiaRefetch = () => {
     if (indiaRefetchTimer) clearTimeout(indiaRefetchTimer);
     indiaRefetchTimer = setTimeout(() => {
       indiaRefetchTimer = null;
-      const seq = ++indiaRefetchSeq;
-      fetchIndiaStaffing().then((data) => {
-        if (!data || seq !== indiaRefetchSeq) return;
-        setters.setIndiaStaffing(data.accounts, data.requisitions, data.statuses, data.history, data.candidates);
-      });
+      if (indiaCoreDirty) {
+        indiaCoreDirty = false;
+        const seq = ++indiaRefetchSeq;
+        fetchIndiaStaffing({ skipCandidates: true }).then((data) => {
+          if (!data || seq !== indiaRefetchSeq) return;
+          setters.setIndiaStaffing(data.accounts, data.requisitions, data.statuses, data.history);
+        });
+      }
+      if (candChanged.size || candDeleted.size) {
+        const ids = [...candChanged];
+        const gone = [...candDeleted];
+        candChanged.clear();
+        candDeleted.clear();
+        (ids.length ? fetchIndiaCandidatesByIds(ids) : Promise.resolve([])).then((rows) => {
+          if (rows) setters.patchIndiaCandidates(rows, gone);
+        });
+      }
     }, 1500);
   };
   for (const table of ['india_staffing_accounts', 'india_staffing_requisitions', 'india_staffing_statuses', 'india_staffing_history', 'india_staffing_candidates'] as const) {
@@ -3447,7 +3460,19 @@ export function setupRealtimeSubscriptions(setters: StoreSetters) {
       (payload) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const row = (payload.new || payload.old) as any;
-        if (row?.updated_by === CLIENT_ID) return;
+        if (table === 'india_staffing_candidates') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const oldId = (payload.old as any)?.id as string | undefined;
+          if (payload.eventType === 'DELETE') {
+            if (oldId) { candDeleted.add(oldId); candChanged.delete(oldId); }
+          } else {
+            if (row?.updated_by === CLIENT_ID) return;
+            if (row?.id) { candChanged.add(row.id); candDeleted.delete(row.id); }
+          }
+        } else {
+          if (row?.updated_by === CLIENT_ID) return;
+          indiaCoreDirty = true;
+        }
         scheduleIndiaRefetch();
       },
     );

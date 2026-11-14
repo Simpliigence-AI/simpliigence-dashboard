@@ -469,7 +469,6 @@ export default function DashboardPage() {
       links: [
         { to: '/team',           label: 'Project Team' },
         { to: '/projects',       label: 'Current Projects' },
-        { to: '/pipeline',       label: 'Pipeline Projects' },
         { to: '/forecasting',    label: 'Utilization Forecast' },
         { to: '/financials',     label: 'Financials' },
       ],
@@ -517,7 +516,6 @@ export default function DashboardPage() {
         { label: 'Open Actions', value: openActionCount, sub: overdueActionCount > 0 ? `${overdueActionCount} overdue` : 'none overdue' },
       ],
       links: [
-        { to: '/accounts', label: 'Accounts' },
         { to: '/vendors',  label: 'Vendors' },
       ],
     },
@@ -792,9 +790,6 @@ function AccountHealthAndCandidatesWidget(props: {
             <Handshake size={15} />
           </div>
           <h3 className="eyebrow !text-brand">Account Mgmt Health</h3>
-          <Link to="/accounts" className="ml-auto text-[10px] font-semibold text-sky-700 hover:underline inline-flex items-center gap-0.5">
-            Accounts <ArrowUpRight size={10} />
-          </Link>
         </div>
         <div className="grid grid-cols-4 gap-3">
           <Stat label="Active" value={props.activeAccountCount} sub={`${props.totalAccountCount} total`} />

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { DemoBanner } from '../components/DemoBanner';
 import { RouteTracker } from '../components/RouteTracker';
 import { useAuthStore } from '../store/useAuthStore';
+import { useStaffingStore } from '../store/useStaffingStore';
 import { useTimeMode } from '../hooks/useTimeMode';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 
@@ -25,6 +26,20 @@ const SIDEBAR_KEY = 'sidebar-collapsed';
  *    over the content opens it as a drawer with a tap-to-dismiss backdrop.
  *    Main content has no left margin and uses the full viewport width.
  */
+/** Shown for the split second a page's code chunk is downloading. */
+function PageSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4" aria-busy="true" aria-label="Loading page">
+      <div className="h-7 w-56 rounded-md bg-surface-2" />
+      <div className="h-4 w-80 rounded bg-surface-2" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-surface-2" />)}
+      </div>
+      <div className="h-72 rounded-xl bg-surface-2" />
+    </div>
+  );
+}
+
 export default function AppLayout() {
   // App-wide time-of-day theme: light 06:00–18:00, dark otherwise.
   // The hook sets `<html data-mode="…">` and CSS in index.css takes care of
@@ -44,6 +59,9 @@ export default function AppLayout() {
   // Supabase triggers on tab focus and on every token refresh) must never
   // unmount <Outlet /> — that is what wiped in-progress edits.
   const gateOnAuth = authLoading && !hasProfile;
+  // Candidate profiles (~6k) load in the background after the shell is up.
+  const candidatesLoaded = useStaffingStore((s) => s.candidatesLoaded);
+  const needsCandidates = /^\/(india-staffing|candidates|ta-metrics|india-demand-analytics|screenings)/.test(location.pathname);
 
   // Hard lockdown: role='employee' may only visit EMPLOYEE_ALLOWED_PATHS.
   // Any other URL (typed, bookmarked, deep-linked) bounces back to /my-time.
@@ -102,9 +120,16 @@ export default function AppLayout() {
           ) : isEmployeeBlocked ? (
             <Navigate to="/my-time" replace />
           ) : (
-            <Outlet />
+            <Suspense fallback={<PageSkeleton />}>
+              <Outlet />
+            </Suspense>
           )}
         </div>
+        {needsCandidates && !candidatesLoaded && (
+          <div role="status" className="fixed bottom-4 right-4 z-20 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-ink/80 shadow-lg">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" /> Loading candidate profiles…
+          </div>
+        )}
       </main>
     </div>
   );

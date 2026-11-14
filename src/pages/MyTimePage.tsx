@@ -13,7 +13,7 @@
  * useTimeEntryStore.addEntry / updateEntry which writes to Supabase and
  * broadcasts via realtime.
  *
- * Mini stat strip at the bottom: this-week logged vs forecast for awareness.
+ * A "week at a glance" card on top: progress to 40 h, a bar per day, hours by project.
  */
 import { useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Save, Trash2, X, Copy, CalendarDays, List as ListIcon, LayoutGrid, Loader2 } from 'lucide-react';
@@ -149,19 +149,6 @@ export default function MyTimePage() {
     const out: TimeEntry[] = [];
     for (const d of days) out.push(...(entriesByDay.get(d.iso) || []));
     return out;
-  }, [days, entriesByDay]);
-
-  const weekStats = useMemo(() => {
-    let logged = 0, billable = 0;
-    for (const day of days) {
-      for (const e of entriesByDay.get(day.iso) || []) {
-        logged += e.hours;
-        if (e.billable) billable += e.hours;
-      }
-    }
-    // Forecast for this week ≈ sum of forecast assignments' weekly_hours that match this week's days
-    // (the forecast model is weekly-keyed; we just sum the user's row totals for the relevant ISO weeks)
-    return { logged, billable };
   }, [days, entriesByDay]);
 
   /** Copy all of `fromIso`'s entries onto `toIso` (cloned, status=submitted).
@@ -313,7 +300,7 @@ export default function MyTimePage() {
     // Width is mode-aware: the list + calendar views are form-shaped and read
     // better in a narrow measure, but the grid is a 7-column week table that
     // needs every pixel it can get on a wide monitor.
-    <div className={`${viewMode === 'grid' ? 'w-full' : 'max-w-3xl mx-auto'} pb-24`}>
+    <div className={`${viewMode === 'grid' ? 'w-full' : 'max-w-3xl mx-auto'} pb-8`}>
       <PageHeader
         title="My Time"
         subtitle={`${currentUser.email} · ${viewMode === 'calendar' ? calendarMonthLabel : niceWeek}`}
@@ -454,6 +441,15 @@ export default function MyTimePage() {
         </div>
       )}
 
+      {viewMode !== 'calendar' && (
+        <WeekGlance
+          days={days}
+          entriesByDay={entriesByDay}
+          openDay={viewMode === 'list' ? openDay : null}
+          onPickDay={(iso) => { setOpenDay(iso); if (viewMode === 'list') document.getElementById(`day-${iso}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
+        />
+      )}
+
       {viewMode === 'calendar' ? (
         <CalendarGrid
           cells={calendarGrid}
@@ -484,7 +480,8 @@ export default function MyTimePage() {
           const dayTotal = entries.reduce((s, e) => s + e.hours, 0);
           const isOpen = openDay === d.iso;
           return (
-            <Card key={d.iso} className={d.isToday ? 'ring-2 ring-primary/40' : ''}>
+            <div key={d.iso} id={`day-${d.iso}`}>
+            <Card className={d.isToday ? 'ring-2 ring-primary/40' : ''}>
               <button
                 type="button"
                 onClick={() => setOpenDay(isOpen ? null : d.iso)}
@@ -577,6 +574,7 @@ export default function MyTimePage() {
                 </div>
               )}
             </Card>
+            </div>
           );
         })}
       </div>
@@ -591,40 +589,6 @@ export default function MyTimePage() {
           uploadedBy={myEmail}
         />
       </div>
-
-      {/* Sticky bottom mini stat */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-surface border-t border-line shadow-lg px-4 py-2.5 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-4">
-          <div>
-            <span className="font-semibold text-ink tabular-nums">{weekStats.logged.toFixed(2)}h</span>
-            <span className="text-muted"> logged</span>
-          </div>
-          <div>
-            <span className="font-semibold text-emerald-600 tabular-nums">{weekStats.billable.toFixed(2)}h</span>
-            <span className="text-muted"> billable</span>
-          </div>
-          {/* Shortfall vs the standard 40-hour week. Goes green at ≥40, amber
-              below, hidden once you cross the target so it doesn't nag. */}
-          {(() => {
-            const TARGET = 40;
-            const remaining = TARGET - weekStats.logged;
-            if (remaining <= 0) {
-              return (
-                <div className="text-emerald-600 font-semibold tabular-nums">
-                  ✓ {weekStats.logged.toFixed(2)} / {TARGET}h
-                </div>
-              );
-            }
-            return (
-              <div className="tabular-nums">
-                <span className="font-semibold text-amber-700">{remaining.toFixed(2)}h short</span>
-                <span className="text-muted/70"> of {TARGET}h</span>
-              </div>
-            );
-          })()}
-        </div>
-        <div className="text-muted/70 text-[10px]">{niceWeek}</div>
-      </div>
     </div>
   );
 }
@@ -636,6 +600,103 @@ const STATUS_BADGE: Record<TimeEntry['status'], { label: string; cls: string }> 
   approved:  { label: 'Approved',  cls: 'bg-emerald-100 text-emerald-800' },
   rejected:  { label: 'Rejected',  cls: 'bg-red-100 text-red-800' },
 };
+
+/* ── Week at a glance ──────────────────────────────── */
+const WEEK_TARGET = 40;
+const DAY_SCALE = 10; // a 10-hour day fills the column
+const SPLIT_COLORS = ['bg-brand', 'bg-teal', 'bg-violet', 'bg-gold', 'bg-rose'];
+const STATUS_STYLE: Record<string, string> = {
+  approved: 'bg-green/10 text-green', submitted: 'bg-brand/10 text-brand-dark', draft: 'bg-surface-2 text-muted', rejected: 'bg-rose/10 text-rose',
+};
+
+/** One card that shows the week as a picture: progress to 40 h, a bar per day
+ *  (billable solid, non-billable light), where the hours went, and entry status. */
+function WeekGlance({ days, entriesByDay, openDay, onPickDay }: {
+  days: { iso: string; label: string; isToday: boolean }[];
+  entriesByDay: Map<string, TimeEntry[]>;
+  openDay: string | null;
+  onPickDay: (iso: string) => void;
+}) {
+  const all = days.flatMap((d) => entriesByDay.get(d.iso) || []);
+  const logged = all.reduce((s, e) => s + e.hours, 0);
+  const billable = all.reduce((s, e) => s + (e.billable ? e.hours : 0), 0);
+  const pct = Math.min(100, (logged / WEEK_TARGET) * 100);
+  const byProject = new Map<string, number>();
+  for (const e of all) byProject.set(e.projectName, (byProject.get(e.projectName) ?? 0) + e.hours);
+  const ranked = [...byProject.entries()].sort((a, b) => b[1] - a[1]);
+  const split = ranked.length > 5 ? [...ranked.slice(0, 4), ['Other', ranked.slice(4).reduce((s, [, h]) => s + h, 0)] as [string, number]] : ranked;
+  const statuses = new Map<string, number>();
+  for (const e of all) statuses.set(e.status, (statuses.get(e.status) ?? 0) + 1);
+  const R = 34, C = 2 * Math.PI * R;
+  const ringTone = logged >= WEEK_TARGET ? 'text-green' : logged >= WEEK_TARGET * 0.5 ? 'text-brand' : 'text-gold';
+
+  return (
+    <Card className="mb-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+        {/* Progress ring */}
+        <div className="flex items-center gap-3">
+          <div className="relative h-20 w-20 shrink-0" role="img" aria-label={`${logged} of ${WEEK_TARGET} hours logged this week`}>
+            <svg viewBox="0 0 80 80" className="h-20 w-20 -rotate-90">
+              <circle cx="40" cy="40" r={R} fill="none" strokeWidth="8" className="stroke-current text-surface-2" />
+              <circle cx="40" cy="40" r={R} fill="none" strokeWidth="8" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} className={`stroke-current ${ringTone}`} />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-lg font-bold leading-none text-ink tabular-nums">{logged % 1 ? logged.toFixed(1) : logged}</span>
+              <span className="text-[10px] text-muted">of {WEEK_TARGET}h</span>
+            </div>
+          </div>
+          <div className="text-xs text-muted">
+            <div><b className="text-ink tabular-nums">{billable % 1 ? billable.toFixed(1) : billable}h</b> billable</div>
+            <div><b className="text-ink tabular-nums">{(logged - billable) % 1 ? (logged - billable).toFixed(1) : logged - billable}h</b> non-billable</div>
+            {logged < WEEK_TARGET && <div className="mt-0.5 font-semibold text-gold">{(WEEK_TARGET - logged) % 1 ? (WEEK_TARGET - logged).toFixed(1) : WEEK_TARGET - logged}h to go</div>}
+          </div>
+        </div>
+
+        {/* A bar per day */}
+        <div className="flex min-w-[250px] flex-1 items-end justify-between gap-1.5">
+          {days.map((d) => {
+            const es = entriesByDay.get(d.iso) || [];
+            const total = es.reduce((s, e) => s + e.hours, 0);
+            const bill = es.reduce((s, e) => s + (e.billable ? e.hours : 0), 0);
+            const weekend = d.label.startsWith('Sat') || d.label.startsWith('Sun');
+            return (
+              <button key={d.iso} type="button" onClick={() => onPickDay(d.iso)} title={`${d.label}: ${total}h (${bill}h billable)`}
+                className={`group flex flex-1 flex-col items-center gap-1 rounded-lg px-1 pt-1 pb-0.5 ${openDay === d.iso ? 'bg-brand/10' : 'hover:bg-surface-2/70'}`}>
+                <span className={`text-[11px] font-bold tabular-nums ${total > 0 ? 'text-ink' : 'text-muted/60'}`}>{total > 0 ? (total % 1 ? total.toFixed(1) : total) : '–'}</span>
+                <span className="flex h-14 w-full max-w-[34px] flex-col justify-end overflow-hidden rounded-md bg-surface-2">
+                  <span className="bg-brand/35" style={{ height: `${Math.min(100, ((total - bill) / DAY_SCALE) * 100)}%` }} />
+                  <span className="bg-brand" style={{ height: `${Math.min(100, (bill / DAY_SCALE) * 100)}%` }} />
+                </span>
+                <span className={`text-[10px] font-semibold uppercase ${d.isToday ? 'text-primary' : weekend ? 'text-muted/60' : 'text-muted'}`}>{d.label.slice(0, 3)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {all.length > 0 && (
+        <div className="mt-4 border-t border-line/60 pt-3">
+          <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-2" role="img" aria-label="Hours by project">
+            {split.map(([name, h], i) => <span key={name} className={SPLIT_COLORS[i % SPLIT_COLORS.length]} style={{ flex: h }} title={`${name}: ${h}h`} />)}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink/80">
+            {split.map(([name, h], i) => (
+              <span key={name} className="inline-flex max-w-[16rem] items-center gap-1.5">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${SPLIT_COLORS[i % SPLIT_COLORS.length]}`} />
+                <span className="truncate">{name}</span><b className="tabular-nums text-ink">{h % 1 ? h.toFixed(1) : h}h</b>
+              </span>
+            ))}
+            <span className="ml-auto flex flex-wrap gap-1.5">
+              {[...statuses.entries()].map(([st, n]) => (
+                <span key={st} className={`rounded-md px-2 py-0.5 text-[11px] font-bold capitalize ${STATUS_STYLE[st] ?? 'bg-surface-2 text-muted'}`}>{n} {st}</span>
+              ))}
+            </span>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function EntryRow({ entry, projectOptions, onSave, onDelete }: {
   entry: TimeEntry;

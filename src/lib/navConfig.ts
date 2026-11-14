@@ -11,7 +11,7 @@ import {
   ClipboardList, Globe, TrendingUp, Clock, Timer, CheckSquare, CalendarCheck,
   Contact, BarChart3, PieChart, Building2, Handshake, Target, Radar,
   ClipboardCheck, Home, FileEdit, UserCog, Activity, History, ShieldCheck,
-  PhoneCall, ListChecks, Briefcase, AppWindow, Gauge,
+  PhoneCall, ListChecks, Briefcase, AppWindow, Gauge, Calculator,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -93,7 +93,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/ta-daily-log',          icon: CalendarCheck,  label: 'TA Daily Log',    desc: 'Daily recruiting activity log across the TA team' },
       { to: '/ta-metrics',            icon: BarChart3,      label: 'TA Metrics',      desc: 'Team-level TA KPIs and trends' },
-      { to: '/candidates',            icon: Contact,        label: 'Candidates',      desc: 'Candidate database with Ask Claude search' },
+      { to: '/candidates',            icon: Contact,        label: 'Candidates',      desc: 'Candidate database with skill pools and Ask Claude search', keywords: 'pool skills database' },
+      { to: '/margin-calculator',     icon: Calculator,     label: 'Margin Calculator', desc: 'Approved candidate cost from a client budget', keywords: 'budget cost rate vendor margin' },
       { to: '/screenings',            icon: ClipboardCheck, label: 'Screenings',      desc: 'Candidate screening calls and outcomes' },
       { to: '/hiring-radar',          icon: Radar,          label: 'Hiring Radar',    desc: 'Companies and roles worth watching' },
       { to: '/profile-format',        icon: FileEdit,       label: 'Profile Format',  desc: 'Resume reformatter + parser', keywords: 'resume cv' },

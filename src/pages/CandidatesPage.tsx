@@ -13,7 +13,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Users as UsersIcon, FileCheck2, CalendarRange, LayoutGrid, Table as TableIcon, MapPin, Zap } from 'lucide-react';
 import { Plus, Trash2, Save, X, Upload, Sparkles, FileText, ExternalLink, ChevronDown, ChevronRight, Linkedin, UploadCloud, CheckCircle, AlertCircle, Loader2, UserPlus, IndianRupee, PhoneOutgoing, PhoneCall } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../components/shared/PageHeader';
+import { SKILL_POOLS, poolsForCandidate } from '../lib/skillPools';
 import { Card } from '../components/ui';
 import { useAuthStore } from '../store/useAuthStore';
 import { useStaffingStore } from '../store/useStaffingStore';
@@ -84,7 +86,14 @@ export default function CandidatesPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const { accounts, requisitions, candidates, addCandidate, updateCandidate, removeCandidate } = useStaffingStore();
 
-  const [q, setQ] = useState('');
+  // ?q= and ?pool= let other pages link straight to a search or a skill pool
+  // (Suggested profiles on a requisition does). Read once, on mount.
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(() => searchParams.get('q') || '');
+  const [filterPool, setFilterPool] = useState(() => {
+    const p = searchParams.get('pool') || '';
+    return SKILL_POOLS.some((x) => x.id === p) ? p : '';
+  });
   const [filterReq, setFilterReq] = useState('');
   const [filterOwner, setFilterOwner] = useState('');
   const [filterStage, setFilterStage] = useState('');
@@ -167,6 +176,26 @@ export default function CandidatesPage() {
     return m;
   }, [accounts]);
 
+  // Skill pool per profile, derived from parsed skills + job title. Computed once
+  // per candidate list (not per keystroke) and reused by the filter and the counts.
+  const poolsById = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const c of candidates) m.set(c.id, poolsForCandidate(c));
+    return m;
+  }, [candidates]);
+  /** Profiles per pool, split into all / unassigned, for the pool chips. */
+  const poolCounts = useMemo(() => {
+    const all = new Map<string, number>();
+    const unassigned = new Map<string, number>();
+    for (const c of candidates) {
+      for (const p of poolsById.get(c.id) || []) {
+        all.set(p, (all.get(p) || 0) + 1);
+        if (!c.requisition_id) unassigned.set(p, (unassigned.get(p) || 0) + 1);
+      }
+    }
+    return { all, unassigned };
+  }, [candidates, poolsById]);
+
   const accountName = (rid: string) => {
     const req = reqById.get(rid);
     if (!req) return '—';
@@ -181,7 +210,7 @@ export default function CandidatesPage() {
   // at the top of the (newly-narrowed) list instead of a phantom offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [q, filterReq, filterStage, filterLocation, filterOwner, aiMatchSet]);
+  }, [q, filterReq, filterStage, filterLocation, filterOwner, filterPool, aiMatchSet]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -195,6 +224,7 @@ export default function CandidatesPage() {
         return false;
       }
       if (filterOwner && (c.owning_ta_email || '') !== filterOwner) return false;
+      if (filterPool && !(poolsById.get(c.id) || []).includes(filterPool)) return false;
       if (filterStage && c.stage !== filterStage) return false;
       // Location filter is a substring match (case-insensitive) so "Bangalore"
       // also matches "Bangalore, India" or "Bengaluru, KA".
@@ -213,7 +243,7 @@ export default function CandidatesPage() {
       }
       return true;
     });
-  }, [candidates, q, filterReq, filterOwner, filterStage, filterLocation, reqById, accountById, aiMatchSet]);
+  }, [candidates, q, filterReq, filterOwner, filterStage, filterLocation, filterPool, poolsById, reqById, accountById, aiMatchSet]);
 
   // KPI strip stats (across ALL candidates, not filtered — gives a true at-a-glance view)
   const kpis = useMemo(() => {
@@ -408,7 +438,7 @@ export default function CandidatesPage() {
           >
             <option value="">All requisitions</option>
             <option value="__unassigned__">— Unassigned —</option>
-            {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+            {requisitions.map((r) => <option key={r.id} value={r.id}>{r.job_code ? `${r.job_code} · ${r.title}` : r.title}</option>)}
           </select>
           <select
             value={filterOwner}
@@ -437,6 +467,40 @@ export default function CandidatesPage() {
           <datalist id="candidate-location-options">
             {locations.map((l) => <option key={l} value={l} />)}
           </datalist>
+        </div>
+
+        {/* Skill pools: standing views of the database by skill family. Each chip
+            shows how many profiles are in the pool; the tooltip adds how many are unassigned. */}
+        <div className="mt-3 pt-3 border-t border-line/60">
+          <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Skill pools">
+            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider mr-1">Skill pools</span>
+            {SKILL_POOLS.filter((p) => (poolCounts.all.get(p.id) || 0) > 0).map((p) => {
+              const on = filterPool === p.id;
+              const free = poolCounts.unassigned.get(p.id) || 0;
+              return (
+                <button key={p.id} type="button" aria-pressed={on} onClick={() => setFilterPool(on ? '' : p.id)}
+                  title={`${poolCounts.all.get(p.id)} profiles, ${free} unassigned`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                    on ? 'bg-primary text-white border-primary' : 'bg-surface text-ink/80 border-line hover:bg-surface-2'}`}>
+                  {p.label}
+                  <span className={`tabular-nums text-[10px] ${on ? 'text-white/85' : 'text-muted'}`}>{poolCounts.all.get(p.id)}</span>
+                </button>
+              );
+            })}
+            {filterPool && (
+              <>
+                <button type="button" onClick={() => setFilterReq(filterReq === '__unassigned__' ? '' : '__unassigned__')}
+                  aria-pressed={filterReq === '__unassigned__'}
+                  className={`ml-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                    filterReq === '__unassigned__' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink/80 border-line hover:bg-surface-2'}`}>
+                  Unassigned only ({poolCounts.unassigned.get(filterPool) || 0})
+                </button>
+                <button type="button" onClick={() => setFilterPool('')} className="text-xs font-semibold text-muted hover:text-ink underline">
+                  Clear pool
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -483,7 +547,7 @@ export default function CandidatesPage() {
             <select value={draft.requisition_id} onChange={(e) => setDraft({ ...draft, requisition_id: e.target.value })}
                     className="border border-line rounded-md px-3 py-2 text-sm bg-surface md:col-span-1">
               <option value="">No requisition (unassigned)</option>
-              {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+              {requisitions.map((r) => <option key={r.id} value={r.id}>{r.job_code ? `${r.job_code} · ${r.title}` : r.title}</option>)}
             </select>
             <select value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value })}
                     className="border border-line rounded-md px-3 py-2 text-sm bg-surface">

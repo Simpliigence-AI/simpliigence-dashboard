@@ -12,6 +12,7 @@
  * which maps to the parent's `updateRequisition`.
  */
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { Building2, Trash2, ArrowRight, Filter, AlertTriangle } from 'lucide-react';
 import type { StaffingRow, StaffingStatus, ReqBillingField } from '../../types/staffing';
@@ -19,6 +20,9 @@ import { WORK_MODES, workModeNeedsLocation, missingReqBillingFields, REQ_BILLING
 import { Card } from '../../components/ui';
 import { chipStyle } from '../../lib/chipStyle';
 import { ShareToReferralsToggle, isInternalAccountName } from '../../components/staffing/ShareToReferralsToggle';
+import { JobCodeChip } from '../../components/staffing/JobCodeChip';
+import { SuggestedProfiles } from '../../components/staffing/SuggestedProfiles';
+import { approvedCostInrPerMonth, approvedCost, formatRate, STANDARD_MARGIN_PCT } from '../../lib/margin';
 
 const STATUS_OPTIONS: StaffingStatus[] = ['Open', 'In Progress', 'On Hold', 'Closed Won', 'Closed Lost', 'Cancelled'];
 
@@ -63,6 +67,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
       if (!q) return true;
       return (
         r.requisition.toLowerCase().includes(q)
+        || r.jobCode.toLowerCase().includes(q)
         || r.account.toLowerCase().includes(q)
         || (r.anticipation || '').toLowerCase().includes(q)
         || (r.clientSpoc || '').toLowerCase().includes(q)
@@ -210,6 +215,12 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                 <div className="text-xs text-muted truncate">
                   {selected.requisition || <span className="italic">Untitled req</span>}
                 </div>
+                {selected.jobCode && (
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    <JobCodeChip code={selected.jobCode} />
+                    <span className="text-[11px] text-muted">Put this job ID in the subject when forwarding resumes to india-resumes@simpliigence.com</span>
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -290,6 +301,18 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                 </div>
               </div>
               <div>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wider">Approved cost / month</label>
+                <div className="mt-1 px-3 py-2 rounded-lg border border-line bg-surface-2/50 text-sm font-semibold text-ink tabular-nums" aria-live="polite">
+                  {formatRate(approvedCostInrPerMonth(selected.budgetPerHourUsd), 'inr_month')}
+                </div>
+                <p className="text-[11px] text-muted mt-1">
+                  {selected.budgetPerHourUsd
+                    ? <>Budget less {STANDARD_MARGIN_PCT}% = {formatRate(approvedCost(selected.budgetPerHourUsd, STANDARD_MARGIN_PCT), 'usd_hour')}. The most a candidate can cost without approval. </>
+                    : 'Fills in once the budget is entered. '}
+                  <Link to="/margin-calculator" className="text-primary font-semibold hover:underline">Margin calculator</Link>
+                </p>
+              </div>
+              <div>
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider">Work Mode <span className="text-rose-600">*</span></label>
                 <Select value={selected.workMode || ''} onChange={(e) => onSave(selected.id, 'work_mode', e.target.value)} className={`mt-1 ${miss('work_mode')}`}>
                   <option value="">—</option>
@@ -320,6 +343,9 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                 <span>AI Prob: <strong className="text-ink/80">{selected.aiProbability}%</strong></span>
                 <span className="text-line">·</span>
                 <span>Risk: <strong className="text-ink/80 capitalize">{selected.risk}</strong></span>
+              </div>
+              <div className="md:col-span-2">
+                <SuggestedProfiles key={selected.id} requisitionId={selected.id} />
               </div>
             </div>
           </>

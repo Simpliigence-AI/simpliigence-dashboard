@@ -32,7 +32,9 @@ type SendResult = { status: 'sending' } | { status: 'sent'; id: string } | { sta
 function defaultSubject(req: StaffingRequisition, accountName: string): string {
   const parts = [req.title.trim(), accountName ? `(${accountName})` : '']
     .filter(Boolean).join(' ');
-  return `Requirement: ${parts}`;
+  // The job ID leads the subject so a vendor's reply, forwarded to the resume
+  // intake mailbox, files the attached profiles against this role automatically.
+  return req.job_code ? `[${req.job_code}] Requirement: ${parts}` : `Requirement: ${parts}`;
 }
 
 /** Default body template — replaces tokens at send time per vendor.
@@ -51,7 +53,7 @@ function buildBody(
 
 We have an open requirement and would like to receive your best matching profiles.
 
-REQUISITION DETAILS
+REQUISITION DETAILS${req.job_code ? `\n• Job ID: ${req.job_code}` : ''}
 • Role: ${req.title}
 • Account: ${accountName || '—'}
 • Department: ${req.department || '—'}
@@ -63,7 +65,7 @@ REQUISITION DETAILS
     ? `\n\nJOB DESCRIPTION\n${jd.trim()}`
     : `\n\n(Please reply to this email — we will share the detailed JD on request.)`;
 
-  const foot = `\n\nKindly send 2–3 matching profiles at your earliest. Reply directly to this email and they'll come straight to me.
+  const foot = `\n\nKindly send 2–3 matching profiles at your earliest. Reply directly to this email and they'll come straight to me.${req.job_code ? ` Please keep the job ID ${req.job_code} in the subject line.` : ''}
 
 Thanks,
 ${sender.name}

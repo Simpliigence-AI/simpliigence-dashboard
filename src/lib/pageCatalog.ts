@@ -40,6 +40,7 @@ export const PAGES: PageDef[] = [
   { key: 'india-hiring-forecast',  label: 'Hiring Forecast', section: 'India T&M' },
   { key: 'ta-daily-log',           label: 'TA Daily Log',    section: 'India T&M' },
   { key: 'ta-metrics',             label: 'TA Metrics',      section: 'India T&M' },
+  { key: 'margin-calculator',      label: 'Margin Calculator', section: 'India T&M' },
   { key: 'candidates',             label: 'Candidates',      section: 'India T&M' },
   { key: 'profile-format',         label: 'Profile Format',  section: 'India T&M' },
   { key: 'hiring-radar',           label: 'Hiring Radar',    section: 'India T&M' },

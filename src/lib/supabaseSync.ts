@@ -362,6 +362,7 @@ function rowToCandidate(row: any): StaffingCandidate {
     experience: row.experience ?? '',
     years_of_experience: row.years_of_experience ?? null,
     stage: row.stage ?? 'Submitted',
+    filled_at: row.filled_at ?? null, // read-only: stamped by a database trigger
     submit_date: row.submit_date ?? '',
     feedback: row.feedback ?? '',
     source: row.source ?? '',
@@ -1243,7 +1244,7 @@ export async function fetchActualHours(): Promise<ActualHoursFeed | null> {
 
 /** Candidate columns — DELIBERATELY excludes `zoho_raw` (~2KB/row). One line
  *  so PostgREST sees a clean comma-separated list. */
-const CAND_COLS = 'id,requisition_id,name,experience,years_of_experience,stage,submit_date,feedback,source,email,phone,owning_ta_email,linkedin_url,location,resume_url,resume_filename,resume_uploaded_at,skills,profile_summary,parsed_at,zoho_candidate_id,created_at,updated_at,referrer_email,referrer_name,referred_at,availability,expected_salary,current_employer,current_ctc_inr,expected_ctc_inr,notice_period_days,willing_to_relocate,latest_call_summary,latest_call_at';
+const CAND_COLS = 'id,requisition_id,name,experience,years_of_experience,stage,submit_date,feedback,source,email,phone,owning_ta_email,linkedin_url,location,resume_url,resume_filename,resume_uploaded_at,skills,profile_summary,parsed_at,zoho_candidate_id,created_at,updated_at,referrer_email,referrer_name,referred_at,availability,expected_salary,current_employer,current_ctc_inr,expected_ctc_inr,notice_period_days,willing_to_relocate,latest_call_summary,latest_call_at,filled_at';
 
 /** Every candidate, keyset-paginated. ~9 MB — never await this on the startup
  *  path; App loads it in the background after the shell has rendered. */

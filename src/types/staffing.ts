@@ -235,6 +235,9 @@ export interface StaffingCandidate {
   availability?: AvailabilityKind[];
   /** Free-text expected salary ("10-12 LPA", "$60/hr", "Negotiable"). */
   expected_salary?: string;
+  /** When the candidate first reached Offer Accepted or Joined, i.e. when the position was
+   *  closed. Stamped by the database (cleared if the stage moves back); never sent by the client. */
+  filled_at?: string | null;
   created_at: string;
   updated_at: string;
 }

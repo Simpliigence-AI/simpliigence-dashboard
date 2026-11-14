@@ -7,8 +7,9 @@
  *    internal positions are still open.
  *  - Ticker: external positions closed in each month of the year, plus the year total.
  *
- * "Closed" means Closed Won, credited to the month the status changed. Numbers come
- * from buildClosureScorecard in src/lib/reqHealth.ts.
+ * A position is "closed" when a candidate accepts the offer or joins; a role marked
+ * Closed Won also counts any positions with no such candidate. Numbers come from
+ * buildClosureScorecard in src/lib/reqHealth.ts.
  */
 import { Trophy, Building } from 'lucide-react';
 import type { ClosureScorecard } from '../../lib/reqHealth';
@@ -36,7 +37,7 @@ export function DemandScorecards({ card }: { card: ClosureScorecard }) {
           aria-label={`${ext.closedThisMonth} of ${ext.target} external positions closed this month`}>
           <div className={`h-full rounded-full ${hit ? 'bg-emerald-500' : 'bg-primary'}`} style={{ width: `${pct}%` }} />
         </div>
-        <div className="mt-1.5 text-[11px] text-muted">External only · {ext.openPositions} still open</div>
+        <div className="mt-1.5 text-[11px] text-muted" title="A position counts as closed when a candidate accepts the offer or joins.">External only · offer accepted or joined · {ext.openPositions} still open</div>
       </div>
       <div className="rounded-lg border border-line bg-surface-2/50 px-3 py-2 flex items-center gap-2">
         <Building size={13} className="text-muted flex-shrink-0" aria-hidden="true" />

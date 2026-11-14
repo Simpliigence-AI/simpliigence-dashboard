@@ -218,7 +218,7 @@ export function IndiaStaffingSplitView({ rows, onSave, onDelete }: Props) {
                 {selected.jobCode && (
                   <div className="mt-1 flex items-center gap-2 flex-wrap">
                     <JobCodeChip code={selected.jobCode} />
-                    <span className="text-[11px] text-muted">Put this job ID in the subject when forwarding resumes to india-resumes@simpliigence.com</span>
+                    <span className="text-[11px] text-muted">Put this job ID in the subject when forwarding resumes to india_resumes@simpliigence.com</span>
                   </div>
                 )}
               </div>

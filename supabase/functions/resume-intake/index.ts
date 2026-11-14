@@ -1,7 +1,7 @@
 /**
  * Supabase Edge Function: resume-intake
  *
- * Forward an email with resumes attached to india-resumes@simpliigence.com and each
+ * Forward an email with resumes attached to india_resumes@simpliigence.com and each
  * resume becomes a candidate, parsed by parse-resume. The forwarder becomes the owning TA.
  *
  * Routing (v2, 13 Nov 2026):
@@ -104,7 +104,7 @@ async function configList(key: string, fallback: string[]): Promise<string[]> {
   } catch { /* fall through */ }
   return fallback;
 }
-const mailboxes = () => configList('mailboxes', ['india-resumes@simpliigence.com']);
+const mailboxes = () => configList('mailboxes', ['india_resumes@simpliigence.com']);
 
 /**
  * Email the alert list about a failure, at most once per 24 h per `key`.

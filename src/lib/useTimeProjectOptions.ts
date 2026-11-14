@@ -6,6 +6,11 @@
  * The list is composed, in this priority order:
  *   1. Current (delivery) projects — Zoho-sourced rows in the pipeline
  *      store (source='zoho') that aren't Completed. e.g. "DTR Salesforce".
+ *      Also live projects carried over from Delivery Governance: rows of any
+ *      other source that are linked to a Governance project
+ *      (governance_project_id set) and aren't Completed / Archived /
+ *      Proposed / Trashed. e.g. "Diesel - SF Implementation" (AppDesk #2525).
+ *      Unlinked manual rows stay out — those are sales-pipeline prospects.
  *   2. Concierge active accounts — non-dormant rows from concierge_accounts,
  *      suffixed with " Concierge" so timesheet reviewers can distinguish
  *      concierge managed-services time from delivery time.
@@ -25,6 +30,16 @@ import { usePipelineStore } from '../store/usePipelineStore';
 import { useConciergeAccountsStore } from '../store/useConciergeAccountsStore';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { INTERNAL_PROJECTS } from '../types/timeEntry';
+import type { ZohoPipelineProject } from '../types/forecast';
+
+/** Statuses that mean a Governance-linked project is not live work. */
+const NOT_LIVE_STATUSES = new Set(['completed', 'archived', 'proposed', 'trashed']);
+
+/** Whether a pipeline row belongs in the time-entry project picker. */
+export function isTimePickerProject(p: ZohoPipelineProject): boolean {
+  if (p.source === 'zoho') return (p.status || '').toLowerCase() !== 'completed';
+  return !!p.governanceProjectId && !NOT_LIVE_STATUSES.has((p.status || '').trim().toLowerCase());
+}
 
 export interface TimeProjectOption {
   id: string | null;
@@ -46,10 +61,11 @@ export function useTimeProjectOptions(extra: string[] = []): TimeProjectOption[]
     const seen = new Set<string>();
     const options: TimeProjectOption[] = [];
 
-    // 1. Current (delivery) projects — Zoho-sourced, not completed
+    // 1. Current (delivery) projects — Zoho-sourced and not completed, plus
+    //    live Governance-linked projects. Must match v_time_project_options
+    //    (migration 046), which the time_entries project guard checks.
     for (const p of pipelineProjects) {
-      if (p.source !== 'zoho') continue;
-      if ((p.status || '').toLowerCase() === 'completed') continue;
+      if (!isTimePickerProject(p)) continue;
       const key = p.name;
       if (seen.has(key)) continue;
       seen.add(key);

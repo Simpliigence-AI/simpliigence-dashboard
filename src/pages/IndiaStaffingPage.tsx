@@ -152,6 +152,10 @@ export default function IndiaStaffingPage() {
   // in the other. Default: collapsed — user expands only the accounts
   // they care about.
   const accountCollapse = useCollapsedGroups('india-staffing-account', { defaultCollapsed: true });
+  // Open/closed state of the Tier 1 and Tier 2 cards. Held on the page, not inside
+  // the card, so a page re-render (expanding a row, a background sync) can't reset
+  // it. null = the user hasn't touched it, so the card's default applies.
+  const [tierCollapsed, setTierCollapsed] = useState<Record<1 | 2, boolean | null>>({ 1: null, 2: null });
   // View mode: 'table' (wide inline grid) vs 'split' (compact list + right
   // detail pane). Persisted per-page to localStorage.
   const [viewMode, setViewMode] = useState<'table' | 'split'>(() => {
@@ -927,7 +931,11 @@ export default function IndiaStaffingPage() {
    *  the strategic list stays visible when you're scanning the top of the
    *  page. Both share the same table + section-header rendering as before
    *  so account grouping still works. */
-  const ActiveReqsBlock = ({
+  // A plain render function, called as renderActiveReqsBlock({...}), NOT a component.
+  // Declared inside the page, a component would be a new type on every page render,
+  // so React would unmount and remount the whole card: it snapped back to collapsed
+  // and wiped any status update being typed.
+  const renderActiveReqsBlock = ({
     title, subtitle, tier, rows, collapsibleDefault = false, emptyMsg,
   }: {
     title: string;
@@ -937,18 +945,20 @@ export default function IndiaStaffingPage() {
     collapsibleDefault?: boolean;
     emptyMsg: string;
   }) => {
-    // Local collapse state, per instance. Tier 1 defaults to open.
-    // Tier 2 defaults to open if it has data — we want visibility by
-    // default and only collapse if the user actively minimizes it.
-    const [collapsed, setCollapsed] = useState(collapsibleDefault && rows.length > 10);
+    // Tier 1 defaults to open. Tier 2 starts collapsed only when it is long
+    // (more than 10 reqs). Once the user toggles a card, their choice sticks.
+    const collapsed = tierCollapsed[tier] ?? (collapsibleDefault && rows.length > 10);
+    const setCollapsed = (fn: (v: boolean) => boolean) =>
+      setTierCollapsed((prev) => ({ ...prev, [tier]: fn(prev[tier] ?? (collapsibleDefault && rows.length > 10)) }));
     const totalPositions = rows.reduce((s, r) => s + r.openPositions, 0);
     const distinctAccounts = new Set(rows.map((r) => r.account)).size;
     const totalCols = 17; // dropped TA Stage // must match TableHeader with selectable=true
 
     return (
-      <Card className={`mb-4 ${tier === 1 ? 'border-l-4 border-l-primary bg-primary/[0.02]' : ''}`}>
+      <Card key={`tier-${tier}`} className={`mb-4 ${tier === 1 ? 'border-l-4 border-l-primary bg-primary/[0.02]' : ''}`}>
         <button
           type="button"
+          aria-expanded={!collapsed}
           onClick={() => setCollapsed((v) => !v)}
           className="w-full flex items-center justify-between mb-3 text-left"
         >
@@ -968,7 +978,7 @@ export default function IndiaStaffingPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <TableHeader selectable />
+              {TableHeader({ selectable: true })}
               <tbody>
                 {(() => {
                   const ordered = groupByAccount
@@ -1468,21 +1478,21 @@ export default function IndiaStaffingPage() {
             const tier2Rows = filtered.filter((r) => accountTier.get(r.account_id) !== 1);
             return (
               <>
-                <ActiveReqsBlock
-                  title="Tier 1 · Strategic accounts"
-                  subtitle="Persistent, Ciklum — named accounts we can't miss on"
-                  tier={1}
-                  rows={tier1Rows}
-                  emptyMsg="No active Tier 1 requisitions."
-                />
-                <ActiveReqsBlock
-                  title="Tier 2 · Volume accounts"
-                  subtitle="Everything else — collapsed by default so Tier 1 stays in focus"
-                  tier={2}
-                  rows={tier2Rows}
-                  collapsibleDefault
-                  emptyMsg="No active Tier 2 requisitions."
-                />
+                {renderActiveReqsBlock({
+                  title: 'Tier 1 · Strategic accounts',
+                  subtitle: "Persistent, Ciklum — named accounts we can't miss on",
+                  tier: 1,
+                  rows: tier1Rows,
+                  emptyMsg: 'No active Tier 1 requisitions.',
+                })}
+                {renderActiveReqsBlock({
+                  title: 'Tier 2 · Volume accounts',
+                  subtitle: 'Everything else — collapsed by default so Tier 1 stays in focus',
+                  tier: 2,
+                  rows: tier2Rows,
+                  collapsibleDefault: true,
+                  emptyMsg: 'No active Tier 2 requisitions.',
+                })}
               </>
             );
           })())}
@@ -1598,7 +1608,7 @@ export default function IndiaStaffingPage() {
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <TableHeader selectable />
+                {TableHeader({ selectable: true })}
                 <tbody>
                   {(() => {
                     // When grouping is on, sort filtered rows by account name
@@ -1701,7 +1711,7 @@ export default function IndiaStaffingPage() {
                         <p className="text-xs text-muted/70 italic py-4 text-center">No onboarded wins yet.</p>
                       ) : (
                         <table className="w-full text-xs">
-                          <TableHeader />
+                          {TableHeader()}
                           <tbody>
                             {wonOnboarded.map((r) => renderRow(r, { archived: true }))}
                           </tbody>
@@ -1789,7 +1799,7 @@ export default function IndiaStaffingPage() {
                         <p className="text-xs text-muted/70 italic py-4 text-center">Nothing lost or cancelled.</p>
                       ) : (
                         <table className="w-full text-xs">
-                          <TableHeader />
+                          {TableHeader()}
                           <tbody>
                             {lostRows.map((r) => renderRow(r, { archived: true }))}
                           </tbody>

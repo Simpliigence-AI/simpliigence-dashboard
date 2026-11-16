@@ -21,14 +21,22 @@
  *      delivery pipeline (e.g. bench overflows, short-turnaround work).
  *   4. INTERNAL_PROJECTS — Leave, Holiday, Internal Admin, etc.
  *
+ * People without the `pipeline` / `india-roster` tabs (the `employee` role)
+ * cannot read the tables behind 1 and 3, so those stores are empty for them.
+ * The hook therefore also merges in the names from v_time_project_options
+ * (useTimeProjectNamesStore) — the list the DB guard itself checks, readable
+ * by every signed-in user. Names that only arrive that way have no id and
+ * save as name-only entries, which the guard accepts (AppDesk #2525).
+ *
  * `extra` lets callers pass values already present on existing time entries
  * so a person editing a historic row whose project name no longer appears
  * anywhere can still see it (grandfathered, sorted at the bottom).
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { usePipelineStore } from '../store/usePipelineStore';
 import { useConciergeAccountsStore } from '../store/useConciergeAccountsStore';
 import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
+import { useTimeProjectNamesStore } from '../store/useTimeProjectNamesStore';
 import { INTERNAL_PROJECTS } from '../types/timeEntry';
 import type { ZohoPipelineProject } from '../types/forecast';
 
@@ -56,6 +64,11 @@ export function useTimeProjectOptions(extra: string[] = []): TimeProjectOption[]
   const pipelineProjects = usePipelineStore((s) => s.projects);
   const conciergeAccounts = useConciergeAccountsStore((s) => s.accounts);
   const rosterMembers = useIndiaRosterStore((s) => s.members);
+  const serverNames = useTimeProjectNamesStore((s) => s.names);
+
+  useEffect(() => {
+    void useTimeProjectNamesStore.getState().load();
+  }, []);
 
   return useMemo(() => {
     const seen = new Set<string>();
@@ -95,6 +108,21 @@ export function useTimeProjectOptions(extra: string[] = []): TimeProjectOption[]
       options.push({ id: null, name, billable: true, source: 'roster' });
     }
 
+    // 3b. Names from v_time_project_options that the stores above did not
+    //     supply — the whole delivery/T&M list for anyone who cannot read
+    //     pipeline_projects or india_roster. Name-only (id null).
+    const internal = new Set<string>(INTERNAL_PROJECTS);
+    for (const name of serverNames) {
+      if (seen.has(name) || internal.has(name)) continue;
+      seen.add(name);
+      options.push({
+        id: null,
+        name,
+        billable: true,
+        source: name.endsWith(' Concierge') ? 'concierge' : 'current',
+      });
+    }
+
     // 4. Internal categories
     for (const name of INTERNAL_PROJECTS) {
       if (seen.has(name)) continue;
@@ -111,5 +139,5 @@ export function useTimeProjectOptions(extra: string[] = []): TimeProjectOption[]
     }
 
     return options;
-  }, [pipelineProjects, conciergeAccounts, rosterMembers, extra]);
+  }, [pipelineProjects, conciergeAccounts, rosterMembers, serverNames, extra]);
 }

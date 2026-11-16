@@ -22,11 +22,9 @@ import { Sensitive } from '../components/Sensitive';
 import { analyzeStaffingStatus } from '../lib/staffingAnalysis';
 import { computeStageTiming } from '../lib/staffingAlerts';
 import { computeFunnel } from '../lib/staffingFunnel';
-import { runStaffingBriefing, type StaffingBriefing } from '../lib/claudeQuery';
 import { db } from '../lib/supabaseSync';
 import { StaffingKanban } from '../components/staffing/StaffingKanban';
 import { StageFunnel } from '../components/staffing/StageFunnel';
-import { StaffingSmartQuery } from '../components/staffing/StaffingSmartQuery';
 import { CandidatePipeline } from '../components/staffing/CandidatePipeline';
 import { SendToVendorDialog } from '../components/staffing/SendToVendorDialog';
 import { DailyStatusMode } from '../components/staffing/DailyStatusMode';
@@ -190,11 +188,6 @@ export default function IndiaStaffingPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [groupByAccount, setGroupByAccount] = useState(true);
 
-  // AI Daily Briefing (cached per day in localStorage — see runStaffingBriefing)
-  const [briefing, setBriefing] = useState<StaffingBriefing | null>(null);
-  const [briefingLoading, setBriefingLoading] = useState(false);
-  // Default collapsed — eats 120px of above-the-fold; click the pill to expand.
-  const [briefingExpanded, setBriefingExpanded] = useState(false);
 
   // Funnel chart collapsible — heavy chart, default collapsed to free 250px.
   const [funnelExpanded, setFunnelExpanded] = useState(false);
@@ -281,34 +274,6 @@ export default function IndiaStaffingPage() {
   // Drill-down panel sub-tab (Requisitions / Forecast / Connects)
   const [accountDetailTab, setAccountDetailTab] = useState<'reqs' | 'forecast' | 'connects'>('reqs');
 
-  // Fetch the briefing once on mount (it self-caches for the calendar day so
-  // subsequent page loads are free). Depends only on data identity so it
-  // re-runs if the underlying data meaningfully changes.
-  useEffect(() => {
-    let cancelled = false;
-    async function load(force = false) {
-      setBriefingLoading(true);
-      try {
-        const b = await runStaffingBriefing({ accounts, requisitions, statuses, history }, { forceRefresh: force });
-        if (!cancelled) setBriefing(b);
-      } finally {
-        if (!cancelled) setBriefingLoading(false);
-      }
-    }
-    load(false);
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts.length, requisitions.length, statuses.length, history.length]);
-
-  const regenerateBriefing = useCallback(async () => {
-    setBriefingLoading(true);
-    try {
-      const b = await runStaffingBriefing({ accounts, requisitions, statuses, history }, { forceRefresh: true });
-      setBriefing(b);
-    } finally {
-      setBriefingLoading(false);
-    }
-  }, [accounts, requisitions, statuses, history]);
 
   /* -- Build enriched rows -- */
   const rows: StaffingRow[] = useMemo(() => {
@@ -1107,87 +1072,6 @@ export default function IndiaStaffingPage() {
         />
       )}
 
-      {/* AI Daily Briefing — top-of-page summary of what changed + what needs attention. */}
-      <div className="mb-5 rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-100">
-          <div className="flex items-center gap-2">
-            <Sparkles size={15} className="text-violet-600" />
-            <span className="text-sm font-bold text-ink">Daily Briefing</span>
-            <span className="bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">AI</span>
-            {briefing?.generatedAt && (
-              <span className="text-[10px] text-muted/70">
-                · updated {new Date(briefing.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={regenerateBriefing}
-              disabled={briefingLoading}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors"
-              title="Regenerate briefing with the latest data"
-            >
-              {briefingLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-              {briefingLoading ? 'Generating' : 'Regenerate'}
-            </button>
-            <button
-              onClick={() => setBriefingExpanded((v) => !v)}
-              className="p-1 rounded text-muted/70 hover:bg-surface-2"
-              title={briefingExpanded ? 'Collapse' : 'Expand'}
-            >
-              {briefingExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          </div>
-        </div>
-        {briefingExpanded && (
-          <div className="px-4 py-3">
-            {briefingLoading && !briefing && (
-              <div className="text-xs text-muted/70 italic flex items-center gap-2">
-                <Loader2 size={12} className="animate-spin" /> Claude is reviewing your pipeline...
-              </div>
-            )}
-            {briefing && (
-              <div className="text-[12px] leading-relaxed text-ink/80 [&_strong]:text-ink [&_em]:text-muted">
-                {briefing.markdown.split('\n').map((line, i) => {
-                  const trimmed = line.trim();
-                  if (!trimmed) return null;
-                  const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ');
-                  const content = isBullet ? trimmed.slice(2) : trimmed;
-                  const parts = content.split(/(\*\*[^*]+\*\*|_[^_]+_)/).filter(Boolean);
-                  return (
-                    <p key={i} className={`${isBullet ? 'ml-4 before:content-["•"] before:mr-2 before:text-violet-400' : ''} my-1`}>
-                      {parts.map((part, j) => {
-                        if (part.startsWith('**') && part.endsWith('**')) return <strong key={j}>{part.slice(2, -2)}</strong>;
-                        if (part.startsWith('_') && part.endsWith('_')) return <em key={j}>{part.slice(1, -1)}</em>;
-                        return <span key={j}>{part}</span>;
-                      })}
-                    </p>
-                  );
-                })}
-              </div>
-            )}
-            {briefing?.alerts && briefing.alerts.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-violet-100 flex flex-wrap gap-1.5">
-                {briefing.alerts.map((a, i) => {
-                  const req = requisitions.find((r) => r.id === a.requisitionId);
-                  if (!req) return null;
-                  const acct = accountNameById[req.account_id] || 'Unknown';
-                  const bg = a.severity === 'high' ? 'bg-red-100 text-red-800' : a.severity === 'medium' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800';
-                  return (
-                    <span key={i} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${bg}`} title={`${acct} — ${req.title}`}>
-                      <AlertTriangle size={10} /> {acct}: {a.message}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Smart Query — natural-language Q&A over the full staffing data */}
-      <StaffingSmartQuery input={{ accounts, requisitions, statuses, history, candidates }} />
-
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         <select className="px-3 py-2 rounded-lg border border-line text-sm bg-surface" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
@@ -1440,7 +1324,7 @@ export default function IndiaStaffingPage() {
             history={history}
             accountNameById={accountNameById}
             onMoveStage={(reqId, newStage) => updateRequisition(reqId, { stage: newStage })}
-            alerts={briefing?.alerts || []}
+            alerts={[]}
           />
         </Card>
       )}

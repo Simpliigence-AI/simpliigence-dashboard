@@ -44,12 +44,14 @@ const DeliveryHomePage = lazy(() => import('../pages/DeliveryHomePage'));
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
+import { RouteErrorBoundary } from '../components/RouteErrorBoundary';
 
 export const router = createBrowserRouter(
   [
     {
       path: '/',
       element: <AppLayout />,
+      errorElement: <RouteErrorBoundary />,
       children: [
         // Home — employees redirect to /my-time, everyone else sees the dashboard
         { index: true, element: <EmployeeRedirect><DashboardPage /></EmployeeRedirect> },

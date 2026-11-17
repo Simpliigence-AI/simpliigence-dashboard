@@ -1,55 +1,57 @@
-import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
-const DashboardPage = lazy(() => import('../pages/DashboardPage'));
-const TeamRosterPage = lazy(() => import('../pages/TeamRosterPage'));
-const ActualHoursPage = lazy(() => import('../pages/ActualHoursPage'));
-const ProjectPipelinePage = lazy(() => import('../pages/ProjectPipelinePage'));
-const ForecastingPage = lazy(() => import('../pages/ForecastingPage'));
-const FinancialsPage = lazy(() => import('../pages/FinancialsPage'));
-const SettingsPage = lazy(() => import('../pages/SettingsPage'));
-const ConciergePage = lazy(() => import('../pages/ConciergePage'));
-const IndiaStaffingPage = lazy(() => import('../pages/IndiaStaffingPage'));
-const USStaffingPage = lazy(() => import('../pages/USStaffingPage'));
-const OpenBenchPage = lazy(() => import('../pages/OpenBenchPage'));
-const IndiaRosterPage = lazy(() => import('../pages/IndiaRosterPage'));
-const IndiaHiringForecastPage = lazy(() => import('../pages/IndiaHiringForecastPage'));
-const USRosterPage = lazy(() => import('../pages/USRosterPage'));
-const TnmAccountsPage = lazy(() => import('../pages/TnmAccountsPage'));
-const TADailyLogPage = lazy(() => import('../pages/TADailyLogPage'));
-const CandidatesPage = lazy(() => import('../pages/CandidatesPage'));
-const TAMetricsPage = lazy(() => import('../pages/TAMetricsPage'));
-const IndiaDemandAnalyticsPage = lazy(() => import('../pages/IndiaDemandAnalyticsPage'));
-const MarginCalculatorPage = lazy(() => import('../pages/MarginCalculatorPage'));
-const ProfileFormatPage = lazy(() => import('../pages/ProfileFormatPage'));
-const VendorsPage = lazy(() => import('../pages/VendorsPage'));
-const HiringRadarPage = lazy(() => import('../pages/HiringRadarPage'));
-const ScreeningsPage = lazy(() => import('../pages/ScreeningsPage'));
-const DialerPage = lazy(() => import('../pages/DialerPage'));
-const HomePage = lazy(() => import('../pages/HomePage'));
-const CheckinsPage = lazy(() => import('../pages/CheckinsPage'));
-const MyTimePage = lazy(() => import('../pages/MyTimePage'));
-const TeamTimePage = lazy(() => import('../pages/TeamTimePage'));
-const TeamLeavePage = lazy(() => import('../pages/TeamLeavePage'));
-const LeavePage = lazy(() => import('../pages/LeavePage'));
-const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
-const ActivityPage = lazy(() => import('../pages/admin/ActivityPage'));
-const AuditLogPage = lazy(() => import('../pages/admin/AuditLogPage'));
-const LeaveAdminPage = lazy(() => import('../pages/admin/LeaveAdminPage'));
-const AccessMatrixPage = lazy(() => import('../pages/admin/AccessMatrixPage'));
-const CheckinAdminPage = lazy(() => import('../pages/admin/CheckinAdminPage'));
-const ProjectPlansPage = lazy(() => import('../pages/ProjectPlansPage'));
-const ProjectPlanDetailPage = lazy(() => import('../pages/project-plans/ProjectPlanDetailPage'));
-const DeliveryHomePage = lazy(() => import('../pages/DeliveryHomePage'));
+const DashboardPage = lazyWithReload(() => import('../pages/DashboardPage'));
+const TeamRosterPage = lazyWithReload(() => import('../pages/TeamRosterPage'));
+const ActualHoursPage = lazyWithReload(() => import('../pages/ActualHoursPage'));
+const ProjectPipelinePage = lazyWithReload(() => import('../pages/ProjectPipelinePage'));
+const ForecastingPage = lazyWithReload(() => import('../pages/ForecastingPage'));
+const FinancialsPage = lazyWithReload(() => import('../pages/FinancialsPage'));
+const SettingsPage = lazyWithReload(() => import('../pages/SettingsPage'));
+const ConciergePage = lazyWithReload(() => import('../pages/ConciergePage'));
+const IndiaStaffingPage = lazyWithReload(() => import('../pages/IndiaStaffingPage'));
+const USStaffingPage = lazyWithReload(() => import('../pages/USStaffingPage'));
+const OpenBenchPage = lazyWithReload(() => import('../pages/OpenBenchPage'));
+const IndiaRosterPage = lazyWithReload(() => import('../pages/IndiaRosterPage'));
+const IndiaHiringForecastPage = lazyWithReload(() => import('../pages/IndiaHiringForecastPage'));
+const USRosterPage = lazyWithReload(() => import('../pages/USRosterPage'));
+const TnmAccountsPage = lazyWithReload(() => import('../pages/TnmAccountsPage'));
+const TADailyLogPage = lazyWithReload(() => import('../pages/TADailyLogPage'));
+const CandidatesPage = lazyWithReload(() => import('../pages/CandidatesPage'));
+const TAMetricsPage = lazyWithReload(() => import('../pages/TAMetricsPage'));
+const IndiaDemandAnalyticsPage = lazyWithReload(() => import('../pages/IndiaDemandAnalyticsPage'));
+const MarginCalculatorPage = lazyWithReload(() => import('../pages/MarginCalculatorPage'));
+const ProfileFormatPage = lazyWithReload(() => import('../pages/ProfileFormatPage'));
+const VendorsPage = lazyWithReload(() => import('../pages/VendorsPage'));
+const HiringRadarPage = lazyWithReload(() => import('../pages/HiringRadarPage'));
+const ScreeningsPage = lazyWithReload(() => import('../pages/ScreeningsPage'));
+const DialerPage = lazyWithReload(() => import('../pages/DialerPage'));
+const HomePage = lazyWithReload(() => import('../pages/HomePage'));
+const CheckinsPage = lazyWithReload(() => import('../pages/CheckinsPage'));
+const MyTimePage = lazyWithReload(() => import('../pages/MyTimePage'));
+const TeamTimePage = lazyWithReload(() => import('../pages/TeamTimePage'));
+const TeamLeavePage = lazyWithReload(() => import('../pages/TeamLeavePage'));
+const LeavePage = lazyWithReload(() => import('../pages/LeavePage'));
+const UsersPage = lazyWithReload(() => import('../pages/admin/UsersPage'));
+const ActivityPage = lazyWithReload(() => import('../pages/admin/ActivityPage'));
+const AuditLogPage = lazyWithReload(() => import('../pages/admin/AuditLogPage'));
+const LeaveAdminPage = lazyWithReload(() => import('../pages/admin/LeaveAdminPage'));
+const AccessMatrixPage = lazyWithReload(() => import('../pages/admin/AccessMatrixPage'));
+const CheckinAdminPage = lazyWithReload(() => import('../pages/admin/CheckinAdminPage'));
+const ProjectPlansPage = lazyWithReload(() => import('../pages/ProjectPlansPage'));
+const ProjectPlanDetailPage = lazyWithReload(() => import('../pages/project-plans/ProjectPlanDetailPage'));
+const DeliveryHomePage = lazyWithReload(() => import('../pages/DeliveryHomePage'));
 import { AdminOnly } from '../components/AdminOnly';
 import { EmployeeRedirect } from '../components/EmployeeRedirect';
 import { RoleOnly } from '../components/RoleOnly';
+import { RouteError } from '../components/RouteError';
+import { lazyWithReload } from '../lib/lazyWithReload';
 
 export const router = createBrowserRouter(
   [
     {
       path: '/',
       element: <AppLayout />,
+      errorElement: <RouteError />,
       children: [
         // Home — employees redirect to /my-time, everyone else sees the dashboard
         { index: true, element: <EmployeeRedirect><DashboardPage /></EmployeeRedirect> },

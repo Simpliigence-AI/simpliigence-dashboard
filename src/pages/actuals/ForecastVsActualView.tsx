@@ -2,7 +2,8 @@
  * Forecast vs Actual comparison view.
  *
  * Inner toggle: Month | Week | Project. Each cell shows (Forecast / Actual / Δ)
- * with a hover tooltip explaining the calculation.
+ * with a hover tooltip explaining the calculation; the Month view adds a
+ * fourth column, Util % = Actual ÷ Forecast.
  *
  * Three rules keep the comparison honest:
  *
@@ -105,6 +106,11 @@ interface Person {
 function fmtSigned(n: number): string {
   if (Math.abs(n) < 0.5) return '0';
   return (n > 0 ? '+' : '') + (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1));
+}
+
+/** Actual ÷ Forecast as a whole percentage — '—' with no forecast to divide by. */
+function fmtUtil(forecast: number, actual: number): string {
+  return forecast > 0 ? `${Math.round((actual / forecast) * 100)}%` : '—';
 }
 
 function deltaColor(forecast: number, actual: number): string {
@@ -410,11 +416,11 @@ function FCMonthView({ people, assignments, keyOfName, actualsByKey }: SubViewPr
           <tr className="border-b border-line text-left">
             <th rowSpan={2} className="pb-2 pr-3 font-semibold text-muted align-bottom min-w-[180px]">Employee</th>
             {COMPARISON_MONTHS.map((m) => (
-              <th key={m} colSpan={3} className="px-1.5 text-center font-semibold text-muted text-xs border-l border-line/60">{m}</th>
+              <th key={m} colSpan={4} className="px-1.5 text-center font-semibold text-muted text-xs border-l border-line/60">{m}</th>
             ))}
           </tr>
           <tr className="border-b border-line text-left">
-            {COMPARISON_MONTHS.map((m) => <FCHeaderTriplet key={m} />)}
+            {COMPARISON_MONTHS.map((m) => <FCHeaderTriplet key={m} showUtil />)}
           </tr>
         </thead>
         <tbody>
@@ -428,7 +434,7 @@ function FCMonthView({ people, assignments, keyOfName, actualsByKey }: SubViewPr
                   const f = fcastMonthly[m];
                   const a = actMonthly[m];
                   return (
-                    <FCTriplet key={m} forecast={f} actual={a} delta={a - f} title={tooltip(`${p.name} — ${m}`, f, a)} />
+                    <FCTriplet key={m} forecast={f} actual={a} delta={a - f} title={tooltip(`${p.name} — ${m}`, f, a)} showUtil />
                   );
                 })}
               </tr>
@@ -451,7 +457,7 @@ function FCMonthView({ people, assignments, keyOfName, actualsByKey }: SubViewPr
               <tr className="border-t-2 border-line bg-surface-2/70 font-bold">
                 <td className="py-2 pr-3 text-ink/80">Total ({people.length})</td>
                 {COMPARISON_MONTHS.map((m) => (
-                  <FCTriplet key={m} forecast={totalF[m]} actual={totalA[m]} delta={totalA[m] - totalF[m]} title={tooltip(`All — ${m}`, totalF[m], totalA[m])} />
+                  <FCTriplet key={m} forecast={totalF[m]} actual={totalA[m]} delta={totalA[m] - totalF[m]} title={tooltip(`All — ${m}`, totalF[m], totalA[m])} showUtil />
                 ))}
               </tr>
             );
@@ -462,18 +468,22 @@ function FCMonthView({ people, assignments, keyOfName, actualsByKey }: SubViewPr
   );
 }
 
-function FCHeaderTriplet() {
+/** `showUtil` adds the Util % column — the Month view only (App Desk #2545). */
+function FCHeaderTriplet({ showUtil = false }: { showUtil?: boolean }) {
   return (
     <>
       <th className="pb-2 px-1 font-semibold text-muted/70 text-[9px] text-right uppercase border-l border-line/60">F</th>
       <th className="pb-2 px-1 font-semibold text-muted/70 text-[9px] text-right uppercase">A</th>
       <th className="pb-2 px-1 font-semibold text-muted/70 text-[9px] text-right uppercase">Δ</th>
+      {showUtil && (
+        <th className="pb-2 px-1 font-semibold text-muted/70 text-[9px] text-right uppercase whitespace-nowrap">Util %</th>
+      )}
     </>
   );
 }
 
-function FCTriplet({ forecast, actual, delta, title }: {
-  forecast: number; actual: number; delta: number; title: string;
+function FCTriplet({ forecast, actual, delta, title, showUtil = false }: {
+  forecast: number; actual: number; delta: number; title: string; showUtil?: boolean;
 }) {
   const color = deltaColor(forecast, actual);
   return (
@@ -489,6 +499,13 @@ function FCTriplet({ forecast, actual, delta, title }: {
           {(forecast > 0 || actual > 0) ? fmtSigned(delta) : '—'}
         </span>
       </td>
+      {showUtil && (
+        <td className="py-1.5 px-1 text-right tabular-nums" title={title}>
+          <span className={`inline-block px-1 py-0.5 rounded text-[11px] font-semibold ${forecast > 0 ? color : 'text-line'}`}>
+            {fmtUtil(forecast, actual)}
+          </span>
+        </td>
+      )}
     </>
   );
 }

@@ -1,12 +1,18 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/useAuthStore';
+import { SEGMENTS } from '../lib/deliveryRebuild';
+import type { DeliverySegment } from '../types/delivery';
 import { useForecastStore, usePipelineStore, useFinancialStore, useActualHoursStore } from '../store';
 import { PageHeader } from '../components/shared/PageHeader';
 import { Card, Badge, StatCard } from '../components/ui';
 import { Sensitive } from '../components/Sensitive';
 import { deriveProjectSummaries } from '../lib/parseSpreadsheet';
 import type { ZohoPipelineProject, ZohoPhase } from '../types/forecast';
-import { ChevronDown, ChevronRight, Users, Clock, Rocket, Archive, ArchiveRestore, Link2, ListChecks, FolderKanban, AlertTriangle, Search } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronRight, Users, Clock, Rocket, Archive, ArchiveRestore, Link2, ListChecks, FolderKanban, AlertTriangle, Search } from 'lucide-react';
+
+const IndiaRosterPage = lazy(() => import('./IndiaRosterPage'));
 
 /* ── Status badge helper ──────────────────────────────── */
 function projectStatusVariant(status: string) {
@@ -466,7 +472,53 @@ function ZohoProjectCard({ project, teamAllocation, actuals, loadedCost, cadToUs
 }
 
 /* ── Main page ──────────────────────────────── */
+type CpTab = 'projects' | 'roster';
+
+/**
+ * Current Projects — one place for everything we deliver:
+ *   Projects   fixed-price and T&M projects, grouped Strategic Accounts / SMB / Strategic Placement
+ *   T&M Roster India T&M placements (synced from Sales Planning 2026), managed by Vivek
+ * Managers see the T&M Roster only — the access they had on India Roster.
+ */
 export default function ProjectPipelinePage() {
+  const role = useAuthStore((s) => s.currentUser?.role);
+  const isAdmin = useAuthStore((s) => !!s.currentUser?.isAdmin) || role === 'admin';
+  const [params, setParams] = useSearchParams();
+  const tab: CpTab = !isAdmin || params.get('tab') === 'roster' ? 'roster' : 'projects';
+  const setTab = (t: CpTab) => setParams(t === 'projects' ? {} : { tab: t }, { replace: true });
+  return (
+    <>
+      <PageHeader
+        eyebrow="Delivery"
+        tone="brand"
+        title="Current Projects"
+        subtitle={tab === 'roster'
+          ? 'T&M placements under Strategic Placement — India roster synced from Sales Planning 2026. Managed by Vivek Royan.'
+          : 'Strategic accounts, SMB and strategic placements in flight. Click a row for phases, team and actuals.'}
+        action={isAdmin ? (
+          <Link to="/project-plans" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-line text-ink hover:bg-surface-2">
+            <Link2 size={14} /> Project Plans
+          </Link>
+        ) : undefined}
+      />
+      {isAdmin && (
+        <div className="mb-5 inline-flex rounded-lg border border-line bg-surface p-0.5" role="tablist">
+          {([['projects', 'Projects'], ['roster', 'T&M Roster · Strategic Placement']] as [CpTab, string][]).map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+              className={`px-4 py-1.5 text-sm font-semibold rounded-md ${tab === k ? 'bg-primary text-white' : 'text-muted hover:text-ink'}`}>{label}</button>
+          ))}
+        </div>
+      )}
+      {tab === 'projects' ? <ProjectsTab /> : (
+        <Suspense fallback={<div className="flex items-center gap-2 py-10 text-sm text-muted"><Loader2 size={14} className="animate-spin" /> Loading roster…</div>}>
+          <IndiaRosterPage embedded />
+        </Suspense>
+      )}
+    </>
+  );
+}
+
+function ProjectsTab() {
   const assignments = useForecastStore((s) => s.assignments);
   const allProjects = usePipelineStore((s) => s.projects);
   const updateProject = usePipelineStore((s) => s.updateProject);
@@ -523,6 +575,19 @@ export default function ProjectPipelinePage() {
     return map;
   }, [projectSummaries]);
 
+  // Segment per Current Projects row, via its plan's account (migration 048).
+  const [segOf, setSegOf] = useState<Record<string, { segment: DeliverySegment; account: string }>>({});
+  useEffect(() => {
+    void supabase.from('delivery_projects').select('pipeline_project_id, delivery_accounts(name, segment)').not('pipeline_project_id', 'is', null)
+      .then(({ data }) => {
+        const m: Record<string, { segment: DeliverySegment; account: string }> = {};
+        for (const r of (data ?? []) as unknown as { pipeline_project_id: string; delivery_accounts: { name: string; segment: DeliverySegment } | null }[]) {
+          if (r.delivery_accounts) m[r.pipeline_project_id] = { segment: r.delivery_accounts.segment, account: r.delivery_accounts.name };
+        }
+        setSegOf(m);
+      });
+  }, []);
+
   // Filters + sort
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -570,17 +635,6 @@ export default function ProjectPipelinePage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Delivery"
-        tone="brand"
-        title="Current Projects"
-        subtitle="Phase progress, go-live, hours and margin for every project in flight. Click a row for phases, team and actuals."
-        action={
-          <Link to="/project-plans" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-line text-ink hover:bg-surface-2">
-            <Link2 size={14} /> Project Plans
-          </Link>
-        }
-      />
 
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -621,7 +675,26 @@ export default function ProjectPipelinePage() {
             {listHeader}
             {visible.length === 0
               ? <p className="px-5 py-10 text-center text-sm text-muted">No projects match.</p>
-              : visible.map((p) => renderRow(p, false))}
+              : [...SEGMENTS.map((sg) => ({ key: sg.key as string, label: sg.label })), { key: 'none', label: 'Not grouped yet' }].map((sg) => {
+                  const rows = visible.filter((p) => (segOf[p.id]?.segment ?? 'none') === sg.key);
+                  if (!rows.length) return null;
+                  return [
+                    <div key={`seg-${sg.key}`} className="flex items-baseline gap-2 px-5 py-2 bg-surface-2/70 border-b border-line/60">
+                      <span className="text-sm font-bold text-ink">{sg.label}</span>
+                      <span className="text-xs text-muted">{rows.length} project{rows.length === 1 ? '' : 's'}</span>
+                      {sg.key === 'placement' && <span className="text-xs text-muted">· T&M, managed by Vivek</span>}
+                    </div>,
+                    ...[...new Set(rows.map((p) => segOf[p.id]?.account ?? ''))].sort().flatMap((acct) => {
+                      const inAcct = rows.filter((p) => (segOf[p.id]?.account ?? '') === acct);
+                      return [
+                        acct && (inAcct.length > 1 || sg.key === 'strategic')
+                          ? <div key={`acct-${sg.key}-${acct}`} className="px-5 pl-8 py-1.5 border-b border-line/40 text-xs font-semibold text-ink/80">{acct} <span className="font-normal text-muted">· {inAcct.length}</span></div>
+                          : null,
+                        ...inAcct.map((p) => renderRow(p, false)),
+                      ];
+                    }),
+                  ];
+                })}
           </div>
         </div>
       </Card>

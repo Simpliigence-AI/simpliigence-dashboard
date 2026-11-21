@@ -81,7 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['admin', 'manager'],
     items: [
       { to: '/delivery-home', icon: Gauge,        label: 'Delivery Home',        desc: 'Flags, pods, issues, breaches and upcoming meetings across projects', roles: ['admin'], keywords: 'projects homepage meetings calendar' },
-      { to: '/projects',      icon: FolderKanban, label: 'Current Projects',     desc: 'Delivery projects in flight', roles: ['admin'] },
+      { to: '/projects',      icon: FolderKanban, label: 'Current Projects',     desc: 'Strategic accounts, SMB, strategic placements and the India T&M roster', roles: ['admin', 'manager'], keywords: 'india roster t&m tnm bench billable placement' },
       { to: '/project-plans', icon: ListChecks,   label: 'Project Plans',        desc: 'Strategic accounts, SMB and placements — plans, issues, check-ins, client portal', roles: ['admin'] },
       { to: '/concierge',     icon: Headset,      label: 'Concierge',            desc: 'Accounts, tickets, weekly check-ins, AI profile + opportunities', roles: ['admin', 'manager'] },
       { to: '/dialer',        icon: PhoneCall,    label: 'Dialer',               desc: 'Outbound calling with AI call notes', roles: ['admin', 'manager'], keywords: 'phone call softphone' },
@@ -112,7 +112,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/india-staffing',         icon: ClipboardList, label: 'India Demand',     desc: 'Open positions + demand pipeline (India)' },
       { to: '/india-demand-analytics', icon: PieChart,      label: 'Demand Analytics', desc: 'Funnel and trend analytics on India demand' },
-      { to: '/india-roster',           icon: Users,         label: 'India Roster',     desc: 'Every India billable + bench resource' },
     ],
   },
   {

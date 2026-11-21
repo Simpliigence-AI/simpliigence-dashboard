@@ -11,7 +11,6 @@ const ConciergePage = lazyWithReload(() => import('../pages/ConciergePage'));
 const IndiaStaffingPage = lazyWithReload(() => import('../pages/IndiaStaffingPage'));
 const USStaffingPage = lazyWithReload(() => import('../pages/USStaffingPage'));
 const OpenBenchPage = lazyWithReload(() => import('../pages/OpenBenchPage'));
-const IndiaRosterPage = lazyWithReload(() => import('../pages/IndiaRosterPage'));
 const IndiaHiringForecastPage = lazyWithReload(() => import('../pages/IndiaHiringForecastPage'));
 const USRosterPage = lazyWithReload(() => import('../pages/USRosterPage'));
 const TnmAccountsPage = lazyWithReload(() => import('../pages/TnmAccountsPage'));
@@ -75,7 +74,7 @@ export const router = createBrowserRouter(
         // these in neither the sidebar nor when typing the URL directly.
         { path: 'team', element: <RoleOnly allow={['admin']}><TeamRosterPage /></RoleOnly> },
         { path: 'actual-hours', element: <RoleOnly allow={['admin']}><ActualHoursPage /></RoleOnly> },
-        { path: 'projects', element: <RoleOnly allow={['admin']}><ProjectPipelinePage /></RoleOnly> },
+        { path: 'projects', element: <RoleOnly allow={['admin', 'manager']}><ProjectPipelinePage /></RoleOnly> },
         { path: 'pipeline', element: <Navigate to="/projects" replace /> }, // retired Nov 2026
         // Gated by the 'project-plans' tab (role + per-user grants), not by role alone —
         // BAs and project leads with role='employee' own plans too. Pages redirect if denied.
@@ -90,7 +89,7 @@ export const router = createBrowserRouter(
         // India T&M section
         { path: 'india-staffing', element: <IndiaStaffingPage /> },         // "India Demand"
         { path: 'india-demand-analytics', element: <IndiaDemandAnalyticsPage /> }, // NEW — raised/closed/why-not, on demand
-        { path: 'india-roster', element: <IndiaRosterPage /> },             // NEW
+        { path: 'india-roster', element: <Navigate to="/projects?tab=roster" replace /> }, // moved into Current Projects, Nov 2026
         { path: 'india-hiring-forecast', element: <IndiaHiringForecastPage /> }, // NEW
         { path: 'ta-daily-log', element: <TADailyLogPage /> },              // NEW — TA "My Day"
         { path: 'ta-metrics', element: <TAMetricsPage /> },                 // NEW — TA performance dashboard

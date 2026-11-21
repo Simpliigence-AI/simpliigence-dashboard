@@ -604,6 +604,14 @@ function ProjectsTab() {
     }
     return [...m.values()].sort((a, b) => b.billable - a.billable || a.client.localeCompare(b.client));
   }, [rosterMembers]);
+  // Only clients with someone billable count as an active placement.
+  const activeRoster = useMemo(() => rosterClients.filter((c) => c.billable > 0), [rosterClients]);
+  // Roster client → existing placement account (e.g. roster "Ciklum" joins the Ciklum account).
+  const placementAccounts = useMemo(() => [...new Set(Object.values(segOf).filter((x) => x.segment === 'placement').map((x) => x.account))], [segOf]);
+  const rosterAccount = (client: string): string | undefined => {
+    const c = client.trim().toLowerCase();
+    return placementAccounts.find((a) => { const n = a.toLowerCase(); return c === n || c.startsWith(n + ' ') || n.startsWith(c + ' '); });
+  };
 
   // Filters + sort
   const [query, setQuery] = useState('');
@@ -655,7 +663,7 @@ function ProjectsTab() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        <StatCard label="Current projects" value={currentProjects.length + rosterClients.length} icon={<FolderKanban size={20} />} tone="blue" />
+        <StatCard label="Current projects" value={currentProjects.length + activeRoster.filter((c) => !rosterAccount(c.client)).length} icon={<FolderKanban size={20} />} tone="blue" />
         <StatCard label="Go-live in 30 days" value={goLiveSoon} icon={<Rocket size={20} />} tone={goLiveSoon > 0 ? 'gold' : 'green'} />
         <StatCard label="Delayed" value={delayed} icon={<AlertTriangle size={20} />} tone={delayed > 0 ? 'rose' : 'green'} />
         <StatCard label="Hours this month" value={fmtHrs(hoursThisMonth)} icon={<Clock size={20} />} tone="teal" />
@@ -696,45 +704,55 @@ function ProjectsTab() {
                   const rows = visible.filter((p) => (segOf[p.id]?.segment ?? 'none') === sg.key);
                   const needle = query.trim().toLowerCase();
                   const roster = sg.key === 'placement' && statusFilter === 'all'
-                    ? rosterClients.filter((c) => !needle || c.client.toLowerCase().includes(needle)) : [];
+                    ? activeRoster.filter((c) => !needle || c.client.toLowerCase().includes(needle)) : [];
                   if (!rows.length && !roster.length) return null;
+                  const acctOfRoster = (client: string) => rosterAccount(client) ?? client;
+                  const accounts = [...new Set([...rows.map((p) => segOf[p.id]?.account ?? ''), ...roster.map((c) => acctOfRoster(c.client))])]
+                    .sort((x, y) => (x ? 0 : 1) - (y ? 0 : 1) || x.localeCompare(y));
+                  const count = rows.length + roster.filter((c) => !rosterAccount(c.client)).length;
                   return [
                     <div key={`seg-${sg.key}`} className="flex items-baseline gap-2 px-5 py-2 bg-surface-2/70 border-b border-line/60">
                       <span className="text-sm font-bold text-ink">{sg.label}</span>
-                      <span className="text-xs text-muted">{rows.length + roster.length} project{rows.length + roster.length === 1 ? '' : 's'}</span>
+                      <span className="text-xs text-muted">{count} project{count === 1 ? '' : 's'}</span>
                       {sg.key === 'placement' && <span className="text-xs text-muted">· T&M, managed by Vivek</span>}
                     </div>,
-                    ...[...new Set(rows.map((p) => segOf[p.id]?.account ?? ''))].sort().flatMap((acct) => {
+                    ...accounts.flatMap((acct) => {
                       const inAcct = rows.filter((p) => (segOf[p.id]?.account ?? '') === acct);
+                      const rost = roster.filter((c) => acctOfRoster(c.client) === acct);
+                      const billable = rost.reduce((n, c) => n + c.billable, 0);
+                      const bench = rost.reduce((n, c) => n + c.bench, 0);
+                      const showHead = acct && (inAcct.length > 1 || sg.key !== 'smb' || rost.length > 0);
                       return [
-                        acct && (inAcct.length > 1 || sg.key === 'strategic')
-                          ? <div key={`acct-${sg.key}-${acct}`} className="px-5 pl-8 py-1.5 border-b border-line/40 text-xs font-semibold text-ink/80">{acct} <span className="font-normal text-muted">· {inAcct.length}</span></div>
+                        showHead
+                          ? <div key={`acct-${sg.key}-${acct}`} className="flex items-center gap-2 px-5 pl-8 py-1.5 border-b border-line/40 text-xs font-semibold text-ink/80">
+                              {acct}
+                              <span className="font-normal text-muted">· {inAcct.length || rost.length} project{(inAcct.length || rost.length) === 1 ? '' : 's'}</span>
+                              {rost.length > 0 && <span className="ml-1 rounded-md bg-emerald-500/12 px-2 py-0.5 font-bold text-emerald-600 tabular-nums">{billable} billable</span>}
+                              {bench > 0 && <span className="rounded-md bg-amber-500/12 px-2 py-0.5 font-bold text-amber-600 tabular-nums">{bench} bench</span>}
+                              {rost.length > 0 && <Link to="/projects?tab=roster" className="ml-auto font-normal text-primary hover:underline">Roster</Link>}
+                            </div>
                           : null,
                         ...inAcct.map((p) => renderRow(p, false)),
+                        // A roster client with no project of its own is shown as its own project row.
+                        ...(inAcct.length ? [] : rost.map((c) => (
+                          <Link key={`roster-${c.client}`} to="/projects?tab=roster"
+                            className={`grid ${ROW_GRID} gap-4 px-5 py-3 border-b border-line/40 hover:bg-surface-2/50 items-center`}>
+                            <div className="pl-6 min-w-0">
+                              <div className="font-semibold text-ink truncate">{c.client}</div>
+                              <div className="text-[11px] text-muted truncate">T&M placement · Vivek Royan{c.roles.size ? ` · ${[...c.roles].slice(0, 3).join(', ')}` : ''}</div>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <span className="rounded-md bg-emerald-500/12 px-2 py-0.5 font-bold text-emerald-600 tabular-nums">{c.billable} billable</span>
+                              {c.bench > 0 && <span className="rounded-md bg-amber-500/12 px-2 py-0.5 font-bold text-amber-600 tabular-nums">{c.bench} bench</span>}
+                            </div>
+                            <div className="text-xs text-muted">Ongoing</div>
+                            <div className="text-xs text-muted tabular-nums">{c.billable + c.bench} allocated</div>
+                            <div className="text-right text-xs tabular-nums"><Sensitive>{c.monthly ? `$${Math.round(c.monthly / 1000)}k/mo` : '—'}</Sensitive></div>
+                            <div className="text-right text-muted/60"><ChevronRight size={16} /></div>
+                          </Link>
+                        ))),
                       ];
                     }),
-                    roster.length > 0 && (
-                      <div key="roster-head" className="px-5 pl-8 py-1.5 border-b border-line/40 text-xs font-semibold text-ink/80">
-                        India T&M roster <span className="font-normal text-muted">· {roster.reduce((n, c) => n + c.billable, 0)} billable, {roster.reduce((n, c) => n + c.bench, 0)} bench across {roster.length} clients · no project plan needed</span>
-                      </div>
-                    ),
-                    ...roster.map((c) => (
-                      <Link key={`roster-${c.client}`} to="/projects?tab=roster"
-                        className={`grid ${ROW_GRID} gap-4 px-5 py-3 border-b border-line/40 hover:bg-surface-2/50 items-center`}>
-                        <div className="pl-6 min-w-0">
-                          <div className="font-semibold text-ink truncate">{c.client}</div>
-                          <div className="text-[11px] text-muted truncate">T&M placement · Vivek Royan{c.roles.size ? ` · ${[...c.roles].slice(0, 3).join(', ')}` : ''}</div>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="rounded-md bg-emerald-500/12 px-2 py-0.5 font-bold text-emerald-600 tabular-nums">{c.billable} billable</span>
-                          {c.bench > 0 && <span className="rounded-md bg-amber-500/12 px-2 py-0.5 font-bold text-amber-600 tabular-nums">{c.bench} bench</span>}
-                        </div>
-                        <div className="text-xs text-muted">Ongoing</div>
-                        <div className="text-xs text-muted tabular-nums">{c.billable + c.bench} allocated</div>
-                        <div className="text-right text-xs tabular-nums"><Sensitive>{c.monthly ? `$${Math.round(c.monthly / 1000)}k/mo` : '—'}</Sensitive></div>
-                        <div className="text-right text-muted/60"><ChevronRight size={16} /></div>
-                      </Link>
-                    )),
                   ];
                 })}
           </div>

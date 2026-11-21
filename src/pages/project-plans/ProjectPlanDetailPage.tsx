@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen, FileSignature, CalendarClock, FileSearch, LayoutTemplate, CalendarDays,
+  ArrowLeft, ChevronDown, ChevronRight, Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, Circle, History, ListChecks, Flag, LayoutGrid, ClipboardCheck, MessageSquareWarning, FolderOpen, FileSignature, CalendarClock, FileSearch, LayoutTemplate, CalendarDays, Globe,
 } from 'lucide-react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
@@ -30,9 +30,12 @@ import { loadPlanTm, setProjectTm } from '../../lib/deliveryHome';
 import { PlanSetupCard, SowImportDialog, TemplateDialog } from './PlanSetup';
 import { ProjectSummary } from './ProjectSummary';
 import { PersonCell } from './planUi';
+import { SuggestedIssues } from './SuggestedIssues';
+import { PortalTab } from './PortalTab';
+import { ProjectGrouping } from './ProjectGrouping';
 
-type Tab = 'plan' | 'issues' | 'requests' | 'changes' | 'heatmap' | 'checkins' | 'meetings' | 'documents' | 'history';
-const TABS: Tab[] = ['plan', 'issues', 'requests', 'changes', 'heatmap', 'checkins', 'meetings', 'documents', 'history'];
+type Tab = 'plan' | 'issues' | 'requests' | 'changes' | 'heatmap' | 'checkins' | 'meetings' | 'documents' | 'portal' | 'history';
+const TABS: Tab[] = ['plan', 'issues', 'requests', 'changes', 'heatmap', 'checkins', 'meetings', 'documents', 'portal', 'history'];
 
 export default function ProjectPlanDetailPage() {
   const { id = '' } = useParams();
@@ -144,10 +147,12 @@ export default function ProjectPlanDetailPage() {
         </div>
       </div>
 
+      <ProjectGrouping project={project} canEdit={canEdit} />
+
       <ProjectSummary project={project} canEdit={canEdit} />
 
       <div className="flex gap-1 border-b border-line overflow-x-auto">
-        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['changes', 'Change requests', FileSignature, s.changeRequests.filter((c) => c.projectId === project.id && c.state === 'pending').length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['meetings', 'Meetings', CalendarDays, s.documents.filter((d) => d.projectId === project.id && d.docType === 'Meeting').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
+        {([['plan', 'Plan', ListChecks, tasks.length], ['issues', 'Issues', Flag, openIssues], ['requests', 'Requests', MessageSquareWarning, s.requests.filter((r) => r.projectId === project.id && (r.state === 'open' || r.state === 'awaiting-clarification')).length], ['changes', 'Change requests', FileSignature, s.changeRequests.filter((c) => c.projectId === project.id && c.state === 'pending').length], ['heatmap', 'Heatmap', LayoutGrid, s.features.filter((f) => f.projectId === project.id).length], ['checkins', 'Check-ins', ClipboardCheck, s.checkins.filter((c) => c.projectId === project.id && c.status === 'submitted').length], ['meetings', 'Meetings', CalendarDays, s.documents.filter((d) => d.projectId === project.id && d.docType === 'Meeting').length], ['documents', 'Documents', FolderOpen, s.documents.filter((d) => d.projectId === project.id).length], ['portal', 'Client portal', Globe, s.documents.filter((d) => d.projectId === project.id && d.clientVisible).length], ['history', 'History', History, s.baselines.filter((b) => b.projectId === project.id).length]] as const).map(([k, label, Icon, n]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -168,6 +173,7 @@ export default function ProjectPlanDetailPage() {
       {tab === 'checkins' && <CheckinsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
       {tab === 'meetings' && <MeetingsTab projectId={project.id} projectName={project.name} canEdit={canEdit} />}
       {tab === 'documents' && <DocumentsTab projectId={project.id} canEdit={canEdit} />}
+      {tab === 'portal' && <PortalTab project={project} canEdit={canEdit} />}
       {tab === 'history' && <HistoryTab projectId={project.id} />}
     </div>
   );
@@ -377,8 +383,12 @@ function IssuesTab({ projectId, issues, canEdit }: { projectId: string; issues: 
 
   const shown = issues.filter((i) => showClosed || i.state === 'open');
   const closedCount = issues.filter((i) => i.state === 'closed').length;
+  const loadDetail = useDeliveryStore((st) => st.loadDetail);
 
   return (
+    <>
+    <SuggestedIssues projectId={projectId} canEdit={canEdit} onDecided={() => void loadDetail(projectId)} />
+    <div className="h-4" />
     <div className="space-y-4">
       {canEdit && (
         <Card>
@@ -468,6 +478,7 @@ function IssuesTab({ projectId, issues, canEdit }: { projectId: string; issues: 
         )}
       </Card>
     </div>
+    </>
   );
 }
 

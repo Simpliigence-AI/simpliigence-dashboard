@@ -36,7 +36,52 @@ export interface DeliveryProject {
   spFolderName: string | null;
   spSyncedAt: string | null;
   spSyncError: string | null;
+  /** Account and segment grouping (migration 048). */
+  accountId: string | null;
+  /** Email of whoever owes the weekly check-in. */
+  checkinOwner: string | null;
+  slackChannelId: string | null;
+  portalSettings: PortalSettings;
   updatedAt: string;
+}
+
+export type DeliverySegment = 'strategic' | 'smb' | 'placement';
+
+export interface DeliveryAccount {
+  id: string;
+  name: string;
+  segment: DeliverySegment;
+  conciergeAccountId: string | null;
+  sortOrder: number;
+}
+
+/** What a client sees on the portal for this project. */
+export interface PortalSettings {
+  plan: boolean;
+  documents: boolean;
+  deliverables: boolean;
+  issues: boolean;
+  meetings: boolean;
+}
+
+export type ExtractedSource = 'email' | 'teams' | 'slack' | 'status_report' | 'ticket';
+
+export interface ExtractedIssue {
+  id: string;
+  projectId: string | null;
+  conciergeAccountId: string | null;
+  description: string;
+  criticality: IssueCriticality;
+  ownerHint: string | null;
+  dueHint: string | null;
+  source: ExtractedSource;
+  sourceTitle: string | null;
+  sourceFrom: string | null;
+  sourceUrl: string | null;
+  sourceExcerpt: string | null;
+  sourceAt: string | null;
+  state: 'suggested' | 'accepted' | 'dismissed';
+  createdAt: string;
 }
 
 export type TaskStatus = 'task' | 'done';
@@ -203,6 +248,10 @@ export interface DeliveryDocument {
   textStatus: DocTextStatus | null;
   textError: string | null;
   textChars: number | null;
+  /** Shared on the client portal (migration 048). */
+  clientVisible: boolean;
+  clientDeliverable: boolean;
+  uploadedByClient: string | null;
 }
 
 export type DocTextStatus = 'pending' | 'reading' | 'ok' | 'none' | 'error';

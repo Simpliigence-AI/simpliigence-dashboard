@@ -74,16 +74,21 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    key: 'delivery', label: 'Delivery', tagline: 'Active projects, utilization, and hours', accent: 'indigo', icon: Briefcase,
-    roles: ['admin'],
+    // Delivery — admins see the project pages; managers who had Concierge keep exactly that.
+    // Concierge and Dialer keep their own access (unchanged from the old Concierge group),
+    // separate from Current Projects / Project Plans, which stay admin-only here.
+    key: 'delivery', label: 'Delivery', tagline: 'Projects, Concierge, utilization and hours', accent: 'indigo', icon: Briefcase,
+    roles: ['admin', 'manager'],
     items: [
-      { to: '/delivery-home', icon: Gauge,        label: 'Delivery Home',        desc: 'Flags, pods, issues, breaches and upcoming meetings across projects', keywords: 'projects homepage meetings calendar' },
-      { to: '/projects',      icon: FolderKanban, label: 'Current Projects',     desc: 'Delivery projects in flight' },
-      { to: '/project-plans', icon: ListChecks,   label: 'Project Plans',        desc: 'Plans, milestones and tasks per project' },
-      { to: '/team',          icon: Users,        label: 'Project Team',         desc: 'Team allocations by project' },
-      { to: '/actual-hours',  icon: Clock,        label: 'Actual Hours',         desc: 'Recorded billable hours by person + project' },
-      { to: '/forecasting',   icon: TrendingUp,   label: 'Utilization Forecast', desc: 'Bench + billable forecast across the roster' },
-      { to: '/financials',    icon: DollarSign,   label: 'Financials',           desc: 'Revenue, margin, and P&L rollups', financial: true, keywords: 'p&l revenue margin' },
+      { to: '/delivery-home', icon: Gauge,        label: 'Delivery Home',        desc: 'Flags, pods, issues, breaches and upcoming meetings across projects', roles: ['admin'], keywords: 'projects homepage meetings calendar' },
+      { to: '/projects',      icon: FolderKanban, label: 'Current Projects',     desc: 'Delivery projects in flight', roles: ['admin'] },
+      { to: '/project-plans', icon: ListChecks,   label: 'Project Plans',        desc: 'Strategic accounts, SMB and placements — plans, issues, check-ins, client portal', roles: ['admin'] },
+      { to: '/concierge',     icon: Headset,      label: 'Concierge',            desc: 'Accounts, tickets, weekly check-ins, AI profile + opportunities', roles: ['admin', 'manager'] },
+      { to: '/dialer',        icon: PhoneCall,    label: 'Dialer',               desc: 'Outbound calling with AI call notes', roles: ['admin', 'manager'], keywords: 'phone call softphone' },
+      { to: '/team',          icon: Users,        label: 'Project Team',         desc: 'Team allocations by project', roles: ['admin'] },
+      { to: '/actual-hours',  icon: Clock,        label: 'Actual Hours',         desc: 'Recorded billable hours by person + project', roles: ['admin'] },
+      { to: '/forecasting',   icon: TrendingUp,   label: 'Utilization Forecast', desc: 'Bench + billable forecast across the roster', roles: ['admin'] },
+      { to: '/financials',    icon: DollarSign,   label: 'Financials',           desc: 'Revenue, margin, and P&L rollups', roles: ['admin'], financial: true, keywords: 'p&l revenue margin' },
     ],
   },
   {
@@ -117,14 +122,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/us-staffing',  icon: Globe,     label: 'Global Demand', desc: 'Open positions + demand pipeline', keywords: 'us' },
       { to: '/us-roster',    icon: Users,     label: 'Global Roster', desc: 'Every billable + bench resource', keywords: 'us' },
       { to: '/tnm-accounts', icon: Building2, label: 'TNM Accounts',  desc: 'T&M client accounts and contacts' },
-    ],
-  },
-  {
-    key: 'concierge', label: 'Concierge', tagline: 'Managed-services accounts, AI account planning and the dialer', accent: 'rose', icon: Headset,
-    roles: ['admin', 'manager'],
-    items: [
-      { to: '/concierge', icon: Headset, label: 'Concierge', desc: 'Accounts, tickets, feature coverage, AI profile + opportunities' },
-      { to: '/dialer',    icon: PhoneCall, label: 'Dialer',  desc: 'Outbound calling with AI call notes', keywords: 'phone call softphone' },
     ],
   },
   {

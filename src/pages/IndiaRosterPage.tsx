@@ -90,7 +90,8 @@ function EditableCell({ value, onSave, type = 'text', options, className = '', d
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
-export default function IndiaRosterPage() {
+/** `embedded`: rendered as the T&M Roster tab inside Current Projects (no page header). */
+export default function IndiaRosterPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { members, addMember, updateMember, removeMember } = useIndiaRosterStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -257,12 +258,14 @@ export default function IndiaRosterPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="India T&M"
-        tone="gold"
-        title="India Roster"
-        subtitle="Full India FTE roster — billable allocations, bench, and margin"
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="India T&M"
+          tone="gold"
+          title="India Roster"
+          subtitle="Full India FTE roster — billable allocations, bench, and margin"
+        />
+      )}
 
       {/* SharePoint sync banner (legacy — see PlanningSyncBanner below) */}
       <SharePointSyncBanner members={members} />

@@ -11,6 +11,7 @@
  *      feature, ranked by upsell revenue potential.
  *   4. Billing  — monthly billing history per account with sparkline trend.
  */
+import { ConciergeWeeklyTab } from './concierge/ConciergeWeeklyTab';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, JSX } from 'react';
@@ -87,6 +88,7 @@ import {
   Mail,
   ShieldOff,
   BookOpen,
+  ClipboardCheck,
 } from 'lucide-react';
 
 /** Human-readable "last synced" chip. Handles null (never synced) + shows
@@ -207,9 +209,9 @@ function AccountLogo({ account, size = 40 }: { account: { name: string; logoUrl:
   );
 }
 
-type Tab = 'home' | 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog' | 'cases';
+type Tab = 'home' | 'weekly' | 'overview' | 'tickets' | 'backlog' | 'billing' | 'catalog' | 'cases';
 
-const TAB_KEYS: readonly Tab[] = ['home', 'overview', 'tickets', 'backlog', 'billing', 'catalog', 'cases'];
+const TAB_KEYS: readonly Tab[] = ['home', 'weekly', 'overview', 'tickets', 'backlog', 'billing', 'catalog', 'cases'];
 const DEFAULT_TAB: Tab = 'home';
 function isTab(v: unknown): v is Tab {
   return typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v);
@@ -1509,6 +1511,7 @@ export default function ConciergePage() {
       <div className="flex flex-wrap gap-1 bg-surface border border-line rounded-lg p-1 mb-6 w-fit">
         {(([
           { key: 'home',     label: 'Home',     icon: <Home size={14} /> },
+          { key: 'weekly',   label: 'Weekly',   icon: <ClipboardCheck size={14} /> },
           { key: 'overview', label: 'Overview', icon: <LayoutGrid size={14} /> },
           { key: 'tickets',  label: 'Tickets',  icon: <Ticket size={14} /> },
           { key: 'backlog',  label: 'Feature Coverage', icon: <Package size={14} /> },
@@ -1533,6 +1536,9 @@ export default function ConciergePage() {
 
       {/* ── HOME ─────────────────────────────── */}
       {tab === 'home' && <ConciergeHomeTab onOpenTicket={setOpenTicketId} />}
+
+      {/* ── WEEKLY: check-ins, issues, suggestions, client portal ── */}
+      {tab === 'weekly' && <ConciergeWeeklyTab />}
 
       {/* ── OVERVIEW ─────────────────────────── */}
       {tab === 'overview' && (

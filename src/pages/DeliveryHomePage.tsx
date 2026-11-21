@@ -22,6 +22,9 @@ import { Card, Badge, Button } from '../components/ui';
 import { MeetingCalendar } from '../components/delivery/MeetingCalendar';
 import { useTabPermission } from '../hooks/useTabPermission';
 import { fmtDate } from '../lib/deliveryPlan';
+import { supabase } from '../lib/supabase';
+import { SEGMENTS } from '../lib/deliveryRebuild';
+import type { DeliverySegment } from '../types/delivery';
 import {
   loadHomeProjects, loadPodUtil, setProjectTm, loadOpenIssues, loadEvents, loadMailboxes, syncCalendars, fmtAgo, fmtIn,
   AZURE_APP_PERMISSIONS_URL, type HomeProject, type PodMonth, type OpenIssue, type CalendarEvent, type Mailbox,
@@ -44,6 +47,8 @@ export default function DeliveryHomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [owner, setOwner] = useState('all');
+  const [segment, setSegment] = useState<DeliverySegment | 'all'>('all');
+  const [segOf, setSegOf] = useState<Record<string, DeliverySegment>>({});
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [showUntagged, setShowUntagged] = useState(false);
@@ -54,14 +59,20 @@ export default function DeliveryHomePage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [p, pd, is, ev, mb] = await Promise.all([loadHomeProjects(), loadPodUtil(), loadOpenIssues(), loadEvents(), loadMailboxes()]);
-      setProjects(p); setPods(pd); setIssues(is); setEvents(ev); setMailboxes(mb);
+      const [p, pd, is, ev, mb, plans] = await Promise.all([loadHomeProjects(), loadPodUtil(), loadOpenIssues(), loadEvents(), loadMailboxes(),
+        supabase.from('delivery_projects').select('id, name, account_id, delivery_accounts(segment)')]);
+      // Plan names carry the account branding (migration 048); segment drives the filter.
+      const plan = new Map(((plans.data ?? []) as unknown as { id: string; name: string; delivery_accounts: { segment: DeliverySegment } | null }[]).map((r) => [r.id, r]));
+      const seg: Record<string, DeliverySegment> = {};
+      for (const r of plan.values()) if (r.delivery_accounts?.segment) seg[r.id] = r.delivery_accounts.segment;
+      setSegOf(seg);
+      setProjects(p.map((x) => (x.planId && plan.get(x.planId) ? { ...x, name: plan.get(x.planId)!.name } : x))); setPods(pd); setIssues(is); setEvents(ev); setMailboxes(mb);
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
   }, []);
   useEffect(() => { if (perm.canView) void load(); }, [perm.canView, load]);
 
   const owners = useMemo(() => [...new Set(projects.map((p) => normOwner(p.owner)).filter(Boolean))].sort(), [projects]);
-  const shown = useMemo(() => projects.filter((p) => owner === 'all' || normOwner(p.owner) === owner), [projects, owner]);
+  const shown = useMemo(() => projects.filter((p) => (owner === 'all' || normOwner(p.owner) === owner) && (segment === 'all' || (p.planId && segOf[p.planId] === segment))), [projects, owner, segment, segOf]);
   const planIds = useMemo(() => new Set(shown.map((p) => p.planId).filter(Boolean) as string[]), [shown]);
   const projectNames = useMemo(() => Object.fromEntries(projects.filter((p) => p.planId).map((p) => [p.planId!, p.name])), [projects]);
   const byPlan = useMemo(() => new Map(projects.filter((p) => p.planId).map((p) => [p.planId!, p])), [projects]);
@@ -143,6 +154,10 @@ export default function DeliveryHomePage() {
               <button type="button" onClick={() => setView('overview')} className={`px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 ${view === 'overview' ? 'bg-primary text-white' : 'text-muted hover:text-ink'}`}><LayoutDashboard size={13} /> Overview</button>
               <button type="button" onClick={() => setView('calendar')} className={`px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 ${view === 'calendar' ? 'bg-primary text-white' : 'text-muted hover:text-ink'}`}><CalendarDays size={13} /> Calendar <span className="tabular-nums opacity-80">{meetings14}</span></button>
             </div>
+            <select value={segment} onChange={(e) => setSegment(e.target.value as DeliverySegment | 'all')} className="text-sm rounded-lg border border-line bg-surface px-3 py-2">
+              <option value="all">All segments</option>
+              {SEGMENTS.map((sg) => <option key={sg.key} value={sg.key}>{sg.label}</option>)}
+            </select>
             <select value={owner} onChange={(e) => setOwner(e.target.value)} className="text-sm rounded-lg border border-line bg-surface px-3 py-2">
               <option value="all">All owners</option>
               {owners.map((o) => <option key={o} value={o}>{o}</option>)}

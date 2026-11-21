@@ -126,14 +126,15 @@ Deno.serve(async (req: Request) => {
     const doDaily = mode === 'auto' || mode === 'daily';
     const doPortfolio = mode === 'portfolio' || (mode === 'auto' && monday);
 
-    const [p, t, i, q, c, k, u] = await Promise.all([
-      db.from('delivery_projects').select('id, name, pm, status, current_end, planned_end, health').eq('status', 'active'),
+    const [p, t, i, q, c, k, u, x] = await Promise.all([
+      db.from('delivery_projects').select('id, name, pm, checkin_owner, status, current_end, planned_end, health').eq('status', 'active'),
       db.from('delivery_tasks').select('project_id, name, end_date, percent, status'),
       db.from('delivery_issues').select('project_id, description, criticality, state, owner, due_date').eq('state', 'open'),
       db.from('delivery_requests').select('project_id, text, verdict, state, impact_hours, received_at').in('state', ['open', 'awaiting-clarification']),
       db.from('delivery_change_requests').select('project_id, title, state, created_at, approvers, impact_hours').eq('state', 'pending'),
       db.from('delivery_checkins').select('project_id, week_ending, status').eq('week_ending', fridayOfWeek()),
       db.from('authorized_users').select('email, full_name, active'),
+      db.from('extracted_issues').select('project_id').eq('state', 'suggested').not('project_id', 'is', null),
     ]);
     const projects = (p.data ?? []) as Row[];
     const by = <T extends Row>(rows: T[] | null) => {
@@ -141,7 +142,7 @@ Deno.serve(async (req: Request) => {
       for (const r of rows ?? []) { const a = m.get(r.project_id); if (a) a.push(r); else m.set(r.project_id, [r]); }
       return m;
     };
-    const tasks = by(t.data), issues = by(i.data), reqs = by(q.data), crs = by(c.data), chk = by(k.data);
+    const tasks = by(t.data), issues = by(i.data), reqs = by(q.data), crs = by(c.data), chk = by(k.data), sugg = by(x.data);
     const people = ((u.data ?? []) as Row[]).filter((x) => x.active !== false && x.full_name);
     const emailFor = (name: string | null): string | null => {
       if (!name) return null;
@@ -154,7 +155,7 @@ Deno.serve(async (req: Request) => {
     const late = (r: Row) => r.status !== 'done' && (r.percent ?? 0) < 100 && r.end_date && r.end_date < today();
     const weekday = new Date().getUTCDay();
     const perProject = projects.map((prj) => {
-      const lines: Record<string, string[]> = { crs: [], scope: [], late: [], issues: [], checkin: [] };
+      const lines: Record<string, string[]> = { crs: [], scope: [], late: [], issues: [], suggested: [], checkin: [] };
       for (const cr of crs.get(prj.id) ?? []) {
         const age = daysAgo(cr.created_at);
         if (age >= staleDays) {
@@ -171,6 +172,8 @@ Deno.serve(async (req: Request) => {
       for (const iss of (issues.get(prj.id) ?? []).filter((x) => x.criticality === 'high' || x.criticality === 'critical')) {
         lines.issues.push(`[${esc(iss.criticality)}] ${esc(String(iss.description).slice(0, 140))}${iss.owner ? ` — ${esc(iss.owner)}` : ''}${iss.due_date ? `, due ${iss.due_date}` : ''}`);
       }
+      const nSug = (sugg.get(prj.id) ?? []).length;
+      if (nSug) lines.suggested.push(`${nSug} issue${nSug === 1 ? '' : 's'} picked up from email, Teams, Slack or status reports — accept or dismiss on the Issues tab.`);
       if (weekday >= 4 && weekday <= 5 && !(chk.get(prj.id) ?? []).some((x) => x.status === 'submitted')) {
         lines.checkin.push(`This week’s check-in (w/e ${fridayOfWeek()}) isn’t submitted yet.`);
       }
@@ -179,13 +182,14 @@ Deno.serve(async (req: Request) => {
 
     const emails: { to: string; subject: string; html: string }[] = [];
     // Active projects whose PM can't be matched to a Dashboard user get no daily email.
-    const unmatched = projects.filter((x) => !emailFor(x.pm)).map((x) => `${x.name} (PM: ${x.pm ?? 'none'})`);
+    const unmatched = projects.filter((x) => !x.checkin_owner && !emailFor(x.pm)).map((x) => `${x.name} (PM: ${x.pm ?? 'none'})`);
 
     if (doDaily) {
       const byPm = new Map<string, typeof perProject>();
       for (const x of perProject) {
         if (!Object.values(x.lines).some((l) => l.length)) continue;
-        const to = emailFor(x.prj.pm);
+        // The weekly check-in owner (Sujatha / Vivek, migration 048) gets the project's reminders; else the PM.
+        const to = x.prj.checkin_owner || emailFor(x.prj.pm);
         if (!to) continue;
         const a = byPm.get(to); if (a) a.push(x); else byPm.set(to, [x]);
       }
@@ -200,6 +204,7 @@ Deno.serve(async (req: Request) => {
             sec('scope', 'Client requests outside scope'),
             sec('issues', 'High and critical issues'),
             sec('late', 'Late tasks'),
+            sec('suggested', 'Suggested issues to review'),
             sec('checkin', 'Weekly check-in'),
           ]),
         });

@@ -64,6 +64,10 @@ const toProject = (r: any): DeliveryProject => ({
   spFolderName: r.sp_folder_name ?? null,
   spSyncedAt: r.sp_synced_at ?? null,
   spSyncError: r.sp_sync_error ?? null,
+  accountId: r.account_id ?? null,
+  checkinOwner: r.checkin_owner ?? null,
+  slackChannelId: r.slack_channel_id ?? null,
+  portalSettings: { plan: true, documents: true, deliverables: true, issues: false, meetings: false, ...(r.portal_settings ?? {}) },
   updatedAt: r.updated_at,
 });
 
@@ -177,6 +181,9 @@ const toDocument = (r: any): DeliveryDocument => ({
   textStatus: r.text_status ?? null,
   textError: r.text_status === 'reading' ? null : (r.text_error ?? null),
   textChars: r.text_chars ?? null,
+  clientVisible: !!r.client_visible,
+  clientDeliverable: !!r.client_deliverable,
+  uploadedByClient: r.uploaded_by_client ?? null,
 });
 const toFeedback = (r: any): DocFeedback => ({
   id: r.id, documentId: r.document_id, projectId: r.project_id, author: r.author ?? null,
@@ -248,6 +255,8 @@ export interface PlanSummary {
   pendingCrs: number;
   /** Week-ending date of the last submitted check-in. */
   lastCheckin: string | null;
+  /** Issues pulled from email / Teams / Slack / status reports awaiting a decision. */
+  suggested: number;
 }
 
 interface State {
@@ -275,7 +284,7 @@ interface State {
   loadDetail: (projectId: string) => Promise<void>;
 
   updateProject: (id: string, patch: Partial<Pick<DeliveryProject,
-    'status' | 'startDate' | 'plannedEnd' | 'currentEnd' | 'pm' | 'deliveryLead' | 'client' | 'architect' | 'sponsor' | 'name' | 'pipelineProjectId'>>) => Promise<void>;
+    'status' | 'startDate' | 'plannedEnd' | 'currentEnd' | 'pm' | 'deliveryLead' | 'client' | 'architect' | 'sponsor' | 'name' | 'pipelineProjectId' | 'accountId' | 'checkinOwner' | 'slackChannelId' | 'portalSettings' | 'teamsChannelId'>>) => Promise<void>;
 
   addTask: (projectId: string, t: { name: string; phase?: string | null; startDate?: string | null; endDate?: string | null; assignee?: string | null }) => Promise<void>;
   updateTask: (id: string, patch: Partial<Pick<DeliveryTask,
@@ -426,13 +435,14 @@ export const useDeliveryStore = create<State>((set, get) => ({
   loadProjects: async () => {
     set({ loading: true, error: null });
     try {
-      const [p, t, i, q, c, k] = await Promise.all([
+      const [p, t, i, q, c, k, x] = await Promise.all([
         supabase.from('delivery_projects').select('*').order('name'),
         supabase.from('delivery_tasks').select('project_id, status, percent, end_date'),
         supabase.from('delivery_issues').select('project_id, state, criticality'),
         supabase.from('delivery_requests').select('project_id, verdict, state, impact_hours'),
         supabase.from('delivery_change_requests').select('project_id, state'),
         supabase.from('delivery_checkins').select('project_id, week_ending').eq('status', 'submitted'),
+        supabase.from('extracted_issues').select('project_id').eq('state', 'suggested').not('project_id', 'is', null),
       ]);
       const err = p.error || t.error || i.error || q.error || c.error || k.error;
       if (err) throw new Error(err.message);
@@ -440,7 +450,7 @@ export const useDeliveryStore = create<State>((set, get) => ({
       const today = new Date().toISOString().slice(0, 10);
       const summaries: Record<string, PlanSummary> = {};
       const row = (id: string) =>
-        (summaries[id] ??= { tasks: 0, done: 0, late: 0, openIssues: 0, criticalIssues: 0, planEnd: null, openOutOfScope: 0, outOfScopeHours: 0, pendingCrs: 0, lastCheckin: null });
+        (summaries[id] ??= { tasks: 0, done: 0, late: 0, openIssues: 0, criticalIssues: 0, planEnd: null, openOutOfScope: 0, outOfScopeHours: 0, pendingCrs: 0, lastCheckin: null, suggested: 0 });
       for (const r of t.data ?? []) {
         const s = row(r.project_id);
         const done = r.status === 'done' || (r.percent ?? 0) >= 100;
@@ -466,6 +476,7 @@ export const useDeliveryStore = create<State>((set, get) => ({
         const s = row(r.project_id);
         if (!s.lastCheckin || r.week_ending > s.lastCheckin) s.lastCheckin = r.week_ending;
       }
+      for (const r of x.data ?? []) row(r.project_id).suggested += 1;
       set({ projects: (p.data ?? []).map(toProject), summaries });
     } catch (e) {
       set({ error: (e as Error).message });
@@ -536,6 +547,11 @@ export const useDeliveryStore = create<State>((set, get) => ({
       db.name = patch.name.trim();
     }
     if (patch.pipelineProjectId !== undefined) db.pipeline_project_id = patch.pipelineProjectId || null;
+    if (patch.accountId !== undefined) db.account_id = patch.accountId || null;
+    if (patch.checkinOwner !== undefined) db.checkin_owner = orNull(patch.checkinOwner)?.toLowerCase() ?? null;
+    if (patch.slackChannelId !== undefined) db.slack_channel_id = orNull(patch.slackChannelId);
+    if (patch.teamsChannelId !== undefined) db.teams_channel_id = orNull(patch.teamsChannelId);
+    if (patch.portalSettings !== undefined) db.portal_settings = patch.portalSettings;
     const { data, error } = await supabase.from('delivery_projects').update(db).eq('id', id).select().single();
     if (error || !data) throw new Error(error?.message ?? 'Update refused — you may only have view access.');
     const p = toProject(data);

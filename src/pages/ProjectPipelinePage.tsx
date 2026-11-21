@@ -684,7 +684,15 @@ function ProjectsTab() {
                       <span className="text-xs text-muted">{rows.length} project{rows.length === 1 ? '' : 's'}</span>
                       {sg.key === 'placement' && <span className="text-xs text-muted">· T&M, managed by Vivek</span>}
                     </div>,
-                    ...rows.map((p) => renderRow(p, false)),
+                    ...[...new Set(rows.map((p) => segOf[p.id]?.account ?? ''))].sort().flatMap((acct) => {
+                      const inAcct = rows.filter((p) => (segOf[p.id]?.account ?? '') === acct);
+                      return [
+                        acct && (inAcct.length > 1 || sg.key === 'strategic')
+                          ? <div key={`acct-${sg.key}-${acct}`} className="px-5 pl-8 py-1.5 border-b border-line/40 text-xs font-semibold text-ink/80">{acct} <span className="font-normal text-muted">· {inAcct.length}</span></div>
+                          : null,
+                        ...inAcct.map((p) => renderRow(p, false)),
+                      ];
+                    }),
                   ];
                 })}
           </div>

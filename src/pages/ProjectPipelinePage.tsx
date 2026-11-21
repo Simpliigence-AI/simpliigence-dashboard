@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useIndiaRosterStore } from '../store/useIndiaRosterStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { SEGMENTS } from '../lib/deliveryRebuild';
 import type { DeliverySegment } from '../types/delivery';
@@ -588,6 +589,22 @@ function ProjectsTab() {
       });
   }, []);
 
+  // India T&M roster clients are Strategic Placement projects too: one row each,
+  // with headcount from the roster even when there is no project plan.
+  const rosterMembers = useIndiaRosterStore((st) => st.members);
+  const rosterClients = useMemo(() => {
+    const m = new Map<string, { client: string; billable: number; bench: number; monthly: number; roles: Set<string> }>();
+    for (const r of rosterMembers) {
+      const client = (r.project ?? '').trim();
+      if (!client || r.status === 'Inactive') continue;
+      const e = m.get(client) ?? { client, billable: 0, bench: 0, monthly: 0, roles: new Set<string>() };
+      if (r.status === 'Billable') { e.billable += 1; e.monthly += (Number(r.bill_rate) || 0) * 160; } else e.bench += 1;
+      if (r.role) e.roles.add(r.role);
+      m.set(client, e);
+    }
+    return [...m.values()].sort((a, b) => b.billable - a.billable || a.client.localeCompare(b.client));
+  }, [rosterMembers]);
+
   // Filters + sort
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -638,7 +655,7 @@ function ProjectsTab() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        <StatCard label="Current projects" value={currentProjects.length} icon={<FolderKanban size={20} />} tone="blue" />
+        <StatCard label="Current projects" value={currentProjects.length + rosterClients.length} icon={<FolderKanban size={20} />} tone="blue" />
         <StatCard label="Go-live in 30 days" value={goLiveSoon} icon={<Rocket size={20} />} tone={goLiveSoon > 0 ? 'gold' : 'green'} />
         <StatCard label="Delayed" value={delayed} icon={<AlertTriangle size={20} />} tone={delayed > 0 ? 'rose' : 'green'} />
         <StatCard label="Hours this month" value={fmtHrs(hoursThisMonth)} icon={<Clock size={20} />} tone="teal" />
@@ -677,11 +694,14 @@ function ProjectsTab() {
               ? <p className="px-5 py-10 text-center text-sm text-muted">No projects match.</p>
               : [...SEGMENTS.map((sg) => ({ key: sg.key as string, label: sg.label })), { key: 'none', label: 'Not grouped yet' }].map((sg) => {
                   const rows = visible.filter((p) => (segOf[p.id]?.segment ?? 'none') === sg.key);
-                  if (!rows.length) return null;
+                  const needle = query.trim().toLowerCase();
+                  const roster = sg.key === 'placement' && statusFilter === 'all'
+                    ? rosterClients.filter((c) => !needle || c.client.toLowerCase().includes(needle)) : [];
+                  if (!rows.length && !roster.length) return null;
                   return [
                     <div key={`seg-${sg.key}`} className="flex items-baseline gap-2 px-5 py-2 bg-surface-2/70 border-b border-line/60">
                       <span className="text-sm font-bold text-ink">{sg.label}</span>
-                      <span className="text-xs text-muted">{rows.length} project{rows.length === 1 ? '' : 's'}</span>
+                      <span className="text-xs text-muted">{rows.length + roster.length} project{rows.length + roster.length === 1 ? '' : 's'}</span>
                       {sg.key === 'placement' && <span className="text-xs text-muted">· T&M, managed by Vivek</span>}
                     </div>,
                     ...[...new Set(rows.map((p) => segOf[p.id]?.account ?? ''))].sort().flatMap((acct) => {
@@ -693,6 +713,28 @@ function ProjectsTab() {
                         ...inAcct.map((p) => renderRow(p, false)),
                       ];
                     }),
+                    roster.length > 0 && (
+                      <div key="roster-head" className="px-5 pl-8 py-1.5 border-b border-line/40 text-xs font-semibold text-ink/80">
+                        India T&M roster <span className="font-normal text-muted">· {roster.reduce((n, c) => n + c.billable, 0)} billable, {roster.reduce((n, c) => n + c.bench, 0)} bench across {roster.length} clients · no project plan needed</span>
+                      </div>
+                    ),
+                    ...roster.map((c) => (
+                      <Link key={`roster-${c.client}`} to="/projects?tab=roster"
+                        className={`grid ${ROW_GRID} gap-4 px-5 py-3 border-b border-line/40 hover:bg-surface-2/50 items-center`}>
+                        <div className="pl-6 min-w-0">
+                          <div className="font-semibold text-ink truncate">{c.client}</div>
+                          <div className="text-[11px] text-muted truncate">T&M placement · Vivek Royan{c.roles.size ? ` · ${[...c.roles].slice(0, 3).join(', ')}` : ''}</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="rounded-md bg-emerald-500/12 px-2 py-0.5 font-bold text-emerald-600 tabular-nums">{c.billable} billable</span>
+                          {c.bench > 0 && <span className="rounded-md bg-amber-500/12 px-2 py-0.5 font-bold text-amber-600 tabular-nums">{c.bench} bench</span>}
+                        </div>
+                        <div className="text-xs text-muted">Ongoing</div>
+                        <div className="text-xs text-muted tabular-nums">{c.billable + c.bench} allocated</div>
+                        <div className="text-right text-xs tabular-nums"><Sensitive>{c.monthly ? `$${Math.round(c.monthly / 1000)}k/mo` : '—'}</Sensitive></div>
+                        <div className="text-right text-muted/60"><ChevronRight size={16} /></div>
+                      </Link>
+                    )),
                   ];
                 })}
           </div>

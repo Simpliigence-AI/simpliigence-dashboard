@@ -50,6 +50,8 @@ import {
 } from '../types/concierge';
 import { isTicketOpen, isTicketStatus } from '../lib/ticketStatus';
 import { PageHeader } from '../components/shared/PageHeader';
+import { exportRowsToCsv, csvDateStamp } from '../lib/exportCsv';
+import type { CsvColumn } from '../lib/exportCsv';
 import { Card, StatCard, Badge, Button, EmptyState, Drawer } from '../components/ui';
 
 /* Native form controls — the shared Input/Select/Textarea wrappers add labels
@@ -89,6 +91,7 @@ import {
   ShieldOff,
   BookOpen,
   ClipboardCheck,
+  Download,
 } from 'lucide-react';
 
 /** Human-readable "last synced" chip. Handles null (never synced) + shows
@@ -246,6 +249,32 @@ function fmtTicketEstimate(t: ConciergeTicket): string {
     ? `${t.estimatedHours}h` : '—';
 }
 
+/** "Bill in" month as YYYY-MM: the ticket's billing month, or — when unset —
+ *  the month it was raised (same rule the EOM billing report uses). */
+function ticketBillMonthKey(t: ConciergeTicket): string | null {
+  if (t.billingMonth) return t.billingMonth;
+  if (!t.createdTime) return null;
+  const d = new Date(t.createdTime);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Columns for "Export CSV" on the selected-tickets bar (shared with Finance).
+ *  Hours and dates only — no rates or amounts. */
+const TICKET_CSV_COLUMNS: readonly CsvColumn<ConciergeTicket>[] = [
+  { label: 'Ticket #', value: (t) => t.ticketNumber ?? '' },
+  { label: 'Account', value: (t) => t.account ?? '' },
+  { label: 'Subject', value: (t) => t.subject ?? '' },
+  { label: 'Status', value: (t) => t.status ?? '' },
+  { label: 'Priority', value: (t) => t.priority ?? '' },
+  { label: 'Assignee', value: (t) => t.assigneeEmail ?? '' },
+  { label: 'Est. hours', value: (t) => (t.estimatedHours != null && Number.isFinite(t.estimatedHours) ? String(t.estimatedHours) : '') },
+  { label: 'Hours logged', value: (t) => (Number.isFinite(t.hoursLogged) ? String(t.hoursLogged) : '') },
+  { label: 'Bill in', value: (t) => ticketBillMonthKey(t) ?? '' },
+  { label: 'Created', value: (t) => (t.createdTime ? t.createdTime.slice(0, 10) : '') },
+  { label: 'Resolved', value: (t) => (t.resolvedAt ? t.resolvedAt.slice(0, 10) : '') },
+];
+
 interface ClientGroup {
   account: string;
   tickets: ConciergeTicket[];
@@ -324,6 +353,7 @@ function ClientGroupCard({ group, onTicketClick, selected, onToggleTicket, onTog
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Priority</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Assignee</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Est. hours</th>
+                <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Bill in</th>
                 <th className="text-left py-2 pr-4 text-xs font-medium text-muted uppercase">Created</th>
                 <th className="text-left py-2 text-xs font-medium text-muted uppercase">Resolved</th>
               </tr>
@@ -357,6 +387,12 @@ function ClientGroupCard({ group, onTicketClick, selected, onToggleTicket, onTog
                   <td className="py-2.5 pr-4"><Badge variant={priorityVariant(t.priority)}>{t.priority ?? 'None'}</Badge></td>
                   <td className="py-2.5 pr-4 text-xs text-muted truncate max-w-[10rem]">{t.assigneeEmail ?? <span className="text-muted/70">Unassigned</span>}</td>
                   <td className="py-2.5 pr-4 text-muted whitespace-nowrap tabular-nums">{fmtTicketEstimate(t)}</td>
+                  <td
+                    className={`py-2.5 pr-4 whitespace-nowrap ${t.billingMonth ? 'text-ink/80' : 'text-muted/70'}`}
+                    title={t.billingMonth ? 'Billing month set on the ticket' : 'No billing month set — billed in the month it was raised'}
+                  >
+                    {(() => { const m = ticketBillMonthKey(t); return m ? monthLabel(m) : '—'; })()}
+                  </td>
                   <td className="py-2.5 pr-4 whitespace-nowrap text-muted">{fmtDate(t.createdTime)}</td>
                   <td className="py-2.5 whitespace-nowrap text-muted">{fmtDate(t.resolvedAt)}</td>
                 </tr>
@@ -1201,6 +1237,13 @@ export default function ConciergePage() {
 
   const clearSelection = useCallback(() => setSelectedTickets(new Set()), []);
 
+  /** Download the selected tickets as CSV (e.g. to send to Finance). */
+  const exportSelectedTickets = () => {
+    const rows = tickets.filter((t) => selectedTickets.has(t.id));
+    if (rows.length === 0) return;
+    exportRowsToCsv(`concierge-tickets-${csvDateStamp()}.csv`, rows, TICKET_CSV_COLUMNS);
+  };
+
   // Leaving the Tickets tab drops the selection — a Delete bar for rows that
   // are no longer on screen is a trap.
   useEffect(() => { if (tab !== 'tickets') clearSelection(); }, [tab, clearSelection]);
@@ -1616,6 +1659,15 @@ export default function ConciergePage() {
                       disabled={bulkBusy}
                       className="px-2.5 py-1.5 text-xs font-semibold rounded-md border border-line bg-surface text-muted hover:bg-surface-2/70 disabled:opacity-50"
                     >Clear</button>
+                    <button
+                      type="button"
+                      onClick={exportSelectedTickets}
+                      disabled={bulkBusy}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-line bg-surface text-ink/80 hover:bg-surface-2/70 disabled:opacity-50"
+                    >
+                      <Download size={12} />
+                      Export CSV
+                    </button>
                     <button
                       type="button"
                       onClick={() => { void deleteSelectedTickets(); }}
